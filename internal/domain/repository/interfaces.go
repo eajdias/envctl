@@ -57,3 +57,15 @@ type WindowsEnvManager interface {
 	SetEnvVar(scope, name, value string) error
 	EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error)
 }
+
+// Logger provides structured and persistent execution logging to disk.
+type Logger interface {
+	Info(format string, args ...any)
+	Warn(format string, args ...any)
+	Error(format string, args ...any)
+	Debug(format string, args ...any)
+	LogCommand(cmd string, args []string, exitCode int, output string, err error)
+	LogIdempotency(system, target string, skipped bool, reason string)
+	GetLogFilePath() string
+	Close() error
+}

@@ -1,8 +1,10 @@
-# packages.yaml - Declarative System Packages & Toolchains
+# packages.yaml - Declarative System Packages, Toolchains, Volta Packages & Desktop Apps
 version: "1.0"
 
 packages:
-  # Core Package Managers & Base Environment
+  # ============================================================================
+  # Core System Runtimes & Package Managers
+  # ============================================================================
   - id: MSYS2.MSYS2
     name: MSYS2 POSIX Runtime
     type: winget
@@ -33,7 +35,15 @@ packages:
     category: system
     check_command: docker --version
 
-  # High Performance CLI Utilities (Winget)
+  - id: Microsoft.WSL
+    name: Windows Subsystem for Linux (WSL2)
+    type: winget
+    category: system
+    check_command: wsl.exe --status
+
+  # ============================================================================
+  # High-Performance CLI Utilities (Winget)
+  # ============================================================================
   - id: BurntSushi.ripgrep.MSVC
     name: ripgrep (rg)
     type: winget
@@ -64,6 +74,12 @@ packages:
     category: cli-tools
     check_command: ruff --version
 
+  - id: astral-sh.uv
+    name: uv (fast python package & project manager)
+    type: winget
+    category: cli-tools
+    check_command: uv --version
+
   - id: dandavison.delta
     name: git-delta (syntax-highlighting pager for git)
     type: winget
@@ -76,7 +92,9 @@ packages:
     category: cli-tools
     check_command: yq --version
 
+  # ============================================================================
   # MSYS2 Pacman POSIX Utilities
+  # ============================================================================
   - id: tree
     name: tree directory visualizer
     type: pacman
@@ -119,7 +137,9 @@ packages:
     category: msys2
     check_command: sshpass -V
 
-  # Runtime Toolchains
+  # ============================================================================
+  # Language SDKs & Toolchains (Winget)
+  # ============================================================================
   - id: Volta.Volta
     name: Volta JS Toolchain Manager
     type: winget
@@ -132,8 +152,8 @@ packages:
     category: runtimes
     check_command: go version
 
-  - id: Python.Python.3.12
-    name: Python 3.12
+  - id: Python.Python.3.14
+    name: Python 3.14 Runtime
     type: winget
     category: runtimes
     check_command: python --version
@@ -144,7 +164,110 @@ packages:
     category: runtimes
     check_command: dotnet --version
 
-  # Global Language Servers & Dotnet Tools
+  - id: Rustlang.Rustup
+    name: Rustup Rust Toolchain
+    type: winget
+    category: runtimes
+    check_command: rustup --version
+
+  # ============================================================================
+  # Volta Node.js & Global Ecosystem
+  # ============================================================================
+  - id: node@24.19.0
+    name: Node.js LTS (via Volta)
+    type: volta
+    category: volta
+    check_command: node -v
+
+  - id: pnpm
+    name: pnpm Fast Disk-Efficient Package Manager
+    type: volta
+    category: volta
+    check_command: pnpm -v
+
+  - id: firecrawl-cli
+    name: Firecrawl CLI (Web Scraper & Crawler for AI)
+    type: volta
+    category: volta
+    check_command: firecrawl --version
+
+  - id: mcp-ssh-manager
+    name: SSH Manager CLI & MCP Server
+    type: volta
+    category: volta
+    check_command: ssh-manager --version
+
+  - id: "@playwright/cli"
+    name: Playwright CLI Browser Automation
+    type: volta
+    category: volta
+    check_command: playwright-cli --version
+
+  - id: stylelint
+    name: Stylelint CSS/SCSS Linter
+    type: volta
+    category: volta
+    check_command: stylelint --version
+
+  - id: sqllens-language-server
+    name: SQL Lens Language Server Protocol
+    type: volta
+    category: volta
+    check_command: sqllens-language-server --version
+
+  # ============================================================================
+  # Desktop Applications & Productivity Tools (Winget)
+  # ============================================================================
+  - id: Microsoft.VisualStudioCode
+    name: Visual Studio Code
+    type: winget
+    category: desktop-apps
+    check_command: code --version
+
+  - id: Microsoft.WindowsTerminal
+    name: Windows Terminal
+    type: winget
+    category: desktop-apps
+
+  - id: JanDeDobbeleer.OhMyPosh
+    name: Oh My Posh Prompt Engine
+    type: winget
+    category: desktop-apps
+    check_command: oh-my-posh --version
+
+  - id: Termius.Termius
+    name: Termius SSH Client
+    type: winget
+    category: desktop-apps
+
+  - id: WinSCP.WinSCP
+    name: WinSCP SFTP/FTP Client
+    type: winget
+    category: desktop-apps
+
+  - id: 7zip.7zip
+    name: 7-Zip Archiver
+    type: winget
+    category: desktop-apps
+
+  - id: voidtools.Everything
+    name: Everything File Search Engine
+    type: winget
+    category: desktop-apps
+
+  - id: Brave.Brave.Nightly
+    name: Brave Browser Nightly
+    type: winget
+    category: desktop-apps
+
+  - id: GitHub.GitHubDesktop
+    name: GitHub Desktop
+    type: winget
+    category: desktop-apps
+
+  # ============================================================================
+  # Global Dotnet Tools
+  # ============================================================================
   - id: csharp-ls
     name: C# Language Server Protocol
     type: dotnet-tool

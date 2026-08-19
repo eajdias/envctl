@@ -51,6 +51,15 @@ func newRunCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:   "volta",
+		Short: "Provision Volta Node.js toolchains and global ecosystem (pnpm, firecrawl, playwright, etc.)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runPackagesProvisioning(entity.PackageTypeVolta)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "shell",
 		Short: "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)",
 		Run: func(cmd *cobra.Command, args []string) {

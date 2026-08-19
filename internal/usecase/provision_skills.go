@@ -14,17 +14,20 @@ type ProvisionSkillsUseCase struct {
 	manifestRepo repository.ManifestRepository
 	fsManager    repository.FileSystemManager
 	embeddedFS   fs.FS
+	logger       repository.Logger
 }
 
 func NewProvisionSkillsUseCase(
 	manifestRepo repository.ManifestRepository,
 	fsManager repository.FileSystemManager,
 	embeddedFS fs.FS,
+	logger repository.Logger,
 ) *ProvisionSkillsUseCase {
 	return &ProvisionSkillsUseCase{
 		manifestRepo: manifestRepo,
 		fsManager:    fsManager,
 		embeddedFS:   embeddedFS,
+		logger:       logger,
 	}
 }
 
@@ -43,7 +46,14 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 
 	skills, err := uc.manifestRepo.LoadSkills()
 	if err != nil {
+		if uc.logger != nil {
+			uc.logger.Error("Failed to load skills manifest: %v", err)
+		}
 		return nil, fmt.Errorf("failed to load skills manifest: %w", err)
+	}
+
+	if uc.logger != nil {
+		uc.logger.Info("Starting agent skills provisioning (Total: %d skills, Target: '%s')", len(skills), targetBaseDir)
 	}
 
 	var results []SkillDeployResult
@@ -58,6 +68,9 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 
 		filesCopied, copyErr := uc.fsManager.CopyEmbeddedTree(uc.embeddedFS, skillSourceDir, skillTargetDir)
 		if copyErr != nil {
+			if uc.logger != nil {
+				uc.logger.Error("Failed to deploy skill '%s' to '%s': %v", skill.Name, skillTargetDir, copyErr)
+			}
 			results = append(results, SkillDeployResult{
 				SkillName:    skill.Name,
 				TargetDir:    skillTargetDir,
@@ -65,6 +78,9 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 				ErrorMessage: copyErr.Error(),
 			})
 		} else {
+			if uc.logger != nil {
+				uc.logger.Info("Deployed skill '%s' (%d files) to '%s'", skill.Name, filesCopied, skillTargetDir)
+			}
 			results = append(results, SkillDeployResult{
 				SkillName:   skill.Name,
 				TargetDir:   skillTargetDir,
