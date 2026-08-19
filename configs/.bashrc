@@ -28,7 +28,11 @@ alias rc='ruff check .'
 alias rf='ruff format .'
 
 # --- Environment Variables ---
-export NODE_PATH="$HOME/node_modules"
+if command -v cygpath >/dev/null 2>&1 && [ -n "$USERPROFILE" ]; then
+  export NODE_PATH="$(cygpath -m "$USERPROFILE/node_modules")"
+else
+  export NODE_PATH="C:/Users/eajdias-note/node_modules"
+fi
 
 # --- FZF & Bat Integration ---
 if command -v fd >/dev/null 2>&1; then
