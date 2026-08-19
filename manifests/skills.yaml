@@ -1,0 +1,286 @@
+skills:
+    - name: api-contract-design
+      description: OpenCode agent skill api-contract-design
+      source: configs/skills/api-contract-design
+      target_dir: ""
+      enabled: true
+    - name: ask-questions-if-underspecified
+      description: OpenCode agent skill ask-questions-if-underspecified
+      source: configs/skills/ask-questions-if-underspecified
+      target_dir: ""
+      enabled: true
+    - name: context7-auto
+      description: OpenCode agent skill context7-auto
+      source: configs/skills/context7-auto
+      target_dir: ""
+      enabled: true
+    - name: database-ops
+      description: OpenCode agent skill database-ops
+      source: configs/skills/database-ops
+      target_dir: ""
+      enabled: true
+    - name: dispatching-parallel-agents
+      description: OpenCode agent skill dispatching-parallel-agents
+      source: configs/skills/dispatching-parallel-agents
+      target_dir: ""
+      enabled: true
+    - name: docker
+      description: OpenCode agent skill docker
+      source: configs/skills/docker
+      target_dir: ""
+      enabled: true
+    - name: docs-sync
+      description: OpenCode agent skill docs-sync
+      source: configs/skills/docs-sync
+      target_dir: ""
+      enabled: true
+    - name: firecrawl
+      description: OpenCode agent skill firecrawl
+      source: configs/skills/firecrawl
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-agent
+      description: OpenCode agent skill firecrawl-agent
+      source: configs/skills/firecrawl-agent
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-build
+      description: OpenCode agent skill firecrawl-build
+      source: configs/skills/firecrawl-build
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-build-interact
+      description: OpenCode agent skill firecrawl-build-interact
+      source: configs/skills/firecrawl-build-interact
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-build-onboarding
+      description: OpenCode agent skill firecrawl-build-onboarding
+      source: configs/skills/firecrawl-build-onboarding
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-build-scrape
+      description: OpenCode agent skill firecrawl-build-scrape
+      source: configs/skills/firecrawl-build-scrape
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-build-search
+      description: OpenCode agent skill firecrawl-build-search
+      source: configs/skills/firecrawl-build-search
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-company-directories
+      description: OpenCode agent skill firecrawl-company-directories
+      source: configs/skills/firecrawl-company-directories
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-competitive-intel
+      description: OpenCode agent skill firecrawl-competitive-intel
+      source: configs/skills/firecrawl-competitive-intel
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-crawl
+      description: OpenCode agent skill firecrawl-crawl
+      source: configs/skills/firecrawl-crawl
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-dashboard-reporting
+      description: OpenCode agent skill firecrawl-dashboard-reporting
+      source: configs/skills/firecrawl-dashboard-reporting
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-deep-research
+      description: OpenCode agent skill firecrawl-deep-research
+      source: configs/skills/firecrawl-deep-research
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-demo-walkthrough
+      description: OpenCode agent skill firecrawl-demo-walkthrough
+      source: configs/skills/firecrawl-demo-walkthrough
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-developer-index
+      description: OpenCode agent skill firecrawl-developer-index
+      source: configs/skills/firecrawl-developer-index
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-download
+      description: OpenCode agent skill firecrawl-download
+      source: configs/skills/firecrawl-download
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-interact
+      description: OpenCode agent skill firecrawl-interact
+      source: configs/skills/firecrawl-interact
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-knowledge-base
+      description: OpenCode agent skill firecrawl-knowledge-base
+      source: configs/skills/firecrawl-knowledge-base
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-knowledge-ingest
+      description: OpenCode agent skill firecrawl-knowledge-ingest
+      source: configs/skills/firecrawl-knowledge-ingest
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-lead-gen
+      description: OpenCode agent skill firecrawl-lead-gen
+      source: configs/skills/firecrawl-lead-gen
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-lead-research
+      description: OpenCode agent skill firecrawl-lead-research
+      source: configs/skills/firecrawl-lead-research
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-map
+      description: OpenCode agent skill firecrawl-map
+      source: configs/skills/firecrawl-map
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-market-research
+      description: OpenCode agent skill firecrawl-market-research
+      source: configs/skills/firecrawl-market-research
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-monitor
+      description: OpenCode agent skill firecrawl-monitor
+      source: configs/skills/firecrawl-monitor
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-parse
+      description: OpenCode agent skill firecrawl-parse
+      source: configs/skills/firecrawl-parse
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-qa
+      description: OpenCode agent skill firecrawl-qa
+      source: configs/skills/firecrawl-qa
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-research-index
+      description: OpenCode agent skill firecrawl-research-index
+      source: configs/skills/firecrawl-research-index
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-research-papers
+      description: OpenCode agent skill firecrawl-research-papers
+      source: configs/skills/firecrawl-research-papers
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-scrape
+      description: OpenCode agent skill firecrawl-scrape
+      source: configs/skills/firecrawl-scrape
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-search
+      description: OpenCode agent skill firecrawl-search
+      source: configs/skills/firecrawl-search
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-seo-audit
+      description: OpenCode agent skill firecrawl-seo-audit
+      source: configs/skills/firecrawl-seo-audit
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-shop
+      description: OpenCode agent skill firecrawl-shop
+      source: configs/skills/firecrawl-shop
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-website-design-clone
+      description: OpenCode agent skill firecrawl-website-design-clone
+      source: configs/skills/firecrawl-website-design-clone
+      target_dir: ""
+      enabled: true
+    - name: firecrawl-workflows
+      description: OpenCode agent skill firecrawl-workflows
+      source: configs/skills/firecrawl-workflows
+      target_dir: ""
+      enabled: true
+    - name: git-workflow
+      description: OpenCode agent skill git-workflow
+      source: configs/skills/git-workflow
+      target_dir: ""
+      enabled: true
+    - name: grill-me
+      description: OpenCode agent skill grill-me
+      source: configs/skills/grill-me
+      target_dir: ""
+      enabled: true
+    - name: grilling
+      description: OpenCode agent skill grilling
+      source: configs/skills/grilling
+      target_dir: ""
+      enabled: true
+    - name: handoff
+      description: OpenCode agent skill handoff
+      source: configs/skills/handoff
+      target_dir: ""
+      enabled: true
+    - name: implementation-strategy
+      description: OpenCode agent skill implementation-strategy
+      source: configs/skills/implementation-strategy
+      target_dir: ""
+      enabled: true
+    - name: receiving-code-review
+      description: OpenCode agent skill receiving-code-review
+      source: configs/skills/receiving-code-review
+      target_dir: ""
+      enabled: true
+    - name: skill-generalizer
+      description: OpenCode agent skill skill-generalizer
+      source: configs/skills/skill-generalizer
+      target_dir: ""
+      enabled: true
+    - name: skill-miner
+      description: OpenCode agent skill skill-miner
+      source: configs/skills/skill-miner
+      target_dir: ""
+      enabled: true
+    - name: skill-personalizer
+      description: OpenCode agent skill skill-personalizer
+      source: configs/skills/skill-personalizer
+      target_dir: ""
+      enabled: true
+    - name: ssh-vps
+      description: OpenCode agent skill ssh-vps
+      source: configs/skills/ssh-vps
+      target_dir: ""
+      enabled: true
+    - name: stop-slop
+      description: OpenCode agent skill stop-slop
+      source: configs/skills/stop-slop
+      target_dir: ""
+      enabled: true
+    - name: systematic-debugging
+      description: OpenCode agent skill systematic-debugging
+      source: configs/skills/systematic-debugging
+      target_dir: ""
+      enabled: true
+    - name: universal-test-runner
+      description: OpenCode agent skill universal-test-runner
+      source: configs/skills/universal-test-runner
+      target_dir: ""
+      enabled: true
+    - name: using-git-worktrees
+      description: OpenCode agent skill using-git-worktrees
+      source: configs/skills/using-git-worktrees
+      target_dir: ""
+      enabled: true
+    - name: verification-before-completion
+      description: OpenCode agent skill verification-before-completion
+      source: configs/skills/verification-before-completion
+      target_dir: ""
+      enabled: true
+    - name: windows-admin
+      description: OpenCode agent skill windows-admin
+      source: configs/skills/windows-admin
+      target_dir: ""
+      enabled: true
+    - name: writing-plans
+      description: OpenCode agent skill writing-plans
+      source: configs/skills/writing-plans
+      target_dir: ""
+      enabled: true

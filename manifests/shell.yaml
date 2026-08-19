@@ -1,0 +1,69 @@
+# shell.yaml - Declarative Shell, Environment & Configuration Files
+version: "1.0"
+
+environment_variables:
+  - name: MSYS2_PATH_TYPE
+    value: inherit
+    scope: User
+    target: "Windows User Environment"
+
+  - name: FZF_DEFAULT_COMMAND
+    value: "fd --type f --hidden --exclude .git"
+    scope: User
+    target: "Windows User Environment"
+
+config_files:
+  - id: bashrc
+    description: "MSYS2 Bash interactive configuration with aliases and completions"
+    source: "configs/.bashrc"
+    destination: "~/.bashrc"
+    strict_acl: false
+    category: "shell"
+
+  - id: bash_profile
+    description: "MSYS2 Bash login profile ensuring .bashrc is sourced"
+    source: "configs/.bash_profile"
+    destination: "~/.bash_profile"
+    strict_acl: false
+    category: "shell"
+
+  - id: nsswitch_conf
+    description: "MSYS2 NSSwitch configuration unifying home directory with Windows (%USERPROFILE%)"
+    source: "configs/nsswitch.conf"
+    destination: "C:/msys64/etc/nsswitch.conf"
+    strict_acl: false
+    category: "msys2"
+
+  - id: opencode_config
+    description: "OpenCode global agent configuration with full LSP registration"
+    source: "configs/opencode.jsonc"
+    destination: "~/.config/opencode/opencode.jsonc"
+    strict_acl: false
+    category: "opencode"
+
+  - id: agents_manifest
+    description: "OpenCode Agent and environment governance manifesto"
+    source: "configs/AGENTS.md"
+    destination: "~/AGENTS.md"
+    strict_acl: false
+    category: "opencode"
+
+directories:
+  - path: "~/Documents/SSH-keys"
+    strict_acl: true
+    description: "Restricted directory for VPS and server SSH private keys"
+  - path: "~/.ssh-manager"
+    strict_acl: true
+    description: "Restricted directory for SSH Manager state and configs"
+  - path: "~/.ssh"
+    strict_acl: true
+    description: "Standard user SSH configuration directory"
+  - path: "~/.config/opencode/skills"
+    strict_acl: false
+    description: "OpenCode agent skills directory"
+  - path: "C:/projetos/git-privado"
+    strict_acl: false
+    description: "Directory for private git projects"
+  - path: "C:/projetos/git-publico"
+    strict_acl: false
+    description: "Directory for public open-source git projects"

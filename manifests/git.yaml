@@ -1,0 +1,11 @@
+configs:
+    - key: core.fscache
+      value: "true"
+    - key: core.preloadindex
+      value: "true"
+    - key: core.longpaths
+      value: "true"
+    - key: core.autocrlf
+      value: input
+    - key: init.defaultBranch
+      value: main
