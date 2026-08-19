@@ -92,12 +92,6 @@ packages:
     category: cli-tools
     check_command: yq --version
 
-  - id: Artempyanykh.Marksman
-    name: Marksman Markdown Language Server
-    type: winget
-    category: lsp
-    check_command: marksman --version
-
   # ============================================================================
   # MSYS2 Pacman POSIX Utilities
   # ============================================================================
@@ -214,6 +208,42 @@ packages:
     type: volta
     category: volta
     check_command: sqllens-language-server --version
+
+  - id: typescript-language-server
+    name: TypeScript Language Server
+    type: volta
+    category: lsp
+    check_command: typescript-language-server --version
+
+  - id: pyright
+    name: Pyright Language Server
+    type: volta
+    category: lsp
+    check_command: pyright --version
+
+  - id: bash-language-server
+    name: Bash Language Server
+    type: volta
+    category: lsp
+    check_command: bash-language-server --version
+
+  - id: yaml-language-server
+    name: YAML Language Server
+    type: volta
+    category: lsp
+    check_command: yaml-language-server --version
+
+  - id: dockerfile-language-server-nodejs
+    name: Dockerfile Language Server
+    type: volta
+    category: lsp
+    check_command: docker-langserver --version
+
+  - id: vscode-langservers-extracted
+    name: VSCode Extracted Language Servers (HTML/CSS/JSON/Markdown/ESLint)
+    type: volta
+    category: lsp
+    check_command: vscode-html-language-server --version
 
   # ============================================================================
   # Desktop Applications & Productivity Tools (Winget)

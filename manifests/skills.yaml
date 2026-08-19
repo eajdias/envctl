@@ -225,7 +225,7 @@ skills:
       target_dir: ""
       enabled: true
     - name: playwright-cli
-      description: Browser automation with Playwright Node.js API and testing
+      description: OpenCode agent skill playwright-cli
       source: configs/skills/playwright-cli
       target_dir: ""
       enabled: true

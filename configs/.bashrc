@@ -16,6 +16,9 @@ alias gds='git diff --staged'
 alias gl='git log --oneline --graph --decorate -n 15'
 alias gp='git push'
 alias gpl='git pull'
+alias gwc='git worktree add'
+alias gwl='git worktree list'
+alias gwr='git worktree remove'
 
 # Docker
 alias dc='docker compose'
@@ -28,6 +31,7 @@ alias rc='ruff check .'
 alias rf='ruff format .'
 
 # --- Environment Variables ---
+export PATH="$HOME/.local/bin:$PATH"
 if command -v cygpath >/dev/null 2>&1 && [ -n "$USERPROFILE" ]; then
   export NODE_PATH="$(cygpath -m "$USERPROFILE/node_modules")"
 else

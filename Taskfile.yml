@@ -1,0 +1,46 @@
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  build:
+    desc: "Build the standalone win11-new executable"
+    cmds:
+      - go build -ldflags "-s -w -X main.Version=v1.0.0" -o win11-new.exe ./cmd/win11-new
+
+  test:
+    desc: "Run all unit tests"
+    cmds:
+      - go test -v ./...
+
+  doctor:
+    desc: "Run diagnostic health checks"
+    deps: [build]
+    cmds:
+      - ./win11-new.exe doctor
+
+  doctor:fix:
+    desc: "Run diagnostics and auto-remediate all issues"
+    deps: [build]
+    cmds:
+      - ./win11-new.exe doctor --fix
+
+  run:all:
+    desc: "Execute complete end-to-end environment provisioning"
+    deps: [build]
+    cmds:
+      - ./win11-new.exe run all
+
+  snapshot:
+    desc: "Snapshot current machine state to manifests and configs"
+    deps: [build]
+    cmds:
+      - ./win11-new.exe snapshot
+
+  install:
+    desc: "Install win11-new binary to ~/.local/bin"
+    deps: [build]
+    cmds:
+      - powershell -NoProfile -Command "Copy-Item win11-new.exe '$HOME/.local/bin/win11-new.exe' -Force"
