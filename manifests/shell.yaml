@@ -22,6 +22,11 @@ environment_variables:
     scope: User
     target: "Windows User Environment"
 
+  - name: MSYS2_ARG_CONV_EXCL
+    value: "/bin;/usr;/var;/etc;/app;/tmp;/opt;--entrypoint;-v;--volume;--mount;--workdir;-w"
+    scope: User
+    target: "Windows User Environment"
+
 config_files:
   - id: bashrc
     description: "MSYS2 Bash interactive configuration with aliases and completions"
@@ -41,6 +46,13 @@ config_files:
     description: "MSYS2 NSSwitch configuration unifying home directory with Windows (%USERPROFILE%)"
     source: "configs/nsswitch.conf"
     destination: "C:/msys64/etc/nsswitch.conf"
+    strict_acl: false
+    category: "msys2"
+
+  - id: msys_pathconv_profile
+    description: "MSYS2 Profile script bypassing argument path conversion for container paths"
+    source: "configs/msys_pathconv.sh"
+    destination: "C:/msys64/etc/profile.d/msys_pathconv.sh"
     strict_acl: false
     category: "msys2"
 
