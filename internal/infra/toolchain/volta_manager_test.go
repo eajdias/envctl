@@ -3,7 +3,7 @@ package toolchain
 import (
 	"testing"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestVoltaPackageManager_Type(t *testing.T) {

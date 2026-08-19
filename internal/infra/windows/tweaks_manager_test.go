@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestWindowsTweaksManager_CheckTweak(t *testing.T) {

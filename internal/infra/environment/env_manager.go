@@ -3,21 +3,26 @@ package environment
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type envManager struct{}
 
-// NewWindowsEnvManager creates an environment variable manager for Windows.
+// NewWindowsEnvManager creates an environment variable manager for Windows and POSIX.
 func NewWindowsEnvManager() repository.WindowsEnvManager {
 	return &envManager{}
 }
 
 func (e *envManager) GetEnvVar(scope, name string) (string, error) {
+	if runtime.GOOS != "windows" {
+		return os.Getenv(name), nil
+	}
 	psCmd := fmt.Sprintf("[System.Environment]::GetEnvironmentVariable('%s', '%s')", name, scope)
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", psCmd)
 	out, err := cmd.CombinedOutput()
@@ -28,6 +33,9 @@ func (e *envManager) GetEnvVar(scope, name string) (string, error) {
 }
 
 func (e *envManager) SetEnvVar(scope, name, value string) error {
+	if runtime.GOOS != "windows" {
+		return os.Setenv(name, value)
+	}
 	psCmd := fmt.Sprintf("[System.Environment]::SetEnvironmentVariable('%s', '%s', '%s')", name, value, scope)
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", psCmd)
 	out, err := cmd.CombinedOutput()
@@ -41,6 +49,10 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 	var diagnostics []entity.Diagnostic
 
 	for _, v := range vars {
+		if v.OS != "" && v.OS != runtime.GOOS {
+			continue
+		}
+
 		currentVal, _ := e.GetEnvVar(v.Scope, v.Name)
 		if currentVal != v.Value {
 			if err := e.SetEnvVar(v.Scope, v.Name, v.Value); err != nil {
@@ -70,3 +82,4 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 
 	return diagnostics, nil
 }
+

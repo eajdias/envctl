@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Bootstrap installer and runner for win11-new.
+    Bootstrap installer and runner for envctl (Windows 11 PRO).
 .DESCRIPTION
-    Downloads the latest release of win11-new, extracts it, and executes the provisioner.
+    Downloads the latest release of envctl, extracts it, and executes the provisioner.
     Can be run via:
-        irm https://raw.githubusercontent.com/eajdias/win11-new/main/bootstrap.ps1 | iex
+        irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
     Or with parameters:
-        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/win11-new/main/bootstrap.ps1))) -Subsystem lsp
+        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1))) -Subsystem lsp
 #>
 
 [CmdletBinding()]
@@ -25,42 +25,42 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "  🚀 Windows 11 PRO / MSYS2 / OpenCode Provisioner Bootstrap" -ForegroundColor Cyan
+Write-Host "  🚀 envctl: Development Environment Provisioner Bootstrap" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 
 # 1. Architecture Check
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
 if ($arch -ne "amd64") {
-    Write-Error "Unsupported architecture: $arch. win11-new requires Windows 64-bit."
+    Write-Error "Unsupported architecture: $arch. envctl requires 64-bit Windows."
     exit 1
 }
 
-# 2. Check if local compiled win11-new exists in current dir
-$LocalExe = Join-Path (Get-Location) "win11-new.exe"
+# 2. Check if local compiled envctl exists in current dir
+$LocalExe = Join-Path (Get-Location) "envctl.exe"
 $TargetExe = $null
 
 if (Test-Path $LocalExe -and -not $Force) {
-    Write-Host "[*] Found local win11-new binary at $LocalExe" -ForegroundColor Green
+    Write-Host "[*] Found local envctl binary at $LocalExe" -ForegroundColor Green
     $TargetExe = $LocalExe
 } else {
     # 3. Destination folder
-    $InstallDir = Join-Path $env:LOCALAPPDATA "win11-new"
+    $InstallDir = Join-Path $env:LOCALAPPDATA "envctl"
     if (-not (Test-Path $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
-    $TargetExe = Join-Path $InstallDir "win11-new.exe"
+    $TargetExe = Join-Path $InstallDir "envctl.exe"
 
     # Download from GitHub Releases
-    $Repo = "eajdias/win11-new"
+    $Repo = "eajdias/envctl"
     $DownloadUrl = if ($Version -eq "latest") {
-        "https://github.com/$Repo/releases/latest/download/win11-new-windows-amd64.zip"
+        "https://github.com/$Repo/releases/latest/download/envctl-windows-amd64.zip"
     } else {
-        "https://github.com/$Repo/releases/download/$Version/win11-new-windows-amd64.zip"
+        "https://github.com/$Repo/releases/download/$Version/envctl-windows-amd64.zip"
     }
 
-    $ZipPath = Join-Path $env:TEMP "win11-new.zip"
+    $ZipPath = Join-Path $env:TEMP "envctl.zip"
 
-    Write-Host "[*] Downloading win11-new ($Version) from GitHub..." -ForegroundColor Yellow
+    Write-Host "[*] Downloading envctl ($Version) from GitHub..." -ForegroundColor Yellow
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
         Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
@@ -74,22 +74,22 @@ if (Test-Path $LocalExe -and -not $Force) {
         $GoCmd = Get-Command "go" -ErrorAction SilentlyContinue
         if ($GoCmd) {
             Write-Host "[*] Go toolchain detected. Attempting to build from source..." -ForegroundColor Yellow
-            $SourceDir = Join-Path $env:TEMP "win11-new-source"
+            $SourceDir = Join-Path $env:TEMP "envctl-source"
             if (Test-Path $SourceDir) { Remove-Item -Recurse -Force $SourceDir }
             git clone --depth 1 "https://github.com/$Repo.git" $SourceDir
             Push-Location $SourceDir
-            go build -ldflags "-s -w" -o $TargetExe ./cmd/win11-new
+            go build -ldflags "-s -w" -o $TargetExe ./cmd/envctl
             Pop-Location
             Remove-Item -Recurse -Force $SourceDir -ErrorAction SilentlyContinue
             Write-Host "[+] Build from source complete!" -ForegroundColor Green
         } else {
-            Write-Error "Failed to acquire win11-new binary and Go is not installed. Please install Go or check GitHub release."
+            Write-Error "Failed to acquire envctl binary and Go is not installed. Please install Go or check GitHub release."
             exit 1
         }
     }
 }
 
-# 4. Execute win11-new with arguments
+# 4. Execute envctl with arguments
 $ArgsList = @()
 if ($Command) { $ArgsList += $Command }
 if ($Subsystem -and $Command -eq "run") { $ArgsList += $Subsystem }

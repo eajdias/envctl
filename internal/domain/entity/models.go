@@ -15,6 +15,7 @@ const (
 	PackageTypeDotnetTool PackageType = "dotnet-tool"
 	PackageTypeGo         PackageType = "go"
 	PackageTypeRustup     PackageType = "rustup"
+	PackageTypeApt        PackageType = "apt"
 )
 
 // PackageStatus indicates the installation status of a package.
@@ -34,6 +35,7 @@ type Package struct {
 	Name         string        `yaml:"name"`
 	Type         PackageType   `yaml:"type"`
 	Category     string        `yaml:"category"`
+	OS           string        `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 	Version      string        `yaml:"version,omitempty"`
 	CheckCommand string        `yaml:"check_command,omitempty"`
 	Args         []string      `yaml:"args,omitempty"`
@@ -56,6 +58,7 @@ type ConfigFile struct {
 	Destination string `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
 	StrictACL   bool   `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
 	Category    string `yaml:"category"`
+	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 }
 
 // Skill represents an OpenCode agent skill.
@@ -78,6 +81,7 @@ type LSP struct {
 	InstallType   PackageType `yaml:"install_type"`
 	InstallTarget string      `yaml:"install_target"`
 	CheckBinary   string      `yaml:"check_binary"`
+	OS            string      `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 }
 
 // EnvironmentVar represents an OS environment variable.
@@ -86,6 +90,7 @@ type EnvironmentVar struct {
 	Value  string `yaml:"value"`
 	Scope  string `yaml:"scope"` // "User" or "Machine"
 	Target string `yaml:"target"`
+	OS     string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 }
 
 // WindowsTweak represents a Windows OS setting, registry key or system customization.

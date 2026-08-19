@@ -7,8 +7,8 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/usecase"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/usecase"
 )
 
 func renderReport(report *usecase.AuditReport) {
@@ -68,7 +68,7 @@ func newDoctorCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Audit and verify the health of your Windows 11 / MSYS2 / OpenCode environment",
+		Short: "Audit and verify the health of your Windows 11 / Ubuntu Linux / OpenCode environment",
 		Long:  `Performs comprehensive diagnostic checks across packages, configs, git, env vars, skills, and LSPs. Use --fix to automatically remediate any issues.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()

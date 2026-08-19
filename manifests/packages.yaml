@@ -303,3 +303,109 @@ packages:
     type: dotnet-tool
     category: lsp
     check_command: csharp-ls --version
+
+  # ============================================================================
+  # Debian / Ubuntu APT Core Packages (Linux VPS & Workstations)
+  # ============================================================================
+  - id: git
+    name: Git SCM
+    type: apt
+    os: linux
+    category: system
+    check_command: git --version
+
+  - id: curl
+    name: cURL HTTP Client
+    type: apt
+    os: linux
+    category: system
+    check_command: curl --version
+
+  - id: wget
+    name: Wget Downloader
+    type: apt
+    os: linux
+    category: system
+    check_command: wget --version
+
+  - id: ripgrep
+    name: ripgrep (rg)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: rg --version
+
+  - id: fd-find
+    name: fd file search
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: fdfind --version
+
+  - id: fzf
+    name: fzf fuzzy finder
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: fzf --version
+
+  - id: bat
+    name: bat cat clone
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: batcat --version
+
+  - id: tree
+    name: tree directory visualizer
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: tree --version
+
+  - id: jq
+    name: jq JSON processor
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: jq --version
+
+  - id: unzip
+    name: unzip extraction utility
+    type: apt
+    os: linux
+    category: system
+    check_command: unzip -v
+
+  - id: zip
+    name: zip compression utility
+    type: apt
+    os: linux
+    category: system
+    check_command: zip -v
+
+  - id: rsync
+    name: rsync remote file copy
+    type: apt
+    os: linux
+    category: system
+    check_command: rsync --version
+
+  - id: build-essential
+    name: GNU C/C++ Build Essentials
+    type: apt
+    os: linux
+    category: toolchain
+
+  - id: python3-pip
+    name: Python 3 Pip
+    type: apt
+    os: linux
+    category: toolchain
+    check_command: pip3 --version
+
+  - id: python3-venv
+    name: Python 3 Virtual Environments
+    type: apt
+    os: linux
+    category: toolchain

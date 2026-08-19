@@ -1,4 +1,4 @@
-module github.com/eajdias/win11-new
+module github.com/eajdias/envctl
 
 go 1.26.6
 

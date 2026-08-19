@@ -6,10 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type DoctorAuditUseCase struct {
@@ -82,6 +83,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 1. Audit Environment Variables
 	envVars, _ := uc.manifestRepo.LoadEnvVars()
 	for _, ev := range envVars {
+		if ev.OS != "" && ev.OS != runtime.GOOS {
+			continue
+		}
 		val, err := uc.envManager.GetEnvVar(ev.Scope, ev.Name)
 		if err != nil || val != ev.Value {
 			addDiag(entity.Diagnostic{
@@ -89,7 +93,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				System:   "Environment",
 				Target:   ev.Name,
 				Details:  fmt.Sprintf("Current: '%s' | Expected: '%s' (Scope: %s)", val, ev.Value, ev.Scope),
-				FixHint:  fmt.Sprintf("run 'win11-new run shell' to apply %s=%s", ev.Name, ev.Value),
+				FixHint:  fmt.Sprintf("run 'envctl run shell' to apply %s=%s", ev.Name, ev.Value),
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -126,13 +130,16 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 3. Audit Config Files
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
+		if cf.OS != "" && cf.OS != runtime.GOOS {
+			continue
+		}
 		if !uc.fsManager.Exists(cf.Destination) {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "ConfigFile",
 				Target:   cf.Destination,
 				Details:  "File missing on filesystem",
-				FixHint:  "run 'win11-new run shell'",
+				FixHint:  "run 'envctl run shell'",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -147,6 +154,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 4. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
+		if pkg.OS != "" && pkg.OS != runtime.GOOS {
+			continue
+		}
+
 		mgr, ok := uc.managers[pkg.Type]
 		if !ok || !mgr.IsAvailable(ctx) {
 			addDiag(entity.Diagnostic{
@@ -165,7 +176,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				System:   string(pkg.Type),
 				Target:   pkg.ID,
 				Details:  "Not installed",
-				FixHint:  fmt.Sprintf("run 'win11-new run %s'", pkg.Type),
+				FixHint:  fmt.Sprintf("run 'envctl run %s'", pkg.Type),
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -192,7 +203,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				System:   "Skills",
 				Target:   s.Name,
 				Details:  fmt.Sprintf("Skill directory missing (%s)", targetDir),
-				FixHint:  "run 'win11-new run skills'",
+				FixHint:  "run 'envctl run skills'",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -207,6 +218,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 6. Audit LSPs
 	lsps, _ := uc.manifestRepo.LoadLSPs()
 	for _, lsp := range lsps {
+		if lsp.OS != "" && lsp.OS != runtime.GOOS {
+			continue
+		}
 		if lsp.CheckBinary != "" {
 			if _, lookErr := exec.LookPath(lsp.CheckBinary); lookErr != nil {
 				addDiag(entity.Diagnostic{
@@ -214,7 +228,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 					System:   "LSP",
 					Target:   lsp.ServerName,
 					Details:  fmt.Sprintf("Binary '%s' not found in PATH", lsp.CheckBinary),
-					FixHint:  fmt.Sprintf("run 'win11-new run lsp' to install %s", lsp.InstallTarget),
+					FixHint:  fmt.Sprintf("run 'envctl run lsp' to install %s", lsp.InstallTarget),
 				})
 			} else {
 				addDiag(entity.Diagnostic{
@@ -227,8 +241,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 7. Audit Windows 11 Registry Tweaks, Features & Fonts
-	if uc.tweaksManager != nil {
+	// 7. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
+	if runtime.GOOS == "windows" && uc.tweaksManager != nil {
 		tweaks, _ := uc.manifestRepo.LoadWindowsTweaks()
 		for _, tw := range tweaks {
 			targetName := fmt.Sprintf("%s\\%s", tw.Path, tw.Name)
@@ -242,7 +256,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 					System:   "Windows11",
 					Target:   targetName,
 					Details:  details,
-					FixHint:  "run 'win11-new run windows'",
+					FixHint:  "run 'envctl run windows'",
 				})
 			} else {
 				addDiag(entity.Diagnostic{
@@ -264,7 +278,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			System:   "Playwright",
 			Target:   "playwright (node_modules)",
 			Details:  "Playwright npm module not installed in user home",
-			FixHint:  "run 'win11-new run shell'",
+			FixHint:  "run 'envctl run shell'",
 		})
 	} else {
 		addDiag(entity.Diagnostic{
@@ -275,7 +289,13 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	msPlaywrightDir, _ := uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
+	var msPlaywrightDir string
+	if runtime.GOOS == "windows" {
+		msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
+	} else {
+		msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("~/.cache/ms-playwright")
+	}
+
 	chromiumFound := false
 	if entries, err := os.ReadDir(msPlaywrightDir); err == nil {
 		for _, e := range entries {
@@ -290,7 +310,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Category: entity.DiagWarning,
 			System:   "Playwright",
 			Target:   "Chromium Browser",
-			Details:  "Chromium browser binary not found in %LOCALAPPDATA%/ms-playwright",
+			Details:  fmt.Sprintf("Chromium browser binary not found in %s", msPlaywrightDir),
 			FixHint:  "run 'npx playwright install chromium'",
 		})
 	} else {
@@ -298,7 +318,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Category: entity.DiagOK,
 			System:   "Playwright",
 			Target:   "Chromium Browser",
-			Details:  "Chromium binary verified in %LOCALAPPDATA%/ms-playwright",
+			Details:  fmt.Sprintf("Chromium binary verified in %s", msPlaywrightDir),
 		})
 	}
 
@@ -312,7 +332,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				System:   "CLI-Scripts",
 				Target:   cs,
 				Details:  fmt.Sprintf("Script not found at %s", scriptPath),
-				FixHint:  "run 'win11-new run shell'",
+				FixHint:  "run 'envctl run shell'",
 			})
 		} else {
 			addDiag(entity.Diagnostic{

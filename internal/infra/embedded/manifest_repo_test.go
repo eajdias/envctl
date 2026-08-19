@@ -3,7 +3,7 @@ package embedded
 import (
 	"testing"
 
-	win11new "github.com/eajdias/win11-new"
+	win11new "github.com/eajdias/envctl"
 )
 
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {

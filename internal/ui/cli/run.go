@@ -3,11 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func newRunCmd() *cobra.Command {
@@ -47,6 +48,15 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runPackagesProvisioning(entity.PackageTypePacman)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "apt",
+		Short: "Provision Debian/Ubuntu APT packages",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runPackagesProvisioning(entity.PackageTypeApt)
 		},
 	})
 
@@ -102,11 +112,15 @@ func runAllProvisioning() {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Complete Environment Provisioning")
 
-	// 1. Windows 11 Tweaks & Fonts
-	PrintSection("1/5 Provisioning Windows 11 Registry Tweaks, Features & Fonts")
-	runWindowsProvisioning()
+	// 1. Windows 11 Tweaks & Fonts (Windows only)
+	if runtime.GOOS == "windows" {
+		PrintSection("1/5 Provisioning Windows 11 Registry Tweaks, Features & Fonts")
+		runWindowsProvisioning()
+	} else {
+		PrintSection("1/5 Skipping Windows Tweaks (Linux/POSIX environment)")
+	}
 
-	// 2. Packages (Winget + Pacman + Volta + Dotnet + Go + Rustup)
+	// 2. Packages (Winget / Pacman / APT + Volta + Dotnet + Go + Rustup)
 	PrintSection("2/5 Provisioning System Packages & Toolchains")
 	runPackagesProvisioning("")
 
@@ -125,7 +139,7 @@ func runAllProvisioning() {
 	pterm.Println()
 	pterm.DefaultBox.WithTitle(pterm.LightGreen("🎉 Provisioning Completed Successfully")).Println(
 		"All system components, toolchains, skills, and shell configurations have been applied.\n" +
-			"Run 'win11-new doctor' at any time to verify system health.",
+			"Run 'envctl doctor' at any time to verify system health.",
 	)
 
 	PrintSecretGuidance()

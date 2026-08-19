@@ -6,10 +6,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type fsManager struct{}
@@ -27,31 +28,44 @@ func (f *fsManager) ExpandUserPath(path string) (string, error) {
 
 	userHome, err := os.UserHomeDir()
 	if err != nil {
-		userHome = os.Getenv("USERPROFILE")
-		if userHome == "" {
-			userHome = "C:\\Users\\Default"
+		if runtime.GOOS == "windows" {
+			userHome = os.Getenv("USERPROFILE")
+			if userHome == "" {
+				userHome = "C:\\Users\\Default"
+			}
+		} else {
+			userHome = os.Getenv("HOME")
+			if userHome == "" {
+				userHome = "/root"
+			}
 		}
 	}
 
-	normalized := strings.ReplaceAll(path, "/", "\\")
-
-	if strings.HasPrefix(normalized, "~\\") || normalized == "~" {
-		normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
-	}
-
-	// Expand Windows %VAR% syntax (e.g. %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%)
-	for {
-		start := strings.Index(normalized, "%")
-		if start == -1 {
-			break
+	normalized := path
+	if runtime.GOOS == "windows" {
+		normalized = strings.ReplaceAll(path, "/", "\\")
+		if strings.HasPrefix(normalized, "~\\") || normalized == "~" {
+			normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
 		}
-		end := strings.Index(normalized[start+1:], "%")
-		if end == -1 {
-			break
+
+		// Expand Windows %VAR% syntax (e.g. %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%)
+		for {
+			start := strings.Index(normalized, "%")
+			if start == -1 {
+				break
+			}
+			end := strings.Index(normalized[start+1:], "%")
+			if end == -1 {
+				break
+			}
+			varName := normalized[start+1 : start+1+end]
+			val := os.Getenv(varName)
+			normalized = strings.Replace(normalized, "%"+varName+"%", val, 1)
 		}
-		varName := normalized[start+1 : start+1+end]
-		val := os.Getenv(varName)
-		normalized = strings.Replace(normalized, "%"+varName+"%", val, 1)
+	} else {
+		if strings.HasPrefix(normalized, "~/") || normalized == "~" {
+			normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
+		}
 	}
 
 	// Expand POSIX $VAR or ${VAR} syntax
@@ -127,11 +141,24 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 	return backupPath, nil
 }
 
-// SetStrictWindowsACL restricts file/directory permissions to the current user only using icacls.
+// SetStrictWindowsACL restricts file/directory permissions to the current user only.
+// On Windows, it uses icacls to remove inheritance and grant full control to the user.
+// On Linux/macOS, it sets POSIX mode 0700 for directories or 0600 for files.
 func (f *fsManager) SetStrictWindowsACL(path string) error {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {
 		return err
+	}
+
+	if runtime.GOOS != "windows" {
+		fi, err := os.Stat(expanded)
+		if err != nil {
+			return nil
+		}
+		if fi.IsDir() {
+			return os.Chmod(expanded, 0700)
+		}
+		return os.Chmod(expanded, 0600)
 	}
 
 	currentUser := os.Getenv("USERNAME")
