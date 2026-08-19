@@ -1,0 +1,152 @@
+# packages.yaml - Declarative System Packages & Toolchains
+version: "1.0"
+
+packages:
+  # Core Package Managers & Base Environment
+  - id: MSYS2.MSYS2
+    name: MSYS2 POSIX Runtime
+    type: winget
+    category: system
+    check_command: test -d /c/msys64
+
+  - id: Git.Git
+    name: Git SCM for Windows
+    type: winget
+    category: system
+    check_command: git --version
+
+  - id: GitHub.cli
+    name: GitHub CLI
+    type: winget
+    category: system
+    check_command: gh --version
+
+  - id: Microsoft.PowerShell
+    name: PowerShell 7 Core
+    type: winget
+    category: system
+    check_command: pwsh --version
+
+  - id: Docker.DockerDesktop
+    name: Docker Desktop
+    type: winget
+    category: system
+    check_command: docker --version
+
+  # High Performance CLI Utilities (Winget)
+  - id: BurntSushi.ripgrep.MSVC
+    name: ripgrep (rg)
+    type: winget
+    category: cli-tools
+    check_command: rg --version
+
+  - id: sharkdp.fd
+    name: fd (fast directory find)
+    type: winget
+    category: cli-tools
+    check_command: fd --version
+
+  - id: junegunn.fzf
+    name: fzf (fuzzy finder)
+    type: winget
+    category: cli-tools
+    check_command: fzf --version
+
+  - id: sharkdp.bat
+    name: bat (cat with syntax highlighting)
+    type: winget
+    category: cli-tools
+    check_command: bat --version
+
+  - id: astral-sh.ruff
+    name: ruff (fast python linter & formatter)
+    type: winget
+    category: cli-tools
+    check_command: ruff --version
+
+  - id: dandavison.delta
+    name: git-delta (syntax-highlighting pager for git)
+    type: winget
+    category: cli-tools
+    check_command: delta --version
+
+  - id: MikeFarah.yq
+    name: yq (portable command-line YAML/JSON/XML processor)
+    type: winget
+    category: cli-tools
+    check_command: yq --version
+
+  # MSYS2 Pacman POSIX Utilities
+  - id: tree
+    name: tree directory visualizer
+    type: pacman
+    category: msys2
+    check_command: tree --version
+
+  - id: zip
+    name: zip compression utility
+    type: pacman
+    category: msys2
+    check_command: zip --version
+
+  - id: unzip
+    name: unzip extraction utility
+    type: pacman
+    category: msys2
+    check_command: unzip --version
+
+  - id: rsync
+    name: rsync file transfer
+    type: pacman
+    category: msys2
+    check_command: rsync --version
+
+  - id: jq
+    name: jq JSON processor
+    type: pacman
+    category: msys2
+    check_command: jq --version
+
+  - id: openssh
+    name: OpenSSH client/tools
+    type: pacman
+    category: msys2
+    check_command: ssh -V
+
+  - id: sshpass
+    name: Non-interactive ssh password provider
+    type: pacman
+    category: msys2
+    check_command: sshpass -V
+
+  # Runtime Toolchains
+  - id: Volta.Volta
+    name: Volta JS Toolchain Manager
+    type: winget
+    category: runtimes
+    check_command: volta --version
+
+  - id: GoLang.Go
+    name: Go Programming Language SDK
+    type: winget
+    category: runtimes
+    check_command: go version
+
+  - id: Python.Python.3.12
+    name: Python 3.12
+    type: winget
+    category: runtimes
+    check_command: python --version
+
+  - id: Microsoft.DotNet.SDK.8
+    name: .NET 8 SDK
+    type: winget
+    category: runtimes
+    check_command: dotnet --version
+
+  # Global Language Servers & Dotnet Tools
+  - id: csharp-ls
+    name: C# Language Server Protocol
+    type: dotnet-tool
+    category: lsp
+    check_command: csharp-ls --version

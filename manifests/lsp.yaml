@@ -1,0 +1,147 @@
+# lsp.yaml - Language Server Protocol Registry & Provisioning
+version: "1.0"
+
+lsps:
+  - id: typescript
+    language: typescript
+    server_name: "TypeScript Language Server"
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "typescript-language-server typescript"
+    check_binary: "typescript-language-server"
+
+  - id: pyright
+    language: python
+    server_name: "Pyright Language Server"
+    command: "pyright-langserver"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "pyright"
+    check_binary: "pyright-langserver"
+
+  - id: pylsp
+    language: python
+    server_name: "Python LSP Server"
+    command: "pylsp"
+    args: []
+    install_type: pip
+    install_target: "python-lsp-server"
+    check_binary: "pylsp"
+
+  - id: gopls
+    language: go
+    server_name: "Go Language Server"
+    command: "gopls"
+    args: []
+    install_type: winget
+    install_target: "golang.gopls"
+    check_binary: "gopls"
+
+  - id: bash
+    language: bash
+    server_name: "Bash Language Server"
+    command: "bash-language-server"
+    args: ["start"]
+    install_type: npm
+    install_target: "bash-language-server"
+    check_binary: "bash-language-server"
+
+  - id: sql
+    language: sql
+    server_name: "SQL Language Server"
+    command: "sql-language-server"
+    args: ["up", "--method", "stdio"]
+    install_type: npm
+    install_target: "sql-language-server"
+    check_binary: "sql-language-server"
+
+  - id: html
+    language: html
+    server_name: "VSCode HTML Language Server"
+    command: "vscode-html-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "vscode-langservers-extracted"
+    check_binary: "vscode-html-language-server"
+
+  - id: json
+    language: json
+    server_name: "VSCode JSON Language Server"
+    command: "vscode-json-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "vscode-langservers-extracted"
+    check_binary: "vscode-json-language-server"
+
+  - id: yaml
+    language: yaml
+    server_name: "YAML Language Server"
+    command: "yaml-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "yaml-language-server"
+    check_binary: "yaml-language-server"
+
+  - id: dockerfile
+    language: dockerfile
+    server_name: "Dockerfile Language Server"
+    command: "docker-langserver"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "dockerfile-language-server-nodejs"
+    check_binary: "docker-langserver"
+
+  - id: css
+    language: css
+    server_name: "VSCode CSS Language Server"
+    command: "vscode-css-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "vscode-langservers-extracted"
+    check_binary: "vscode-css-language-server"
+
+  - id: markdown
+    language: markdown
+    server_name: "Marksman Markdown Language Server"
+    command: "marksman"
+    args: ["server"]
+    install_type: winget
+    install_target: "Marksman.Marksman"
+    check_binary: "marksman"
+
+  - id: powershell
+    language: powershell
+    server_name: "PowerShell Editor Services"
+    command: "pwsh"
+    args: ["-NoLogo", "-NoProfile", "-Command", "Start-EditorServices"]
+    install_type: winget
+    install_target: "Microsoft.PowerShell"
+    check_binary: "pwsh"
+
+  - id: rust
+    language: rust
+    server_name: "Rust Analyzer"
+    command: "rust-analyzer"
+    args: []
+    install_type: winget
+    install_target: "Rustlang.Rustup"
+    check_binary: "rust-analyzer"
+
+  - id: csharp
+    language: csharp
+    server_name: "C# Language Server"
+    command: "csharp-ls"
+    args: []
+    install_type: dotnet-tool
+    install_target: "csharp-ls"
+    check_binary: "csharp-ls"
+
+  - id: eslint
+    language: javascript
+    server_name: "ESLint Language Server"
+    command: "vscode-eslint-language-server"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "vscode-langservers-extracted"
+    check_binary: "vscode-eslint-language-server"
