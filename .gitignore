@@ -4,12 +4,12 @@
 *.dll
 *.so
 *.dylib
-dist/
-bin/
-envctl
-envctl-*
-win11-new
-win11-new-*
+/dist/
+/bin/
+/envctl
+/envctl-*
+/win11-new
+/win11-new-*
 
 # Test binary, built with `go test -c`
 *.test
