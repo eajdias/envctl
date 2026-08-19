@@ -1,7 +1,9 @@
 # envctl
 
 > **Cross-Platform Environment Provisioner & Autonomous State Replicator**  
-> Provisionador determinístico, idempotente e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores em **Windows 11 PRO**, **Ubuntu / Debian Linux** e **macOS**.
+> Provisionador determinístico, idempotente e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores.
+
+O projeto evoluiu de um script inicial de prototipagem focado exclusivamente em Windows 11 (`win11-new`) para um **ecossistema de provisionamento declarativo e orquestrador de subagentes autônomos multiplataforma em Go (`envctl`)**, cobrindo estações de trabalho e servidores remotos (Windows 11 PRO, Ubuntu / Debian Linux na AWS e Oracle Cloud, e macOS).  Ele transforma qualquer VPS remota em um trabalhador autônomo de IA via a skill vps-agent-dispatch e o OpenCode.
 
 ---
 
