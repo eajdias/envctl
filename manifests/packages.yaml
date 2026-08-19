@@ -203,12 +203,6 @@ packages:
     category: volta
     check_command: ssh-manager --version
 
-  - id: "@playwright/cli"
-    name: Playwright CLI Browser Automation
-    type: volta
-    category: volta
-    check_command: playwright-cli --version
-
   - id: stylelint
     name: Stylelint CSS/SCSS Linter
     type: volta
