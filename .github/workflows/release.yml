@@ -2,14 +2,16 @@ name: Release Pipeline
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       version:
         description: 'Release version tag (e.g. v1.0.0)'
-        required: true
-        default: 'v1.0.0'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -36,11 +38,16 @@ jobs:
       - name: Determine Version
         id: get_version
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
           else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            COMMIT_COUNT=$(git rev-list --count HEAD)
+            VERSION="v1.0.${COMMIT_COUNT}"
           fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building Release version: ${VERSION}"
 
       - name: Build All Targets
         env:
@@ -73,13 +80,14 @@ jobs:
           tar -czf dist/envctl-darwin-arm64.tar.gz -C dist envctl
           rm dist/envctl
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.get_version.outputs.VERSION }}
           name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
+          make_latest: true
           files: |
             dist/envctl-windows-amd64.zip
             dist/envctl-windows-arm64.zip
