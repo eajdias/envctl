@@ -53,4 +53,13 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 	if len(skills) == 0 {
 		t.Errorf("expected skills to be non-empty")
 	}
+
+	tweaks, err := repo.LoadWindowsTweaks()
+	if err != nil {
+		t.Fatalf("failed to load windows tweaks manifest: %v", err)
+	}
+
+	if len(tweaks) == 0 {
+		t.Errorf("expected windows tweaks to be non-empty")
+	}
 }

@@ -188,3 +188,121 @@ func (p *PipManager) ListInstalled(ctx context.Context) ([]entity.Package, error
 	}
 	return pkgs, nil
 }
+
+// GoManager handles Go tooling via `go install`.
+type GoManager struct{}
+
+func NewGoManager() repository.PackageManager {
+	return &GoManager{}
+}
+
+func (g *GoManager) Type() entity.PackageType {
+	return entity.PackageTypeGo
+}
+
+func (g *GoManager) IsAvailable(ctx context.Context) bool {
+	cmd := exec.CommandContext(ctx, "go", "version")
+	return cmd.Run() == nil
+}
+
+func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
+	if pkg.CheckCommand != "" {
+		parts := strings.Fields(pkg.CheckCommand)
+		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			return true, strings.TrimSpace(string(out)), nil
+		}
+	}
+	binName := pkg.Name
+	if binName == "" {
+		parts := strings.Split(pkg.ID, "/")
+		last := parts[len(parts)-1]
+		binName = strings.Split(last, "@")[0]
+	}
+	cmd := exec.CommandContext(ctx, "where.exe", binName)
+	if out, err := cmd.CombinedOutput(); err == nil {
+		return true, strings.TrimSpace(string(out)), nil
+	}
+	return false, "", nil
+}
+
+func (g *GoManager) Install(ctx context.Context, pkg entity.Package) error {
+	cmd := exec.CommandContext(ctx, "go", "install", pkg.ID)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("go install %s failed: %s (%w)", pkg.ID, string(out), err)
+	}
+	return nil
+}
+
+func (g *GoManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	return []entity.Package{{ID: "go-tools", Name: "go-tools", Status: entity.StatusInstalled}}, nil
+}
+
+// RustupManager handles Rust toolchains and components via `rustup`.
+type RustupManager struct{}
+
+func NewRustupManager() repository.PackageManager {
+	return &RustupManager{}
+}
+
+func (r *RustupManager) Type() entity.PackageType {
+	return entity.PackageTypeRustup
+}
+
+func (r *RustupManager) IsAvailable(ctx context.Context) bool {
+	cmd := exec.CommandContext(ctx, "rustup", "--version")
+	return cmd.Run() == nil
+}
+
+func (r *RustupManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
+	if pkg.CheckCommand != "" {
+		parts := strings.Fields(pkg.CheckCommand)
+		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			return true, strings.TrimSpace(string(out)), nil
+		}
+	}
+	cmd := exec.CommandContext(ctx, "rustup", "component", "list", "--installed")
+	out, err := cmd.CombinedOutput()
+	if err == nil && strings.Contains(string(out), pkg.ID) {
+		return true, "installed via rustup component", nil
+	}
+	return false, "", nil
+}
+
+func (r *RustupManager) Install(ctx context.Context, pkg entity.Package) error {
+	cmd := exec.CommandContext(ctx, "rustup", "component", "add", pkg.ID)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		// Try toolchain install if component add failed
+		cmdFallback := exec.CommandContext(ctx, "rustup", "toolchain", "install", pkg.ID)
+		outFallback, errFallback := cmdFallback.CombinedOutput()
+		if errFallback != nil {
+			return fmt.Errorf("rustup add/install %s failed: %s | fallback: %s (%w)", pkg.ID, string(out), string(outFallback), err)
+		}
+	}
+	return nil
+}
+
+func (r *RustupManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	cmd := exec.CommandContext(ctx, "rustup", "component", "list", "--installed")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(out), "\n")
+	var pkgs []entity.Package
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			pkgs = append(pkgs, entity.Package{
+				ID:     trimmed,
+				Name:   trimmed,
+				Type:   entity.PackageTypeRustup,
+				Status: entity.StatusInstalled,
+			})
+		}
+	}
+	return pkgs, nil
+}

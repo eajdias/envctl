@@ -144,6 +144,22 @@ func (m *manifestRepository) LoadGitConfigs() ([]entity.GitConfig, error) {
 	return manifest.Configs, nil
 }
 
+type windowsManifest struct {
+	Tweaks []entity.WindowsTweak `yaml:"tweaks"`
+}
+
+func (m *manifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
+	data, err := m.readManifestFile("windows.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var manifest windowsManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse windows.yaml: %w", err)
+	}
+	return manifest.Tweaks, nil
+}
+
 func (m *manifestRepository) SavePackages(pkgs []entity.Package) error {
 	manifest := packagesManifest{Packages: pkgs}
 	data, err := yaml.Marshal(manifest)

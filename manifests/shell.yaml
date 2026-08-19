@@ -48,6 +48,62 @@ config_files:
     strict_acl: false
     category: "opencode"
 
+  - id: opencode_dcp
+    description: "OpenCode Dynamic Context Pruning configuration"
+    source: "configs/dcp.jsonc"
+    destination: "~/.config/opencode/dcp.jsonc"
+    strict_acl: false
+    category: "opencode"
+
+  - id: opencode_tui
+    description: "OpenCode TUI plugins configuration"
+    source: "configs/tui.json"
+    destination: "~/.config/opencode/tui.json"
+    strict_acl: false
+    category: "opencode"
+
+  - id: opencode_package_json
+    description: "OpenCode plugins dependency declaration"
+    source: "configs/package.json"
+    destination: "~/.config/opencode/package.json"
+    strict_acl: false
+    category: "opencode"
+
+  - id: agents_skill_lock
+    description: "OpenCode agent skills lock tracking 36 external tools"
+    source: "configs/.skill-lock.json"
+    destination: "~/.agents/.skill-lock.json"
+    strict_acl: false
+    category: "opencode"
+
+  - id: windows_terminal_settings
+    description: "Windows Terminal profile configuration (MSYS2 default, MesloLGM Nerd Font, Dark+ theme)"
+    source: "configs/terminal-settings.json"
+    destination: "%LOCALAPPDATA%/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
+    strict_acl: false
+    category: "terminal"
+
+  - id: powershell_profile
+    description: "PowerShell Profile with Oh-My-Posh & GitHub CLI autocompletions"
+    source: "configs/Microsoft.PowerShell_profile.ps1"
+    destination: "~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
+    strict_acl: false
+    category: "terminal"
+
+  - id: vscode_settings
+    description: "Visual Studio Code global user preferences"
+    source: "configs/vscode-settings.json"
+    destination: "%APPDATA%/Code/User/settings.json"
+    strict_acl: false
+    category: "editor"
+
+  - id: ohmyposh_theme
+    description: "Oh-My-Posh JandeDobbeleer prompt theme"
+    source: "configs/jandedobbeleer.omp.json"
+    destination: "~/.poshthemes/jandedobbeleer.omp.json"
+    strict_acl: false
+    category: "terminal"
+
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true
@@ -61,6 +117,12 @@ directories:
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"
+  - path: "~/.agents/skills"
+    strict_acl: false
+    description: "External agent skills directory"
+  - path: "~/.poshthemes"
+    strict_acl: false
+    description: "Oh-My-Posh themes directory"
   - path: "C:/projetos/git-privado"
     strict_acl: false
     description: "Directory for private git projects"

@@ -64,6 +64,9 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		}
 
 		skillTargetDir := filepath.Join(targetBaseDir, skill.Name)
+		if skill.TargetDir != "" {
+			skillTargetDir = skill.TargetDir
+		}
 		skillSourceDir := filepath.ToSlash(filepath.Join("configs", "skills", skill.Name))
 
 		filesCopied, copyErr := uc.fsManager.CopyEmbeddedTree(uc.embeddedFS, skillSourceDir, skillTargetDir)

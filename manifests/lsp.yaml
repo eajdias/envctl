@@ -34,8 +34,8 @@ lsps:
     server_name: "Go Language Server"
     command: "gopls"
     args: []
-    install_type: winget
-    install_target: "golang.gopls"
+    install_type: go
+    install_target: "golang.org/x/tools/gopls@latest"
     check_binary: "gopls"
 
   - id: bash
@@ -107,7 +107,7 @@ lsps:
     command: "marksman"
     args: ["server"]
     install_type: winget
-    install_target: "Marksman.Marksman"
+    install_target: "Artempyanykh.Marksman"
     check_binary: "marksman"
 
   - id: powershell
@@ -124,8 +124,8 @@ lsps:
     server_name: "Rust Analyzer"
     command: "rust-analyzer"
     args: []
-    install_type: winget
-    install_target: "Rustlang.Rustup"
+    install_type: rustup
+    install_target: "rust-analyzer"
     check_binary: "rust-analyzer"
 
   - id: csharp

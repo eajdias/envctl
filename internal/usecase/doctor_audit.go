@@ -11,12 +11,13 @@ import (
 )
 
 type DoctorAuditUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
-	envManager   repository.WindowsEnvManager
-	gitManager   repository.GitManager
-	managers     map[entity.PackageType]repository.PackageManager
-	logger       repository.Logger
+	manifestRepo  repository.ManifestRepository
+	fsManager     repository.FileSystemManager
+	envManager    repository.WindowsEnvManager
+	gitManager    repository.GitManager
+	tweaksManager repository.WindowsTweaksManager
+	managers      map[entity.PackageType]repository.PackageManager
+	logger        repository.Logger
 }
 
 func NewDoctorAuditUseCase(
@@ -24,16 +25,18 @@ func NewDoctorAuditUseCase(
 	fsManager repository.FileSystemManager,
 	envManager repository.WindowsEnvManager,
 	gitManager repository.GitManager,
+	tweaksManager repository.WindowsTweaksManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *DoctorAuditUseCase {
 	return &DoctorAuditUseCase{
-		manifestRepo: manifestRepo,
-		fsManager:    fsManager,
-		envManager:   envManager,
-		gitManager:   gitManager,
-		managers:     managers,
-		logger:       logger,
+		manifestRepo:  manifestRepo,
+		fsManager:     fsManager,
+		envManager:    envManager,
+		gitManager:    gitManager,
+		tweaksManager: tweaksManager,
+		managers:      managers,
+		logger:        logger,
 	}
 }
 
@@ -175,13 +178,18 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 5. Audit Skills
 	skills, _ := uc.manifestRepo.LoadSkills()
 	for _, s := range skills {
-		skillPath := filepath.Join("~/.config/opencode/skills", s.Name)
-		if !uc.fsManager.Exists(skillPath) {
+		targetDir := s.TargetDir
+		if targetDir == "" {
+			targetDir = filepath.Join("~/.config/opencode/skills", s.Name)
+		}
+		altDir := filepath.Join("~/.agents/skills", s.Name)
+
+		if !uc.fsManager.Exists(targetDir) && !uc.fsManager.Exists(altDir) {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "Skills",
 				Target:   s.Name,
-				Details:  "Skill directory missing in ~/.config/opencode/skills",
+				Details:  fmt.Sprintf("Skill directory missing (%s)", targetDir),
 				FixHint:  "run 'win11-new run skills'",
 			})
 		} else {
@@ -212,6 +220,34 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 					System:   "LSP",
 					Target:   lsp.ServerName,
 					Details:  fmt.Sprintf("Ready (%s in PATH)", lsp.CheckBinary),
+				})
+			}
+		}
+	}
+
+	// 7. Audit Windows 11 Registry Tweaks, Features & Fonts
+	if uc.tweaksManager != nil {
+		tweaks, _ := uc.manifestRepo.LoadWindowsTweaks()
+		for _, tw := range tweaks {
+			targetName := fmt.Sprintf("%s\\%s", tw.Path, tw.Name)
+			if tw.Path == "" {
+				targetName = fmt.Sprintf("[%s] %s", tw.Type, tw.Name)
+			}
+			ok, details, err := uc.tweaksManager.CheckTweak(ctx, tw)
+			if err != nil || !ok {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "Windows11",
+					Target:   targetName,
+					Details:  details,
+					FixHint:  "run 'win11-new run windows'",
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "Windows11",
+					Target:   targetName,
+					Details:  details,
 				})
 			}
 		}
