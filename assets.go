@@ -1,4 +1,4 @@
-package win11new
+package envctl
 
 import (
 	"embed"
