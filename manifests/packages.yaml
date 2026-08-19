@@ -92,6 +92,12 @@ packages:
     category: cli-tools
     check_command: yq --version
 
+  - id: Artempyanykh.Marksman
+    name: Marksman Markdown Language Server
+    type: winget
+    category: lsp
+    check_command: marksman --version
+
   # ============================================================================
   # MSYS2 Pacman POSIX Utilities
   # ============================================================================

@@ -39,7 +39,22 @@ func (f *fsManager) ExpandUserPath(path string) (string, error) {
 		normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
 	}
 
-	// Expand Windows environment variables like %USERPROFILE%, %APPDATA%
+	// Expand Windows %VAR% syntax (e.g. %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%)
+	for {
+		start := strings.Index(normalized, "%")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(normalized[start+1:], "%")
+		if end == -1 {
+			break
+		}
+		varName := normalized[start+1 : start+1+end]
+		val := os.Getenv(varName)
+		normalized = strings.Replace(normalized, "%"+varName+"%", val, 1)
+	}
+
+	// Expand POSIX $VAR or ${VAR} syntax
 	normalized = os.ExpandEnv(normalized)
 
 	return filepath.Clean(normalized), nil

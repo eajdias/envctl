@@ -13,6 +13,8 @@ const (
 	PackageTypePip        PackageType = "pip"
 	PackageTypeCargo      PackageType = "cargo"
 	PackageTypeDotnetTool PackageType = "dotnet-tool"
+	PackageTypeGo         PackageType = "go"
+	PackageTypeRustup     PackageType = "rustup"
 )
 
 // PackageStatus indicates the installation status of a package.
@@ -84,6 +86,17 @@ type EnvironmentVar struct {
 	Value  string `yaml:"value"`
 	Scope  string `yaml:"scope"` // "User" or "Machine"
 	Target string `yaml:"target"`
+}
+
+// WindowsTweak represents a Windows OS setting, registry key or system customization.
+type WindowsTweak struct {
+	ID          string `yaml:"id"`
+	Description string `yaml:"description"`
+	Path        string `yaml:"path"`        // Registry Path e.g. "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+	Name        string `yaml:"name"`        // Registry Value Name e.g. "HideFileExt"
+	Value       any    `yaml:"value"`       // Target Value e.g. 0 or 1
+	Type        string `yaml:"type"`        // "DWord", "String", "Binary", "Feature", "Font"
+	Category    string `yaml:"category"`
 }
 
 // GitConfig represents a global Git configuration.

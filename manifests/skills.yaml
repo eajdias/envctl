@@ -224,6 +224,11 @@ skills:
       source: configs/skills/implementation-strategy
       target_dir: ""
       enabled: true
+    - name: playwright-cli
+      description: Browser automation with Playwright Node.js API and testing
+      source: configs/skills/playwright-cli
+      target_dir: ""
+      enabled: true
     - name: receiving-code-review
       description: OpenCode agent skill receiving-code-review
       source: configs/skills/receiving-code-review

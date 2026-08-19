@@ -86,6 +86,15 @@ func newRunCmd() *cobra.Command {
 		},
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "windows",
+		Short: "Provision Windows 11 registry tweaks (LongPaths, DevMode, Explorer, Themes) and Nerd Fonts",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runWindowsProvisioning()
+		},
+	})
+
 	return cmd
 }
 
@@ -93,20 +102,24 @@ func runAllProvisioning() {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Complete Environment Provisioning")
 
-	// 1. Packages (Winget + Pacman + Dotnet)
-	PrintSection("1/4 Provisioning System Packages & Toolchains")
+	// 1. Windows 11 Tweaks & Fonts
+	PrintSection("1/5 Provisioning Windows 11 Registry Tweaks, Features & Fonts")
+	runWindowsProvisioning()
+
+	// 2. Packages (Winget + Pacman + Volta + Dotnet + Go + Rustup)
+	PrintSection("2/5 Provisioning System Packages & Toolchains")
 	runPackagesProvisioning("")
 
-	// 2. Shell, Env & Configs
-	PrintSection("2/4 Provisioning Shell, Environment Variables & Config Files")
+	// 3. Shell, Env & Configs
+	PrintSection("3/5 Provisioning Shell, Environment Variables & Config Files")
 	runShellProvisioning()
 
-	// 3. Skills
-	PrintSection("3/4 Provisioning OpenCode Agent Skills")
+	// 4. Skills
+	PrintSection("4/5 Provisioning OpenCode Agent Skills")
 	runSkillsProvisioning()
 
-	// 4. LSPs
-	PrintSection("4/4 Provisioning Language Server Protocols (LSP)")
+	// 5. LSPs
+	PrintSection("5/5 Provisioning Language Server Protocols (LSP)")
 	runLSPProvisioning()
 
 	pterm.Println()
@@ -212,4 +225,30 @@ func runLSPProvisioning() {
 	}
 
 	spinner.Success(fmt.Sprintf("Checked %d language servers", len(results)))
+}
+
+func runWindowsProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Applying Windows 11 system tweaks, registry settings & fonts...")
+	ctx := context.Background()
+
+	results, err := appCtx.ProvisionWindowsUC.Execute(ctx, func(tweak entity.WindowsTweak, status, details string) {
+		targetName := fmt.Sprintf("%s\\%s", tweak.Path, tweak.Name)
+		if tweak.Path == "" {
+			targetName = fmt.Sprintf("[%s] %s", tweak.Type, tweak.Name)
+		}
+		if status == "applied" {
+			pterm.Success.Printf("  • %s: %s\n", targetName, details)
+		} else if status == "skipped" {
+			pterm.Success.Printf("  • %s: %s\n", targetName, details)
+		} else if status == "failed" {
+			pterm.Error.Printf("  • %s: %s\n", targetName, details)
+		}
+	})
+
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed Windows tweaks provisioning: %v", err))
+		return
+	}
+
+	spinner.Success(fmt.Sprintf("Processed %d Windows system tweaks and customizations", len(results)))
 }

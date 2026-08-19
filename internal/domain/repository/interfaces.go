@@ -36,6 +36,7 @@ type ManifestRepository interface {
 	LoadLSPs() ([]entity.LSP, error)
 	LoadEnvVars() ([]entity.EnvironmentVar, error)
 	LoadGitConfigs() ([]entity.GitConfig, error)
+	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
 
 	SavePackages(pkgs []entity.Package) error
 	SaveSkills(skills []entity.Skill) error
@@ -56,6 +57,13 @@ type WindowsEnvManager interface {
 	GetEnvVar(scope, name string) (string, error)
 	SetEnvVar(scope, name, value string) error
 	EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error)
+}
+
+// WindowsTweaksManager manages Windows 11 system registry tweaks, features and fonts.
+type WindowsTweaksManager interface {
+	CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error)
+	ApplyTweak(ctx context.Context, tweak entity.WindowsTweak) error
+	EnsureTweaks(ctx context.Context, tweaks []entity.WindowsTweak) ([]entity.Diagnostic, error)
 }
 
 // Logger provides structured and persistent execution logging to disk.

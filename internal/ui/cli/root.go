@@ -17,6 +17,7 @@ import (
 	"github.com/eajdias/win11-new/internal/infra/logger"
 	"github.com/eajdias/win11-new/internal/infra/msys2"
 	"github.com/eajdias/win11-new/internal/infra/toolchain"
+	"github.com/eajdias/win11-new/internal/infra/windows"
 	"github.com/eajdias/win11-new/internal/infra/winget"
 	"github.com/eajdias/win11-new/internal/usecase"
 )
@@ -27,16 +28,18 @@ type AppContext struct {
 	FSManager       repository.FileSystemManager
 	EnvManager      repository.WindowsEnvManager
 	GitManager      repository.GitManager
+	TweaksManager   repository.WindowsTweaksManager
 	Logger          repository.Logger
 	PackageManagers map[entity.PackageType]repository.PackageManager
 
 	// UseCases
-	ProvisionPkgsUC   *usecase.ProvisionPackagesUseCase
-	ProvisionShellUC  *usecase.ProvisionShellUseCase
-	ProvisionSkillsUC *usecase.ProvisionSkillsUseCase
-	ProvisionLSPUC    *usecase.ProvisionLSPsUseCase
-	DoctorAuditUC     *usecase.DoctorAuditUseCase
-	SnapshotSyncUC    *usecase.SnapshotSyncUseCase
+	ProvisionPkgsUC    *usecase.ProvisionPackagesUseCase
+	ProvisionShellUC   *usecase.ProvisionShellUseCase
+	ProvisionSkillsUC  *usecase.ProvisionSkillsUseCase
+	ProvisionLSPUC     *usecase.ProvisionLSPsUseCase
+	ProvisionWindowsUC *usecase.ProvisionWindowsUseCase
+	DoctorAuditUC      *usecase.DoctorAuditUseCase
+	SnapshotSyncUC     *usecase.SnapshotSyncUseCase
 }
 
 var (
@@ -72,6 +75,8 @@ func InitApp(embeddedFS fs.FS) {
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize file logger: %v\n", err)
 	}
 
+	windowsTweaksMgr := windows.NewWindowsTweaksManager(fileLogger)
+
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget:     winget.NewWingetManager(),
 		entity.PackageTypePacman:     msys2.NewPacmanManager(),
@@ -79,22 +84,26 @@ func InitApp(embeddedFS fs.FS) {
 		entity.PackageTypeDotnetTool: toolchain.NewDotnetToolManager(),
 		entity.PackageTypeNpm:        toolchain.NewNpmManager(),
 		entity.PackageTypePip:        toolchain.NewPipManager(),
+		entity.PackageTypeGo:         toolchain.NewGoManager(),
+		entity.PackageTypeRustup:     toolchain.NewRustupManager(),
 	}
 
 	appCtx = &AppContext{
-		EmbeddedFS:        embeddedFS,
-		ManifestRepo:      manifestRepo,
-		FSManager:         fsManager,
-		EnvManager:        envManager,
-		GitManager:        gitManager,
-		Logger:            fileLogger,
-		PackageManagers:   pkgManagers,
-		ProvisionPkgsUC:   usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionShellUC:  usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
-		ProvisionSkillsUC: usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
-		ProvisionLSPUC:    usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
-		DoctorAuditUC:     usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, pkgManagers, fileLogger),
-		SnapshotSyncUC:    usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
+		EmbeddedFS:         embeddedFS,
+		ManifestRepo:       manifestRepo,
+		FSManager:          fsManager,
+		EnvManager:         envManager,
+		GitManager:         gitManager,
+		TweaksManager:      windowsTweaksMgr,
+		Logger:             fileLogger,
+		PackageManagers:    pkgManagers,
+		ProvisionPkgsUC:    usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionShellUC:   usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
+		ProvisionSkillsUC:  usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
+		ProvisionLSPUC:     usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionWindowsUC: usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		DoctorAuditUC:      usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),
+		SnapshotSyncUC:     usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 	}
 
 	registerCommands()

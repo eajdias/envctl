@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/eajdias/win11-new/internal/domain/entity"
@@ -191,6 +192,48 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 				Target:   cf.Destination,
 				Details:  detail,
 			})
+		}
+	}
+
+	// 5. OpenCode Plugins npm dependencies installation
+	opencodeConfigDir, _ := uc.fsManager.ExpandUserPath("~/.config/opencode")
+	packageJsonPath := filepath.Join(opencodeConfigDir, "package.json")
+	if uc.fsManager.Exists(packageJsonPath) {
+		nodeModulesPath := filepath.Join(opencodeConfigDir, "node_modules")
+		if !uc.fsManager.Exists(nodeModulesPath) {
+			if uc.logger != nil {
+				uc.logger.Info("Installing OpenCode plugin dependencies in ~/.config/opencode via npm")
+			}
+			cmd := exec.CommandContext(ctx, "npm", "install", "--no-audit", "--no-fund")
+			cmd.Dir = opencodeConfigDir
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Failed to install OpenCode plugins via npm: %s (%v)", string(out), err)
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "OpenCodePlugins",
+					Target:   packageJsonPath,
+					Details:  fmt.Sprintf("npm install warning: %v", err),
+					FixHint:  "Run 'npm install' manually inside ~/.config/opencode",
+				})
+			} else {
+				if uc.logger != nil {
+					uc.logger.Info("Successfully installed OpenCode plugins in ~/.config/opencode")
+					uc.logger.LogIdempotency("OpenCodePlugins", packageJsonPath, false, "Installed plugins successfully")
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "OpenCodePlugins",
+					Target:   packageJsonPath,
+					Details:  "OpenCode plugins installed (@opencode-ai/plugin)",
+				})
+			}
+		} else {
+			if uc.logger != nil {
+				uc.logger.LogIdempotency("OpenCodePlugins", packageJsonPath, true, "node_modules already exists in ~/.config/opencode")
+			}
 		}
 	}
 
