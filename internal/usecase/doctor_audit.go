@@ -3,8 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/eajdias/win11-new/internal/domain/entity"
 	"github.com/eajdias/win11-new/internal/domain/repository"
@@ -251,6 +253,53 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				})
 			}
 		}
+	}
+
+	// 8. Audit Playwright Node API & Chromium Browser
+	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
+	playwrightModule := filepath.Join(userHomeDir, "node_modules", "playwright")
+	if !uc.fsManager.Exists(playwrightModule) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Playwright",
+			Target:   "playwright (node_modules)",
+			Details:  "Playwright npm module not installed in user home",
+			FixHint:  "run 'win11-new run shell'",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Playwright",
+			Target:   "playwright (node_modules)",
+			Details:  "Node.js API installed in user root",
+		})
+	}
+
+	msPlaywrightDir, _ := uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
+	chromiumFound := false
+	if entries, err := os.ReadDir(msPlaywrightDir); err == nil {
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), "chromium-") || strings.HasPrefix(e.Name(), "chromium_headless_shell-") {
+				chromiumFound = true
+				break
+			}
+		}
+	}
+	if !chromiumFound {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Playwright",
+			Target:   "Chromium Browser",
+			Details:  "Chromium browser binary not found in %LOCALAPPDATA%/ms-playwright",
+			FixHint:  "run 'npx playwright install chromium'",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Playwright",
+			Target:   "Chromium Browser",
+			Details:  "Chromium binary verified in %LOCALAPPDATA%/ms-playwright",
+		})
 	}
 
 	return report, nil

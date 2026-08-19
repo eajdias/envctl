@@ -237,5 +237,85 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
+	// 6. User Home npm dependencies & Playwright Browser Installation
+	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
+	userPackageJsonPath := filepath.Join(userHomeDir, "package.json")
+	if uc.fsManager.Exists(userPackageJsonPath) {
+		userNodeModulesPath := filepath.Join(userHomeDir, "node_modules")
+		playwrightInstalled := uc.fsManager.Exists(filepath.Join(userNodeModulesPath, "playwright"))
+		if !playwrightInstalled {
+			if uc.logger != nil {
+				uc.logger.Info("Installing user root dependencies (Playwright) in %s via npm", userHomeDir)
+			}
+			cmd := exec.CommandContext(ctx, "npm", "install", "--no-audit", "--no-fund")
+			cmd.Dir = userHomeDir
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Failed to install user root dependencies via npm: %s (%v)", string(out), err)
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "PlaywrightRuntime",
+					Target:   userPackageJsonPath,
+					Details:  fmt.Sprintf("npm install warning: %v", err),
+					FixHint:  "Run 'npm install' in user home directory",
+				})
+			} else {
+				if uc.logger != nil {
+					uc.logger.Info("Successfully installed user root npm dependencies")
+					uc.logger.LogIdempotency("PlaywrightRuntime", userPackageJsonPath, false, "Installed user root dependencies")
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "PlaywrightRuntime",
+					Target:   userPackageJsonPath,
+					Details:  "User root npm dependencies installed (playwright)",
+				})
+			}
+		} else {
+			if uc.logger != nil {
+				uc.logger.LogIdempotency("PlaywrightRuntime", userPackageJsonPath, true, "playwright already installed in user node_modules")
+			}
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "PlaywrightRuntime",
+				Target:   userPackageJsonPath,
+				Details:  "Playwright Node.js API runtime verified in user root",
+			})
+		}
+
+		// Ensure Playwright Chromium browser binaries are installed
+		if uc.logger != nil {
+			uc.logger.Info("Ensuring Playwright Chromium browser binary is installed")
+		}
+		cmdBrowser := exec.CommandContext(ctx, "npx", "playwright", "install", "chromium")
+		cmdBrowser.Dir = userHomeDir
+		outBrowser, errBrowser := cmdBrowser.CombinedOutput()
+		if errBrowser != nil {
+			if uc.logger != nil {
+				uc.logger.Warn("Failed to install Playwright Chromium: %s (%v)", string(outBrowser), errBrowser)
+			}
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "PlaywrightBrowser",
+				Target:   "chromium",
+				Details:  fmt.Sprintf("playwright install chromium warning: %v", errBrowser),
+				FixHint:  "Run 'npx playwright install chromium' in user home directory",
+			})
+		} else {
+			if uc.logger != nil {
+				uc.logger.Info("Playwright Chromium browser verified/installed successfully")
+				uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Playwright Chromium browser ready")
+			}
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "PlaywrightBrowser",
+				Target:   "chromium",
+				Details:  "Playwright Chromium browser binary installed and verified",
+			})
+		}
+	}
+
 	return result, nil
 }

@@ -27,6 +27,9 @@ alias py='python'
 alias rc='ruff check .'
 alias rf='ruff format .'
 
+# --- Environment Variables ---
+export NODE_PATH="$HOME/node_modules"
+
 # --- FZF & Bat Integration ---
 if command -v fd >/dev/null 2>&1; then
   export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git'
