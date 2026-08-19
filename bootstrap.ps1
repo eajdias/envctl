@@ -52,25 +52,56 @@ if (Test-Path $LocalExe -and -not $Force) {
 
     # Download from GitHub Releases
     $Repo = "eajdias/envctl"
-    $DownloadUrl = if ($Version -eq "latest") {
-        "https://github.com/$Repo/releases/latest/download/envctl-windows-amd64.zip"
-    } else {
-        "https://github.com/$Repo/releases/download/$Version/envctl-windows-amd64.zip"
+    $ZipPath = Join-Path $env:TEMP "envctl.zip"
+    $downloaded = $false
+
+    # 1. Try via GitHub CLI if available (handles private repository authentication)
+    $ghCmd = Get-Command "gh" -ErrorAction SilentlyContinue
+    if ($ghCmd) {
+        Write-Host "[*] Downloading envctl via GitHub CLI..." -ForegroundColor Yellow
+        try {
+            $tagArg = if ($Version -eq "latest") { @() } else { @($Version) }
+            gh release download @tagArg --repo $Repo --pattern "envctl-windows-amd64.zip" --dir $env:TEMP --clobber
+            $downloadedZip = Join-Path $env:TEMP "envctl-windows-amd64.zip"
+            if (Test-Path $downloadedZip) {
+                Expand-Archive -Path $downloadedZip -DestinationPath $InstallDir -Force
+                Remove-Item $downloadedZip -Force -ErrorAction SilentlyContinue
+                Write-Host "[+] Download complete via GitHub CLI: $TargetExe" -ForegroundColor Green
+                $downloaded = $true
+            }
+        } catch {
+            Write-Warning "GitHub CLI download attempt failed: $_"
+        }
     }
 
-    $ZipPath = Join-Path $env:TEMP "envctl.zip"
+    # 2. Try direct WebRequest
+    if (-not $downloaded) {
+        $DownloadUrl = if ($Version -eq "latest") {
+            "https://github.com/$Repo/releases/latest/download/envctl-windows-amd64.zip"
+        } else {
+            "https://github.com/$Repo/releases/download/$Version/envctl-windows-amd64.zip"
+        }
 
-    Write-Host "[*] Downloading envctl ($Version) from GitHub..." -ForegroundColor Yellow
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
-        Write-Host "[*] Extracting package..." -ForegroundColor Yellow
-        Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
-        Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
-        Write-Host "[+] Download complete: $TargetExe" -ForegroundColor Green
-    } catch {
-        Write-Warning "Could not download pre-built binary: $_"
-        # Fallback: check if Go is installed locally to compile
+        Write-Host "[*] Downloading envctl ($Version) from GitHub releases..." -ForegroundColor Yellow
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            $headers = @{}
+            if ($env:GITHUB_TOKEN) {
+                $headers["Authorization"] = "token $env:GITHUB_TOKEN"
+            }
+            Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -Headers $headers -UseBasicParsing
+            Write-Host "[*] Extracting package..." -ForegroundColor Yellow
+            Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
+            Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
+            Write-Host "[+] Download complete: $TargetExe" -ForegroundColor Green
+            $downloaded = $true
+        } catch {
+            Write-Warning "Direct web download failed: $_"
+        }
+    }
+
+    # 3. Fallback: check if Go is installed locally to compile
+    if (-not $downloaded) {
         $GoCmd = Get-Command "go" -ErrorAction SilentlyContinue
         if ($GoCmd) {
             Write-Host "[*] Go toolchain detected. Attempting to build from source..." -ForegroundColor Yellow
@@ -82,8 +113,9 @@ if (Test-Path $LocalExe -and -not $Force) {
             Pop-Location
             Remove-Item -Recurse -Force $SourceDir -ErrorAction SilentlyContinue
             Write-Host "[+] Build from source complete!" -ForegroundColor Green
+            $downloaded = $true
         } else {
-            Write-Error "Failed to acquire envctl binary and Go is not installed. Please install Go or check GitHub release."
+            Write-Error "Failed to acquire envctl binary and Go is not installed. Please authenticate gh CLI or install Go."
             exit 1
         }
     }
