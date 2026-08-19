@@ -20,10 +20,14 @@ alias gwc='git worktree add'
 alias gwl='git worktree list'
 alias gwr='git worktree remove'
 
-# Docker
+# Docker & Container Pathconv Bypass
 alias dc='docker compose'
 alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
 alias dlogs='docker compose logs --tail=50 -f'
+alias docker='MSYS_NO_PATHCONV=1 docker'
+alias docker-compose='MSYS_NO_PATHCONV=1 docker-compose'
+alias kubectl='MSYS_NO_PATHCONV=1 kubectl'
+alias podman='MSYS_NO_PATHCONV=1 podman'
 
 # Python & Ruff
 alias py='python'
@@ -32,6 +36,7 @@ alias rf='ruff format .'
 
 # --- Environment Variables ---
 export PATH="$HOME/.local/bin:$PATH"
+export MSYS2_ARG_CONV_EXCL="/bin;/usr;/var;/etc;/app;/tmp;/opt;--entrypoint;-v;--volume;--mount;--workdir;-w"
 if command -v cygpath >/dev/null 2>&1 && [ -n "$USERPROFILE" ]; then
   export NODE_PATH="$(cygpath -m "$USERPROFILE/node_modules")"
 else
