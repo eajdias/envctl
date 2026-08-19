@@ -1,101 +1,89 @@
-# envctl (Cross-Platform Environment Provisioner & State Replicator)
+# envctl
 
-> Provisionador idempotente, determinístico e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores no **Windows 11 PRO** e **Ubuntu / Debian Linux**.
-
----
-
-## 🎯 Objetivo
-Transformar estações de trabalho recém-formatadas (Windows 11) ou servidores remotos (VPS Ubuntu / Debian na AWS / Oracle Cloud) em ambientes de desenvolvimento e produção completos, padronizados e idênticos:
-- **Shell e Utilitários de Alta Performance**: MSYS2 Bash no Windows, Zsh/Bash no Linux, ripgrep, fd, fzf, bat, tree, delta, yq, rsync, jq.
-- **Toolchains Completas**: Node.js (via Volta), Python (Python 3.14 + uv + ruff), Go, .NET SDK, Rust (rustup), Docker.
-- **Language Server Protocol (16 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Marksman, CSharp-LS, Rust-Analyzer, etc.
-- **Ecossistema OpenCode**: Configurações globais (`opencode.jsonc`, `dcp.jsonc`, `tui.json`, plugins), e todas as **59 Skills** de agentes catalogadas e sincronizadas.
-- **Orquestração Remota de Subagentes**: Skill `vps-agent-dispatch` para delegar tarefas autônomas do notebook para servidores remotos via SSH com economia máxima de contexto.
+> **Cross-Platform Environment Provisioner & Autonomous State Replicator**  
+> Provisionador determinístico, idempotente e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores em **Windows 11 PRO**, **Ubuntu / Debian Linux** e **macOS**.
 
 ---
 
-## 🚀 Como Instalar e Rodar (Zero Pré-requisitos)
+## ⚡ Início Rápido (Comando de 1 Linha)
 
-### No Windows 11 (PowerShell)
+### 🪟 Windows 11 (PowerShell)
 ```powershell
 irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
 ```
 
-### No Linux (Ubuntu / Debian / Oracle / AWS)
+### 🐧 Linux (Ubuntu / Debian / Servidores VPS)
+```bash
+curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
+```
+
+### 🍎 macOS (Terminal)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
 ```
 
 ---
 
-## 💻 Subcomandos Principais
+## 🎯 O que o `envctl` Configura Automaticamente?
+
+- **Shell & Utilitários de Alta Performance**: MSYS2 Bash / Zsh com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
+- **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
+- **Language Server Protocol (16 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Marksman, CSharp-LS, Rust-Analyzer, etc.
+- **Ecossistema OpenCode & 59 Skills**: `opencode.jsonc`, `dcp.jsonc`, `tui.json`, plugins e **59 Skills de Agentes de IA** embutidas.
+- **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
+- **Navegador Headless Playwright**: Scripts utilitários `pw-eval` e `pw-screenshot` prontos para automação web instantânea.
+
+---
+
+## 💻 Comandos Principais
 
 ```bash
-# Provisionamento completo de todo o ecossistema (Day-0)
+# Provisionamento completo do ecossistema (Day-0)
 envctl run all
 
-# Provisionamento por subsistema modular
-envctl run winget       # Apenas pacotes winget (Windows)
-envctl run apt          # Apenas pacotes APT (Ubuntu/Debian)
-envctl run pacman       # Apenas pacotes MSYS2
-envctl run volta        # Node.js e ferramentas globais via Volta
-envctl run shell        # Variáveis de ambiente, perfis e configurações
-envctl run skills       # Extração e validação das 59 Skills de IA
-envctl run lsp          # Servidores de linguagem (LSP)
-envctl run windows      # Tweaks de registro, Developer Mode e fontes
-
-# Auditoria e Diagnóstico de Saúde (160+ pontos de checagem)
+# Auditoria e diagnóstico de saúde (160+ verificações)
 envctl doctor
 
-# Auto-remediação automática de avisos/erros detectados
+# Auto-remediação automática de qualquer divergência
 envctl doctor --fix
 
-# Snapshot e Sincronização Reversa (Day-2)
+# Provisionamento por subsistema modular
+envctl run winget       # Pacotes Winget (Windows)
+envctl run apt          # Pacotes APT (Debian/Ubuntu)
+envctl run pacman       # Pacotes MSYS2
+envctl run volta        # Node.js e ferramentas globais
+envctl run shell        # Variáveis de ambiente, perfis e configs
+envctl run skills       # Extração e sincronização das 59 Skills
+envctl run lsp          # 16 Servidores de Linguagem (LSP)
+envctl run windows      # Tweaks de registro, Developer Mode e fontes
+
+# Snapshot reverso e sincronização de estado (Day-2)
 envctl snapshot
 ```
 
 ---
 
-## 🏛️ Arquitetura de Software (Clean Architecture)
+## 📚 Documentação Técnica Completa
 
-```
-envctl/
-├── cmd/
-│   └── envctl/                  # Entrypoint da aplicação (main.go, injeção de dependências)
-├── internal/
-│   ├── domain/                  # Camada de Domínio (Entidades e Interfaces/Contratos)
-│   │   ├── entity/              # Entidades puras: Package, ConfigFile, Skill, LSP, WindowsTweak, Diagnostic
-│   │   └── repository/          # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
-│   ├── usecase/                 # Casos de Uso da Aplicação
-│   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
-│   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
-│   │   ├── provision_skills.go  # Extração e atualização das 59 Skills
-│   │   ├── provision_lsp.go     # Instalação e validação dos 16 LSPs
-│   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
-│   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
-│   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
-│   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
-│   │   ├── winget/              # Adaptador para Windows Package Manager
-│   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
-│   │   ├── msys2/               # Adaptador para MSYS2 Pacman
-│   │   ├── toolchain/           # Adaptadores para Volta, Go, Rustup, Dotnet, UV/Pip
-│   │   ├── windows/             # Adaptador de Registro e Fontes Windows
-│   │   ├── git/                 # Adaptador Git e GitHub CLI
-│   │   ├── filesystem/          # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
-│   │   ├── logger/              # Logger persistente com dump em disco (~/.envctl/logs/)
-│   │   └── embedded/            # Sistema de arquivos embutido no binário (//go:embed)
-│   └── ui/                      # Interface com o Usuário
-│       └── cli/                 # Comandos Cobra e Interface Rica em ANSI via PTerm
-├── manifests/                   # Manifestos declarativos YAML (packages, git, shell, skills, lsp, windows)
-├── configs/                     # Templates de configuração embutidos
-└── docs/                        # Documentação técnica e ADRs
-```
+Para guias passo a passo detalhados, arquitetura e especificações:
+
+### 📖 Guias de Execução por Sistema Operacional:
+- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, MSYS2 e caminhos Docker.
+- 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
+- 🍎 [**Guia macOS (Darwin)**](docs/guides/macos.md) — Execução em Apple Silicon (M-series) e Intel.
+
+### 🏛️ Engenharia & Especificações:
+- 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
+- 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `lsp.yaml`, `windows.yaml`).
+- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 59 skills catalogadas, orquestração remota (`vps-agent-dispatch`) e automação Playwright.
+- 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — 160+ pontos de diagnóstico, flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
+- 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---
 
-## 💎 Princípios & Garantias
-1. **100% Standalone via `//go:embed`**: Todas as 59 Skills e templates de configuração residem dentro do próprio binário executável compilado.
-2. **Idempotência Estrita**: Executar o utilitário 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
-3. **Backup Atômico com Timestamp**: Qualquer arquivo de configuração existente sofre backup seguro (`.bak.YYYYMMDD-HHMMSS`) antes de modificações.
-4. **Logging Persistente Completo**: Cada execução gera uma trilha de auditoria completa em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log` capturando comandos, saídas e decisões de idempotência.
-5. **Zero Segredos**: Chaves e credenciais nunca residem no repositório; o ecossistema cria as pastas restritas com ACLs adequadas e instrui a injeção manual segura.
+## 💎 Princípios Fundamentais
+1. **100% Standalone via `//go:embed`**: Todas as 59 Skills e templates residem dentro do próprio binário executável compilado.
+2. **Idempotência Estrita**: Executar 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
+3. **Backup Atômico com Timestamp**: Arquivos modificados sofrem backup automático (`.bak.YYYYMMDD-HHMMSS`) caso haja divergência de hash.
+4. **Logging Persistente Estruturado**: Trilha de auditoria completa gerada em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.
+5. **Zero Segredos**: Chaves e credenciais nunca residem no repositório; permissões seguras são aplicadas via ACLs e POSIX permissions.
