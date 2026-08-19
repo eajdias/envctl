@@ -56,27 +56,33 @@ jobs:
           mkdir -p dist
 
           # 1. Windows amd64 & arm64
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl.exe ./cmd/envctl
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-windows-amd64.exe ./cmd/envctl
+          cp dist/envctl-windows-amd64.exe dist/envctl.exe
           (cd dist && zip -9 envctl-windows-amd64.zip envctl.exe && rm envctl.exe)
 
-          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl.exe ./cmd/envctl
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-windows-arm64.exe ./cmd/envctl
+          cp dist/envctl-windows-arm64.exe dist/envctl.exe
           (cd dist && zip -9 envctl-windows-arm64.zip envctl.exe && rm envctl.exe)
 
           # 2. Linux amd64 & arm64
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-linux-amd64 ./cmd/envctl
+          cp dist/envctl-linux-amd64 dist/envctl
           tar -czf dist/envctl-linux-amd64.tar.gz -C dist envctl
           rm dist/envctl
 
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-linux-arm64 ./cmd/envctl
+          cp dist/envctl-linux-arm64 dist/envctl
           tar -czf dist/envctl-linux-arm64.tar.gz -C dist envctl
           rm dist/envctl
 
           # 3. Darwin amd64 & arm64
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-darwin-amd64 ./cmd/envctl
+          cp dist/envctl-darwin-amd64 dist/envctl
           tar -czf dist/envctl-darwin-amd64.tar.gz -C dist envctl
           rm dist/envctl
 
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-darwin-arm64 ./cmd/envctl
+          cp dist/envctl-darwin-arm64 dist/envctl
           tar -czf dist/envctl-darwin-arm64.tar.gz -C dist envctl
           rm dist/envctl
 
@@ -89,10 +95,16 @@ jobs:
           prerelease: false
           make_latest: true
           files: |
+            dist/envctl-windows-amd64.exe
+            dist/envctl-windows-arm64.exe
             dist/envctl-windows-amd64.zip
             dist/envctl-windows-arm64.zip
+            dist/envctl-linux-amd64
+            dist/envctl-linux-arm64
             dist/envctl-linux-amd64.tar.gz
             dist/envctl-linux-arm64.tar.gz
+            dist/envctl-darwin-amd64
+            dist/envctl-darwin-arm64
             dist/envctl-darwin-amd64.tar.gz
             dist/envctl-darwin-arm64.tar.gz
             bootstrap.ps1
