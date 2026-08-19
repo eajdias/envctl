@@ -3,11 +3,11 @@ package embedded
 import (
 	"testing"
 
-	win11new "github.com/eajdias/envctl"
+	"github.com/eajdias/envctl"
 )
 
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
-	repo := NewManifestRepository(win11new.EmbeddedFS, ".")
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
 
 	pkgs, err := repo.LoadPackages()
 	if err != nil {

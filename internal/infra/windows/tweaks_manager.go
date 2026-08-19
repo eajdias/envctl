@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -22,6 +23,10 @@ func NewWindowsTweaksManager(logger repository.Logger) repository.WindowsTweaksM
 }
 
 func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error) {
+	if runtime.GOOS != "windows" {
+		return true, "Skipped on non-Windows platform", nil
+	}
+
 	switch strings.ToLower(tweak.Type) {
 	case "font":
 		// Check font files or oh-my-posh
@@ -90,6 +95,10 @@ if (Test-Path $path) {
 }
 
 func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTweak) error {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+
 	switch strings.ToLower(tweak.Type) {
 	case "font":
 		psScript := fmt.Sprintf(`oh-my-posh font install %s`, tweak.Name)

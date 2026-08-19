@@ -2,12 +2,17 @@ package windows
 
 import (
 	"context"
+	"runtime"
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestWindowsTweaksManager_CheckTweak(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("skipping Windows registry tweak tests on non-windows platform")
+	}
+
 	mgr := NewWindowsTweaksManager(nil)
 
 	// Check a well-known Windows registry key (e.g. CurrentVersion or Explorer)
