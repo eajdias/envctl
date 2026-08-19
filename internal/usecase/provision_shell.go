@@ -16,6 +16,7 @@ type ProvisionShellUseCase struct {
 	envManager   repository.WindowsEnvManager
 	gitManager   repository.GitManager
 	embeddedFS   fs.FS
+	logger       repository.Logger
 }
 
 func NewProvisionShellUseCase(
@@ -24,6 +25,7 @@ func NewProvisionShellUseCase(
 	envManager repository.WindowsEnvManager,
 	gitManager repository.GitManager,
 	embeddedFS fs.FS,
+	logger repository.Logger,
 ) *ProvisionShellUseCase {
 	return &ProvisionShellUseCase{
 		manifestRepo: manifestRepo,
@@ -31,6 +33,7 @@ func NewProvisionShellUseCase(
 		envManager:   envManager,
 		gitManager:   gitManager,
 		embeddedFS:   embeddedFS,
+		logger:       logger,
 	}
 }
 
@@ -43,6 +46,10 @@ type ProvisionShellResult struct {
 }
 
 func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellResult, error) {
+	if uc.logger != nil {
+		uc.logger.Info("Starting shell, environment, git, and configs provisioning")
+	}
+
 	result := &ProvisionShellResult{
 		CreatedBackups: make(map[string]string),
 	}
@@ -52,6 +59,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	if err == nil && len(envVars) > 0 {
 		diags, _ := uc.envManager.EnsureEnvVars(ctx, envVars)
 		result.EnvDiagnostics = diags
+		for _, d := range diags {
+			if uc.logger != nil {
+				uc.logger.LogIdempotency("Environment", d.Target, d.Category == entity.DiagOK, d.Details)
+			}
+		}
 	}
 
 	// 2. Git Performance Configurations
@@ -59,6 +71,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	if err == nil && len(gitConfigs) > 0 {
 		diags, _ := uc.gitManager.EnsureGlobalConfigs(ctx, gitConfigs)
 		result.GitDiagnostics = diags
+		for _, d := range diags {
+			if uc.logger != nil {
+				uc.logger.LogIdempotency("Git", d.Target, d.Category == entity.DiagOK, d.Details)
+			}
+		}
 	}
 
 	// 3. Restricted Directories (SSH Keys, Secrets)
@@ -73,6 +90,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 
 	for _, dir := range restrictedDirs {
 		if err := uc.fsManager.EnsureDirectory(dir, 0700); err != nil {
+			if uc.logger != nil {
+				uc.logger.Error("Failed to ensure directory '%s': %v", dir, err)
+			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "Directory",
@@ -83,7 +103,15 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 
 		if dir == "~/Documents/SSH-keys" || dir == "~/.ssh-manager" || dir == "~/.ssh" {
-			_ = uc.fsManager.SetStrictWindowsACL(dir)
+			if err := uc.fsManager.SetStrictWindowsACL(dir); err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Could not apply strict ACLs on '%s': %v", dir, err)
+				}
+			} else {
+				if uc.logger != nil {
+					uc.logger.Info("Applied strict ACLs (current user only) to '%s'", dir)
+				}
+			}
 			result.RestrictedDirs = append(result.RestrictedDirs, dir)
 		}
 
@@ -98,6 +126,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	// 4. Configuration Files (.bashrc, .bash_profile, nsswitch.conf, opencode.jsonc, AGENTS.md)
 	configFiles, err := uc.manifestRepo.LoadConfigFiles()
 	if err != nil {
+		if uc.logger != nil {
+			uc.logger.Error("Failed to load config files manifest: %v", err)
+		}
 		return result, fmt.Errorf("failed to load config files manifest: %w", err)
 	}
 
@@ -115,6 +146,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 
 		if readErr != nil {
+			if uc.logger != nil {
+				uc.logger.Error("Source file missing for '%s' (%s): %v", cf.Destination, cf.Source, readErr)
+			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "ConfigFile",
@@ -127,6 +161,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		// Write with atomic backup
 		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, 0644)
 		if writeErr != nil {
+			if uc.logger != nil {
+				uc.logger.Error("Failed to write config file '%s': %v", cf.Destination, writeErr)
+			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "ConfigFile",
@@ -138,8 +175,14 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			if backupPath != "" {
 				result.CreatedBackups[cf.Destination] = backupPath
 				detail = fmt.Sprintf("Updated (Backup saved to %s)", filepath.Base(backupPath))
+				if uc.logger != nil {
+					uc.logger.LogIdempotency("ConfigFile", cf.Destination, false, fmt.Sprintf("content updated, backup created at %s", backupPath))
+				}
 			} else {
 				detail = "Already up to date"
+				if uc.logger != nil {
+					uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "content byte-for-byte identical, skipped backup/write")
+				}
 			}
 
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{

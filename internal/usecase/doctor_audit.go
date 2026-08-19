@@ -16,6 +16,7 @@ type DoctorAuditUseCase struct {
 	envManager   repository.WindowsEnvManager
 	gitManager   repository.GitManager
 	managers     map[entity.PackageType]repository.PackageManager
+	logger       repository.Logger
 }
 
 func NewDoctorAuditUseCase(
@@ -24,6 +25,7 @@ func NewDoctorAuditUseCase(
 	envManager repository.WindowsEnvManager,
 	gitManager repository.GitManager,
 	managers map[entity.PackageType]repository.PackageManager,
+	logger repository.Logger,
 ) *DoctorAuditUseCase {
 	return &DoctorAuditUseCase{
 		manifestRepo: manifestRepo,
@@ -31,6 +33,7 @@ func NewDoctorAuditUseCase(
 		envManager:   envManager,
 		gitManager:   gitManager,
 		managers:     managers,
+		logger:       logger,
 	}
 }
 
@@ -43,6 +46,10 @@ type AuditReport struct {
 }
 
 func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error) {
+	if uc.logger != nil {
+		uc.logger.Info("Starting system audit and diagnostic verification")
+	}
+
 	report := &AuditReport{}
 
 	addDiag := func(diag entity.Diagnostic) {
@@ -51,10 +58,19 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		switch diag.Category {
 		case entity.DiagOK:
 			report.Passed++
+			if uc.logger != nil {
+				uc.logger.Info("[AUDIT-PASS] [%s] %s: %s", diag.System, diag.Target, diag.Details)
+			}
 		case entity.DiagWarning:
 			report.Warnings++
+			if uc.logger != nil {
+				uc.logger.Warn("[AUDIT-WARN] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
+			}
 		case entity.DiagError:
 			report.Errors++
+			if uc.logger != nil {
+				uc.logger.Error("[AUDIT-FAIL] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
+			}
 		}
 	}
 
