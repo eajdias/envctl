@@ -7,8 +7,8 @@ lsps:
     server_name: "TypeScript Language Server"
     command: "typescript-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "typescript-language-server typescript"
+    install_type: volta
+    install_target: "typescript-language-server"
     check_binary: "typescript-language-server"
 
   - id: pyright
@@ -16,7 +16,7 @@ lsps:
     server_name: "Pyright Language Server"
     command: "pyright-langserver"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "pyright"
     check_binary: "pyright-langserver"
 
@@ -43,25 +43,25 @@ lsps:
     server_name: "Bash Language Server"
     command: "bash-language-server"
     args: ["start"]
-    install_type: npm
+    install_type: volta
     install_target: "bash-language-server"
     check_binary: "bash-language-server"
 
   - id: sql
     language: sql
-    server_name: "SQL Language Server"
-    command: "sql-language-server"
-    args: ["up", "--method", "stdio"]
-    install_type: npm
-    install_target: "sql-language-server"
-    check_binary: "sql-language-server"
+    server_name: "SQL Lens Language Server"
+    command: "sqllens-language-server"
+    args: ["--stdio"]
+    install_type: volta
+    install_target: "sqllens-language-server"
+    check_binary: "sqllens-language-server"
 
   - id: html
     language: html
     server_name: "VSCode HTML Language Server"
     command: "vscode-html-language-server"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-html-language-server"
 
@@ -70,7 +70,7 @@ lsps:
     server_name: "VSCode JSON Language Server"
     command: "vscode-json-language-server"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-json-language-server"
 
@@ -79,7 +79,7 @@ lsps:
     server_name: "YAML Language Server"
     command: "yaml-language-server"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "yaml-language-server"
     check_binary: "yaml-language-server"
 
@@ -88,7 +88,7 @@ lsps:
     server_name: "Dockerfile Language Server"
     command: "docker-langserver"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "dockerfile-language-server-nodejs"
     check_binary: "docker-langserver"
 
@@ -97,18 +97,18 @@ lsps:
     server_name: "VSCode CSS Language Server"
     command: "vscode-css-language-server"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-css-language-server"
 
   - id: markdown
     language: markdown
-    server_name: "Marksman Markdown Language Server"
-    command: "marksman"
-    args: ["server"]
-    install_type: winget
-    install_target: "Artempyanykh.Marksman"
-    check_binary: "marksman"
+    server_name: "VSCode Markdown Language Server"
+    command: "vscode-markdown-language-server"
+    args: ["--stdio"]
+    install_type: volta
+    install_target: "vscode-langservers-extracted"
+    check_binary: "vscode-markdown-language-server"
 
   - id: powershell
     language: powershell
@@ -142,6 +142,6 @@ lsps:
     server_name: "ESLint Language Server"
     command: "vscode-eslint-language-server"
     args: ["--stdio"]
-    install_type: npm
+    install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-eslint-language-server"

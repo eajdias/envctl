@@ -302,5 +302,46 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
+	// 9. Audit Custom CLI Scripts (~/.local/bin)
+	customScripts := []string{"pw-screenshot", "pw-eval"}
+	for _, cs := range customScripts {
+		scriptPath := filepath.Join(userHomeDir, ".local", "bin", cs)
+		if !uc.fsManager.Exists(scriptPath) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "CLI-Scripts",
+				Target:   cs,
+				Details:  fmt.Sprintf("Script not found at %s", scriptPath),
+				FixHint:  "run 'win11-new run shell'",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "CLI-Scripts",
+				Target:   cs,
+				Details:  "Executable ready in ~/.local/bin",
+			})
+		}
+	}
+
+	// 10. Audit Git Worktree Support
+	if gitOut, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Git",
+			Target:   "git worktree",
+			Details:  fmt.Sprintf("Worktree check failed: %v", err),
+			FixHint:  "Ensure git is installed and updated",
+		})
+	} else {
+		_ = gitOut
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Git",
+			Target:   "git worktree",
+			Details:  "Worktree command supported and active",
+		})
+	}
+
 	return report, nil
 }

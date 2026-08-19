@@ -17,6 +17,11 @@ environment_variables:
     scope: User
     target: "Windows User Environment"
 
+  - name: MSYS2_ENV_CONV_EXCL
+    value: "NODE_PATH"
+    scope: User
+    target: "Windows User Environment"
+
 config_files:
   - id: bashrc
     description: "MSYS2 Bash interactive configuration with aliases and completions"
@@ -116,6 +121,41 @@ config_files:
     strict_acl: false
     category: "terminal"
 
+  - id: ssh_config
+    description: "OpenSSH client configuration with connection caching and resilient defaults"
+    source: "configs/ssh-config"
+    destination: "~/.ssh/config"
+    strict_acl: false
+    category: "ssh"
+
+  - id: pw_screenshot
+    description: "Headless Playwright screenshot utility script"
+    source: "configs/bin/pw-screenshot"
+    destination: "~/.local/bin/pw-screenshot"
+    strict_acl: false
+    category: "scripts"
+
+  - id: pw_screenshot_cmd
+    description: "Windows CMD wrapper for pw-screenshot"
+    source: "configs/bin/pw-screenshot.cmd"
+    destination: "~/.local/bin/pw-screenshot.cmd"
+    strict_acl: false
+    category: "scripts"
+
+  - id: pw_eval
+    description: "Headless Playwright evaluation and page content extraction utility"
+    source: "configs/bin/pw-eval"
+    destination: "~/.local/bin/pw-eval"
+    strict_acl: false
+    category: "scripts"
+
+  - id: pw_eval_cmd
+    description: "Windows CMD wrapper for pw-eval"
+    source: "configs/bin/pw-eval.cmd"
+    destination: "~/.local/bin/pw-eval.cmd"
+    strict_acl: false
+    category: "scripts"
+
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true
@@ -126,6 +166,12 @@ directories:
   - path: "~/.ssh"
     strict_acl: true
     description: "Standard user SSH configuration directory"
+  - path: "~/.ssh/sockets"
+    strict_acl: true
+    description: "Control sockets directory for multiplexed SSH connections"
+  - path: "~/.local/bin"
+    strict_acl: false
+    description: "User local binaries and custom CLI scripts"
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"
