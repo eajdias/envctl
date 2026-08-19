@@ -8,13 +8,13 @@ import (
 
 func PrintBanner() {
 	bannerText, _ := pterm.DefaultBigText.WithLetters(
-		pterm.NewLettersFromStringWithStyle("WIN11", pterm.NewStyle(pterm.FgCyan, pterm.Bold)),
-		pterm.NewLettersFromStringWithStyle("-NEW", pterm.NewStyle(pterm.FgLightMagenta, pterm.Bold)),
+		pterm.NewLettersFromStringWithStyle("ENV", pterm.NewStyle(pterm.FgCyan, pterm.Bold)),
+		pterm.NewLettersFromStringWithStyle("CTL", pterm.NewStyle(pterm.FgLightMagenta, pterm.Bold)),
 	).Srender()
 
 	pterm.Println(bannerText)
-	pterm.DefaultCenter.Println(pterm.LightCyan("🚀 Windows 11 PRO / MSYS2 / OpenCode High-Performance Provisioner"))
-	pterm.DefaultCenter.Println(pterm.Gray("Clean Architecture • Idempotent • Embedded Assets • Bi-directional Sync\n"))
+	pterm.DefaultCenter.Println(pterm.LightCyan("🚀 Universal Environment Provisioner (Windows 11 PRO & Ubuntu Linux)"))
+	pterm.DefaultCenter.Println(pterm.Gray("Clean Architecture • Idempotent • Embedded Assets • Multi-OS & Subagent Dispatch\n"))
 }
 
 func PrintSection(title string) {

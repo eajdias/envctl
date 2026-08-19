@@ -1,5 +1,5 @@
 # ~/.ssh/config - Optimized OpenSSH Client Configuration
-# Managed by win11-new
+# Managed by envctl
 
 # Global Performance & Resiliency Defaults
 Host *

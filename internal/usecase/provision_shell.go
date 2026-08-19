@@ -6,9 +6,10 @@ import (
 	"io/fs"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type ProvisionShellUseCase struct {
@@ -85,8 +86,8 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		"~/.ssh-manager",
 		"~/.ssh",
 		"~/.config/opencode/skills",
-		"C:/projetos/git-privado",
-		"C:/projetos/git-publico",
+		"~/projetos/git-privado",
+		"~/projetos/git-publico",
 	}
 
 	for _, dir := range restrictedDirs {
@@ -134,6 +135,10 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	}
 
 	for _, cf := range configFiles {
+		if cf.OS != "" && cf.OS != runtime.GOOS {
+			continue
+		}
+
 		// Read source from disk if exists, otherwise embedded FS
 		var content []byte
 		var readErr error

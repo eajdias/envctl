@@ -8,18 +8,19 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
-	"github.com/eajdias/win11-new/internal/infra/embedded"
-	"github.com/eajdias/win11-new/internal/infra/environment"
-	"github.com/eajdias/win11-new/internal/infra/filesystem"
-	"github.com/eajdias/win11-new/internal/infra/git"
-	"github.com/eajdias/win11-new/internal/infra/logger"
-	"github.com/eajdias/win11-new/internal/infra/msys2"
-	"github.com/eajdias/win11-new/internal/infra/toolchain"
-	"github.com/eajdias/win11-new/internal/infra/windows"
-	"github.com/eajdias/win11-new/internal/infra/winget"
-	"github.com/eajdias/win11-new/internal/usecase"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/apt"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
+	"github.com/eajdias/envctl/internal/infra/git"
+	"github.com/eajdias/envctl/internal/infra/logger"
+	"github.com/eajdias/envctl/internal/infra/msys2"
+	"github.com/eajdias/envctl/internal/infra/toolchain"
+	"github.com/eajdias/envctl/internal/infra/windows"
+	"github.com/eajdias/envctl/internal/infra/winget"
+	"github.com/eajdias/envctl/internal/usecase"
 )
 
 type AppContext struct {
@@ -46,9 +47,9 @@ var (
 	logDirFlag string
 
 	rootCmd = &cobra.Command{
-		Use:   "win11-new",
-		Short: "win11-new: Automated Windows 11 PRO / MSYS2 / OpenCode Environment Provisioner",
-		Long:  `win11-new is an idempotent, Clean Architecture CLI tool designed to provision, audit, and synchronize your Windows 11 development environment.`,
+		Use:   "envctl",
+		Short: "envctl: Universal Development Environment Provisioner (Windows 11 PRO & Ubuntu Linux / OpenCode)",
+		Long:  `envctl is an idempotent, Clean Architecture CLI tool designed to provision, audit, and synchronize your development environments across Windows 11 PRO workstations and Ubuntu Linux VPS servers.`,
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			if appCtx != nil && appCtx.Logger != nil {
 				logPath := appCtx.Logger.GetLogFilePath()
@@ -63,7 +64,7 @@ var (
 )
 
 func InitApp(embeddedFS fs.FS) {
-	rootCmd.PersistentFlags().StringVar(&logDirFlag, "log-dir", "", "Custom directory for execution logs (defaults to ~/.win11-new/logs)")
+	rootCmd.PersistentFlags().StringVar(&logDirFlag, "log-dir", "", "Custom directory for execution logs (defaults to ~/.envctl/logs)")
 
 	fsManager := filesystem.NewFileSystemManager()
 	manifestRepo := embedded.NewManifestRepository(embeddedFS, "")
@@ -80,6 +81,7 @@ func InitApp(embeddedFS fs.FS) {
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget:     winget.NewWingetManager(),
 		entity.PackageTypePacman:     msys2.NewPacmanManager(),
+		entity.PackageTypeApt:        apt.NewAptManager(),
 		entity.PackageTypeVolta:      toolchain.NewVoltaManager(),
 		entity.PackageTypeDotnetTool: toolchain.NewDotnetToolManager(),
 		entity.PackageTypeNpm:        toolchain.NewNpmManager(),
@@ -126,10 +128,10 @@ func Execute() {
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "version",
-		Short: "Print win11-new version",
+		Short: "Print envctl version",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
-			PrintInfo("win11-new v1.0.0 (Windows 11 PRO / MSYS2 / OpenCode)")
+			PrintInfo("envctl v1.0.0 (Windows 11 PRO & Ubuntu Linux / OpenCode Ecosystem)")
 		},
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"io/fs"
 	"os"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 // PackageManager defines operations for installing and checking software packages.

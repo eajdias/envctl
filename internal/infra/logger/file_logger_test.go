@@ -7,7 +7,7 @@ import (
 )
 
 func TestFileLogger_WriteAndClose(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "win11-new-log-test-*")
+	tempDir, err := os.MkdirTemp("", "envctl-log-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

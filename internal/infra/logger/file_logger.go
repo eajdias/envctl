@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type fileLogger struct {
@@ -17,7 +17,7 @@ type fileLogger struct {
 	file        *os.File
 }
 
-// NewFileLogger creates a persistent disk logger in ~/.win11-new/logs/ or a specified directory.
+// NewFileLogger creates a persistent disk logger in ~/.envctl/logs/ or a specified directory.
 func NewFileLogger(customDir string) (repository.Logger, error) {
 	logDir := customDir
 	if logDir == "" {
@@ -28,7 +28,7 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 				userHome = "."
 			}
 		}
-		logDir = filepath.Join(userHome, ".win11-new", "logs")
+		logDir = filepath.Join(userHome, ".envctl", "logs")
 	}
 
 	if err := os.MkdirAll(logDir, 0755); err != nil {
@@ -36,7 +36,7 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 	}
 
 	timestamp := time.Now().Format("20060102-150405")
-	logFilePath := filepath.Join(logDir, fmt.Sprintf("win11-new-%s.log", timestamp))
+	logFilePath := filepath.Join(logDir, fmt.Sprintf("envctl-%s.log", timestamp))
 
 	f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -51,7 +51,7 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 	// Write session header
 	header := fmt.Sprintf(
 		"================================================================================\n"+
-			"win11-new Execution Log Session Started: %s\n"+
+			"envctl Execution Log Session Started: %s\n"+
 			"Target Host: %s | User: %s | OS: %s\n"+
 			"================================================================================\n\n",
 		time.Now().Format(time.RFC3339),
@@ -158,7 +158,7 @@ func (l *fileLogger) Close() error {
 	if l.file != nil {
 		footer := fmt.Sprintf(
 			"\n================================================================================\n"+
-				"win11-new Execution Log Session Closed: %s\n"+
+				"envctl Execution Log Session Closed: %s\n"+
 				"================================================================================\n",
 			time.Now().Format(time.RFC3339),
 		)

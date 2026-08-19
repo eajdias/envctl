@@ -16,8 +16,8 @@ permissions:
 
 jobs:
   build-release:
-    name: Build & Publish Release
-    runs-on: windows-latest
+    name: Build & Publish Multi-OS Release
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -35,7 +35,6 @@ jobs:
 
       - name: Determine Version
         id: get_version
-        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
@@ -43,25 +42,36 @@ jobs:
             echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build Windows amd64
+      - name: Build All Targets
         env:
-          GOOS: windows
-          GOARCH: amd64
-          CGO_ENABLED: 0
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
         run: |
-          $ver = "${{ steps.get_version.outputs.VERSION }}"
-          go build -ldflags "-s -w -X 'main.Version=$ver'" -o dist/amd64/win11-new.exe ./cmd/win11-new
-          Compress-Archive -Path dist/amd64/win11-new.exe -DestinationPath dist/win11-new-windows-amd64.zip
+          mkdir -p dist
 
-      - name: Build Windows arm64
-        env:
-          GOOS: windows
-          GOARCH: arm64
-          CGO_ENABLED: 0
-        run: |
-          $ver = "${{ steps.get_version.outputs.VERSION }}"
-          go build -ldflags "-s -w -X 'main.Version=$ver'" -o dist/arm64/win11-new.exe ./cmd/win11-new
-          Compress-Archive -Path dist/arm64/win11-new.exe -DestinationPath dist/win11-new-windows-arm64.zip
+          # 1. Windows amd64 & arm64
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl.exe ./cmd/envctl
+          (cd dist && zip -9 envctl-windows-amd64.zip envctl.exe && rm envctl.exe)
+
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl.exe ./cmd/envctl
+          (cd dist && zip -9 envctl-windows-arm64.zip envctl.exe && rm envctl.exe)
+
+          # 2. Linux amd64 & arm64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          tar -czf dist/envctl-linux-amd64.tar.gz -C dist envctl
+          rm dist/envctl
+
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          tar -czf dist/envctl-linux-arm64.tar.gz -C dist envctl
+          rm dist/envctl
+
+          # 3. Darwin amd64 & arm64
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          tar -czf dist/envctl-darwin-amd64.tar.gz -C dist envctl
+          rm dist/envctl
+
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl ./cmd/envctl
+          tar -czf dist/envctl-darwin-arm64.tar.gz -C dist envctl
+          rm dist/envctl
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -71,7 +81,12 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist/win11-new-windows-amd64.zip
-            dist/win11-new-windows-arm64.zip
+            dist/envctl-windows-amd64.zip
+            dist/envctl-windows-arm64.zip
+            dist/envctl-linux-amd64.tar.gz
+            dist/envctl-linux-arm64.tar.gz
+            dist/envctl-darwin-amd64.tar.gz
+            dist/envctl-darwin-arm64.tar.gz
             bootstrap.ps1
+            bootstrap.sh
           generate_release_notes: true

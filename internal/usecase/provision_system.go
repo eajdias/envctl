@@ -3,9 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"runtime"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 // ProvisionWindowsUseCase coordinates the application of Windows 11 system tweaks, registry settings, and fonts.
@@ -31,6 +32,13 @@ func (u *ProvisionWindowsUseCase) Execute(
 	ctx context.Context,
 	onProgress func(tweak entity.WindowsTweak, status string, details string),
 ) ([]entity.Diagnostic, error) {
+	if runtime.GOOS != "windows" {
+		if u.logger != nil {
+			u.logger.Info("Skipping Windows tweaks (running on %s)", runtime.GOOS)
+		}
+		return nil, nil
+	}
+
 	if u.logger != nil {
 		u.logger.Info("Starting ProvisionWindowsUseCase execution")
 	}

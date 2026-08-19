@@ -1,50 +1,101 @@
-# win11-new (Windows 11 Environment Provisioner & State Replicator)
+# envctl (Cross-Platform Environment Provisioner & State Replicator)
 
-> Provisionador idempotente e determinístico em **Go** para replicação 1:1 de ambiente de desenvolvimento no Windows 11 PRO.
+> Provisionador idempotente, determinístico e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores no **Windows 11 PRO** e **Ubuntu / Debian Linux**.
 
 ---
 
 ## 🎯 Objetivo
-Transformar uma instalação limpa e recém-formatada do Windows 11 em uma estação de trabalho de desenvolvimento completa, configurada com shell MSYS2 otimizado, toolchains (Node/Volta, Python/uv/ruff, Go, .NET, Rust, Docker), Language Servers (16 LSPs), configs do OpenCode, terminal e as **56 Skills** de agentes, através de um único binário auto-contido.
+Transformar estações de trabalho recém-formatadas (Windows 11) ou servidores remotos (VPS Ubuntu / Debian na AWS / Oracle Cloud) em ambientes de desenvolvimento e produção completos, padronizados e idênticos:
+- **Shell e Utilitários de Alta Performance**: MSYS2 Bash no Windows, Zsh/Bash no Linux, ripgrep, fd, fzf, bat, tree, delta, yq, rsync, jq.
+- **Toolchains Completas**: Node.js (via Volta), Python (Python 3.14 + uv + ruff), Go, .NET SDK, Rust (rustup), Docker.
+- **Language Server Protocol (16 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Marksman, CSharp-LS, Rust-Analyzer, etc.
+- **Ecossistema OpenCode**: Configurações globais (`opencode.jsonc`, `dcp.jsonc`, `tui.json`, plugins), e todas as **59 Skills** de agentes catalogadas e sincronizadas.
+- **Orquestração Remota de Subagentes**: Skill `vps-agent-dispatch` para delegar tarefas autônomas do notebook para servidores remotos via SSH com economia máxima de contexto.
+
+---
+
+## 🚀 Como Instalar e Rodar (Zero Pré-requisitos)
+
+### No Windows 11 (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
+```
+
+### No Linux (Ubuntu / Debian / Oracle / AWS)
+```bash
+curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
+```
+
+---
+
+## 💻 Subcomandos Principais
+
+```bash
+# Provisionamento completo de todo o ecossistema (Day-0)
+envctl run all
+
+# Provisionamento por subsistema modular
+envctl run winget       # Apenas pacotes winget (Windows)
+envctl run apt          # Apenas pacotes APT (Ubuntu/Debian)
+envctl run pacman       # Apenas pacotes MSYS2
+envctl run volta        # Node.js e ferramentas globais via Volta
+envctl run shell        # Variáveis de ambiente, perfis e configurações
+envctl run skills       # Extração e validação das 59 Skills de IA
+envctl run lsp          # Servidores de linguagem (LSP)
+envctl run windows      # Tweaks de registro, Developer Mode e fontes
+
+# Auditoria e Diagnóstico de Saúde (160+ pontos de checagem)
+envctl doctor
+
+# Auto-remediação automática de avisos/erros detectados
+envctl doctor --fix
+
+# Snapshot e Sincronização Reversa (Day-2)
+envctl snapshot
+```
 
 ---
 
 ## 🏛️ Arquitetura de Software (Clean Architecture)
 
-O projeto é estruturado em camadas desacopladas seguindo os princípios de **Clean Architecture** e **SOLID**:
-
 ```
-win11-new/
+envctl/
 ├── cmd/
-│   └── win11-new/               # Entrypoint da aplicação (main.go, injeção de dependências)
+│   └── envctl/                  # Entrypoint da aplicação (main.go, injeção de dependências)
 ├── internal/
 │   ├── domain/                  # Camada de Domínio (Entidades e Interfaces/Contratos)
-│   │   ├── entity/              # Entidades puras: Package, Toolchain, Skill, ConfigTemplate, AuditResult
-│   │   └── repository/          # Interfaces: PackageInstaller, ShellExecutor, ConfigStore, ToolchainRunner
+│   │   ├── entity/              # Entidades puras: Package, ConfigFile, Skill, LSP, WindowsTweak, Diagnostic
+│   │   └── repository/          # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
 │   ├── usecase/                 # Casos de Uso da Aplicação
-│   │   ├── provision_env.go     # Orquestrador completo de provisionamento
-│   │   ├── verify_prereqs.go    # Checagem de privilégios de Admin, arquitetura, Windows build
-│   │   ├── audit_system.go      # Auditoria do estado atual vs estado desejado (drift detection)
-│   │   ├── sync_skills.go       # Extração e validação das 56 Skills
-│   │   └── configure_shell.go   # Ajustes de MSYS2, nsswitch.conf, .bashrc, Windows Terminal
+│   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
+│   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
+│   │   ├── provision_skills.go  # Extração e atualização das 59 Skills
+│   │   ├── provision_lsp.go     # Instalação e validação dos 16 LSPs
+│   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
+│   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
+│   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
 │   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
-│   │   ├── winget/              # Adaptador para o Windows Package Manager (winget CLI)
-│   │   ├── msys2/               # Adaptador para o MSYS2 (pacman, nsswitch.conf, chroot/paths)
-│   │   ├── toolchain/           # Adaptadores para Volta, Dotnet, UV, Rustup, Go
-│   │   ├── git/                 # Adaptador para Git config, SSH e GitHub CLI
-│   │   ├── filesystem/          # Operações de I/O seguras, backup atômico e symlinks
+│   │   ├── winget/              # Adaptador para Windows Package Manager
+│   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
+│   │   ├── msys2/               # Adaptador para MSYS2 Pacman
+│   │   ├── toolchain/           # Adaptadores para Volta, Go, Rustup, Dotnet, UV/Pip
+│   │   ├── windows/             # Adaptador de Registro e Fontes Windows
+│   │   ├── git/                 # Adaptador Git e GitHub CLI
+│   │   ├── filesystem/          # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
+│   │   ├── logger/              # Logger persistente com dump em disco (~/.envctl/logs/)
 │   │   └── embedded/            # Sistema de arquivos embutido no binário (//go:embed)
 │   └── ui/                      # Interface com o Usuário
-│       └── cli/                 # Comandos CLI, flags, saída com cores e barras de progresso
-├── manifests/                   # Manifests declarativos de pacotes e ferramentas
-├── configs/                     # Templates e arquivos de configuração fonte
-└── docs/                        # Documentação técnica e ADRs (Architectural Decision Records)
+│       └── cli/                 # Comandos Cobra e Interface Rica em ANSI via PTerm
+├── manifests/                   # Manifestos declarativos YAML (packages, git, shell, skills, lsp, windows)
+├── configs/                     # Templates de configuração embutidos
+└── docs/                        # Documentação técnica e ADRs
 ```
 
 ---
 
-## 💎 Princípios & Fundamentos
-1. **Zero External Dependencies on Target:** O binário gerado roda nativamente no Windows 11 sem exigir Python, Node, PowerShell 7 ou Git pré-instalados.
-2. **Idempotência Estrita:** Executar o utilitário 1 ou 100 vezes produz o mesmo estado final. Ferramentas já instaladas ou configuradas são detectadas e ignoradas com segurança.
-3. **Self-Contained via `//go:embed`:** Todas as 56 Skills e arquivos de configuração residem dentro do próprio executável compilado.
-4. **Segurança e Auditoria:** Nenhuma chave privada ou segredo é embutido no binário; chaves e credenciais seguem o padrão de injeção manual guiada pós-provisionamento.
+## 💎 Princípios & Garantias
+1. **100% Standalone via `//go:embed`**: Todas as 59 Skills e templates de configuração residem dentro do próprio binário executável compilado.
+2. **Idempotência Estrita**: Executar o utilitário 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
+3. **Backup Atômico com Timestamp**: Qualquer arquivo de configuração existente sofre backup seguro (`.bak.YYYYMMDD-HHMMSS`) antes de modificações.
+4. **Logging Persistente Completo**: Cada execução gera uma trilha de auditoria completa em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log` capturando comandos, saídas e decisões de idempotência.
+5. **Zero Segredos**: Chaves e credenciais nunca residem no repositório; o ecossistema cria as pastas restritas com ACLs adequadas e instrui a injeção manual segura.

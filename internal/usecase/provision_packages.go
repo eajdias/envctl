@@ -3,9 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"runtime"
 
-	"github.com/eajdias/win11-new/internal/domain/entity"
-	"github.com/eajdias/win11-new/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type PackageProgressHandler func(pkg entity.Package, status string, err error)
@@ -44,6 +45,10 @@ func (uc *ProvisionPackagesUseCase) Execute(ctx context.Context, filterType enti
 	var results []entity.Package
 
 	for _, pkg := range allPkgs {
+		if pkg.OS != "" && pkg.OS != runtime.GOOS {
+			continue
+		}
+
 		if filterType != "" && pkg.Type != filterType {
 			continue
 		}
