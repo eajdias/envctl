@@ -131,8 +131,17 @@ MSYS_NO_PATHCONV=1 docker exec -it <container> /bin/sh
 
 Use `dispatching-parallel-agents` skill for independent tasks; each agent runs in its own context.
 
-## Notes
+## Temp & Scratch Hygiene (Mandatory)
 
-- Scripts should be created in `~\` or temp directory, not in system folders; clean up test files after use.
+- **Never leave scratch behind**: every file, download, build, extraction or database copy created in `C:\msys64\tmp` (MSYS2 `/tmp`) during a session **MUST be removed before the session ends**. `/tmp` is shared by the MSYS2 runtime and accumulates ~1GB if not cleaned — it is NOT auto-managed by Windows.
+- **Big downloads/extracts**: if a tool tarball/zip or build output is needed only to produce a result (e.g. `*.tar.gz`, `*.zip`, `zscan-*`, `*.FDB` copies, `opencode/` scratch), download/extract it, use it, then delete it in the same session.
+- **Native runtime files** (`.bdef*.dll`, `.feef*.node`, `node-compile-cache/`, `tsx-*/`) are generated per execution and are safe to remove once the process that created them has exited; never delete files locked by a running process (removal will fail — that is fine, leave them).
+- **After finishing a task**: run the cleanup pass (list + prune) over the scratch you created:
+  ```bash
+  ls -lh /tmp | head -40
+  rm -rf /tmp/<your-scratch>   # replace with the exact paths you created
+  ```
+  Prefer a dedicated scratch subdir per session (e.g. `/tmp/opencode-<task>`) so cleanup is a single `rm -rf`.
+- **envctl hygiene**: `envctl doctor` reports temp accumulation; `envctl doctor --fix` prunes stale temp artifacts automatically.
 - Playwright uses headless Chromium by default.
 - When the agent's bash tool shows 'Windows PowerShell (5.1)', the `shell` config was ignored (opencode issue #41426) — wrap commands with `bash -lc "..."`.

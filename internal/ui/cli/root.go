@@ -34,14 +34,15 @@ type AppContext struct {
 	PackageManagers map[entity.PackageType]repository.PackageManager
 
 	// UseCases
-	ProvisionPkgsUC       *usecase.ProvisionPackagesUseCase
-	ProvisionShellUC      *usecase.ProvisionShellUseCase
-	ProvisionSkillsUC     *usecase.ProvisionSkillsUseCase
-	ProvisionLSPUC        *usecase.ProvisionLSPsUseCase
-	ProvisionWindowsUC    *usecase.ProvisionWindowsUseCase
-	ProvisionBootstrapUC  *usecase.ProvisionBootstrapUseCase
-	DoctorAuditUC         *usecase.DoctorAuditUseCase
-	SnapshotSyncUC        *usecase.SnapshotSyncUseCase
+	ProvisionPkgsUC      *usecase.ProvisionPackagesUseCase
+	ProvisionShellUC     *usecase.ProvisionShellUseCase
+	ProvisionSkillsUC    *usecase.ProvisionSkillsUseCase
+	ProvisionLSPUC       *usecase.ProvisionLSPsUseCase
+	ProvisionWindowsUC   *usecase.ProvisionWindowsUseCase
+	ProvisionBootstrapUC *usecase.ProvisionBootstrapUseCase
+	DoctorAuditUC        *usecase.DoctorAuditUseCase
+	SnapshotSyncUC       *usecase.SnapshotSyncUseCase
+	TempHygieneUC        *usecase.TempHygieneUseCase
 }
 
 var (
@@ -98,22 +99,22 @@ func InitApp(embeddedFS fs.FS, version string) {
 	}
 
 	appCtx = &AppContext{
-		EmbeddedFS:         embeddedFS,
-		ManifestRepo:       manifestRepo,
-		FSManager:          fsManager,
-		EnvManager:         envManager,
-		GitManager:         gitManager,
-		TweaksManager:      windowsTweaksMgr,
-		Logger:             fileLogger,
-		PackageManagers:    pkgManagers,
-		ProvisionPkgsUC:       usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionShellUC:      usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
-		ProvisionSkillsUC:     usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
-		ProvisionLSPUC:        usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionWindowsUC:    usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionBootstrapUC:  usecase.NewProvisionBootstrapUseCase(fsManager, fileLogger),
-		DoctorAuditUC:         usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),
-		SnapshotSyncUC:        usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
+		EmbeddedFS:           embeddedFS,
+		ManifestRepo:         manifestRepo,
+		FSManager:            fsManager,
+		EnvManager:           envManager,
+		GitManager:           gitManager,
+		TweaksManager:        windowsTweaksMgr,
+		Logger:               fileLogger,
+		PackageManagers:      pkgManagers,
+		ProvisionPkgsUC:      usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionShellUC:     usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
+		ProvisionSkillsUC:    usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
+		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, fileLogger),
+		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),
+		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 	}
 
 	registerCommands()

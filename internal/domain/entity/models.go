@@ -97,10 +97,10 @@ type EnvironmentVar struct {
 type WindowsTweak struct {
 	ID          string `yaml:"id"`
 	Description string `yaml:"description"`
-	Path        string `yaml:"path"`        // Registry Path e.g. "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-	Name        string `yaml:"name"`        // Registry Value Name e.g. "HideFileExt"
-	Value       any    `yaml:"value"`       // Target Value e.g. 0 or 1
-	Type        string `yaml:"type"`        // "DWord", "String", "Binary", "Feature", "Font"
+	Path        string `yaml:"path"`  // Registry Path e.g. "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+	Name        string `yaml:"name"`  // Registry Value Name e.g. "HideFileExt"
+	Value       any    `yaml:"value"` // Target Value e.g. 0 or 1
+	Type        string `yaml:"type"`  // "DWord", "String", "Binary", "Feature", "Font"
 	Category    string `yaml:"category"`
 }
 

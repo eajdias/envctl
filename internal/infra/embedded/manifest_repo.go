@@ -68,9 +68,9 @@ func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
 }
 
 type shellManifest struct {
-	EnvVars      []entity.EnvironmentVar `yaml:"environment_variables"`
-	ConfigFiles  []entity.ConfigFile     `yaml:"config_files"`
-	Directories  []entity.RestrictedDir  `yaml:"directories"`
+	EnvVars     []entity.EnvironmentVar `yaml:"environment_variables"`
+	ConfigFiles []entity.ConfigFile     `yaml:"config_files"`
+	Directories []entity.RestrictedDir  `yaml:"directories"`
 }
 
 func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
