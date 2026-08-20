@@ -180,4 +180,3 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 
 	return diagnostics, nil
 }
-

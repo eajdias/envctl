@@ -69,6 +69,18 @@ docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
 docker exec -it <container> /bin/sh
 ```
 
+## Temp & Scratch Hygiene (Mandatory)
+
+- **Never leave scratch behind**: every file, download, build or extraction created in `/tmp` during a session **MUST be removed before the session ends**.
+- **Big downloads/extracts**: if a tarball/zip or build output is needed only to produce a result (e.g. `*.tar.gz`, `*.zip`, `*.FDB` copies, `opencode/` scratch), download/extract it, use it, then delete it in the same session.
+- **After finishing a task**: run the cleanup pass over the scratch you created:
+  ```bash
+  ls -lh /tmp | head -40
+  rm -rf /tmp/<your-scratch>   # replace with the exact paths you created
+  ```
+  Prefer a dedicated scratch subdir per session (e.g. `/tmp/opencode-<task>`) so cleanup is a single `rm -rf`.
+- **envctl hygiene**: `envctl doctor` reports temp accumulation; `envctl doctor --fix` prunes stale temp artifacts automatically.
+
 ## Notes
 
 - Scripts should be created in `/tmp` or the home directory, not in system folders; clean up test files after use.
