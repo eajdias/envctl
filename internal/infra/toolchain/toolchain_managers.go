@@ -2,8 +2,10 @@ package toolchain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -118,11 +120,29 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 
 func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
 	cmd := exec.CommandContext(ctx, "npm", "list", "-g", "--depth=0", "--json")
-	_, err := cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
 	}
-	return []entity.Package{{ID: "npm-packages", Name: "npm-packages", Status: entity.StatusInstalled}}, nil
+	var parsed struct {
+		Dependencies map[string]struct {
+			Version string `json:"version"`
+		} `json:"dependencies"`
+	}
+	if err := json.Unmarshal(out, &parsed); err != nil {
+		return nil, err
+	}
+	var pkgs []entity.Package
+	for name, dep := range parsed.Dependencies {
+		pkgs = append(pkgs, entity.Package{
+			ID:      name,
+			Name:    name,
+			Version: dep.Version,
+			Type:    entity.PackageTypeNpm,
+			Status:  entity.StatusInstalled,
+		})
+	}
+	return pkgs, nil
 }
 
 // PipManager handles global/user python packages.
@@ -219,9 +239,15 @@ func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, 
 		last := parts[len(parts)-1]
 		binName = strings.Split(last, "@")[0]
 	}
-	cmd := exec.CommandContext(ctx, "where.exe", binName)
-	if out, err := cmd.CombinedOutput(); err == nil {
-		return true, strings.TrimSpace(string(out)), nil
+	if runtime.GOOS == "windows" {
+		cmd := exec.CommandContext(ctx, "where.exe", binName)
+		if out, err := cmd.CombinedOutput(); err == nil {
+			return true, strings.TrimSpace(string(out)), nil
+		}
+	} else {
+		if path, err := exec.LookPath(binName); err == nil {
+			return true, path, nil
+		}
 	}
 	return false, "", nil
 }

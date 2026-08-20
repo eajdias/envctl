@@ -77,13 +77,30 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 	}
 	args = append(args, pkg.ID)
 
-	cmd := exec.CommandContext(ctx, a.aptPath, args...)
+	// Elevated privileges are required when running as a non-root user.
+	// VPS instances (e.g. AWS Ubuntu) typically grant passwordless sudo (sudo -n).
+	var cmd *exec.Cmd
+	if isNonRoot(ctx) {
+		cmd = exec.CommandContext(ctx, "sudo", append([]string{"-n", a.aptPath}, args...)...)
+	} else {
+		cmd = exec.CommandContext(ctx, a.aptPath, args...)
+	}
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("apt-get install %s failed: %s (%w)", pkg.ID, string(out), err)
 	}
 	return nil
+}
+
+// isNonRoot reports whether the current process runs as a non-root user.
+// It uses `id -u` so it is safe on Linux; on other platforms it returns false.
+func isNonRoot(ctx context.Context) bool {
+	out, err := exec.CommandContext(ctx, "id", "-u").Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) != "0"
 }
 
 func (a *aptManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {

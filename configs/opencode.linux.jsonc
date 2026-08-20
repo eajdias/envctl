@@ -1,0 +1,91 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "typescript": {
+      "command": ["typescript-language-server", "--stdio"],
+      "initialization": {
+        "preferences": {
+          "importModuleSpecifierPreference": "relative"
+        }
+      }
+    },
+    "pyright": {
+      "command": ["pyright-langserver", "--stdio"]
+    },
+    "pylsp": {
+      "command": ["pylsp"],
+      "extensions": [".py", ".pyi"]
+    },
+    "gopls": {
+      "command": ["gopls"]
+    },
+    "bash": {
+      "command": ["bash-language-server", "start"]
+    },
+    "sql": {
+      "command": ["sqllens-language-server", "--stdio"],
+      "extensions": [".sql"]
+    },
+    "html": {
+      "command": ["vscode-html-language-server", "--stdio"],
+      "extensions": [".html", ".htm"]
+    },
+    "json": {
+      "command": ["vscode-json-language-server", "--stdio"],
+      "extensions": [".json", ".jsonc"]
+    },
+    "yaml": {
+      "command": ["yaml-language-server", "--stdio"],
+      "extensions": [".yaml", ".yml"]
+    },
+    "css": {
+      "command": ["vscode-css-language-server", "--stdio"],
+      "extensions": [".css", ".scss", ".less"]
+    },
+    "markdown": {
+      "command": ["vscode-markdown-language-server", "--stdio"],
+      "extensions": [".md", ".markdown"]
+    },
+    "dockerfile": {
+      "command": ["docker-langserver", "--stdio"],
+      "extensions": ["Dockerfile", ".dockerfile"]
+    },
+    "rust": {
+      "command": ["rust-analyzer"],
+      "extensions": [".rs"]
+    },
+    "csharp": {
+      "command": ["csharp-ls"],
+      "extensions": [".cs"]
+    },
+    "eslint": {
+      "command": ["vscode-eslint-language-server", "--stdio"],
+      "extensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
+    }
+  },
+  "skills": {
+    "paths": [
+      "~/.config/opencode/skills",
+      "~/.agents/skills"
+    ]
+  },
+  "references": {
+    "playwright": {
+      "path": "~/.config/opencode/skills/playwright-cli",
+      "description": "Browser automation with Playwright Node.js API"
+    }
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-a8ac10ce-988f-4e67-8441-87b472a1832a"
+      },
+      "enabled": true
+    }
+  },
+  "plugin": [
+    "@tarquinen/opencode-dcp@latest"
+  ]
+}

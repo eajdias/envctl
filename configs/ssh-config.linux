@@ -1,0 +1,28 @@
+# ~/.ssh/config - Optimized OpenSSH Client Configuration (Linux)
+# Managed by envctl
+
+# Global Performance & Resiliency Defaults
+Host *
+    # Keepalive to prevent drops on idle VPS connections
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+
+    # TCP keepalive and compression
+    TCPKeepAlive yes
+    Compression yes
+
+    # Security & Agent
+    StrictHostKeyChecking ask
+    ForwardAgent no
+    AddKeysToAgent yes
+
+    # Identity file default lookup
+    IdentityFile ~/.ssh/id_ed25519
+    IdentityFile ~/.ssh/id_rsa
+
+# GitHub SSH Optimization
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/id_ed25519
+    PreferredAuthentications publickey

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -187,5 +188,5 @@ func getUsername() string {
 }
 
 func getOSInfo() string {
-	return fmt.Sprintf("Windows (%s/%s)", os.Getenv("PROCESSOR_ARCHITECTURE"), os.Getenv("OS"))
+	return fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 }

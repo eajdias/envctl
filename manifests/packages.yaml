@@ -8,36 +8,42 @@ packages:
   - id: MSYS2.MSYS2
     name: MSYS2 POSIX Runtime
     type: winget
+    os: windows
     category: system
     check_command: test -d /c/msys64
 
   - id: Git.Git
     name: Git SCM for Windows
     type: winget
+    os: windows
     category: system
     check_command: git --version
 
   - id: GitHub.cli
     name: GitHub CLI
     type: winget
+    os: windows
     category: system
     check_command: gh --version
 
   - id: Microsoft.PowerShell
     name: PowerShell 7 Core
     type: winget
+    os: windows
     category: system
     check_command: pwsh --version
 
   - id: Docker.DockerDesktop
     name: Docker Desktop
     type: winget
+    os: windows
     category: system
     check_command: docker --version
 
   - id: Microsoft.WSL
     name: Windows Subsystem for Linux (WSL2)
     type: winget
+    os: windows
     category: system
     check_command: wsl.exe --status
 
@@ -47,48 +53,56 @@ packages:
   - id: BurntSushi.ripgrep.MSVC
     name: ripgrep (rg)
     type: winget
+    os: windows
     category: cli-tools
     check_command: rg --version
 
   - id: sharkdp.fd
     name: fd (fast directory find)
     type: winget
+    os: windows
     category: cli-tools
     check_command: fd --version
 
   - id: junegunn.fzf
     name: fzf (fuzzy finder)
     type: winget
+    os: windows
     category: cli-tools
     check_command: fzf --version
 
   - id: sharkdp.bat
     name: bat (cat with syntax highlighting)
     type: winget
+    os: windows
     category: cli-tools
     check_command: bat --version
 
   - id: astral-sh.ruff
     name: ruff (fast python linter & formatter)
     type: winget
+    os: windows
     category: cli-tools
     check_command: ruff --version
 
   - id: astral-sh.uv
     name: uv (fast python package & project manager)
     type: winget
+    os: windows
     category: cli-tools
     check_command: uv --version
 
   - id: dandavison.delta
     name: git-delta (syntax-highlighting pager for git)
     type: winget
+    os: windows
     category: cli-tools
     check_command: delta --version
 
   - id: MikeFarah.yq
     name: yq (portable command-line YAML/JSON/XML processor)
     type: winget
+    os: windows
     category: cli-tools
     check_command: yq --version
 
@@ -98,42 +112,49 @@ packages:
   - id: tree
     name: tree directory visualizer
     type: pacman
+    os: windows
     category: msys2
     check_command: tree --version
 
   - id: zip
     name: zip compression utility
     type: pacman
+    os: windows
     category: msys2
     check_command: zip --version
 
   - id: unzip
     name: unzip extraction utility
     type: pacman
+    os: windows
     category: msys2
     check_command: unzip --version
 
   - id: rsync
     name: rsync file transfer
     type: pacman
+    os: windows
     category: msys2
     check_command: rsync --version
 
   - id: jq
     name: jq JSON processor
     type: pacman
+    os: windows
     category: msys2
     check_command: jq --version
 
   - id: openssh
     name: OpenSSH client/tools
     type: pacman
+    os: windows
     category: msys2
     check_command: ssh -V
 
   - id: sshpass
     name: Non-interactive ssh password provider
     type: pacman
+    os: windows
     category: msys2
     check_command: sshpass -V
 
@@ -143,30 +164,35 @@ packages:
   - id: Volta.Volta
     name: Volta JS Toolchain Manager
     type: winget
+    os: windows
     category: runtimes
     check_command: volta --version
 
   - id: GoLang.Go
     name: Go Programming Language SDK
     type: winget
+    os: windows
     category: runtimes
     check_command: go version
 
   - id: Python.Python.3.14
     name: Python 3.14 Runtime
     type: winget
+    os: windows
     category: runtimes
     check_command: python --version
 
   - id: Microsoft.DotNet.SDK.8
     name: .NET 8 SDK
     type: winget
+    os: windows
     category: runtimes
     check_command: dotnet --version
 
   - id: Rustlang.Rustup
     name: Rustup Rust Toolchain
     type: winget
+    os: windows
     category: runtimes
     check_command: rustup --version
 
@@ -176,72 +202,84 @@ packages:
   - id: node@24.19.0
     name: Node.js LTS (via Volta)
     type: volta
+    os: windows
     category: volta
     check_command: node -v
 
   - id: pnpm
     name: pnpm Fast Disk-Efficient Package Manager
     type: volta
+    os: windows
     category: volta
     check_command: pnpm -v
 
   - id: firecrawl-cli
     name: Firecrawl CLI (Web Scraper & Crawler for AI)
     type: volta
+    os: windows
     category: volta
     check_command: firecrawl --version
 
   - id: mcp-ssh-manager
     name: SSH Manager CLI & MCP Server
     type: volta
+    os: windows
     category: volta
     check_command: ssh-manager --version
 
   - id: stylelint
     name: Stylelint CSS/SCSS Linter
     type: volta
+    os: windows
     category: volta
     check_command: stylelint --version
 
   - id: sqllens-language-server
     name: SQL Lens Language Server Protocol
     type: volta
+    os: windows
     category: volta
     check_command: sqllens-language-server --version
 
   - id: typescript-language-server
     name: TypeScript Language Server
     type: volta
+    os: windows
     category: lsp
     check_command: typescript-language-server --version
 
   - id: pyright
     name: Pyright Language Server
     type: volta
+    os: windows
     category: lsp
     check_command: pyright --version
 
   - id: bash-language-server
     name: Bash Language Server
     type: volta
+    os: windows
     category: lsp
     check_command: bash-language-server --version
 
   - id: yaml-language-server
     name: YAML Language Server
     type: volta
+    os: windows
     category: lsp
     check_command: yaml-language-server --version
 
   - id: dockerfile-language-server-nodejs
     name: Dockerfile Language Server
     type: volta
+    os: windows
     category: lsp
     check_command: docker-langserver --version
 
   - id: vscode-langservers-extracted
     name: VSCode Extracted Language Servers (HTML/CSS/JSON/Markdown/ESLint)
     type: volta
+    os: windows
     category: lsp
     check_command: vscode-html-language-server --version
 
@@ -251,48 +289,57 @@ packages:
   - id: Microsoft.VisualStudioCode
     name: Visual Studio Code
     type: winget
+    os: windows
     category: desktop-apps
     check_command: code --version
 
   - id: Microsoft.WindowsTerminal
     name: Windows Terminal
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: JanDeDobbeleer.OhMyPosh
     name: Oh My Posh Prompt Engine
     type: winget
+    os: windows
     category: desktop-apps
     check_command: oh-my-posh --version
 
   - id: Termius.Termius
     name: Termius SSH Client
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: WinSCP.WinSCP
     name: WinSCP SFTP/FTP Client
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: 7zip.7zip
     name: 7-Zip Archiver
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: voidtools.Everything
     name: Everything File Search Engine
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: Brave.Brave.Nightly
     name: Brave Browser Nightly
     type: winget
+    os: windows
     category: desktop-apps
 
   - id: GitHub.GitHubDesktop
     name: GitHub Desktop
     type: winget
+    os: windows
     category: desktop-apps
 
   # ============================================================================
@@ -301,6 +348,7 @@ packages:
   - id: csharp-ls
     name: C# Language Server Protocol
     type: dotnet-tool
+    os: windows
     category: lsp
     check_command: csharp-ls --version
 
@@ -409,3 +457,10 @@ packages:
     type: apt
     os: linux
     category: toolchain
+
+  - id: sshpass
+    name: SSH Password Authentication Utility
+    type: apt
+    os: linux
+    category: toolchain
+    check_command: sshpass -V

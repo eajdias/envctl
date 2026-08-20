@@ -61,6 +61,15 @@ func newRunCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:   "bootstrap",
+		Short: "Provision the Linux toolchain (Volta, Node, OpenCode CLI, gh, delta, yq, uv, ruff, oh-my-posh, fd)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runBootstrapProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "volta",
 		Short: "Provision Volta Node.js toolchains and global ecosystem (pnpm, firecrawl, playwright, etc.)",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -112,28 +121,45 @@ func runAllProvisioning() {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Complete Environment Provisioning")
 
+	isLinux := runtime.GOOS == "linux"
+	total := 6
+	if !isLinux {
+		total = 5
+	}
+	section := func(n int, text string) string {
+		return fmt.Sprintf("%d/%d %s", n, total, text)
+	}
+
 	// 1. Windows 11 Tweaks & Fonts (Windows only)
 	if runtime.GOOS == "windows" {
-		PrintSection("1/5 Provisioning Windows 11 Registry Tweaks, Features & Fonts")
+		PrintSection(section(1, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
 		runWindowsProvisioning()
 	} else {
-		PrintSection("1/5 Skipping Windows Tweaks (Linux/POSIX environment)")
+		PrintSection(section(1, "Skipping Windows Tweaks (Linux/POSIX environment)"))
 	}
 
 	// 2. Packages (Winget / Pacman / APT + Volta + Dotnet + Go + Rustup)
-	PrintSection("2/5 Provisioning System Packages & Toolchains")
+	PrintSection(section(2, "Provisioning System Packages & Toolchains"))
 	runPackagesProvisioning("")
 
-	// 3. Shell, Env & Configs
-	PrintSection("3/5 Provisioning Shell, Environment Variables & Config Files")
+	// 3. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only
+	if isLinux {
+		PrintSection(section(3, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
+		runBootstrapProvisioning()
+	} else {
+		PrintSection(section(3, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
+	}
+
+	// 4. Shell, Env & Configs
+	PrintSection(section(4, "Provisioning Shell, Environment Variables & Config Files"))
 	runShellProvisioning()
 
-	// 4. Skills
-	PrintSection("4/5 Provisioning OpenCode Agent Skills")
+	// 5. Skills
+	PrintSection(section(5, "Provisioning OpenCode Agent Skills"))
 	runSkillsProvisioning()
 
-	// 5. LSPs
-	PrintSection("5/5 Provisioning Language Server Protocols (LSP)")
+	// 6. LSPs
+	PrintSection(section(6, "Provisioning Language Server Protocols (LSP)"))
 	runLSPProvisioning()
 
 	pterm.Println()
@@ -143,6 +169,27 @@ func runAllProvisioning() {
 	)
 
 	PrintSecretGuidance()
+}
+
+func runBootstrapProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Bootstrapping Linux toolchain (Volta, Node, OpenCode CLI, tools)...")
+	ctx := context.Background()
+
+	res, err := appCtx.ProvisionBootstrapUC.Execute(ctx)
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed Linux toolchain bootstrap: %v", err))
+		return
+	}
+
+	for _, d := range res.Diagnostics {
+		if d.Category == entity.DiagOK {
+			pterm.Success.Printf("  • [Bootstrap] %s: %s\n", d.Target, d.Details)
+		} else {
+			pterm.Warning.Printf("  • [Bootstrap] %s: %s\n", d.Target, d.Details)
+		}
+	}
+
+	spinner.Success("Linux toolchain bootstrap complete")
 }
 
 func runPackagesProvisioning(filterType entity.PackageType) {

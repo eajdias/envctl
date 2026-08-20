@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -71,7 +73,14 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	// 2. Git Performance Configurations
 	gitConfigs, err := uc.manifestRepo.LoadGitConfigs()
 	if err == nil && len(gitConfigs) > 0 {
-		diags, _ := uc.gitManager.EnsureGlobalConfigs(ctx, gitConfigs)
+		var applicable []entity.GitConfig
+		for _, gc := range gitConfigs {
+			if gc.OS != "" && gc.OS != runtime.GOOS {
+				continue
+			}
+			applicable = append(applicable, gc)
+		}
+		diags, _ := uc.gitManager.EnsureGlobalConfigs(ctx, applicable)
 		result.GitDiagnostics = diags
 		for _, d := range diags {
 			if uc.logger != nil {
@@ -80,47 +89,58 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
-	// 3. Restricted Directories (SSH Keys, Secrets)
-	restrictedDirs := []string{
-		"~/Documents/SSH-keys",
-		"~/.ssh-manager",
-		"~/.ssh",
-		"~/.config/opencode/skills",
-		"~/projetos/git-privado",
-		"~/projetos/git-publico",
+	// 3. Restricted Directories (SSH Keys, Secrets, OpenCode, Projects)
+	dirs, dirsErr := uc.manifestRepo.LoadDirectories()
+	if dirsErr != nil || len(dirs) == 0 {
+		dirs = []entity.RestrictedDir{
+			{Path: "~/Documents/SSH-keys", StrictACL: true, Description: "Restricted directory for VPS and server SSH private keys"},
+			{Path: "~/.ssh-manager", StrictACL: true, Description: "Restricted directory for SSH Manager state and configs"},
+			{Path: "~/.ssh", StrictACL: true, Description: "Standard user SSH configuration directory"},
+			{Path: "~/.config/opencode/skills", Description: "OpenCode agent skills directory"},
+			{Path: "~/projetos/git-privado", Description: "Directory for private git projects"},
+			{Path: "~/projetos/git-publico", Description: "Directory for public open-source git projects"},
+		}
+		if runtime.GOOS == "windows" {
+			dirs[4].Path = "C:/projetos/git-privado"
+			dirs[5].Path = "C:/projetos/git-publico"
+		}
 	}
 
-	for _, dir := range restrictedDirs {
-		if err := uc.fsManager.EnsureDirectory(dir, 0700); err != nil {
+	for _, dir := range dirs {
+		if dir.OS != "" && dir.OS != runtime.GOOS {
+			continue
+		}
+
+		if err := uc.fsManager.EnsureDirectory(dir.Path, 0700); err != nil {
 			if uc.logger != nil {
-				uc.logger.Error("Failed to ensure directory '%s': %v", dir, err)
+				uc.logger.Error("Failed to ensure directory '%s': %v", dir.Path, err)
 			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "Directory",
-				Target:   dir,
+				Target:   dir.Path,
 				Details:  fmt.Sprintf("Failed to create directory: %v", err),
 			})
 			continue
 		}
 
-		if dir == "~/Documents/SSH-keys" || dir == "~/.ssh-manager" || dir == "~/.ssh" {
-			if err := uc.fsManager.SetStrictWindowsACL(dir); err != nil {
+		if dir.StrictACL {
+			if err := uc.fsManager.SetStrictWindowsACL(dir.Path); err != nil {
 				if uc.logger != nil {
-					uc.logger.Warn("Could not apply strict ACLs on '%s': %v", dir, err)
+					uc.logger.Warn("Could not apply strict ACLs on '%s': %v", dir.Path, err)
 				}
 			} else {
 				if uc.logger != nil {
-					uc.logger.Info("Applied strict ACLs (current user only) to '%s'", dir)
+					uc.logger.Info("Applied strict ACLs (current user only) to '%s'", dir.Path)
 				}
 			}
-			result.RestrictedDirs = append(result.RestrictedDirs, dir)
+			result.RestrictedDirs = append(result.RestrictedDirs, dir.Path)
 		}
 
 		result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "Directory",
-			Target:   dir,
+			Target:   dir.Path,
 			Details:  "Directory verified and permissions secured",
 		})
 	}
@@ -164,8 +184,12 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			continue
 		}
 
-		// Write with atomic backup
-		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, 0644)
+		// Write with atomic backup; sensitive files get strict permissions.
+		perm := os.FileMode(0644)
+		if cf.StrictACL {
+			perm = 0600
+		}
+		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, perm)
 		if writeErr != nil {
 			if uc.logger != nil {
 				uc.logger.Error("Failed to write config file '%s': %v", cf.Destination, writeErr)
@@ -177,6 +201,14 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 				Details:  fmt.Sprintf("Failed to write config: %v", writeErr),
 			})
 		} else {
+			if cf.StrictACL {
+				if err := uc.fsManager.SetStrictWindowsACL(cf.Destination); err != nil {
+					if uc.logger != nil {
+						uc.logger.Warn("Could not apply strict ACLs to '%s': %v", cf.Destination, err)
+					}
+				}
+			}
+
 			detail := "Config written successfully"
 			if backupPath != "" {
 				result.CreatedBackups[cf.Destination] = backupPath
@@ -290,35 +322,92 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			})
 		}
 
-		// Ensure Playwright Chromium browser binaries are installed
-		if uc.logger != nil {
-			uc.logger.Info("Ensuring Playwright Chromium browser binary is installed")
-		}
-		cmdBrowser := exec.CommandContext(ctx, "npx", "playwright", "install", "chromium")
-		cmdBrowser.Dir = userHomeDir
-		outBrowser, errBrowser := cmdBrowser.CombinedOutput()
-		if errBrowser != nil {
-			if uc.logger != nil {
-				uc.logger.Warn("Failed to install Playwright Chromium: %s (%v)", string(outBrowser), errBrowser)
-			}
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "PlaywrightBrowser",
-				Target:   "chromium",
-				Details:  fmt.Sprintf("playwright install chromium warning: %v", errBrowser),
-				FixHint:  "Run 'npx playwright install chromium' in user home directory",
-			})
+		// Ensure Playwright Chromium browser binaries are installed (only if missing).
+		var msPlaywrightDir string
+		if runtime.GOOS == "windows" {
+			msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
 		} else {
+			msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("~/.cache/ms-playwright")
+		}
+		chromiumFound := false
+		if entries, err := os.ReadDir(msPlaywrightDir); err == nil {
+			for _, e := range entries {
+				if strings.HasPrefix(e.Name(), "chromium-") || strings.HasPrefix(e.Name(), "chromium_headless_shell-") {
+					chromiumFound = true
+					break
+				}
+			}
+		}
+		if chromiumFound {
 			if uc.logger != nil {
-				uc.logger.Info("Playwright Chromium browser verified/installed successfully")
-				uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Playwright Chromium browser ready")
+				uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Chromium already installed in "+msPlaywrightDir)
 			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagOK,
 				System:   "PlaywrightBrowser",
 				Target:   "chromium",
-				Details:  "Playwright Chromium browser binary installed and verified",
+				Details:  "Playwright Chromium browser binary already installed",
 			})
+		} else {
+			if uc.logger != nil {
+				uc.logger.Info("Ensuring Playwright Chromium browser binary is installed")
+			}
+			cmdBrowser := exec.CommandContext(ctx, "npx", "playwright", "install", "chromium")
+			cmdBrowser.Dir = userHomeDir
+			outBrowser, errBrowser := cmdBrowser.CombinedOutput()
+			if errBrowser != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Failed to install Playwright Chromium: %s (%v)", string(outBrowser), errBrowser)
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "PlaywrightBrowser",
+					Target:   "chromium",
+					Details:  fmt.Sprintf("playwright install chromium warning: %v", errBrowser),
+					FixHint:  "Run 'npx playwright install chromium' in user home directory",
+				})
+			} else {
+				if uc.logger != nil {
+					uc.logger.Info("Playwright Chromium browser verified/installed successfully")
+					uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Playwright Chromium browser ready")
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "PlaywrightBrowser",
+					Target:   "chromium",
+					Details:  "Playwright Chromium browser binary installed and verified",
+				})
+
+				// On Linux, install the system libraries Chromium needs to run
+				// headless (libnss3, libatk, ...). Best-effort with sudo -n.
+				if runtime.GOOS == "linux" {
+					depsCmd := exec.CommandContext(ctx, "sudo", "-n", "env", "PATH="+os.Getenv("PATH"), "npx", "playwright", "install-deps", "chromium")
+					depsCmd.Dir = userHomeDir
+					outDeps, errDeps := depsCmd.CombinedOutput()
+					if errDeps != nil {
+						if uc.logger != nil {
+							uc.logger.Warn("Failed to install Playwright Chromium system deps (best-effort): %s (%v)", string(outDeps), errDeps)
+						}
+						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+							Category: entity.DiagWarning,
+							System:   "PlaywrightBrowser",
+							Target:   "chromium system deps",
+							Details:  fmt.Sprintf("playwright install-deps warning (best-effort): %v", errDeps),
+							FixHint:  "Run 'sudo npx playwright install-deps chromium' in user home directory",
+						})
+					} else {
+						if uc.logger != nil {
+							uc.logger.Info("Playwright Chromium system dependencies installed")
+						}
+						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+							Category: entity.DiagOK,
+							System:   "PlaywrightBrowser",
+							Target:   "chromium system deps",
+							Details:  "Playwright Chromium system dependencies installed",
+						})
+					}
+				}
+			}
 		}
 	}
 

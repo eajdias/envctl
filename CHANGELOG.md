@@ -7,6 +7,38 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.16] - 2026-08-20
+
+### 🐛 Correções de Bugs (Auditoria Profunda do Codebase)
+- **Fixed**: `AGENTS.md` global passou a ser implantado em `~/.config/opencode/AGENTS.md` (antes `~/AGENTS.md`, caminho que o opencode nunca lê); regra **Zero Tolerância** promovida para o global + checagem explícita no `doctor`.
+- **Fixed**: Seção `directories:` do `shell.yaml` agora é funcional (`LoadDirectories`) — pastas `~/.ssh/sockets`, `~/.local/bin`, `~/.agents/skills`, `~/.poshthemes` passaram a ser provisionadas; paths `C:/projetos/*` corrigidos.
+- **Fixed**: Filtros `os:` em `shell.yaml` (env vars/config files/dirs), `git.yaml` (`core.fscache`/`core.longpaths` → windows), `lsp.yaml` (powershell/gopls/rust/csharp → windows) e `packages.yaml` (~35 pacotes winget/pacman/volta/dotnet-tool → windows) — elimina falsos warnings no Linux.
+- **Fixed**: `doctor` git worktree não gera mais falso warning fora de repositório (`rev-parse --is-inside-work-tree`).
+- **Fixed**: Variáveis de ambiente agora persistem no Linux (`~/.profile`/`~/.bashrc`) + escape de aspas em comandos PowerShell.
+- **Fixed**: `GoManager.IsInstalled` usa `exec.LookPath` no POSIX (não `where.exe`); `NpmManager.ListInstalled` lista pacotes reais; `VoltaManager.IsInstalled` match exato por token.
+- **Fixed**: Snapshot preserva metadados — `os:` do `git.yaml`, e merge das skills (target_dir/os/enabled/files/description); não exporta `~/.ssh/config`; guarda "nothing to commit".
+- **Fixed**: Panic por `nil` em `tweaks_manager` (`cmd.ProcessState.ExitCode()`); backup/perms honram `StrictACL` (0600 + ACL); `%VAR%` indefinida mantém literal; `file_logger` reporta `GOOS/GOARCH` reais.
+
+### 🧱 Replicação Cross-Platform nas VPS Ubuntu (validação em produção)
+- **Added**: Novo `ProvisionBootstrapUseCase` (`envctl run bootstrap`) — instala Volta + Node 24 LTS + pnpm, OpenCode CLI (npm com fallback curl), `gh`, `delta`, `yq`, `uv`, `ruff`, `oh-my-posh`, `fd` (symlink `fdfind`), `pylsp` (via uv, contornando PEP 668), `firecrawl-cli` e `stylelint`; integração do Volta no PATH de shells de login.
+- **Added**: Configs Linux dedicados — `configs/opencode.linux.jsonc` (sem shell/MCPs Windows), `configs/AGENTS.linux.md`, `configs/ssh-config.linux`; entradas condicionais por OS no `shell.yaml`.
+- **Added**: `apt_manager` com `sudo -n` quando não-root; `playwright install-deps chromium` no Linux; seção 12 do `doctor` (toolchain Linux) + resolução de PATH de toolchain nos LSPs.
+- **Changed**: `packages.yaml` ganhou `sshpass` (apt) e `user-package.json`/`.skill-lock.json` normalizados.
+- **Validado**: ambiente opencode global replicado e verificado na VPS `<SERVER>` (doctor 124/124 no Linux).
+
+### ⚙️ DCP — Limites Adaptativos
+- **Changed**: `dcp.jsonc` usa limites percentuais `"90%"/"80%"` da janela do modelo (adaptativo a modelos de contexto grande, ex. 1M) em vez de valores fixos.
+
+### 🧠 Nova Skill `agent-memory` (Memória de Lições & Padrões)
+- **Added**: Skill `agent-memory` com fluxo LOAD → ACT → SAVE → REFLECT — o agente lê a memória antes de cada tarefa e grava lições/patterns ao aprender ou ser corrigido (estilo "Taste" do Command Code).
+- **Added**: Arquivos de memória globais (`~/.config/opencode/memory/{lessons,patterns}.md`) e por projeto (`.opencode/memory/*.md`, versionáveis em PR) + regra obrigatória de leitura no `AGENTS.md` (Windows/Linux).
+
+### 🔌 Skills & Integrações
+- **Added**: Regra de ativação do MCP `ssh-manager` na skill `ssh-vps` — o agente pede ao usuário ativar via `/mcp` ou `Ctrl+P` (hot-reload) quando perceber que é ideal.
+- **Fixed**: Skill `vps-agent-dispatch` usa o pacote npm correto `opencode-ai` (era `@opencode-ai/cli`).
+
+---
+
 ## [v1.0.13] - 2026-08-18
 
 ### 📚 Documentação & Guias Multi-OS

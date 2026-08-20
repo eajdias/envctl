@@ -68,8 +68,9 @@ func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
 }
 
 type shellManifest struct {
-	EnvVars     []entity.EnvironmentVar `yaml:"environment_variables"`
-	ConfigFiles []entity.ConfigFile     `yaml:"config_files"`
+	EnvVars      []entity.EnvironmentVar `yaml:"environment_variables"`
+	ConfigFiles  []entity.ConfigFile     `yaml:"config_files"`
+	Directories  []entity.RestrictedDir  `yaml:"directories"`
 }
 
 func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
@@ -94,6 +95,18 @@ func (m *manifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
 		return nil, fmt.Errorf("failed to parse shell.yaml env_vars: %w", err)
 	}
 	return manifest.EnvVars, nil
+}
+
+func (m *manifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
+	data, err := m.readManifestFile("shell.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var manifest shellManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse shell.yaml directories: %w", err)
+	}
+	return manifest.Directories, nil
 }
 
 type skillsManifest struct {

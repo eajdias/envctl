@@ -19,12 +19,18 @@
 - **Git:** Semantic branches (`feat/...`, `fix/...`), conventional commits, PRs via `gh pr create`.
 - **Testing:** Evidence before claims — test before declaring complete.
 - **Security:** Strict ACLs on `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`. Never hardcode secrets.
+- **Zero Tolerância:** qualquer WARNING (lint, compilador, ts(6xxx), etc.) ou ERROR encontrado deve ser corrigido imediatamente, seja pré-existente ou novo. Nunca ignorar ou deixar para depois — dívida técnica não é acumulada. Três reforços obrigatórios:
+  1. **Falhas pré-existentes NÃO são desculpa**: qualquer warning/erro/falha encontrada — nova ou pré-existente, no código ou em testes — deve ser corrigida **no mesmo turno**, conforme a regra de Zero Tolerância acima. Proibido "reportar e seguir" ou "documentar para depois".
+  2. **Evidência antes de afirmação**: exibir as saídas reais de lint/type-check/testes na resposta final; se o comando não foi rodado, a verificação não conta.
+  3. **Se algo não pôde ser corrigido**: a tarefa permanece **não concluída** — reportar explicitamente o bloqueio e o motivo, sem declarar sucesso parcial.
 
 ## OpenCode Configuration
 
 - **Global config:** `~\.config\opencode\opencode.jsonc`
+- **Global rules:** `~\.config\opencode\AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
 - **Plugin:** `@tarquinen/opencode-dcp@latest` (DCP context compression; config `~\.config\opencode\dcp.jsonc`; `compress` tool in experimental.primary_tools)
 - **Skills paths:** `~\.config\opencode\skills`, `~\.agents\skills`
+- **Agent Memory (OBRIGATÓRIO):** antes de iniciar qualquer tarefa, leia `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` (+ `.opencode\memory\*.md` do projeto, se existir). NUNCA repita lições registradas; grave novas lições/patterns ao aprender ou ser corrigido (skill `agent-memory`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
 
 ## Skill Locations

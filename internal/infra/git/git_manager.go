@@ -83,6 +83,14 @@ func (g *gitManager) CreateSnapshotBranchAndPR(ctx context.Context, branchName, 
 		return "", fmt.Errorf("failed to stage files: %s (%w)", string(out), err)
 	}
 
+	// Nothing to commit? Undo the branch and report no changes.
+	cmdDiff := exec.CommandContext(ctx, "git", "diff", "--cached", "--quiet")
+	if err := cmdDiff.Run(); err == nil {
+		_ = exec.CommandContext(ctx, "git", "checkout", "-").Run()
+		_ = exec.CommandContext(ctx, "git", "branch", "-D", branchName).Run()
+		return "", nil
+	}
+
 	// Commit
 	cmdCommit := exec.CommandContext(ctx, "git", "commit", "-m", title)
 	if out, err := cmdCommit.CombinedOutput(); err != nil {

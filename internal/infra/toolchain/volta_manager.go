@@ -43,12 +43,15 @@ func (v *VoltaManager) IsInstalled(ctx context.Context, pkg entity.Package) (boo
 		return false, "", err
 	}
 
-	cleanPkgID := strings.Split(pkg.ID, "@")[0] // strip version if specified (e.g. node@24 -> node)
+	cleanPkgID := strings.ToLower(strings.Split(pkg.ID, "@")[0]) // strip version if specified (e.g. node@24 -> node)
 	for _, line := range strings.Split(string(out), "\n") {
 		trimmed := strings.TrimSpace(line)
-		if strings.Contains(strings.ToLower(trimmed), strings.ToLower(cleanPkgID)) ||
-			strings.Contains(strings.ToLower(trimmed), strings.ToLower(pkg.ID)) {
-			return true, trimmed, nil
+		for _, token := range strings.Fields(trimmed) {
+			t := strings.ToLower(token)
+			// Match the exact package name (or a version-qualified token like "node@24")
+			if t == cleanPkgID || strings.HasPrefix(t, cleanPkgID+"@") {
+				return true, trimmed, nil
+			}
 		}
 	}
 
