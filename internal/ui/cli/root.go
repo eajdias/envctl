@@ -62,9 +62,15 @@ var (
 	}
 
 	appCtx *AppContext
+	// appVersion is injected from cmd/envctl via InitApp; it is set at build
+	// time through -ldflags "-X main.Version=$VERSION" (Makefile/release.yml).
+	appVersion = "dev"
 )
 
-func InitApp(embeddedFS fs.FS) {
+func InitApp(embeddedFS fs.FS, version string) {
+	if version != "" {
+		appVersion = version
+	}
 	rootCmd.PersistentFlags().StringVar(&logDirFlag, "log-dir", "", "Custom directory for execution logs (defaults to ~/.envctl/logs)")
 
 	fsManager := filesystem.NewFileSystemManager()
@@ -133,7 +139,7 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print envctl version",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
-			PrintInfo("envctl v1.0.0 (Windows 11 PRO & Ubuntu Linux / OpenCode Ecosystem)")
+			PrintInfo(fmt.Sprintf("envctl %s (Windows 11 PRO & Ubuntu Linux / OpenCode Ecosystem)", appVersion))
 		},
 	}
 }

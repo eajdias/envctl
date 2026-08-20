@@ -7,6 +7,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.17] - 2026-08-20
+
+### 🐛 Correção de Bug
+- **Fixed**: Comando `version` exibia versão hardcoded `v1.0.0` (em `internal/ui/cli/root.go`). O `-ldflags "-X main.Version=$VERSION"` apontava para uma variável que não existia, fazendo todos os releases reportarem `v1.0.0`.
+- **Changed**: `main.Version` agora é uma variável injetável em `cmd/envctl/main.go` (default `dev`) e propagada ao CLI via `InitApp(embeddedFS, version)`; o comando `version` imprime a versão real do build. Validado: `-X main.Version=v1.0.16` → `envctl v1.0.16`; build sem ldflags → `envctl dev`.
+
+---
+
 ## [v1.0.16] - 2026-08-20
 
 ### 🐛 Correções de Bugs (Auditoria Profunda do Codebase)
