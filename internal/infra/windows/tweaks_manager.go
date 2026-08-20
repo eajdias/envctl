@@ -105,7 +105,11 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, cmd.ProcessState.ExitCode(), string(out), err)
+			exitCode := 0
+			if cmd.ProcessState != nil {
+				exitCode = cmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to install font %s: %s (%w)", tweak.Name, string(out), err)
@@ -117,7 +121,11 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, cmd.ProcessState.ExitCode(), string(out), err)
+			exitCode := 0
+			if cmd.ProcessState != nil {
+				exitCode = cmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to enable feature %s: %s (%w)", tweak.Name, string(out), err)
@@ -142,7 +150,11 @@ Set-ItemProperty -Path $path -Name $name -Value $val -Type $type -Force | Out-Nu
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, cmd.ProcessState.ExitCode(), string(out), err)
+			exitCode := 0
+			if cmd.ProcessState != nil {
+				exitCode = cmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to set registry %s\\%s: %s (%w)", tweak.Path, tweak.Name, string(out), err)

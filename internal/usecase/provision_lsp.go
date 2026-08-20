@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"os/exec"
+	"runtime"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -50,9 +50,12 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 	var results []LSPResult
 
 	for _, lsp := range lsps {
+		if lsp.OS != "" && lsp.OS != runtime.GOOS {
+			continue
+		}
 		// Check if binary is already in PATH
 		if lsp.CheckBinary != "" {
-			if _, lookErr := exec.LookPath(lsp.CheckBinary); lookErr == nil {
+			if toolAvailable(ctx, lsp.CheckBinary) {
 				if uc.logger != nil {
 					uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("binary '%s' found in PATH", lsp.CheckBinary))
 				}

@@ -15,12 +15,22 @@ O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e W
 - Chaves SSH: `C:\Users\eajdias-note\Documents\SSH-keys\<VPS>\<VPS>.pem` (+ .txt com dados de conexão).
 
 ## MCP `ssh-manager` — DESATIVADO por padrão
-O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, seção `mcp.ssh-manager`) mas com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
+O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, seção `mcp.ssh-manager`) com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
 
-**Regra de ativação — o AGENT NUNCA edita o config por conta própria:**
-- O MCP é ativado SOMENTE pelo usuário, sob demanda.
-- Quando o agente precisar das ferramentas `ssh_*`, ele deve PARAR e PEDIR ao usuário para ativar o MCP, explicando o motivo.
-- Enquanto o MCP estiver desativado, use a CLI (Opção A) — funciona sem o MCP.
+**Regra — o AGENT NUNCA edita o config por conta própria.**
+
+**Quando PEDIR ativação:** se você PERCEBER que a tarefa ficaria melhor/mais segura com as ferramentas MCP, PARE e PEÇA ao usuário para ativar o MCP, explicando o motivo. Cenários em que é ideal:
+- Operações em **múltiplos VPS ao mesmo tempo** (`ssh_group_execute`)
+- **Health check / status consolidado** de vários servidores (`ssh_health_check`, `ssh_service_status`)
+- **DB ops** (`ssh_db_dump/import/query`), **túnel SSH** (`ssh_tunnel_create`), **backups/sessões**
+- Upload/download/rsync estruturado (`ssh_upload/download/sync`) e tarefas repetitivas longas
+
+**Como pedir (mensagem ao usuário):** explique o motivo e peça para ativar o MCP:
+1. No opencode, use o comando `/mcp` (ou `Ctrl+P` → busque "mcp")
+2. Faça o toggle para **ativar** o `ssh-manager` — é hot-reload, não precisa reiniciar
+3. Avise quando estiver ativo para eu prosseguir com as ferramentas `ssh_*`
+
+**Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
 
 ## Servidores registrados
 Config: `C:\Users\eajdias-note\.ssh-manager\.env` (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo).
@@ -28,6 +38,7 @@ Config: `C:\Users\eajdias-note\.ssh-manager\.env` (formato dotenv; chaves `SSH_S
 | Nome | Host | Usuário | OS | Chave | Observação |
 |---|---|---|---|---|---|
 | zscanintranet | 3.132.24.204 | ubuntu | Ubuntu 20.04 (AWS) | Documents\SSH-keys\ZscanIntranet\ZscanIntranet.pem | Intranet da Zscan (legado) |
+| homologacaochatbot | 18.218.175.163 | ubuntu | Ubuntu (AWS) | Documents\SSH-keys\Homologacao-Chatbot\Homologacao-chatbot.pem | Homologacao Chatbot (AWS) |
 
 Para registrar novo VPS: siga o padrão (pasta em `Documents\SSH-keys\<VPS>\` + entrada no `.env` com caminho em forward-slash `C:/Users/...` e `PLATFORM=windows` para alvos Windows) e atualize esta tabela.
 
@@ -42,7 +53,7 @@ ssh-manager exec zscanintranet "systemctl status nginx"
 ```
 Nota: sintaxe é `ssh-manager exec <servidor> <comando>` (não existe 'exec run').
 
-### Opção B — MCP (após habilitar + restart)
+### Opção B — MCP (após habilitar via `/mcp` ou `Ctrl+P`, hot-reload)
 Ferramentas principais: `ssh_list_servers`, `ssh_execute`, `ssh_upload`, `ssh_download`, `ssh_sync`, `ssh_health_check`, `ssh_service_status`, `ssh_process_manager`, `ssh_execute_sudo`, `ssh_group_execute`, `ssh_tunnel_create`, `ssh_db_dump/import/list/query`, backups e sessões.
 
 ### Opção C — ssh direto / rsync (fallback)

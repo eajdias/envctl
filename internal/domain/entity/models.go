@@ -108,6 +108,15 @@ type WindowsTweak struct {
 type GitConfig struct {
 	Key   string `yaml:"key"`
 	Value string `yaml:"value"`
+	OS    string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+}
+
+// RestrictedDir represents a directory to be created with optional strict permissions.
+type RestrictedDir struct {
+	Path        string `yaml:"path"`
+	StrictACL   bool   `yaml:"strict_acl"`
+	Description string `yaml:"description"`
+	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 }
 
 // DiagnosticStatus represents health check status.

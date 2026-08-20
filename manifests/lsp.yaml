@@ -37,6 +37,7 @@ lsps:
     install_type: go
     install_target: "golang.org/x/tools/gopls@latest"
     check_binary: "gopls"
+    os: windows
 
   - id: bash
     language: bash
@@ -118,6 +119,7 @@ lsps:
     install_type: winget
     install_target: "Microsoft.PowerShell"
     check_binary: "pwsh"
+    os: windows
 
   - id: rust
     language: rust
@@ -127,6 +129,7 @@ lsps:
     install_type: rustup
     install_target: "rust-analyzer"
     check_binary: "rust-analyzer"
+    os: windows
 
   - id: csharp
     language: csharp
@@ -136,6 +139,7 @@ lsps:
     install_type: dotnet-tool
     install_target: "csharp-ls"
     check_binary: "csharp-ls"
+    os: windows
 
   - id: eslint
     language: javascript

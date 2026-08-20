@@ -108,6 +108,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 2. Audit Git Global Configurations
 	gitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
 	for _, gc := range gitConfigs {
+		if gc.OS != "" && gc.OS != runtime.GOOS {
+			continue
+		}
 		val, err := uc.gitManager.GetGlobalConfig(ctx, gc.Key)
 		if err != nil || val != gc.Value {
 			addDiag(entity.Diagnostic{
@@ -151,7 +154,26 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 4. Audit Packages
+	// 4. Audit OpenCode Global Rules (AGENTS.md)
+	globalAgentsPath := filepath.Join("~/.config/opencode/AGENTS.md")
+	if !uc.fsManager.Exists(globalAgentsPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "OpenCode",
+			Target:   "AGENTS.md (global rules)",
+			Details:  fmt.Sprintf("Global rules file missing (%s) - opencode loads rules from this path, not ~/AGENTS.md", globalAgentsPath),
+			FixHint:  "run 'envctl run shell'",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "OpenCode",
+			Target:   "AGENTS.md (global rules)",
+			Details:  "Global rules present at ~/.config/opencode/AGENTS.md",
+		})
+	}
+
+	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
 		if pkg.OS != "" && pkg.OS != runtime.GOOS {
@@ -188,7 +210,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 5. Audit Skills
+	// 6. Audit Skills
 	skills, _ := uc.manifestRepo.LoadSkills()
 	for _, s := range skills {
 		targetDir := s.TargetDir
@@ -215,14 +237,14 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 6. Audit LSPs
+	// 7. Audit LSPs
 	lsps, _ := uc.manifestRepo.LoadLSPs()
 	for _, lsp := range lsps {
 		if lsp.OS != "" && lsp.OS != runtime.GOOS {
 			continue
 		}
 		if lsp.CheckBinary != "" {
-			if _, lookErr := exec.LookPath(lsp.CheckBinary); lookErr != nil {
+			if !toolAvailable(ctx, lsp.CheckBinary) {
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagWarning,
 					System:   "LSP",
@@ -241,7 +263,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 7. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
+	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
 	if runtime.GOOS == "windows" && uc.tweaksManager != nil {
 		tweaks, _ := uc.manifestRepo.LoadWindowsTweaks()
 		for _, tw := range tweaks {
@@ -269,7 +291,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 8. Audit Playwright Node API & Chromium Browser
+	// 9. Audit Playwright Node API & Chromium Browser
 	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 	playwrightModule := filepath.Join(userHomeDir, "node_modules", "playwright")
 	if !uc.fsManager.Exists(playwrightModule) {
@@ -322,7 +344,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 9. Audit Custom CLI Scripts (~/.local/bin)
+	// 10. Audit Custom CLI Scripts (~/.local/bin)
 	customScripts := []string{"pw-screenshot", "pw-eval"}
 	for _, cs := range customScripts {
 		scriptPath := filepath.Join(userHomeDir, ".local", "bin", cs)
@@ -344,8 +366,18 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 10. Audit Git Worktree Support
-	if gitOut, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
+	// 11. Audit Git Worktree Support
+	// `git worktree list` exits 128 outside a git repository, which is expected
+	// and not a fault of the git installation. Only run the command from inside a repo.
+	inRepo := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree")
+	if err := inRepo.Run(); err != nil {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Git",
+			Target:   "git worktree",
+			Details:  "git worktree supported (command not run: current directory is not inside a git repository)",
+		})
+	} else if _, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "Git",
@@ -354,13 +386,58 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			FixHint:  "Ensure git is installed and updated",
 		})
 	} else {
-		_ = gitOut
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "Git",
 			Target:   "git worktree",
 			Details:  "Worktree command supported and active",
 		})
+	}
+
+	// 12. Audit Linux Toolchain Bootstrap (Linux only)
+	if runtime.GOOS == "linux" {
+		env := linuxToolchainEnv(userHomeDir)
+		bootstrapTools := []struct {
+			name string
+			desc string
+		}{
+			{"volta", "Volta JS toolchain manager"},
+			{"node", "Node.js (via Volta)"},
+			{"opencode", "OpenCode CLI"},
+			{"gh", "GitHub CLI"},
+			{"delta", "git-delta pager"},
+			{"yq", "yq YAML/JSON processor"},
+			{"uv", "uv Python package manager"},
+			{"ruff", "ruff linter (via uv)"},
+			{"oh-my-posh", "Oh-My-Posh prompt engine"},
+			{"fd", "fd (fdfind symlink)"},
+			{"pylsp", "python-lsp-server (via uv)"},
+			{"firecrawl", "Firecrawl CLI (via Volta)"},
+			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
+		}
+		for _, t := range bootstrapTools {
+			found := func() bool {
+				c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+t.name+" >/dev/null 2>&1")
+				c.Env = env
+				return c.Run() == nil
+			}()
+			if found {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "LinuxBootstrap",
+					Target:   t.desc,
+					Details:  "Tool available on PATH (" + t.name + ")",
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "LinuxBootstrap",
+					Target:   t.desc,
+					Details:  "Tool not found on PATH (" + t.name + ")",
+					FixHint:  "run 'envctl run bootstrap'",
+				})
+			}
+		}
 	}
 
 	return report, nil

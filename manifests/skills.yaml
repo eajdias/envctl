@@ -1,4 +1,9 @@
 skills:
+    - name: agent-memory
+      description: OpenCode agent skill agent-memory
+      source: configs/skills/agent-memory
+      target_dir: ""
+      enabled: true
     - name: api-contract-design
       description: OpenCode agent skill api-contract-design
       source: configs/skills/api-contract-design

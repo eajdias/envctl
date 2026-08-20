@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -49,6 +51,13 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context, createPR bool) (*Sna
 	// 1. Sync Config files from system to configs/
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
+		if cf.OS != "" && cf.OS != runtime.GOOS {
+			continue
+		}
+		// Never reverse-sync sensitive local files (e.g. ~/.ssh/config) into the repo.
+		if strings.Contains(strings.ToLower(filepath.ToSlash(cf.Destination)), ".ssh/") {
+			continue
+		}
 		if uc.fsManager.Exists(cf.Destination) {
 			data, err := uc.fsManager.ReadFile(cf.Destination)
 			if err == nil {
@@ -85,9 +94,39 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context, createPR bool) (*Sna
 			}
 		}
 
-		if len(discoveredSkills) > 0 {
+		existingSkills, _ := uc.manifestRepo.LoadSkills()
+		existingByName := map[string]entity.Skill{}
+		for _, s := range existingSkills {
+			existingByName[s.Name] = s
+		}
+		var merged []entity.Skill
+		seen := map[string]bool{}
+		for _, disc := range discoveredSkills {
+			seen[disc.Name] = true
+			if ex, ok := existingByName[disc.Name]; ok {
+				// Preserve curated metadata (description, source, target_dir, enabled, files).
+				merged = append(merged, entity.Skill{
+					Name:        ex.Name,
+					Description: ex.Description,
+					Source:      ex.Source,
+					TargetDir:   ex.TargetDir,
+					Enabled:     ex.Enabled,
+					Files:       ex.Files,
+				})
+				continue
+			}
+			merged = append(merged, disc)
+		}
+		// Keep curated entries that are no longer present on disk.
+		for _, ex := range existingSkills {
+			if !seen[ex.Name] {
+				merged = append(merged, ex)
+			}
+		}
+
+		if len(merged) > 0 {
 			result.DiscoveredSkills = len(discoveredSkills)
-			_ = uc.manifestRepo.SaveSkills(discoveredSkills)
+			_ = uc.manifestRepo.SaveSkills(merged)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/skills.yaml")
 			if uc.logger != nil {
 				uc.logger.Info("Snapshot discovered and cataloged %d agent skills", len(discoveredSkills))
@@ -101,13 +140,25 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context, createPR bool) (*Sna
 		"init.defaultBranch", "pull.rebase", "core.pager", "interactive.diffFilter",
 		"delta.navigate", "delta.light", "delta.side-by-side", "delta.line-numbers",
 	}
+	// Preserve the OS constraint from the existing manifest so it is not lost on snapshot.
+	existingGitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
+	osByKey := map[string]string{}
+	for _, gc := range existingGitConfigs {
+		osByKey[gc.Key] = gc.OS
+	}
+	knownWindowsOnly := map[string]bool{"core.fscache": true, "core.longpaths": true}
 	var currentGitConfigs []entity.GitConfig
 	for _, key := range gitKeys {
 		val, err := uc.gitManager.GetGlobalConfig(ctx, key)
 		if err == nil && val != "" {
+			osVal := osByKey[key]
+			if osVal == "" && knownWindowsOnly[key] {
+				osVal = "windows"
+			}
 			currentGitConfigs = append(currentGitConfigs, entity.GitConfig{
 				Key:   key,
 				Value: val,
+				OS:    osVal,
 			})
 		}
 	}
@@ -136,6 +187,12 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context, createPR bool) (*Sna
 				uc.logger.Error("Failed to create snapshot PR: %v", err)
 			}
 			return result, fmt.Errorf("snapshot completed locally, but PR creation failed: %w", err)
+		}
+		if prURL == "" {
+			if uc.logger != nil {
+				uc.logger.Info("No changes detected for snapshot; branch reverted and PR creation skipped")
+			}
+			return result, nil
 		}
 		result.PRUrl = prURL
 		result.BranchName = branchName

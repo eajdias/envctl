@@ -48,20 +48,33 @@ func (f *fsManager) ExpandUserPath(path string) (string, error) {
 			normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
 		}
 
-		// Expand Windows %VAR% syntax (e.g. %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%)
+		// Expand Windows %VAR% syntax (e.g. %LOCALAPPDATA%, %APPDATA%, %USERPROFILE%).
+		// Undefined variables are kept literal so they are never silently dropped.
+		var sb strings.Builder
+		cursor := 0
 		for {
-			start := strings.Index(normalized, "%")
+			start := strings.Index(normalized[cursor:], "%")
 			if start == -1 {
+				sb.WriteString(normalized[cursor:])
 				break
 			}
-			end := strings.Index(normalized[start+1:], "%")
-			if end == -1 {
+			start += cursor
+			endRel := strings.Index(normalized[start+1:], "%")
+			if endRel == -1 {
+				sb.WriteString(normalized[cursor:])
 				break
 			}
-			varName := normalized[start+1 : start+1+end]
-			val := os.Getenv(varName)
-			normalized = strings.Replace(normalized, "%"+varName+"%", val, 1)
+			end := start + 1 + endRel
+			varName := normalized[start+1 : end]
+			sb.WriteString(normalized[cursor:start])
+			if val := os.Getenv(varName); val != "" {
+				sb.WriteString(val)
+			} else {
+				sb.WriteString(normalized[start : end+1])
+			}
+			cursor = end + 1
 		}
+		normalized = sb.String()
 	} else {
 		if strings.HasPrefix(normalized, "~/") || normalized == "~" {
 			normalized = filepath.Join(userHome, strings.TrimPrefix(normalized, "~"))
@@ -124,10 +137,10 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 				return "", nil
 			}
 
-			// Content changed: create timestamped backup
+			// Content changed: create timestamped backup (same permission as target file)
 			timestamp := time.Now().Format("20060102-150405")
 			backupPath = fmt.Sprintf("%s.bak.%s", expanded, timestamp)
-			if err := os.WriteFile(backupPath, existingData, 0644); err != nil {
+			if err := os.WriteFile(backupPath, existingData, perm); err != nil {
 				return "", fmt.Errorf("failed to create backup file %s: %w", backupPath, err)
 			}
 		}

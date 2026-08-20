@@ -1,5 +1,5 @@
 {
-  "name": "eajdias-note",
+  "name": "envctl-user-root",
   "version": "1.0.0",
   "description": "User root environment for Playwright API and agent automations",
   "main": "index.js",

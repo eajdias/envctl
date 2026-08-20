@@ -1,10 +1,12 @@
 configs:
     - key: core.fscache
       value: "true"
+      os: windows
     - key: core.preloadindex
       value: "true"
     - key: core.longpaths
       value: "true"
+      os: windows
     - key: core.autocrlf
       value: input
     - key: init.defaultBranch

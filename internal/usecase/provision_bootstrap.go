@@ -1,0 +1,336 @@
+package usecase
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
+)
+
+// ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
+// the global OpenCode environment on Ubuntu servers: Volta + Node, the OpenCode
+// CLI and the user-local CLI tools (gh, delta, yq, uv, ruff, oh-my-posh, fd).
+// It is a no-op on Windows, where winget/volta packages cover the toolchain.
+type ProvisionBootstrapUseCase struct {
+	fsManager repository.FileSystemManager
+	logger    repository.Logger
+}
+
+// BootstrapResult holds the diagnostics produced during bootstrap provisioning.
+type BootstrapResult struct {
+	Diagnostics []entity.Diagnostic
+}
+
+// NewProvisionBootstrapUseCase builds the Linux toolchain bootstrap use case.
+func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, logger repository.Logger) *ProvisionBootstrapUseCase {
+	return &ProvisionBootstrapUseCase{fsManager: fsManager, logger: logger}
+}
+
+// userHome expands ~ to the current user's home directory.
+func (uc *ProvisionBootstrapUseCase) userHome() string {
+	home, _ := uc.fsManager.ExpandUserPath("~")
+	return home
+}
+
+// shellEnv returns an environment that makes Volta shims (~/.volta/bin) and
+// user-local binaries (~/.local/bin) available on PATH, without mutating the
+// process environment.
+func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
+	return linuxToolchainEnv(uc.userHome())
+}
+
+// linuxToolchainEnv builds an environment that resolves Volta shims and
+// user-local binaries, shared by the bootstrap and doctor use cases.
+func linuxToolchainEnv(home string) []string {
+	localBin := filepath.Join(home, ".local", "bin")
+	voltaBin := filepath.Join(home, ".volta", "bin")
+	path := strings.Join([]string{localBin, voltaBin, os.Getenv("PATH")}, string(os.PathListSeparator))
+	env := []string{
+		"PATH=" + path,
+		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
+	}
+	for _, kv := range os.Environ() {
+		key := kv[:strings.IndexByte(kv, '=')]
+		if key == "PATH" || key == "VOLTA_HOME" {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
+}
+
+// toolAvailable reports whether a binary resolves on the platform PATH. On
+// Linux it additionally resolves Volta shims (~/.volta/bin) and user-local
+// binaries (~/.local/bin), which are not part of the process PATH.
+func toolAvailable(ctx context.Context, name string) bool {
+	if runtime.GOOS == "linux" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+name+" >/dev/null 2>&1")
+			c.Env = linuxToolchainEnv(home)
+			return c.Run() == nil
+		}
+	}
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+// ensureProcessToolchainPath mutates the process environment so that Volta
+// shims and user-local binaries are resolvable by subsequent provisioning
+// steps running in the same process (e.g. shell npm install and LSP installs).
+func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
+	home := uc.userHome()
+	if home == "" {
+		return
+	}
+	localBin := filepath.Join(home, ".local", "bin")
+	voltaBin := filepath.Join(home, ".volta", "bin")
+	cur := os.Getenv("PATH")
+	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
+		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cur}, string(os.PathListSeparator)))
+	}
+	if os.Getenv("VOLTA_HOME") == "" {
+		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
+	}
+}
+
+// runShell executes a bash script with the Volta-aware environment.
+func (uc *ProvisionBootstrapUseCase) runShell(ctx context.Context, script string) (string, error) {
+	cmd := exec.CommandContext(ctx, "bash", "-lc", script)
+	cmd.Env = uc.shellEnv()
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+// hasTool reports whether a binary is resolvable on the Volta-aware PATH.
+func (uc *ProvisionBootstrapUseCase) hasTool(ctx context.Context, name string) bool {
+	_, err := uc.runShell(ctx, "command -v "+name+" >/dev/null 2>&1")
+	return err == nil
+}
+
+// step installs a tool when missing, or reports it as already available.
+func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *BootstrapResult, name, target, installScript string) {
+	if uc.hasTool(ctx, name) {
+		uc.logger.LogIdempotency("LinuxBootstrap", target, true, "already installed")
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
+			Details: "Already installed and available on PATH",
+		})
+		return
+	}
+
+	uc.logger.Info("LinuxBootstrap: installing %s (%s)", name, target)
+	out, err := uc.runShell(ctx, installScript)
+	if err != nil {
+		msg := fmt.Sprintf("Installation failed: %v", err)
+		if out != "" {
+			msg += ": " + out
+		}
+		uc.logger.Error("LinuxBootstrap: failed to install %s: %s", target, msg)
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: target,
+			Details: msg, FixHint: "Run the install command manually as your user",
+		})
+		return
+	}
+	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "installed successfully")
+	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
+		Details: "Installed successfully",
+	})
+}
+
+// Execute provisions the Linux toolchain. On Windows it is a no-op.
+func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapResult, error) {
+	result := &BootstrapResult{}
+
+	if runtime.GOOS != "linux" {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "toolchain bootstrap",
+			Details: "Skipped on Windows (toolchain provisioned via winget/volta packages)",
+		})
+		return result, nil
+	}
+
+	// Expose the Volta/user-local toolchain dirs to the current process so that
+	// subsequent provisioning steps (shell npm install, LSP installs) can resolve
+	// the binaries installed below.
+	uc.ensureProcessToolchainPath()
+
+	// 1. Volta (mandatory) - official installer.
+	uc.step(ctx, result, "volta", "Volta JS toolchain manager",
+		"curl -fsSL https://get.volta.sh | bash")
+
+	// 2. Node.js LTS + pnpm via Volta (mirrors the Windows pin). Idempotent.
+	if uc.hasTool(ctx, "volta") {
+		uc.logger.Info("LinuxBootstrap: ensuring Node.js 24 + pnpm via Volta")
+		out, err := uc.runShell(ctx, "volta install node@24.19.0 pnpm")
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: volta install failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Node.js 24 + pnpm",
+				Details: fmt.Sprintf("volta install failed: %v (%s)", err, out),
+				FixHint: "Run 'volta install node@24.19.0 pnpm' manually",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Node.js 24 + pnpm",
+				Details: "Provisioned via Volta (node@24.19.0)",
+			})
+		}
+	}
+
+	// 2b. Expose Volta on interactive shells. get.volta.sh can skip rc-file
+	// integration when run non-interactively, leaving volta off the PATH of
+	// future login shells. Append the standard exports if missing.
+	if uc.hasTool(ctx, "volta") {
+		uc.logger.Info("LinuxBootstrap: ensuring Volta is exported on interactive shells")
+		out, err := uc.runShell(ctx, `set -e
+VOLTA_LINES='export VOLTA_HOME="$HOME/.volta"
+export PATH="$VOLTA_HOME/bin:$PATH"'
+for f in "$HOME/.bashrc" "$HOME/.profile"; do
+  if [ -f "$f" ] && ! grep -q "VOLTA_HOME" "$f"; then
+    printf '\n# Volta (via envctl bootstrap)\n%s\n' "$VOLTA_LINES" >> "$f"
+  fi
+done`)
+		if err != nil {
+			uc.logger.Warn("LinuxBootstrap: failed to add Volta to shell rc files: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Volta shell integration",
+				Details: fmt.Sprintf("failed to append Volta exports to ~/.bashrc/~/.profile: %v (%s)", err, out),
+				FixHint: "Append 'export VOLTA_HOME=$HOME/.volta' and 'export PATH=$VOLTA_HOME/bin:$PATH' to ~/.bashrc",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Volta shell integration",
+				Details: "Volta exports ensured in ~/.bashrc and ~/.profile",
+			})
+		}
+	}
+
+	// 3. OpenCode CLI - npm global (user prefix) with official script fallback.
+	uc.step(ctx, result, "opencode", "OpenCode CLI",
+		`set -e
+export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+if ! npm install -g --no-audit --no-fund --prefix "$HOME/.local" opencode-ai >/tmp/envctl-opencode-npm.log 2>&1; then
+  curl -fsSL https://opencode.ai/install | bash >/tmp/envctl-opencode-curl.log 2>&1
+fi`)
+
+	// 4. GitHub CLI (gh) - official release tarball into ~/.local/bin.
+	uc.step(ctx, result, "gh", "GitHub CLI",
+		`set -e
+VER=$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
+TVER=${VER#v}
+curl -fsSL "https://github.com/cli/cli/releases/download/${VER}/gh_${TVER}_linux_amd64.tar.gz" -o /tmp/envctl-gh.tgz
+tar -xzf /tmp/envctl-gh.tgz -C /tmp
+cp /tmp/gh_${TVER}_linux_amd64/bin/gh "$HOME/.local/bin/gh"
+chmod +x "$HOME/.local/bin/gh"
+rm -rf /tmp/envctl-gh.tgz /tmp/gh_${TVER}_linux_amd64`)
+
+	// 5. git-delta pager - official release tarball into ~/.local/bin.
+	uc.step(ctx, result, "delta", "git-delta pager",
+		`set -e
+VER=$(curl -fsSL https://api.github.com/repos/dandavison/delta/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
+curl -fsSL "https://github.com/dandavison/delta/releases/download/${VER}/delta-${VER}-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/envctl-delta.tgz
+tar -xzf /tmp/envctl-delta.tgz -C /tmp
+cp /tmp/delta-${VER}-x86_64-unknown-linux-gnu/delta "$HOME/.local/bin/delta"
+chmod +x "$HOME/.local/bin/delta"
+rm -rf /tmp/envctl-delta.tgz /tmp/delta-${VER}-x86_64-unknown-linux-gnu`)
+
+	// 6. yq - static release binary into ~/.local/bin.
+	uc.step(ctx, result, "yq", "yq YAML/JSON processor",
+		`set -e
+curl -fsSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o "$HOME/.local/bin/yq"
+chmod +x "$HOME/.local/bin/yq"`)
+
+	// 7. uv - official installer (installs to ~/.local/bin).
+	uc.step(ctx, result, "uv", "uv Python package manager",
+		`set -e
+curl -LsSf https://astral.sh/uv/install.sh | sh`)
+
+	// 8. oh-my-posh - official installer (installs to ~/.local/bin).
+	uc.step(ctx, result, "oh-my-posh", "Oh-My-Posh prompt engine",
+		`set -e
+curl -s https://ohmyposh.dev/install.sh | bash -s`)
+
+	// 9. ruff - installed via uv (user-local tool).
+	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "ruff") {
+		uc.logger.Info("LinuxBootstrap: installing ruff via uv")
+		out, err := uc.runShell(ctx, `"$HOME/.local/bin/uv" tool install ruff`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: uv tool install ruff failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "ruff",
+				Details: fmt.Sprintf("uv tool install ruff failed: %v (%s)", err, out),
+				FixHint: "Run 'uv tool install ruff' manually",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "ruff",
+				Details: "Installed successfully via uv",
+			})
+		}
+	}
+
+	// 10. fd symlink - the apt fd-find package exposes `fdfind`; expose it as `fd`.
+	if !uc.hasTool(ctx, "fd") {
+		uc.logger.Info("LinuxBootstrap: linking fdfind as fd")
+		out, err := uc.runShell(ctx, `FDFIND=$(command -v fdfind || true)
+if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$HOME/.local/bin/fd"; fi`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: fd symlink failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
+				Details: fmt.Sprintf("fd symlink failed: %v (%s)", err, out),
+			})
+		} else if uc.hasTool(ctx, "fd") {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
+				Details: "Linked fdfind as fd",
+			})
+		} else {
+			uc.logger.Warn("LinuxBootstrap: fdfind not available, fd symlink skipped")
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
+				Details: "Skipped (fdfind not found; install via 'apt install fd-find')",
+			})
+		}
+	}
+
+	// 11. python-lsp-server - installed via uv so the `pylsp` binary lands in
+	// ~/.local/bin. Ubuntu 24.04 blocks system pip installs (PEP 668), so pip is
+	// not a viable installer on Linux.
+	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "pylsp") {
+		uc.logger.Info("LinuxBootstrap: installing python-lsp-server via uv")
+		out, err := uc.runShell(ctx, `"$HOME/.local/bin/uv" tool install python-lsp-server`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: uv tool install python-lsp-server failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "pylsp (python-lsp-server)",
+				Details: fmt.Sprintf("uv tool install python-lsp-server failed: %v (%s)", err, out),
+				FixHint: "Run 'uv tool install python-lsp-server' manually",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "pylsp (python-lsp-server)",
+				Details: "Installed successfully via uv",
+			})
+		}
+	}
+
+	// 12. Firecrawl CLI - global npm tool used by the firecrawl-* agent skills
+	// (mirrors the Windows volta global package).
+	uc.step(ctx, result, "firecrawl", "Firecrawl CLI",
+		"volta install firecrawl-cli")
+
+	// 13. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
+	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
+		"volta install stylelint")
+
+	return result, nil
+}
