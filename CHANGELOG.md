@@ -7,6 +7,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.19] - 2026-08-21
+
+### 🔒 Segurança: PII removida de skills + memórias individuais por máquina
+
+- **Fixed**: Removida tabela de servidores (IPs, usuários, caminhos de chaves) e exemplos com IP real da skill `ssh-vps` — dados reais agora ficam APENAS em `~/.config/opencode/extras/ssh_servers.md` (inventário local por máquina, nunca versionado). A skill consulta dinamicamente (`ssh-manager server list` / MCP `ssh_list_servers`).
+- **Changed**: Memórias globais do agente (`~/.config/opencode/memory/`) deixam de ser provisionadas via `manifests/shell.yaml` e não são mais reverse-syncadas no `envctl snapshot` — são individuais por PC/VPS (exclusão defensiva para `memory/` e `extras/` no `snapshot_sync.go`).
+- **Added**: Diretório `~/.config/opencode/extras` no manifest (extras locais por máquina, ex: `ssh_servers.md`).
+- **Changed**: Reforço do uso ativo da skill `agent-memory` no `AGENTS.md` (Windows/Linux) — LOAD obrigatório no início de toda tarefa para todos os agentes/subagentes; SAVE imediato ao aprender.
+- **Removed**: `configs/memory/*.md` (templates de memória global) do repositório.
+
+---
+
 ## [v1.0.18] - 2026-08-20
 
 ### 🧹 Higiene de Temp & Scratch (Windows/MSYS2)

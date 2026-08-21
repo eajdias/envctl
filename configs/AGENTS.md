@@ -30,7 +30,7 @@
 - **Global rules:** `~\.config\opencode\AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
 - **Plugin:** `@tarquinen/opencode-dcp@latest` (DCP context compression; config `~\.config\opencode\dcp.jsonc`; `compress` tool in experimental.primary_tools)
 - **Skills paths:** `~\.config\opencode\skills`, `~\.agents\skills`
-- **Agent Memory (OBRIGATÓRIO):** antes de iniciar qualquer tarefa, leia `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` (+ `.opencode\memory\*.md` do projeto, se existir). NUNCA repita lições registradas; grave novas lições/patterns ao aprender ou ser corrigido (skill `agent-memory`).
+- **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode\memory\lessons.md` e `.opencode\memory\patterns.md` do projeto (se existirem) + `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
 
 ## Skill Locations
