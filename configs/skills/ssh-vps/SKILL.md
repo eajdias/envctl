@@ -32,14 +32,16 @@ O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, 
 
 **Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
 
-## Servidores registrados
-Config: `~/.ssh-manager/.env` (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo).
+## Servidores registrados — inventário LOCAL (nunca versionar)
 
-| Nome | Host | Usuário | OS | Chave | Observação |
-|---|---|---|---|---|---|
-| <SERVER> | <REDACTED_IP> | ubuntu | Ubuntu 20.04 (AWS) | Documents\SSH-keys\<VPS>\<VPS>.pem | Intranet da Zscan (legado) |
-| <SERVER> | <REDACTED_IP> | ubuntu | Ubuntu (AWS) | Documents\SSH-keys\<VPS>\<VPS>.pem | Homologacao Chatbot (AWS) |
-| <SERVER> | <REDACTED_IP> | ubuntu | Ubuntu (AWS) | Documents\SSH-keys\<VPS>\<VPS>.pem | Zscan Chat Comercial (AWS) |
+**Os dados reais de servidores (IPs, usuários, caminhos de chaves) ficam APENAS em arquivos locais por máquina — NUNCA neste SKILL.md nem em qualquer arquivo versionado.**
+
+Fonte de consulta (em ordem):
+1. `~/.config/opencode/extras/ssh_servers.md` — inventário local de servidores (individual por PC/VPS, nunca commitado)
+2. `~/.ssh-manager/.env` — config do ssh-manager (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo)
+3. `ssh-manager server list` (CLI) ou `ssh_list_servers` (MCP) — lista dinâmica
+
+**⚠️ REGRA DE SEGURANÇA:** nunca adicione IPs, usuários, hostnames ou caminhos de chaves reais em `SKILL.md`, README, docs ou qualquer arquivo versionado. Se o usuário fornecer, registre apenas no inventário local (`~/.config/opencode/extras/ssh_servers.md`).
 
 ## Cadastro de nova VPS (workflow rápido)
 
@@ -63,7 +65,7 @@ SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
 - Windows: `~/Documents/SSH-keys/<VPS>/<VPS>.pem`
 - Linux/macOS: `~/.ssh/<VPS>.pem` (padrão `ssh-config.linux`)
 
-**3. Testar e atualizar tabela** — `ssh_manager_ssh_execute` com `echo "OK - $(hostname)"` e adicione linha na tabela acima.
+**3. Testar e atualizar inventário local** — `ssh_manager_ssh_execute` com `echo "OK - $(hostname)"`; depois ADICIONE/ATUALIZE o servidor em `~/.config/opencode/extras/ssh_servers.md` (nome, host, usuário, OS, chave, observação). NUNCA adicione a tabela neste SKILL.md.
 
 ## Como usar
 
@@ -72,7 +74,7 @@ SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
 ssh-manager server list                 # lista servidores
 ssh-manager server test <nome>          # testa conexão
 ssh-manager exec <nome> "<comando>"     # executa comando no servidor
-ssh-manager exec <SERVER> "systemctl status nginx"
+ssh-manager exec <nome> "systemctl status nginx"
 ```
 Nota: sintaxe é `ssh-manager exec <servidor> <comando>` (não existe 'exec run').
 
@@ -81,8 +83,8 @@ Ferramentas principais: `ssh_list_servers`, `ssh_execute`, `ssh_upload`, `ssh_do
 
 ### Opção C — ssh direto / rsync (fallback)
 ```
-ssh -i "~/Documents/SSH-keys/<VPS>/<VPS>.pem" ubuntu@<REDACTED_IP> "uptime"
-rsync -avz -e "ssh -i <chave>" ./dir/ ubuntu@<REDACTED_IP>:/home/ubuntu/dir/
+ssh -i "<caminho da chave do inventário local>" <user>@<host> "uptime"
+rsync -avz -e "ssh -i <chave>" ./dir/ <user>@<host>:/home/<user>/dir/
 ```
 
 ## Checklist de diagnóstico/recuperação (comum: serviço caiu)
@@ -99,4 +101,5 @@ rsync -avz -e "ssh -i <chave>" ./dir/ ubuntu@<REDACTED_IP>:/home/ubuntu/dir/
 - Arquivos pequenos (<1MB): base64 ou `ssh_upload`; grandes: rsync (`ssh_sync` usa rsync).
 - Alvos Windows (`PLATFORM=windows`): shell é PowerShell — comandos Linux (systemctl etc.) NÃO funcionam; use `Get-Service`, `sc.exe`, `Restart-Service`.
 - Nunca exponha chaves/senhas no output; não logue segredos.
+- Nunca escreva IPs/usuários/caminhos de chaves reais em arquivos versionados — registre no inventário local `~/.config/opencode/extras/ssh_servers.md`.
 - Alterações no `.env` são lidas na hora (hot reload), mas o CLI usa o processo atual — reinicie se precisar.

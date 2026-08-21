@@ -54,8 +54,13 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context, createPR bool) (*Sna
 		if cf.OS != "" && cf.OS != runtime.GOOS {
 			continue
 		}
-		// Never reverse-sync sensitive local files (e.g. ~/.ssh/config) into the repo.
-		if strings.Contains(strings.ToLower(filepath.ToSlash(cf.Destination)), ".ssh/") {
+		// Never reverse-sync sensitive or per-machine local files into the repo:
+		// ~/.ssh/*, agent memory (~/.config/opencode/memory/*), and local extras
+		// (~/.config/opencode/extras/*) are individual per PC/VPS.
+		destLower := strings.ToLower(filepath.ToSlash(cf.Destination))
+		if strings.Contains(destLower, ".ssh/") ||
+			strings.Contains(destLower, ".config/opencode/memory") ||
+			strings.Contains(destLower, ".config/opencode/extras") {
 			continue
 		}
 		if uc.fsManager.Exists(cf.Destination) {

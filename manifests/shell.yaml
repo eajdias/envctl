@@ -208,20 +208,6 @@ config_files:
     category: "scripts"
     os: windows
 
-  - id: agents_memory_lessons
-    description: "Agent memory - lessons learned (errors not to repeat)"
-    source: "configs/memory/lessons.md"
-    destination: "~/.config/opencode/memory/lessons.md"
-    strict_acl: false
-    category: "opencode"
-
-  - id: agents_memory_patterns
-    description: "Agent memory - working patterns and preferences"
-    source: "configs/memory/patterns.md"
-    destination: "~/.config/opencode/memory/patterns.md"
-    strict_acl: false
-    category: "opencode"
-
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true
@@ -244,6 +230,9 @@ directories:
   - path: "~/.config/opencode/memory"
     strict_acl: false
     description: "OpenCode agent memory directory (lessons and patterns)"
+  - path: "~/.config/opencode/extras"
+    strict_acl: false
+    description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"
   - path: "~/.agents/skills"
     strict_acl: false
     description: "External agent skills directory"
