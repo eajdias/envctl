@@ -8,11 +8,11 @@ description: Operar VPS/servidores remotos da empresa via SSH (Linux + Windows O
 ## Contexto
 O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e Windows), cada um rodando um serviço 'cloud' das operações (systemd, Docker, PM2). O uso é sob demanda: o usuário pede, você monitora/diagnostica/recupera.
 
-## Infraestrutura local (Windows)
-- `ssh` (OpenSSH client do Windows) — disponível direto no PowerShell/Git Bash.
-- `ssh-manager` CLI + `mcp-ssh-manager` (npm global via Volta, v3.8.0).
-- `rsync`, `jq`, `sshpass` — instalados via MSYS2 (`C:\msys64\usr\bin`, já no PATH).
-- Chaves SSH: `C:\Users\eajdias-note\Documents\SSH-keys\<VPS>\<VPS>.pem` (+ .txt com dados de conexão).
+## Infraestrutura local
+- `ssh` (OpenSSH client) — disponível direto no terminal.
+- `ssh-manager` CLI + `mcp-ssh-manager` (npm global via Volta).
+- `rsync`, `jq`, `sshpass` — ferramentas auxiliares.
+- Chaves SSH: `~/Documents/SSH-keys/<VPS>/<VPS>.pem` (+ .txt com dados de conexão).
 
 ## MCP `ssh-manager` — DESATIVADO por padrão
 O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, seção `mcp.ssh-manager`) com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
@@ -33,14 +33,37 @@ O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, 
 **Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
 
 ## Servidores registrados
-Config: `C:\Users\eajdias-note\.ssh-manager\.env` (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo).
+Config: `~/.ssh-manager/.env` (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo).
 
 | Nome | Host | Usuário | OS | Chave | Observação |
 |---|---|---|---|---|---|
 | zscanintranet | 3.132.24.204 | ubuntu | Ubuntu 20.04 (AWS) | Documents\SSH-keys\ZscanIntranet\ZscanIntranet.pem | Intranet da Zscan (legado) |
 | homologacaochatbot | 18.218.175.163 | ubuntu | Ubuntu (AWS) | Documents\SSH-keys\Homologacao-Chatbot\Homologacao-chatbot.pem | Homologacao Chatbot (AWS) |
+| zscanchatcomercial | 3.133.125.140 | ubuntu | Ubuntu (AWS) | Documents\SSH-keys\ZscanChatComercial\ZscanChatComercial.pem | Zscan Chat Comercial (AWS) |
 
-Para registrar novo VPS: siga o padrão (pasta em `Documents\SSH-keys\<VPS>\` + entrada no `.env` com caminho em forward-slash `C:/Users/...` e `PLATFORM=windows` para alvos Windows) e atualize esta tabela.
+## Cadastro de nova VPS (workflow rápido)
+
+Quando o usuário pedir para cadastrar VPS, siga estes 3 passos:
+
+**1. Ler o .txt** — caminho informado pelo usuário (geralmente `~/Documents/SSH-keys/<Nome>/<Nome>.txt`). Extrair: host, user, key path.
+
+**2. Append no `.env`** — adicione bloco no final de `~/.ssh-manager/.env`:
+```
+# Server: <NomeDisplay>
+SSH_SERVER_<NOMEUpper>_HOST=<ip>
+SSH_SERVER_<NOMEUpper>_USER=<user>
+SSH_SERVER_<NOMEUpper>_PORT=22
+SSH_SERVER_<NOMEUpper>_KEYPATH=~/Documents/SSH-keys/<Pasta>/<Arquivo>.pem
+SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
+```
+- Nome do servidor = `<NOMEUpper>` em minúsculo no MCP (ex: `ZSCANCHATCOMERCIAL` → `zscanchatcomercial`)
+- Key path: use `~` para home do usuário, nunca caminho absoluto hardcoded — o ssh-manager expande `~` automaticamente (`os.homedir()`)
+
+**Localização das chaves por plataforma** (a pasta exata vem do .txt do usuário):
+- Windows: `~/Documents/SSH-keys/<VPS>/<VPS>.pem`
+- Linux/macOS: `~/.ssh/<VPS>.pem` (padrão `ssh-config.linux`)
+
+**3. Testar e atualizar tabela** — `ssh_manager_ssh_execute` com `echo "OK - $(hostname)"` e adicione linha na tabela acima.
 
 ## Como usar
 
@@ -58,7 +81,7 @@ Ferramentas principais: `ssh_list_servers`, `ssh_execute`, `ssh_upload`, `ssh_do
 
 ### Opção C — ssh direto / rsync (fallback)
 ```
-ssh -i "C:\Users\eajdias-note\Documents\SSH-keys\ZscanIntranet\ZscanIntranet.pem" ubuntu@3.132.24.204 "uptime"
+ssh -i "~/Documents/SSH-keys/ZscanIntranet/ZscanIntranet.pem" ubuntu@3.132.24.204 "uptime"
 rsync -avz -e "ssh -i <chave>" ./dir/ ubuntu@3.132.24.204:/home/ubuntu/dir/
 ```
 

@@ -31,7 +31,7 @@ No MSYS2 Bash no Windows, argumentos iniciados com `/` (ex: `/bin/sh`, `/var/run
 
 ## Docker Hub (MCP docker-hub)
 
-- MCP server local do repositório `docker/hub-mcp` (clonado em `C:\Users\eajdias-note\Documents\docker-hub-mcp-server`; roda via `node dist/index.js --transport=stdio`; NÃO existe pacote npm).
+- MCP server local do repositório `docker/hub-mcp` (clonado em `~/Documents/docker-hub-mcp-server`; roda via `node dist/index.js --transport=stdio`; NÃO existe pacote npm).
 - **Desabilitado por padrão** no opencode.jsonc (`enabled: false`). Se o usuário quiser usar as ferramentas de busca/pesquisa de imagens e repositórios do Hub, o AGENTE NÃO edita o config — parar e pedir ao usuário para habilitar (`"docker-hub": { "enabled": true }` no bloco mcp do `~\.config\opencode\opencode.jsonc`).
 - Auth opcional via env `HUB_USERNAME` + `HUB_PAT_TOKEN` (só para operações autenticadas; leitura pública funciona sem).
 
