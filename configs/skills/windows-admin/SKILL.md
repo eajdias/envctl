@@ -9,7 +9,7 @@ description: Administração local do Windows 11. Use quando o usuário pedir pa
 
 - Máquina local: Windows 11 (win32), shell default MSYS2 bash (`C:\msys64\usr\bin\bash.exe`).
 - Operações nativas do Windows devem preferir **PowerShell 5.1/pwsh 7.6.5** — use `bash -lc "powershell -NoProfile -Command '...'"` ou, se o bash tool estiver em PS, os cmdlets diretamente. Nunca tente imitar cmdlets do Windows em bash puro.
-- LSP PowerShell configurado (PowerShellEditorServices v4.7.0 em `C:\Users\eajdias-note\Documents\PowerShell\Modules\PowerShellEditorServices`).
+- LSP PowerShell configurado (PowerShellEditorServices v4.7.0 em `~/Documents/PowerShell/Modules/PowerShellEditorServices`).
 - Sessão pode não ser elevada: verificar com `([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)` antes de operações que exijam admin.
 
 ## Operações comuns
