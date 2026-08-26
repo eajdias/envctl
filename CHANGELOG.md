@@ -7,6 +7,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.22] - 2026-08-26
+
+### 🧠 Pipeline Memória → Skill (autônomo) + 11 Skills Promovidas + Arsenal de Agentes
+
+- **Added**: Skill `memory-promotion` — classificação obrigatória de memórias (processo reutilizável → skill; lição/preferência → memória), criação de `SKILL.md` no local certo, **remoção da entrada da memória após promoção** (sem redundância), registro via `envctl snapshot`.
+- **Added**: Parâmetro OBRIGATÓRIO `Skill Promotion` no `AGENTS.md` global — classificar a cada gravação de memória; skills globais novas sem dados pessoais são implementadas no envctl.
+- **Added**: 11 skills promovidas da memória global: `phone-e164-normalization`, `bulk-postgres-import`, `parallel-agent-orchestration`, `web-dashboard-automation`, `docker-build-local-vps-deploy`, `nextjs-standalone-deploy`, `docker-desktop-wsl-restart`, `jwt-hs256-node`, `simple-feature-flag`, `playwright-prod-regression`, `lsp-smoke-test` (72 skills totais).
+- **Added**: Memória global (sem PII — auditada) versionada como templates seed `configs/memory/*.md` com novo campo `ConfigFile.SeedIfMissing` — máquinas novas nascem com a baseline; adições locais nunca sobrescritas nem reverse-sync.
+- **Added**: Arsenal global de agentes (complemento do v1.0.21): `jq`, `dust`, `hyperfine`, `shellcheck` (winget), `pyyaml`, `requests`, `openpyxl`, `beautifulsoup4` (pip), `axios`, `cheerio`, `papaparse` (node via NODE_PATH); comando `envctl run pip`; reinstalação automática de deps do `~/package.json` por mtime.
+
+---
+
 ## [v1.0.21] - 2026-08-26
 
 ### ⚡ Overhaul de Performance do OpenCode + Stack PWSH/WSL + Arsenal Global de Agentes

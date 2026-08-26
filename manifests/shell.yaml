@@ -66,6 +66,22 @@ config_files:
     strict_acl: false
     category: "opencode"
 
+  - id: memory_lessons_template
+    description: "Global agent memory lessons baseline (seed only, no PII — per-machine additions stay local)"
+    source: "configs/memory/lessons.md"
+    destination: "~/.config/opencode/memory/lessons.md"
+    strict_acl: false
+    category: "opencode"
+    seed_if_missing: true
+
+  - id: memory_patterns_template
+    description: "Global agent memory patterns baseline (seed only, no PII — per-machine additions stay local)"
+    source: "configs/memory/patterns.md"
+    destination: "~/.config/opencode/memory/patterns.md"
+    strict_acl: false
+    category: "opencode"
+    seed_if_missing: true
+
   - id: user_package_json
     description: "User root package.json for Playwright API and agent automations"
     source: "configs/user-package.json"

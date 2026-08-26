@@ -51,13 +51,14 @@ func (p Package) String() string {
 
 // ConfigFile represents a system or user configuration file.
 type ConfigFile struct {
-	ID          string `yaml:"id"`
-	Description string `yaml:"description"`
-	Source      string `yaml:"source"`      // path in embedded FS or template
-	Destination string `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
-	StrictACL   bool   `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
-	Category    string `yaml:"category"`
-	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	ID            string `yaml:"id"`
+	Description   string `yaml:"description"`
+	Source        string `yaml:"source"`      // path in embedded FS or template
+	Destination   string `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
+	StrictACL     bool   `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
+	Category      string `yaml:"category"`
+	OS            string `yaml:"os,omitempty"`              // "windows", "linux" or empty for all
+	SeedIfMissing bool   `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
 }
 
 // Skill represents an OpenCode agent skill.

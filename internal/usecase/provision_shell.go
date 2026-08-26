@@ -189,6 +189,23 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		if cf.StrictACL {
 			perm = 0600
 		}
+
+		// Seed mode: write the baseline only when the destination does not
+		// exist yet (e.g. agent memory templates — per-machine additions must
+		// never be overwritten by provisioning).
+		if cf.SeedIfMissing && uc.fsManager.Exists(cf.Destination) {
+			if uc.logger != nil {
+				uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "seed baseline skipped (destination already exists with per-machine content)")
+			}
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "ConfigFile",
+				Target:   cf.Destination,
+				Details:  "Seed baseline present (destination already exists — per-machine content preserved)",
+			})
+			continue
+		}
+
 		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, perm)
 		if writeErr != nil {
 			if uc.logger != nil {

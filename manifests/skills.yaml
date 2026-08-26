@@ -1,4 +1,59 @@
 skills:
+    - name: bulk-postgres-import
+      description: Importar/upsert em massa no PostgreSQL (batch multi-VALUES, ON CONFLICT, dedupe de listas)
+      source: configs/skills/bulk-postgres-import
+      target_dir: ""
+      enabled: true
+    - name: docker-build-local-vps-deploy
+      description: Deploy Docker em VPS fraca (build local + docker save/load + npm ci --omit=dev no runtime)
+      source: configs/skills/docker-build-local-vps-deploy
+      target_dir: ""
+      enabled: true
+    - name: docker-desktop-wsl-restart
+      description: Restart limpo do Docker Desktop no Windows quando o backend WSL2 falha (Wsl/ExecError, backend.sock)
+      source: configs/skills/docker-desktop-wsl-restart
+      target_dir: ""
+      enabled: true
+    - name: jwt-hs256-node
+      description: Implementar JWT HS256 sem dependências em Node.js (createHmac + timingSafeEqual com hash duplo)
+      source: configs/skills/jwt-hs256-node
+      target_dir: ""
+      enabled: true
+    - name: lsp-smoke-test
+      description: Smoke test de LSP servers (--stdio com stdin fechado; nunca confiar em --version)
+      source: configs/skills/lsp-smoke-test
+      target_dir: ""
+      enabled: true
+    - name: nextjs-standalone-deploy
+      description: Deploy Next.js com output standalone + migração v16 (Dockerfile multi-stage, NEXT_PUBLIC no build, public/)
+      source: configs/skills/nextjs-standalone-deploy
+      target_dir: ""
+      enabled: true
+    - name: parallel-agent-orchestration
+      description: Orquestrar subagentes paralelos no mesmo repo git (base comum primeiro, fronteiras disjuntas, integração final)
+      source: configs/skills/parallel-agent-orchestration
+      target_dir: ""
+      enabled: true
+    - name: phone-e164-normalization
+      description: Normalizar telefones BR para E.164 (DDI 55, ambiguidade DDD 55 RS, descarte de malformados)
+      source: configs/skills/phone-e164-normalization
+      target_dir: ""
+      enabled: true
+    - name: playwright-prod-regression
+      description: Regressão Playwright contra produção sem mutar dados reais (empty states, timing, filtro de 401 esperados)
+      source: configs/skills/playwright-prod-regression
+      target_dir: ""
+      enabled: true
+    - name: simple-feature-flag
+      description: Implementar feature flags simples e auditáveis (tabela app_config + API JWT + leitura no início do ciclo)
+      source: configs/skills/simple-feature-flag
+      target_dir: ""
+      enabled: true
+    - name: web-dashboard-automation
+      description: Automatizar dashboards/SPAs autenticados (interceptar request via Playwright, CSRF token, replicar chamadas)
+      source: configs/skills/web-dashboard-automation
+      target_dir: ""
+      enabled: true
     - name: agent-memory
       description: OpenCode agent skill agent-memory
       source: configs/skills/agent-memory
@@ -227,6 +282,11 @@ skills:
     - name: implementation-strategy
       description: OpenCode agent skill implementation-strategy
       source: configs/skills/implementation-strategy
+      target_dir: ""
+      enabled: true
+    - name: memory-promotion
+      description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
+      source: configs/skills/memory-promotion
       target_dir: ""
       enabled: true
     - name: playwright-cli
