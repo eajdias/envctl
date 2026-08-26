@@ -1,6 +1,8 @@
 ---
 name: phone-e164-normalization
 description: Normalizar números de telefone BR para formato E.164 (com DDI 55). Use quando precisar padronizar telefones antes de inserir no banco, comparar duplicados ou enviar para APIs de mensageria/SMS/WhatsApp. Triggers: telefone, phone, e164, normalizar número, ddd, ddi, +55, whatsapp, sms.
+license: MIT
+compatibility: opencode
 ---
 
 # Normalização E.164 de Telefones BR

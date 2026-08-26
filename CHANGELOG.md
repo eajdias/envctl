@@ -7,6 +7,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.23] - 2026-08-26
+
+### 🛡️ Otimização de Contexto e Conformidade de Skills (Context7 Analysis)
+
+- **Changed**: Otimização de contexto via `permission.skill` com `firecrawl-*: deny` no `opencode.json` e `opencode.linux.json` — reduz ~2.5k tokens de listagem de descrições por prompt mantendo ferramentas disponíveis via CLI e AGENTS.md.
+- **Added**: Metadados de portabilidade `license: MIT` e `compatibility: opencode` no frontmatter de todas as 12 skills nativas do `envctl`.
+- **Fixed**: `go.mod` sanitizado via `go mod tidy` — `pterm`, `cobra` e `yaml.v3` devidamente promovidos a dependências diretas.
+
+---
+
 ## [v1.0.22] - 2026-08-26
 
 ### 🧠 Pipeline Memória → Skill (autônomo) + 11 Skills Promovidas + Arsenal de Agentes

@@ -1,6 +1,8 @@
 ---
 name: playwright-prod-regression
 description: Rodar regressão Playwright contra ambiente de produção com segurança. Use quando validar que a aplicação em produção continua funcionando após deploy, sem mutar dados reais. Triggers: regressão, produção, playwright prod, smoke prod, validar produção, não mutar dados, console errors.
+license: MIT
+compatibility: opencode
 ---
 
 # Regressão Playwright Contra Produção

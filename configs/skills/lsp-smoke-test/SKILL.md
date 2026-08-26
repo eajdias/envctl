@@ -1,6 +1,8 @@
 ---
 name: lsp-smoke-test
 description: Smoke test de Language Server Protocol (LSP) servers. Use quando precisar validar que um servidor de linguagem instalado funciona (--version falha silenciosamente em vários) ou antes de registrá-lo no opencode/vscode. Triggers: lsp, language server, smoke test, intelephense, tailwindcss, taplo, --stdio, servidor de linguagem.
+license: MIT
+compatibility: opencode
 ---
 
 # Smoke Test de LSP Servers

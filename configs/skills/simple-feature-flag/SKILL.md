@@ -1,6 +1,8 @@
 ---
 name: simple-feature-flag
 description: Implementar feature flags simples e auditáveis em aplicações com banco de dados. Use quando precisar ligar/desligar funcionalidades por usuário operacional via painel, sem re-deploy nem variáveis de ambiente. Triggers: feature flag, flag, toggle, ligar função, desligar função, app_config, painel de config.
+license: MIT
+compatibility: opencode
 ---
 
 # Feature Flag Simples e Auditável

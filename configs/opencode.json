@@ -139,6 +139,11 @@
       "enabled": false
     }
   },
+  "permission": {
+    "skill": {
+      "firecrawl-*": "deny"
+    }
+  },
   "instructions": [
     "https://raw.githubusercontent.com/JRedeker/opencode-shell-strategy/trunk/shell_strategy.md"
   ],

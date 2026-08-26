@@ -1,6 +1,8 @@
 ---
 name: bulk-postgres-import
 description: Importar/upsert em massa no PostgreSQL de forma rápida. Use quando precisar inserir centenas/milhares de registros (cadastros, contatos, catálogo) vindos de API, CSV ou script, especialmente sobre túnel SSH/latência alta. Triggers: import, bulk, upsert, batch, insert em massa, ON CONFLICT, contatos, milhares de registros.
+license: MIT
+compatibility: opencode
 ---
 
 # Import em Massa no PostgreSQL (batch multi-VALUES)
