@@ -7,6 +7,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.21] - 2026-08-26
+
+### ⚡ Overhaul de Performance do OpenCode + Stack PWSH/WSL + Arsenal Global de Agentes
+
+- **Removed**: MSYS2 completamente do ambiente Windows (manifestos, configs, `PacmanManager`, comando `run pacman`, terminal-settings, docs, skills, CHANGELOG) — stack padronizada: **PowerShell 7 (primário) + WSL Ubuntu (secundário)**.
+- **Changed**: Config do OpenCode unificada em `opencode.json` (fonte única JSON) — merge de plugins/LSPs/MCPs/instructions; `shell: "pwsh"` (resolução via PATH, suporta MSI e Store); `opencode.jsonc` e `tui.json` (plugin TUI não-funcional) removidos com auto-cleanup no provisioning.
+- **Changed**: DCP configurado para compressão auto **85% max / 75% min**.
+- **Removed**: Plugins sem função comprovada — `opencode-visual-cache` (TUI cosmético), `@vymalo/opencode-models-info` (inerte: nenhum provider com `modelsInfoUrl`), `opencode-thinking-fix` (no-op: 300+ inspects com `isReasoningModel:false`). Restam 3: dcp, ponytail, goal-plugin (verificados funcionais).
+- **Fixed**: Duplicidade de skills — `~/.agents/skills` removido (eram symlinks pendentes após deleção), fonte única `~/.config/opencode/skills`.
+- **Added**: `envctl run cleanup` (configs legados, tool-output >10MB, scratch `C:\temp`/`/temp` >24h) + auditoria no `doctor` (DB, tool-output, legacy config, TempFolder `ENVCTL_TEMP`, WSL Ubuntu).
+- **Added**: Pasta de scratch padronizada para agentes LLM — `C:\temp` (Windows) / `/temp` (Linux), env var `ENVCTL_TEMP`; `pw-screenshot` salva lá por padrão.
+- **Added**: Arsenal global de agentes — `bun` (winget), `jq`, `dust`, `hyperfine`, `shellcheck`; pip global `pyyaml`, `requests`, `openpyxl`, `beautifulsoup4`; node `axios`, `cheerio`, `papaparse`; comando `envctl run pip`; reinstalação automática de deps do `~/package.json` por mtime.
+
+---
+
 ## [v1.0.19] - 2026-08-21
 
 ### 🔒 Segurança: PII removida de skills + memórias individuais por máquina
@@ -21,10 +36,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [v1.0.18] - 2026-08-20
 
-### 🧹 Higiene de Temp & Scratch (Windows/MSYS2)
+### 🧹 Higiene de Temp & Scratch (Windows/Linux)
 
 - **Added**: Regra obrigatória de higiene de temp no `AGENTS.md` (Windows e Linux) — todo scratch/download/build/cópia de banco criado em `/tmp` deve ser removido antes do fim da sessão, com comando de limpeza documentado e recomendação de subdir dedicado por sessão.
-- **Added**: Novo `TempHygieneUseCase` (`internal/usecase/temp_hygiene.go`) — auditoria do diretório temp (`C:\msys64\tmp` no Windows, `/tmp` no Linux) e poda de artefatos obsoletos: extrações de módulos nativos do runtime Bun (`.bdef*.dll`/`.feef*.node`), `node-compile-cache`, `tsx-*`, scratch de sessões de agentes (`opencode/` com idade > 6h), downloads de ferramentas (`zscan-*`, `Meslo.zip`), caches regeneráveis (WinGet/NuGet/MSBuild/VS Code), logs de instaladores e arquivos soltos de sessões. Arquivos travados por processos em execução são pulados com aviso.
+- **Added**: Novo `TempHygieneUseCase` (`internal/usecase/temp_hygiene.go`) — auditoria do diretório temp (`C:\temp` no Windows, `/tmp` no Linux) e poda de artefatos obsoletos: extrações de módulos nativos do runtime Bun (`.bdef*.dll`/`.feef*.node`), `node-compile-cache`, `tsx-*`, scratch de sessões de agentes (`opencode/` com idade > 6h), downloads de ferramentas (`zscan-*`, `Meslo.zip`), caches regeneráveis (WinGet/NuGet/MSBuild/VS Code), logs de instaladores e arquivos soltos de sessões. Arquivos travados por processos em execução são pulados com aviso.
 - **Added**: `envctl doctor` ganhou a checagem `TempHygiene` no relatório e `envctl doctor --fix` uma 6ª etapa de limpeza automática de temp (com resumo de artefatos removidos/liberados/pulados).
 - **Fixed**: Alinhamento `gofmt` em `models.go`, `manifest_repo.go`, `env_manager.go` e `root.go` (pré-existente).
 
@@ -42,8 +57,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### 🐛 Correções de Bugs (Auditoria Profunda do Codebase)
 - **Fixed**: `AGENTS.md` global passou a ser implantado em `~/.config/opencode/AGENTS.md` (antes `~/AGENTS.md`, caminho que o opencode nunca lê); regra **Zero Tolerância** promovida para o global + checagem explícita no `doctor`.
-- **Fixed**: Seção `directories:` do `shell.yaml` agora é funcional (`LoadDirectories`) — pastas `~/.ssh/sockets`, `~/.local/bin`, `~/.agents/skills`, `~/.poshthemes` passaram a ser provisionadas; paths `C:/projetos/*` corrigidos.
-- **Fixed**: Filtros `os:` em `shell.yaml` (env vars/config files/dirs), `git.yaml` (`core.fscache`/`core.longpaths` → windows), `lsp.yaml` (powershell/gopls/rust/csharp → windows) e `packages.yaml` (~35 pacotes winget/pacman/volta/dotnet-tool → windows) — elimina falsos warnings no Linux.
+- **Fixed**: Seção `directories:` do `shell.yaml` agora é funcional (`LoadDirectories`) — pastas `~/.ssh/sockets`, `~/.local/bin`, `~/.poshthemes` passaram a ser provisionadas; paths `C:/projetos/*` corrigidos.
+- **Fixed**: Filtros `os:` em `shell.yaml` (env vars/config files/dirs), `git.yaml` (`core.fscache`/`core.longpaths` → windows), `lsp.yaml` (powershell/gopls/rust/csharp → windows) e `packages.yaml` (~35 pacotes winget/volta/dotnet-tool → windows) — elimina falsos warnings no Linux.
 - **Fixed**: `doctor` git worktree não gera mais falso warning fora de repositório (`rev-parse --is-inside-work-tree`).
 - **Fixed**: Variáveis de ambiente agora persistem no Linux (`~/.profile`/`~/.bashrc`) + escape de aspas em comandos PowerShell.
 - **Fixed**: `GoManager.IsInstalled` usa `exec.LookPath` no POSIX (não `where.exe`); `NpmManager.ListInstalled` lista pacotes reais; `VoltaManager.IsInstalled` match exato por token.
@@ -111,7 +126,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [v1.0.10] - 2026-08-18
 
 ### 🎭 Utilitários Playwright & Resolução de Módulos
-- **Added**: Variável de ambiente `MSYS2_ENV_CONV_EXCL=NODE_PATH` para garantir integridade na resolução de módulos Node entre Windows e MSYS2.
+- **Added**: Variável `NODE_PATH` apontando para `%USERPROFILE%\node_modules` para garantir resolução global de módulos Node no Windows.
 - **Added**: `configs/bin/pw-screenshot` e `configs/bin/pw-screenshot.cmd` para captura instantânea de telas headless em alta resolução.
 - **Added**: `configs/bin/pw-eval` e `configs/bin/pw-eval.cmd` para avaliação rápida de DOM e scripts via Playwright Node.js API em < 1s.
 - **Added**: Aliases de `git worktree` (`gwc`, `gwl`, `gwr`) e auditoria de integridade de worktrees no `doctor`.
@@ -121,11 +136,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [v1.0.7] - [v1.0.9] - 2026-08-18
 
-### 🌐 Playwright Node API Migration & MSYS2 Path Conversion
+### 🌐 Playwright Node API Migration
 - **Changed**: Substituição da CLI instável `@playwright/cli` pela arquitetura estável Node.js API (`const { chromium } = require('playwright')`).
-- **Added**: Resolução dinâmica de `NODE_PATH` em `configs/.bashrc` e `/etc/profile.d/node_path.sh` utilizando caminhos mistos (`cygpath -m`).
+- **Added**: Resolução dinâmica de `NODE_PATH` no perfil do PowerShell e no shell WSL Ubuntu (`cygpath -m`).
 - **Added**: `configs/user-package.json` gerenciando a dependência do `playwright` na raiz do usuário (`~`).
-- **Added**: Variável `MSYS2_ARG_CONV_EXCL` e wrappers `MSYS_NO_PATHCONV=1` nos aliases do Docker (`docker`, `docker-compose`, `kubectl`) para impedir que o MSYS2 corrompa caminhos e volumes de containers.
+- **Added**: Aliases Docker preservando volumes e caminhos de containers sem conversão de caminhos POSIX.
 
 ---
 
@@ -154,7 +169,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### 🚀 Lançamento Inicial (Protótipo win11-new)
 - **Added**: Arquitetura base em Go (Clean Architecture) com camadas `domain`, `usecase`, `infra` e `ui`.
 - **Added**: Binário 100% standalone via `//go:embed` embutindo manifestos declarativos YAML e templates de configuração.
-- **Added**: Gerenciadores de infraestrutura para `Winget`, `MSYS2 Pacman`, `Dotnet Tool`, `Git` e `FileSystem`.
+- **Added**: Gerenciadores de infraestrutura para `Winget`, `Dotnet Tool`, `Git` e `FileSystem`.
 - **Added**: Backup atômico com timestamp (`.bak.YYYYMMDD-HHMMSS`) para alterações em arquivos de configuração existentes.
 - **Added**: Catálogo inicial de 57 skills de agentes de IA para o OpenCode.
 - **Added**: Comandos CLI Cobra com interface ANSI via PTerm (`run`, `doctor`, `snapshot`, `version`).

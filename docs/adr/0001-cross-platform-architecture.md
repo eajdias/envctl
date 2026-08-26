@@ -5,7 +5,7 @@ Aceito (Accepted)
 
 ## Contexto
 O ecossistema de desenvolvimento e operação de serviços opera em múltiplos sistemas operacionais:
-1. Estação de trabalho local no Windows 11 PRO 25H2 com MSYS2 Bash de alto desempenho e acelerações nativas de hardware.
+1. Estação de trabalho local no Windows 11 PRO 25H2 com PowerShell 7 como shell primário e WSL Ubuntu como subshell POSIX secundário.
 2. Servidores remotos de homologação e produção (VPS Ubuntu 24.04 LTS na AWS EC2 e Oracle Cloud) executando contêineres Docker, bancos de dados e serviços backend.
 
 Anteriormente, a replicação desses ambientes dependia de scripts manuais esparsos ou ferramentas com alto consumo de contexto para agentes de IA.
@@ -14,7 +14,7 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 
 ### 1. Clean Architecture em Go
 - **Domínio Puro**: Entidades `Package`, `ConfigFile`, `Skill`, `LSP`, `Diagnostic` e interfaces de repositório isoladas de detalhes de sistema operacional.
-- **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Pacman` (MSYS2), `Volta`, `Go`, `Rustup`, `Dotnet Tool`, e `UV/Pip`.
+- **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Volta`, `Go`, `Rustup`, `Dotnet Tool`, e `UV/Pip`.
 - **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`, `darwin`).
 
 ### 2. Standalone Self-Contained Binary (`//go:embed`)

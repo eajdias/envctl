@@ -38,13 +38,6 @@ packages:
     os: linux
     description: "Ripgrep nativo para Ubuntu/Debian"
 
-  # Pacotes MSYS2 via Pacman
-  - name: tree
-    type: pacman
-    test_binary: tree
-    os: windows
-    description: "Tree utilitário para visualização de diretórios"
-
   # Toolchain Node.js via Volta
   - name: node@24.19.0
     type: volta
@@ -80,7 +73,6 @@ packages:
 | :--- | :--- | :--- |
 | `winget` | Windows Package Manager | `winget install --exact --id <name> --silent` |
 | `apt` | Advanced Package Tool (Debian/Ubuntu) | `apt-get install -y --no-install-recommends <name>` |
-| `pacman` | MSYS2 Pacman | `pacman -S --needed --noconfirm <name>` |
 | `volta` | Volta Toolchain Manager | `volta install <name>` |
 | `dotnet-tool`| .NET CLI Global Tools | `dotnet tool install --global <name>` |
 | `go` | Go Toolchain | `go install <name>` |
@@ -101,26 +93,16 @@ env_vars:
     os: windows
     description: "Resolução global de módulos Node.js para scripts de automação"
 
-  - name: MSYS2_ENV_CONV_EXCL
-    value: "NODE_PATH"
+  - name: ENVCTL_TEMP
+    value: "C:\\temp"
     target: User
     os: windows
-    description: "Impede corrupção de caminhos Windows no MSYS2"
-
-  - name: MSYS2_ARG_CONV_EXCL
-    value: "/bin;/usr;/var;/etc;/app;/tmp;/opt;--entrypoint;-v;--volume;--mount;--workdir;-w"
-    target: User
-    os: windows
-    description: "Preserva caminhos e argumentos em comandos Docker"
+    description: "Pasta de scratch padrão dos agentes LLM na raiz do disco"
 
 config_files:
-  - source: configs/.bashrc
-    destination: ~/.bashrc
-    description: "Aliases unificados e configuração do shell Bash"
-
-  - source: configs/opencode.jsonc
-    destination: ~/.config/opencode/opencode.jsonc
-    description: "Configuração central do OpenCode com LSPs e MCPs"
+  - source: configs/opencode.json
+    destination: ~/.config/opencode/opencode.json
+    description: "Configuração central do OpenCode com LSPs, plugins e MCPs (padrão único JSON)"
 
 restricted_dirs:
   - path: ~/Documents/SSH-keys

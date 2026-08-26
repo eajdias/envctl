@@ -15,7 +15,7 @@ O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e W
 - Chaves SSH: `~/Documents/SSH-keys/<VPS>/<VPS>.pem` (+ .txt com dados de conexão).
 
 ## MCP `ssh-manager` — DESATIVADO por padrão
-O MCP está registrado no opencode global (`~/.config/opencode/opencode.jsonc`, seção `mcp.ssh-manager`) com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
+O MCP está registrado no opencode global (`~/.config/opencode/opencode.json`, seção `mcp.ssh-manager`) com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
 
 **Regra — o AGENT NUNCA edita o config por conta própria.**
 

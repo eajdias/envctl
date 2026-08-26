@@ -25,7 +25,6 @@ envctl/
 │   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
 │   │   ├── winget/              # Adaptador para Windows Package Manager
 │   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
-│   │   ├── msys2/               # Adaptador para MSYS2 Pacman
 │   │   ├── toolchain/           # Adaptadores para Volta, Go, Rustup, Dotnet, UV/Pip
 │   │   ├── windows/             # Adaptador de Registro e Fontes Windows
 │   │   ├── git/                 # Adaptador Git e GitHub CLI
@@ -45,7 +44,7 @@ envctl/
 
 ### 1. Camada de Domínio (`internal/domain`)
 - **Entidades (`entity/models.go`)**: Modelos puros sem dependências externas.
-  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `volta`, `dotnet-tool`, `go`, `rustup`, `pip`), binário esperado e filtro de OS.
+  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `volta`, `dotnet-tool`, `go`, `rustup`, `pip`), binário esperado e filtro de OS.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
   - `LSP`: Servidor de linguagem (Language Server Protocol), gerenciador de pacote nativo e linguagens suportadas.
@@ -62,7 +61,7 @@ envctl/
 Orquestra o fluxo de negócio do provisionador sem acoplamento a implementações concretas:
 - **`ProvisionPackagesUseCase`**: Itera pelos manifestos, filtra pelo OS corrente (`runtime.GOOS`) e orquestra a instalação em lote chamando os adaptadores específicos.
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
-- **`ProvisionSkillsUseCase`**: Extrai as 59 Skills do sistema embutido para os diretórios locais do OpenCode (`~/.config/opencode/skills/` e `~/.agents/skills/`).
+- **`ProvisionSkillsUseCase`**: Extrai as 59 Skills do sistema embutido para o diretório local do OpenCode (`~/.config/opencode/skills/`).
 - **`ProvisionLSPsUseCase`**: Garante a presença dos 16 servidores de linguagem registrados.
 - **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux/macOS).
 - **`DoctorAuditUseCase`**: Executa uma bateria de 160+ checagens diagnósticas cobrindo todo o ecossistema.
@@ -74,7 +73,6 @@ Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
 - **Gerenciadores de Pacotes Concretos**:
   - `WingetManager`: `winget.exe install --exact --id ... --silent --accept-package-agreements`
   - `AptManager`: `apt-get install -y --no-install-recommends ...`
-  - `PacmanManager`: `pacman.exe -S --needed --noconfirm ...`
   - `VoltaManager`: `volta install ...`
   - `DotnetToolManager`: `dotnet tool install --global ...`
   - `GoManager`: `go install ...@latest`

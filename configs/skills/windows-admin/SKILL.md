@@ -7,8 +7,8 @@ description: Administração local do Windows 11. Use quando o usuário pedir pa
 
 ## Contexto
 
-- Máquina local: Windows 11 (win32), shell default MSYS2 bash (`C:\msys64\usr\bin\bash.exe`).
-- Operações nativas do Windows devem preferir **PowerShell 5.1/pwsh 7.6.5** — use `bash -lc "powershell -NoProfile -Command '...'"` ou, se o bash tool estiver em PS, os cmdlets diretamente. Nunca tente imitar cmdlets do Windows em bash puro.
+- Máquina local: Windows 11 (win32), shell default PowerShell 7 (`pwsh.exe`). Subshel POSIX secundário: WSL Ubuntu (`wsl -e bash -lc "..."`).
+- Operações nativas do Windows usam **PowerShell 7.6.5** diretamente (cmdlets nativos).
 - LSP PowerShell configurado (PowerShellEditorServices v4.7.0 em `~/Documents/PowerShell/Modules/PowerShellEditorServices`).
 - Sessão pode não ser elevada: verificar com `([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)` antes de operações que exijam admin.
 
@@ -28,7 +28,7 @@ description: Administração local do Windows 11. Use quando o usuário pedir pa
 - `Get-NetFirewallRule -DisplayName '*nome*'`, `New-NetFirewallRule -DisplayName ... -Direction Inbound -Action Allow -Protocol TCP -LocalPort <porta>` (requer admin).
 
 ### Instalação de software
-- Preferir **winget**: `winget install -e --id <Id> --accept-source-agreements --accept-package-agreements --disable-interactivity`. Funciona no MSYS2 bash (verificado).
+- Preferir **winget**: `winget install -e --id <Id> --accept-source-agreements --accept-package-agreements --disable-interactivity`. Funciona no PowerShell (verificado).
 - Chocolatey existe (2.7.3) mas só o choco em si está instalado — usar apenas se winget não tiver o pacote.
 
 ### Eventos
@@ -40,5 +40,5 @@ description: Administração local do Windows 11. Use quando o usuário pedir pa
 ## Regras
 
 - Operações que mudam estado (iniciar serviço, instalar, editar registro/firewall): confirmar com o usuário antes se houver dúvida de impacto.
-- Não editar configuração do opencode (opencode.jsonc) por conta própria — se algo exigir mudança de config, parar e pedir ao usuário.
+- Não editar configuração do opencode (opencode.json) por conta própria — se algo exigir mudança de config, parar e pedir ao usuário.
 - Para diagnóstico de serviços: sempre coletar `Get-Service` + eventos do Application log antes de reiniciar.

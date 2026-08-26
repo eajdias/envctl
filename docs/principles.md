@@ -32,7 +32,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Windows: Instalação dos pacotes essenciais via `Winget` e `Pacman`.
    - Linux: Instalação dos pacotes essenciais via `APT` / gerenciador de pacotes nativo.
 3. **Configuração de Shell e Ambiente:**
-   - Variáveis de ambiente (`NODE_PATH`, `MSYS2_ENV_CONV_EXCL`, `MSYS2_ARG_CONV_EXCL`).
+   - Variáveis de ambiente (`NODE_PATH`, `ENVCTL_TEMP`).
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).
    - Terminal: Implantação de `.bashrc`, `.bash_profile`, Oh-My-Posh e `settings.json` do terminal com backup atômico.
 4. **Toolchains & Language Servers (LSPs):**
@@ -42,7 +42,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - .NET: `csharp-ls`.
    - Rust: `rustup component add rust-analyzer`.
 5. **Ecossistema OpenCode & 59 Skills:**
-   - Implantação de `opencode.jsonc`, `dcp.jsonc`, `tui.json`, `package.json` e `AGENTS.md`.
-   - Extração das 59 Skills do OpenCode para `~/.config/opencode/skills` e `~/.agents/skills`.
+   - Implantação de `opencode.json`, `dcp.jsonc`, `tui.json`, `package.json` e `AGENTS.md`.
+   - Extração das 59 Skills do OpenCode para `~/.config/opencode/skills`.
 6. **Verificação, Diagnóstico e Relatório:**
    - Auditoria completa via `envctl doctor` com 160+ checagens diagnósticas e opção de auto-remediação (`--fix`).

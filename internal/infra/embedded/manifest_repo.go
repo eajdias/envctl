@@ -71,6 +71,7 @@ type shellManifest struct {
 	EnvVars     []entity.EnvironmentVar `yaml:"environment_variables"`
 	ConfigFiles []entity.ConfigFile     `yaml:"config_files"`
 	Directories []entity.RestrictedDir  `yaml:"directories"`
+	Cleanup     []entity.CleanupItem    `yaml:"cleanup"`
 }
 
 func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
@@ -107,6 +108,18 @@ func (m *manifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
 		return nil, fmt.Errorf("failed to parse shell.yaml directories: %w", err)
 	}
 	return manifest.Directories, nil
+}
+
+func (m *manifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
+	data, err := m.readManifestFile("shell.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var manifest shellManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse shell.yaml cleanup: %w", err)
+	}
+	return manifest.Cleanup, nil
 }
 
 type skillsManifest struct {

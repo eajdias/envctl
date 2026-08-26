@@ -28,7 +28,7 @@ O `envctl` embuta e sincroniza **59 Skills de Agentes Especialistas** projetadas
 ### 2. Orquestração de Infraestrutura & Servidores Remotos
 - **`vps-agent-dispatch`**: Orquestrador autônomo que permite ao agente master no notebook delegar tarefas pesadas, builds longos e testes para instâncias remotas OpenCode em servidores VPS (AWS/Oracle) via SSH, trazendo de volta apenas o sumário técnico cristalizado.
 - **`ssh-vps`**: Operação, monitoramento e recuperação de serviços (Docker, Systemd, PM2) em parque de servidores remotos.
-- **`docker`**: Gerenciamento de containers locais e remotos, volumes, networks, compose stacks e logs com suporte a exclusão de conversão de caminhos POSIX no MSYS2.
+- **`docker`**: Gerenciamento de containers locais e remotos, volumes, networks, compose stacks e logs.
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
 
 ### 3. Extração Web & Automação Inteligente (Firecrawl Suite)

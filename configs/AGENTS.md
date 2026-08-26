@@ -4,12 +4,13 @@
 
 - **OS:** Windows 11 Pro 25H2 (amd64)
 - **Workstation:** `eajdias-note` | User: `eajdias-note`
-- **Shell Primary:** MSYS2 Bash (`C:\msys64\usr\bin\bash.exe`) — fast POSIX CLI subshell (~42ms startup)
-- **Shell Secondary:** PowerShell 7.6.5 (`pwsh.exe`)
-- **Package Managers:** Winget (native Windows), MSYS2 Pacman (POSIX utilities), Volta (Node ecosystem), Pip/Uv (Python), Dotnet Tool (.NET)
+- **Shell Primary (OpenCode):** PowerShell 7.6.5 (`pwsh.exe`) — **shell default do OpenCode no Windows**. Todos os comandos dos agentes LLM são executados via PowerShell.
+- **Shell Secondary:** WSL Ubuntu 26.04 (`wsl.exe -d Ubuntu`) — subshell POSIX para scripts legados e ferramentas Linux, usar apenas quando necessário (`wsl -e bash -lc "..."`).
+- **Package Managers:** Winget (native Windows), Volta (Node ecosystem), Pip/Uv (Python), Dotnet Tool (.NET), APT (via WSL Ubuntu)
 - **Node Runtime:** Node v24.19.0 managed via Volta (`NODE_PATH="%USERPROFILE%\node_modules"`)
-- **Global Tools:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `ruff`, `gh`, `tree`, `zip/unzip`, `csharp-ls`, `pw-screenshot`, `pw-eval`
-- **LSPs Registered:** 16 language servers in `opencode.jsonc` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, PowerShell, Rust Analyzer, CSharp-LS, ESLint)
+- **Global Tools:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `tree`, `zip/unzip`, `bun` (runtime JS/TS rápido — `bunx` substitui `npx`), `dust` (disk usage rápido — `du` trava no NTFS), `hyperfine` (benchmark de comandos), `shellcheck` (lint de bash p/ WSL/Linux), `csharp-ls`, `pw-screenshot`, `pw-eval`
+- **Agent libs globais (Windows — uso direto em scripts, sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` — `playwright`, `axios`, `cheerio`, `papaparse` (CSV); Python global — `pyyaml`, `requests`, `openpyxl` (xlsx), `beautifulsoup4` (HTML), `pypdf`, `python-docx`, `lxml`. SQLite via `python -c "import sqlite3"` (stdlib).
+- **LSPs Registered:** 18 language servers in `opencode.json` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, PowerShell, Rust Analyzer, CSharp-LS, ESLint, TOML, PHP)
 - **Git Optimizations:** `fscache=true`, `preloadindex=true`, `longpaths=true`, `autocrlf=input`, `delta` pager
 
 ## Conventions & Rules
@@ -26,17 +27,21 @@
 
 ## OpenCode Configuration
 
-- **Global config:** `~\.config\opencode\opencode.jsonc`
+- **Global config:** `~\.config\opencode\opencode.json` (padrão único — JSON, não JSONC; configs antigas `opencode.jsonc` são removidas automaticamente)
 - **Global rules:** `~\.config\opencode\AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
-- **Plugin:** `@tarquinen/opencode-dcp@latest` (DCP context compression; config `~\.config\opencode\dcp.jsonc`; `compress` tool in experimental.primary_tools)
-- **Skills paths:** `~\.config\opencode\skills`, `~\.agents\skills`
+- **Shell (Windows):** PowerShell 7 (`C:\Program Files\PowerShell\7\pwsh.exe`) — **os agentes LLM DEVEM executar comandos via PowerShell nativo**. Regras:
+  1. Comandos do shell do OpenCode são PowerShell: `Get-ChildItem`, `Test-Path`, etc. — não usar sintaxe bash por padrão.
+  2. Ferramentas CLI (rg, fd, gh, git, docker, node, npm, npx) funcionam normalmente no PowerShell — sem wrapper.
+  3. Scripts POSIX legados que exigem Linux/bash: usar WSL — `wsl -e bash -lc "..."` (nunca ao contrário).
+  4. Variáveis de ambiente usam `$env:NOME` no PowerShell (ex.: `$env:ENVCTL_TEMP`).
+- **Plugins (3):** `@tarquinen/opencode-dcp@latest`, `@dietrichgebert/ponytail`, `@prevalentware/opencode-goal-plugin`
+- **Skills paths:** `~\.config\opencode\skills` (fonte única — sem duplicatas)
 - **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode\memory\lessons.md` e `.opencode\memory\patterns.md` do projeto (se existirem) + `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
 
 ## Skill Locations
 
-- **opencode skills:** `~\.config\opencode\skills\` (**22 skills**)
-- **agent skills:** `~\.agents\skills\` (34 skills)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**56 skills** — opencode + firecrawl + playwright)
 
 ### opencode skills (22)
 
@@ -118,14 +123,10 @@ ssh-manager exec <server> "uptime && df -h /"
 
 ```bash
 docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
-
-# MSYS2 Path Conversion Note:
-# When executing commands inside containers (e.g. /bin/sh) or mounting volumes (-v /host:/container),
-# MSYS2 may convert POSIX paths to Windows paths.
-# The environment defines MSYS2_ARG_CONV_EXCL and aliases docker='MSYS_NO_PATHCONV=1 docker'.
-# In raw subshells or scripts, use:
-MSYS_NO_PATHCONV=1 docker exec -it <container> /bin/sh
+docker exec -it <container> /bin/sh
 ```
+
+Docker commands run natively from PowerShell without path-conversion workarounds.
 
 ### Parallel Agent Execution
 
@@ -133,15 +134,15 @@ Use `dispatching-parallel-agents` skill for independent tasks; each agent runs i
 
 ## Temp & Scratch Hygiene (Mandatory)
 
-- **Never leave scratch behind**: every file, download, build, extraction or database copy created in `C:\msys64\tmp` (MSYS2 `/tmp`) during a session **MUST be removed before the session ends**. `/tmp` is shared by the MSYS2 runtime and accumulates ~1GB if not cleaned — it is NOT auto-managed by Windows.
-- **Big downloads/extracts**: if a tool tarball/zip or build output is needed only to produce a result (e.g. `*.tar.gz`, `*.zip`, `zscan-*`, `*.FDB` copies, `opencode/` scratch), download/extract it, use it, then delete it in the same session.
-- **Native runtime files** (`.bdef*.dll`, `.feef*.node`, `node-compile-cache/`, `tsx-*/`) are generated per execution and are safe to remove once the process that created them has exited; never delete files locked by a running process (removal will fail — that is fine, leave them).
-- **After finishing a task**: run the cleanup pass (list + prune) over the scratch you created:
-  ```bash
-  ls -lh /tmp | head -40
-  rm -rf /tmp/<your-scratch>   # replace with the exact paths you created
+- **Pasta de scratch padrão dos agentes LLM: `C:\temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — scripts do Playwright CLI (`pw-screenshot`, `pw-eval`), downloads, builds, extrações, screenshots — **DEVE** ir para `C:\temp`, nunca para pastas do opencode (`~/.local/share/opencode`, `~/.cache/opencode`), do projeto ou do sistema.
+- **Nunca deixar scratch para trás**: todo arquivo criado em `C:\temp` durante uma sessão **DEVE ser removido antes do fim da sessão**. `C:\temp` é de identificação e exclusão fáceis por estar na raiz do disco.
+- **Big downloads/extracts**: se um tarball/zip ou output de build for necessário apenas para produzir um resultado, baixar/extrair em `C:\temp\<tarefa>\`, usar e deletar na mesma sessão.
+- **After finishing a task**: rodar o cleanup pass sobre o scratch criado:
+  ```powershell
+  Get-ChildItem C:\temp | Select-Object Name, LastWriteTime
+  Remove-Item -Recurse -Force C:\temp\<seu-scratch>   # substitua pelo caminho exato
   ```
-  Prefer a dedicated scratch subdir per session (e.g. `/tmp/opencode-<task>`) so cleanup is a single `rm -rf`.
-- **envctl hygiene**: `envctl doctor` reports temp accumulation; `envctl doctor --fix` prunes stale temp artifacts automatically.
-- Playwright uses headless Chromium by default.
-- When the agent's bash tool shows 'Windows PowerShell (5.1)', the `shell` config was ignored (opencode issue #41426) — wrap commands with `bash -lc "..."`.
+  Preferir um subdiretório dedicado por sessão (ex.: `C:\temp\opencode-<tarefa>`) para que o cleanup seja um único `Remove-Item`.
+- **envctl hygiene**: `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch em `C:\temp` com mais de 24h.
+- Playwright usa Chromium headless por padrão.
+- Quando o shell do agente mostrar 'Windows PowerShell (5.1)', o config de shell foi ignorado (opencode issue #41426) — reiniciar o opencode para aplicar o pwsh 7.

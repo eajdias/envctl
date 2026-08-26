@@ -85,23 +85,23 @@ Você pode executar etapas específicas conforme sua necessidade:
 # Apenas pacotes do sistema via Winget (VSCode, Windows Terminal, Ripgrep, etc.)
 envctl run winget
 
-# Apenas pacotes e utilitários MSYS2 via Pacman (tree, zip, unzip)
-envctl run pacman
-
 # Apenas runtime Node.js LTS e ferramentas globais via Volta
 envctl run volta
 
 # Apenas ajustes de Registro, Modo Desenvolvedor, Modo Escuro e Nerd Font
 envctl run windows
 
-# Apenas variáveis de ambiente (NODE_PATH, MSYS2 exclusions) e arquivos de shell
+# Apenas variáveis de ambiente (NODE_PATH, ENVCTL_TEMP) e arquivos de shell
 envctl run shell
 
 # Apenas catálogo de 59 Skills do OpenCode
 envctl run skills
 
-# Apenas servidores de linguagem (16 LSPs)
+# Apenas servidores de linguagem (18 LSPs)
 envctl run lsp
+
+# Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)
+envctl run cleanup
 
 # Snapshot reverso (salva o estado atual da máquina de volta nos manifestos)
 envctl snapshot
@@ -111,16 +111,19 @@ envctl snapshot
 
 ## ⚙️ 5. Particularidades e Ajustes Críticos no Windows
 
-### A. Integração de Caminhos MSYS2 e Docker
-Para evitar que o MSYS2 converta incorretamente caminhos POSIX (`/bin/sh` ou volumes `-v /c/projeto:/app`) em caminhos Windows do host, o `envctl` configura automaticamente as variáveis no Registro do Usuário:
-- `MSYS2_ENV_CONV_EXCL=NODE_PATH`
-- `MSYS2_ARG_CONV_EXCL=/bin;/usr;/var;/etc;/app;/tmp;/opt;--entrypoint;-v;--volume;--mount;--workdir;-w`
-- Aliases `docker`, `docker-compose`, `kubectl` envolvidos com `MSYS_NO_PATHCONV=1` no `.bashrc`.
+### A. Stack de Shell: PowerShell 7 (primário) + WSL Ubuntu (secundário)
+O ambiente Windows é padronizado em **PowerShell 7** como shell default do OpenCode e do Windows Terminal.
+- **PowerShell 7**: shell primário (OpenCode, Windows Terminal default, scripts de automação).
+- **WSL Ubuntu 26.04**: subshell POSIX secundário para ferramentas Linux — use `wsl -e bash -lc "..."` quando um comando exigir ambiente Linux.
+- Comandos Docker rodam nativamente do PowerShell, sem conversão de caminhos ou wrappers.
 
 ### B. Resolução Global de Módulos Node (`NODE_PATH`)
 Para garantir que scripts autônomos (como Playwright) funcionem a partir de qualquer pasta de projeto:
-- `NODE_PATH` aponta para `%USERPROFILE%\node_modules` no Windows e é convertido dinamicamente para formato mixed (`C:/Users/...`) no shell MSYS2.
+- `NODE_PATH` aponta para `%USERPROFILE%\node_modules`.
 
-### C. Automação Headless com Playwright
+### C. Pasta de Scratch Padrão dos Agentes LLM (`ENVCTL_TEMP`)
+Todo arquivo temporário criado por agentes LLM (scripts Playwright, downloads, builds, screenshots) deve ir para `C:\temp` — pasta na raiz do disco, sem relação com o OpenCode, facilitando identificação e exclusão. `envctl run cleanup` remove scratch com mais de 24h.
+
+### D. Automação Headless com Playwright
 - Os comandos `pw-screenshot` e `pw-eval` ficam disponíveis instantaneamente em `~/.local/bin/`.
 - Navegadores Chromium ficam armazenados em `%LOCALAPPDATA%\ms-playwright`.

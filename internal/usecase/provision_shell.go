@@ -232,6 +232,39 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
+	// 4.5. Cleanup stale files that conflict with the current provisioning
+	// (e.g. the legacy opencode.jsonc after standardizing on opencode.json).
+	cleanupItems, cleanupErr := uc.manifestRepo.LoadCleanupItems()
+	if cleanupErr == nil {
+		for _, item := range cleanupItems {
+			if item.OS != "" && item.OS != runtime.GOOS {
+				continue
+			}
+			expandedPath, err := uc.fsManager.ExpandUserPath(item.Path)
+			if err != nil {
+				continue
+			}
+			if !uc.fsManager.Exists(expandedPath) {
+				continue
+			}
+			if err := os.Remove(expandedPath); err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Failed to remove stale file '%s': %v", expandedPath, err)
+				}
+			} else {
+				if uc.logger != nil {
+					uc.logger.Info("Removed stale file: %s (%s)", expandedPath, item.Description)
+				}
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "Cleanup",
+					Target:   expandedPath,
+					Details:  "Stale file removed: " + item.Description,
+				})
+			}
+		}
+	}
+
 	// 5. OpenCode Plugins npm dependencies installation
 	opencodeConfigDir, _ := uc.fsManager.ExpandUserPath("~/.config/opencode")
 	packageJsonPath := filepath.Join(opencodeConfigDir, "package.json")
@@ -280,7 +313,10 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	if uc.fsManager.Exists(userPackageJsonPath) {
 		userNodeModulesPath := filepath.Join(userHomeDir, "node_modules")
 		playwrightInstalled := uc.fsManager.Exists(filepath.Join(userNodeModulesPath, "playwright"))
-		if !playwrightInstalled {
+		pkgJsonInfo, _ := os.Stat(userPackageJsonPath)
+		nmInfo, _ := os.Stat(userNodeModulesPath)
+		depsOutdated := pkgJsonInfo != nil && nmInfo != nil && pkgJsonInfo.ModTime().After(nmInfo.ModTime())
+		if !playwrightInstalled || depsOutdated {
 			if uc.logger != nil {
 				uc.logger.Info("Installing user root dependencies (Playwright) in %s via npm", userHomeDir)
 			}

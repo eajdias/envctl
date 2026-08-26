@@ -129,3 +129,10 @@ if ($DryRun) { $ArgsList += "--dry-run" }
 
 Write-Host "[*] Launching: $TargetExe $($ArgsList -join ' ')" -ForegroundColor Cyan
 & $TargetExe @ArgsList
+
+if ($LASTEXITCODE -eq 0 -and $Command -eq "run") {
+    Write-Host ""
+    Write-Host "⚠️  Provisionamento concluído. Reinicie o OpenCode para aplicar o novo shell PowerShell." -ForegroundColor Yellow
+    Write-Host "   Arquivos temporários dos agentes LLM agora usam C:\temp (ENVCTL_TEMP)." -ForegroundColor Yellow
+    Write-Host ""
+}

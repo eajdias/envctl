@@ -7,7 +7,6 @@ type PackageType string
 
 const (
 	PackageTypeWinget     PackageType = "winget"
-	PackageTypePacman     PackageType = "pacman"
 	PackageTypeVolta      PackageType = "volta"
 	PackageTypeNpm        PackageType = "npm"
 	PackageTypePip        PackageType = "pip"
@@ -119,6 +118,15 @@ type RestrictedDir struct {
 	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 }
 
+// CleanupItem represents a stale file or directory to remove during provisioning.
+type CleanupItem struct {
+	ID          string `yaml:"id"`
+	Description string `yaml:"description"`
+	Path        string `yaml:"path"` // expanded with env vars (e.g. ~ / %USERPROFILE%)
+	Category    string `yaml:"category"`
+	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+}
+
 // DiagnosticStatus represents health check status.
 type DiagnosticStatus string
 
@@ -132,7 +140,7 @@ const (
 // Diagnostic contains the result of an audit check.
 type Diagnostic struct {
 	Category DiagnosticStatus `yaml:"status"` // Status (OK/WARN/ERROR)
-	System   string           `yaml:"system"` // e.g. "Winget", "MSYS2", "Git", "Skills", "LSP"
+	System   string           `yaml:"system"` // e.g. "Winget", "Git", "Skills", "LSP"
 	Target   string           `yaml:"target"`
 	Details  string           `yaml:"details"`
 	FixHint  string           `yaml:"fix_hint,omitempty"`

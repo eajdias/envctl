@@ -28,10 +28,10 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 
 ## 🎯 O que o `envctl` Configura Automaticamente?
 
-- **Shell & Utilitários de Alta Performance**: MSYS2 Bash / Zsh com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
+- **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
-- **Language Server Protocol (16 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Marksman, CSharp-LS, Rust-Analyzer, etc.
-- **Ecossistema OpenCode & 59 Skills**: `opencode.jsonc`, `dcp.jsonc`, `tui.json`, plugins e **59 Skills de Agentes de IA** embutidas.
+- **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
+- **Ecossistema OpenCode & 59 Skills**: `opencode.json`, `dcp.jsonc`, `tui.json`, plugins e **59 Skills de Agentes de IA** embutidas.
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
 - **Navegador Headless Playwright**: Scripts utilitários `pw-eval` e `pw-screenshot` prontos para automação web instantânea.
 
@@ -52,12 +52,12 @@ envctl doctor --fix
 # Provisionamento por subsistema modular
 envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
-envctl run pacman       # Pacotes MSYS2
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das 59 Skills
-envctl run lsp          # 16 Servidores de Linguagem (LSP)
+envctl run lsp          # 18 Servidores de Linguagem (LSP)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
+envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 
 # Snapshot reverso e sincronização de estado (Day-2)
 envctl snapshot
@@ -70,7 +70,7 @@ envctl snapshot
 Para guias passo a passo detalhados, arquitetura e especificações:
 
 ### 📖 Guias de Execução por Sistema Operacional:
-- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, MSYS2 e caminhos Docker.
+- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, PowerShell 7 + WSL Ubuntu.
 - 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
 - 🍎 [**Guia macOS (Darwin)**](docs/guides/macos.md) — Execução em Apple Silicon (M-series) e Intel.
 

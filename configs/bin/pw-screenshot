@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 const { chromium } = require('playwright');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 (async () => {
@@ -8,7 +10,9 @@ const path = require('path');
     console.error('Usage: pw-screenshot <url> [output.png] [width] [height]');
     process.exit(1);
   }
-  const output = process.argv[3] || 'screenshot.png';
+  const tempDir = process.env.ENVCTL_TEMP || path.join(os.tmpdir(), 'envctl');
+  fs.mkdirSync(tempDir, { recursive: true });
+  const output = process.argv[3] || path.join(tempDir, 'screenshot.png');
   const width = parseInt(process.argv[4] || '1280', 10);
   const height = parseInt(process.argv[5] || '720', 10);
 

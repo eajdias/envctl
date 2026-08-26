@@ -22,7 +22,8 @@ const (
 )
 
 // TempHygieneUseCase audits and prunes stale temporary/scratch artifacts that
-// accumulate in the MSYS2/OS temp directories (e.g. C:\msys64\tmp on Windows).
+// accumulate in the OS temp directories and the standardized agent scratch
+// folder (ENVCTL_TEMP: C:\temp on Windows, /temp elsewhere).
 type TempHygieneUseCase struct {
 	logger repository.Logger
 }
@@ -164,9 +165,9 @@ func tempRoots() []string {
 	}
 	add(os.TempDir())
 	if runtime.GOOS == "windows" {
-		add(`C:\msys64\tmp`)
+		add(`C:\temp`)
 	} else {
-		add("/tmp")
+		add("/temp")
 	}
 	return out
 }

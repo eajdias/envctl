@@ -9,7 +9,7 @@
 - **Node Runtime:** Node v24 LTS managed via Volta (`~/.volta`)
 - **Global Tools:** `rg` (ripgrep), `fd` (via `fdfind` symlink), `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `tree`, `zip/unzip`, `oh-my-posh`
 - **OpenCode:** CLI installed via npm global (`opencode-ai`) into `~/.local/bin` (fallback: official install script)
-- **LSPs Registered:** `opencode.jsonc` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, Rust Analyzer, CSharp-LS, ESLint — no PowerShell on Linux)
+- **LSPs Registered:** `opencode.json` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, Rust Analyzer, CSharp-LS, ESLint, TOML, PHP — no PowerShell on Linux)
 - **Git:** `preloadindex=true`, `autocrlf=input`, `init.defaultBranch=main`, `delta` pager (no fscache/longpaths — Windows-only)
 
 ## Conventions & Rules
@@ -26,10 +26,10 @@
 
 ## OpenCode Configuration
 
-- **Global config:** `~/.config/opencode/opencode.jsonc`
+- **Global config:** `~/.config/opencode/opencode.json` (padrão único — JSON, não JSONC)
 - **Global rules:** `~/.config/opencode/AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
 - **Plugin:** `@tarquinen/opencode-dcp@latest` (DCP context compression; config `~/.config/opencode/dcp.jsonc`; `compress` tool in experimental.primary_tools)
-- **Skills paths:** `~/.config/opencode/skills`, `~/.agents/skills`
+- **Skills paths:** `~/.config/opencode/skills` (fonte única — sem duplicatas)
 - **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode/memory/lessons.md` e `.opencode/memory/patterns.md` do projeto (se existirem) + `~/.config/opencode/memory/lessons.md` e `~/.config/opencode/memory/patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config`.
 
@@ -71,18 +71,19 @@ docker exec -it <container> /bin/sh
 
 ## Temp & Scratch Hygiene (Mandatory)
 
-- **Never leave scratch behind**: every file, download, build or extraction created in `/tmp` during a session **MUST be removed before the session ends**.
-- **Big downloads/extracts**: if a tarball/zip or build output is needed only to produce a result (e.g. `*.tar.gz`, `*.zip`, `*.FDB` copies, `opencode/` scratch), download/extract it, use it, then delete it in the same session.
-- **After finishing a task**: run the cleanup pass over the scratch you created:
+- **Pasta de scratch padrão dos agentes LLM: `/temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — scripts do Playwright CLI, downloads, builds, extrações — **DEVE** ir para `/temp`, nunca para pastas do opencode, do projeto ou do sistema.
+- **Never leave scratch behind**: todo arquivo criado em `/temp` durante uma sessão **DEVE ser removido antes do fim da sessão**.
+- **Big downloads/extracts**: se um tarball/zip ou build output for necessário apenas para produzir um resultado (ex.: `*.tar.gz`, `*.zip`, `*.FDB` copies, `opencode/` scratch), baixar/extrair em `/temp/<tarefa>\`, usar e deletar na mesma sessão.
+- **After finishing a task**: rodar o cleanup pass sobre o scratch criado:
   ```bash
-  ls -lh /tmp | head -40
-  rm -rf /tmp/<your-scratch>   # replace with the exact paths you created
+  ls -lh /temp | head -40
+  rm -rf /temp/<seu-scratch>   # substitua pelo caminho exato
   ```
-  Prefer a dedicated scratch subdir per session (e.g. `/tmp/opencode-<task>`) so cleanup is a single `rm -rf`.
-- **envctl hygiene**: `envctl doctor` reports temp accumulation; `envctl doctor --fix` prunes stale temp artifacts automatically.
+  Preferir um subdiretório dedicado por sessão (ex.: `/temp/opencode-<tarefa>`) para que o cleanup seja um único `rm -rf`.
+- **envctl hygiene**: `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch em `/temp` com mais de 24h.
 
 ## Notes
 
-- Scripts should be created in `/tmp` or the home directory, not in system folders; clean up test files after use.
+- Scripts should be created in `/temp` or the home directory, not in system folders; clean up test files after use.
 - Playwright uses headless Chromium by default (system deps installed via `sudo npx playwright install-deps chromium`).
 - Paths are POSIX (`~/.local/bin`, `~/.config/opencode`, `~/.ssh`).

@@ -5,13 +5,6 @@ packages:
   # ============================================================================
   # Core System Runtimes & Package Managers
   # ============================================================================
-  - id: MSYS2.MSYS2
-    name: MSYS2 POSIX Runtime
-    type: winget
-    os: windows
-    category: system
-    check_command: test -d /c/msys64
-
   - id: Git.Git
     name: Git SCM for Windows
     type: winget
@@ -107,56 +100,70 @@ packages:
     check_command: yq --version
 
   # ============================================================================
-  # MSYS2 Pacman POSIX Utilities
+  # Agent Runtime Helpers (Windows only — Linux/macOS stays isolated: uv/venv)
   # ============================================================================
-  - id: tree
-    name: tree directory visualizer
-    type: pacman
+  - id: Oven-sh.Bun
+    name: Bun JS/TS runtime (fast agent scripts & bunx)
+    type: winget
     os: windows
-    category: msys2
-    check_command: tree --version
+    category: cli-tools
+    check_command: bun --version
 
-  - id: zip
-    name: zip compression utility
-    type: pacman
+  - id: pyyaml
+    name: PyYAML (YAML parsing for python agent scripts)
+    type: pip
     os: windows
-    category: msys2
-    check_command: zip --version
+    category: cli-tools
+    check_command: python -m pip show pyyaml
 
-  - id: unzip
-    name: unzip extraction utility
-    type: pacman
+  - id: requests
+    name: requests (HTTP client for python agent scripts)
+    type: pip
     os: windows
-    category: msys2
-    check_command: unzip --version
+    category: cli-tools
+    check_command: python -m pip show requests
 
-  - id: rsync
-    name: rsync file transfer
-    type: pacman
+  - id: openpyxl
+    name: openpyxl (Excel xlsx read/write for python agent scripts)
+    type: pip
     os: windows
-    category: msys2
-    check_command: rsync --version
+    category: cli-tools
+    check_command: python -m pip show openpyxl
 
-  - id: jq
-    name: jq JSON processor
-    type: pacman
+  - id: beautifulsoup4
+    name: beautifulsoup4 (HTML parsing for python agent scripts)
+    type: pip
     os: windows
-    category: msys2
+    category: cli-tools
+    check_command: python -m pip show beautifulsoup4
+
+  - id: jqlang.jq
+    name: jq (JSON processor for CLI/agent pipelines)
+    type: winget
+    os: windows
+    category: cli-tools
     check_command: jq --version
 
-  - id: openssh
-    name: OpenSSH client/tools
-    type: pacman
+  - id: bootandy.dust
+    name: dust (fast disk usage analyzer, NTFS-safe)
+    type: winget
     os: windows
-    category: msys2
-    check_command: ssh -V
+    category: cli-tools
+    check_command: dust --version
 
-  - id: sshpass
-    name: Non-interactive ssh password provider
-    type: pacman
+  - id: sharkdp.hyperfine
+    name: hyperfine (command benchmarking for agent evidence)
+    type: winget
     os: windows
-    category: msys2
-    check_command: sshpass -V
+    category: cli-tools
+    check_command: hyperfine --version
+
+  - id: koalaman.shellcheck
+    name: shellcheck (bash script linting for WSL/Linux scripts)
+    type: winget
+    os: windows
+    category: cli-tools
+    check_command: shellcheck --version
 
   # ============================================================================
   # Language SDKs & Toolchains (Winget)

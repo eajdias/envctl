@@ -14,8 +14,8 @@ import (
 func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [subsystem]",
-		Short: "Provision and configure the Windows 11 environment",
-		Long:  `Executes idempotent provisioning tasks for system packages, MSYS2, shell, skills, and LSPs.`,
+		Short: "Provision and configure the environment",
+		Long:  `Executes idempotent provisioning tasks for system packages, shell, skills, and LSPs.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 || args[0] == "all" {
 				runAllProvisioning()
@@ -43,15 +43,6 @@ func newRunCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "pacman",
-		Short: "Provision MSYS2 Pacman packages",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypePacman)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
 		Use:   "apt",
 		Short: "Provision Debian/Ubuntu APT packages",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -75,6 +66,15 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runPackagesProvisioning(entity.PackageTypeVolta)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "pip",
+		Short: "Provision global Python packages (pyyaml, requests, etc.)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runPackagesProvisioning(entity.PackageTypePip)
 		},
 	})
 
@@ -111,6 +111,15 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runWindowsProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "cleanup",
+		Short: "Clean OpenCode storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runCleanup()
 		},
 	})
 
@@ -286,6 +295,27 @@ func runLSPProvisioning() {
 	}
 
 	spinner.Success(fmt.Sprintf("Checked %d language servers", len(results)))
+}
+
+func runCleanup() {
+	spinner, _ := pterm.DefaultSpinner.Start("Cleaning OpenCode storage accumulation...")
+	ctx := context.Background()
+
+	res, err := appCtx.CleanupOpenCodeUC.Execute(ctx)
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed cleanup: %v", err))
+		return
+	}
+
+	if len(res.RemovedFiles) == 0 {
+		spinner.Success("Nothing to clean — OpenCode storage is already tidy")
+		return
+	}
+
+	spinner.Success(fmt.Sprintf("Removed %d items, freed %.1f MB", len(res.RemovedFiles), float64(res.FreedBytes)/(1024*1024)))
+	for _, f := range res.RemovedFiles {
+		pterm.Success.Printf("  • %s\n", f)
+	}
 }
 
 func runWindowsProvisioning() {

@@ -16,7 +16,6 @@ import (
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 	"github.com/eajdias/envctl/internal/infra/git"
 	"github.com/eajdias/envctl/internal/infra/logger"
-	"github.com/eajdias/envctl/internal/infra/msys2"
 	"github.com/eajdias/envctl/internal/infra/toolchain"
 	"github.com/eajdias/envctl/internal/infra/windows"
 	"github.com/eajdias/envctl/internal/infra/winget"
@@ -43,6 +42,7 @@ type AppContext struct {
 	DoctorAuditUC        *usecase.DoctorAuditUseCase
 	SnapshotSyncUC       *usecase.SnapshotSyncUseCase
 	TempHygieneUC        *usecase.TempHygieneUseCase
+	CleanupOpenCodeUC    *usecase.CleanupOpenCodeUseCase
 }
 
 var (
@@ -88,7 +88,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget:     winget.NewWingetManager(),
-		entity.PackageTypePacman:     msys2.NewPacmanManager(),
 		entity.PackageTypeApt:        apt.NewAptManager(),
 		entity.PackageTypeVolta:      toolchain.NewVoltaManager(),
 		entity.PackageTypeDotnetTool: toolchain.NewDotnetToolManager(),
@@ -115,6 +114,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),
 		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
+		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
 	}
 
 	registerCommands()

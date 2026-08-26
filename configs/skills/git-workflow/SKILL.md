@@ -8,7 +8,7 @@ description: Fluxo de trabalho avançado com Git e GitHub CLI (gh). Use quando o
 ## Contexto
 - Git for Windows v2.55+ com otimizações ativas (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`).
 - GitHub CLI (`gh`) autenticado globalmente (`gh version 2.97+`).
-- Shell padrão: MSYS2 Bash.
+- Shell padrão: PowerShell 7 (WSL Ubuntu disponível via `wsl -e bash -lc "..."` para comandos POSIX).
 
 ## Convenções de Branches & Commits
 

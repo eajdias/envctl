@@ -217,9 +217,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		if targetDir == "" {
 			targetDir = filepath.Join("~/.config/opencode/skills", s.Name)
 		}
-		altDir := filepath.Join("~/.agents/skills", s.Name)
 
-		if !uc.fsManager.Exists(targetDir) && !uc.fsManager.Exists(altDir) {
+		if !uc.fsManager.Exists(targetDir) {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "Skills",
@@ -438,6 +437,117 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				})
 			}
 		}
+	}
+
+	// 12.5. Audit WSL Ubuntu secondary shell (Windows only)
+	if runtime.GOOS == "windows" {
+		out, err := exec.CommandContext(ctx, "wsl.exe", "-l", "-q").CombinedOutput()
+		// Windows console output is UTF-16: strip null bytes before matching.
+		clean := strings.ReplaceAll(string(out), "\x00", "")
+		if err != nil {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "WSL",
+				Target:   "Ubuntu",
+				Details:  fmt.Sprintf("wsl.exe check failed: %v", err),
+				FixHint:  "run 'wsl --install -d Ubuntu' (WSL2)",
+			})
+		} else if !strings.Contains(strings.ToLower(clean), "ubuntu") {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "WSL",
+				Target:   "Ubuntu",
+				Details:  "WSL Ubuntu distro not found (secondary POSIX shell)",
+				FixHint:  "run 'wsl --install -d Ubuntu' (WSL2)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "WSL",
+				Target:   "Ubuntu",
+				Details:  "WSL Ubuntu available as secondary POSIX shell",
+			})
+		}
+	}
+
+	// 13. Audit OpenCode storage accumulation & standardized temp folder
+	opencodeDataDir, _ := uc.fsManager.ExpandUserPath("~/.local/share/opencode")
+
+	dbPath := filepath.Join(opencodeDataDir, "opencode.db")
+	if dbInfo, err := os.Stat(dbPath); err == nil && dbInfo.Size() > 500*1024*1024 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "OpenCode",
+			Target:   "Database",
+			Details:  fmt.Sprintf("opencode.db is %.1f MB (threshold: 500 MB) — accumulated session history", float64(dbInfo.Size())/(1024*1024)),
+			FixHint:  "close OpenCode and prune old sessions (opencode sessions); VACUUM only helps if the DB has free pages",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "OpenCode",
+			Target:   "Database",
+			Details:  fmt.Sprintf("Database OK (%.1f MB)", float64(dbInfo.Size())/(1024*1024)),
+		})
+	}
+
+	toolOutputDir := filepath.Join(opencodeDataDir, "tool-output")
+	if toolSize, err := dirSize(toolOutputDir); err == nil && toolSize > 50*1024*1024 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "OpenCode",
+			Target:   "Tool Output",
+			Details:  fmt.Sprintf("tool-output is %.1f MB (threshold: 50 MB)", float64(toolSize)/(1024*1024)),
+			FixHint:  "run 'envctl run cleanup' to remove files >10 MB",
+		})
+	}
+
+	// Stale config: standard config file is opencode.json; jsonc is a legacy conflict source.
+	for _, stale := range []string{
+		"~/.config/opencode/opencode.jsonc",
+		"~/.config/opencode/opencode.linux.jsonc",
+	} {
+		if uc.fsManager.Exists(stale) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "OpenCode",
+				Target:   stale,
+				Details:  "Legacy config file found — arrays don't merge with opencode.json, causing duplicate LSPs/plugins",
+				FixHint:  "run 'envctl run shell' to remove it (cleanup step)",
+			})
+		}
+	}
+
+	// Standardized global temp folder for LLM agent scratch (ENVCTL_TEMP).
+	var tempDir string
+	if runtime.GOOS == "windows" {
+		tempDir = `C:\temp`
+	} else {
+		tempDir = "/temp"
+	}
+	if !uc.fsManager.Exists(tempDir) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "TempFolder",
+			Target:   tempDir,
+			Details:  "Standardized agent temp folder (ENVCTL_TEMP) missing",
+			FixHint:  "run 'envctl run shell' to create it",
+		})
+	} else if tempSize, err := dirSize(tempDir); err == nil && tempSize > 500*1024*1024 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "TempFolder",
+			Target:   tempDir,
+			Details:  fmt.Sprintf("Agent temp folder is %.1f MB — clean stale scratch", float64(tempSize)/(1024*1024)),
+			FixHint:  "run 'envctl run cleanup' or delete its contents manually",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "TempFolder",
+			Target:   tempDir,
+			Details:  "Standardized agent temp folder present (ENVCTL_TEMP)",
+		})
 	}
 
 	return report, nil

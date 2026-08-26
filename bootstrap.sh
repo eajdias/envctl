@@ -115,6 +115,9 @@ esac
 if [ $# -eq 0 ]; then
   echo "[*] Executing: ${TARGET_PATH} run all"
   "${TARGET_PATH}" run all
+  echo ""
+  echo "⚠️  Provisioning complete. Temp files for LLM agents now use /temp (ENVCTL_TEMP)."
+  echo ""
 else
   echo "[*] Executing: ${TARGET_PATH} $*"
   "${TARGET_PATH}" "$@"

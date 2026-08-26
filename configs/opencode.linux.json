@@ -61,12 +61,19 @@
     "eslint": {
       "command": ["vscode-eslint-language-server", "--stdio"],
       "extensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
+    },
+    "toml": {
+      "command": ["taplo", "lsp"],
+      "extensions": [".toml"]
+    },
+    "php": {
+      "command": ["intelephense", "--stdio"],
+      "extensions": [".php"]
     }
   },
   "skills": {
     "paths": [
-      "~/.config/opencode/skills",
-      "~/.agents/skills"
+      "~/.config/opencode/skills"
     ]
   },
   "references": {
@@ -85,7 +92,12 @@
       "enabled": true
     }
   },
+  "instructions": [
+    "https://raw.githubusercontent.com/JRedeker/opencode-shell-strategy/trunk/shell_strategy.md"
+  ],
   "plugin": [
-    "@tarquinen/opencode-dcp@latest"
+    "@tarquinen/opencode-dcp@latest",
+    "@dietrichgebert/ponytail",
+    "@prevalentware/opencode-goal-plugin"
   ]
 }

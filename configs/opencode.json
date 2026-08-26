@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "shell": "C:\\msys64\\usr\\bin\\bash.exe",
+  "shell": "pwsh",
   "lsp": {
     "typescript": {
       "command": ["typescript-language-server", "--stdio"],
@@ -73,17 +73,24 @@
     "eslint": {
       "command": ["vscode-eslint-language-server", "--stdio"],
       "extensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
+    },
+    "toml": {
+      "command": ["taplo", "lsp"],
+      "extensions": [".toml"]
+    },
+    "php": {
+      "command": ["intelephense", "--stdio"],
+      "extensions": [".php"]
     }
   },
   "skills": {
     "paths": [
-      "~/.config/opencode/skills",
-      "~/.agents/skills"
+      "~/.config/opencode/skills"
     ]
   },
   "references": {
     "playwright": {
-      "path": "~/.agents/skills/playwright-cli",
+      "path": "~/.config/opencode/skills/playwright-cli",
       "description": "Browser automation with Playwright Node.js API"
     }
   },
@@ -101,9 +108,6 @@
       "command": ["mcp-ssh-manager"],
       "enabled": false
     },
-    // Docker Hub MCP oficial (docker/hub-mcp). Para ativar: garanta que
-    // C:\Users\eajdias-note\Documents\docker-hub-mcp-server existe (dist/ compilado)
-    // e mude enabled para true. Auth opcional: HUB_USERNAME + HUB_PAT_TOKEN.
     "docker-hub": {
       "type": "local",
       "command": [
@@ -112,9 +116,35 @@
         "--transport=stdio"
       ],
       "enabled": false
+    },
+    "zscan": {
+      "type": "local",
+      "command": ["npx", "-y", "@eajdias/zscan-run", "assist"],
+      "environment": {
+        "ZSCAN_LAUNCHER_COMMAND": "npx",
+        "ZSCAN_PRODUCT_ID": "assist"
+      },
+      "enabled": false
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp@latest", "--browser", "chromium"],
+      "timeout": 30000,
+      "enabled": false
+    },
+    "chrome-devtools": {
+      "type": "local",
+      "command": ["npx", "-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"],
+      "timeout": 30000,
+      "enabled": false
     }
   },
+  "instructions": [
+    "https://raw.githubusercontent.com/JRedeker/opencode-shell-strategy/trunk/shell_strategy.md"
+  ],
   "plugin": [
-    "@tarquinen/opencode-dcp@latest"
+    "@tarquinen/opencode-dcp@latest",
+    "@dietrichgebert/ponytail",
+    "@prevalentware/opencode-goal-plugin"
   ]
 }

@@ -19,20 +19,20 @@ envctl doctor
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
    - Fonte tipográfica (MesloLGM Nerd Font).
 2. **Gerenciadores de Pacotes & Toolchains**:
-   - Winget, APT, MSYS2 Pacman, Volta, Go, Rustup, Dotnet CLI, Python UV/Pip.
+   - Winget, APT, Volta, Go, Rustup, Dotnet CLI, Python UV/Pip.
    - Presença de todos os 50+ binários essenciais no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
-   - `MSYS2_ENV_CONV_EXCL` e `MSYS2_ARG_CONV_EXCL` configurados para evitar corrupção de caminhos Docker e Node.
-   - Integridade de `.bashrc`, `.bash_profile`, `settings.json` do Terminal e perfis do PowerShell.
-4. **Language Servers (16 LSPs)**:
-   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 16 servidores de linguagem registrados.
+   - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
+   - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
+4. **Language Servers (18 LSPs)**:
+   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 18 servidores de linguagem registrados.
 5. **Runtime do Playwright & Navegadores Headless**:
    - Carregamento assíncrono do módulo `playwright` via Node.js em qualquer diretório.
    - Presença dos binários do Chromium instalados (`%LOCALAPPDATA%/ms-playwright` no Windows ou `~/.cache/ms-playwright` no Linux).
    - Scripts utilitários `pw-screenshot` e `pw-eval` operacionais.
 6. **Catálogo de 59 Skills de Agentes**:
-   - Existência e conformidade de todas as 59 skills em `~/.config/opencode/skills/` e `~/.agents/skills/`.
+   - Existência e conformidade de todas as 59 skills em `~/.config/opencode/skills/`.
 
 ---
 
@@ -84,9 +84,9 @@ Toda execução de qualquer comando do `envctl` gera automaticamente um log estr
 ```
 2026-08-18 20:30:15.120 [INFO]  === envctl Session Started (Command: run all, OS: windows, Arch: amd64) ===
 2026-08-18 20:30:15.125 [DEBUG] [IDEMPOTENT-SKIP] Package 'BurntSushi.ripgrep.MSVC' already installed and verified at 'C:\Program Files\ripgrep\rg.exe'
-2026-08-18 20:30:15.140 [INFO]  [APPLY-CHANGE] Writing file '~/.bashrc' (Hash mismatch detected)
-2026-08-18 20:30:15.142 [DEBUG] Created backup at '~/.bashrc.bak.20260818-203015'
-2026-08-18 20:30:15.145 [DEBUG] Command executed: 'pacman -S --needed --noconfirm tree' -> Exit Code: 0
+2026-08-18 20:30:15.140 [INFO]  [APPLY-CHANGE] Writing file '~/.config/opencode/opencode.json' (Hash mismatch detected)
+2026-08-18 20:30:15.142 [DEBUG] Created backup at '~/.config/opencode/opencode.json.bak.20260818-203015'
+2026-08-18 20:30:15.145 [DEBUG] Command executed: 'winget install --exact --id BurntSushi.ripgrep.MSVC --silent' -> Exit Code: 0
 2026-08-18 20:30:16.890 [INFO]  === envctl Session Finished Successfully (Elapsed: 1.765s, Errors: 0) ===
 ```
 

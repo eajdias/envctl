@@ -74,7 +74,7 @@ sudo mv envctl /usr/local/bin/ # ou mv envctl ~/.local/bin/
 
 ## 🎛️ 4. Subcomandos Modulares no Linux
 
-No Linux, comandos específicos de Windows (como `run winget`, `run pacman`, `run windows`) são ignorados de forma limpa e segura:
+No Linux, comandos específicos de Windows (como `run winget`, `run windows`) são ignorados de forma limpa e segura:
 
 ```bash
 # Apenas pacotes do sistema via APT (curl, git, ripgrep, fzf, jq, rsync, tree, etc.)

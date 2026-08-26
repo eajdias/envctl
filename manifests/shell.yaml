@@ -2,12 +2,6 @@
 version: "1.0"
 
 environment_variables:
-  - name: MSYS2_PATH_TYPE
-    value: inherit
-    scope: User
-    target: "Windows User Environment"
-    os: windows
-
   - name: FZF_DEFAULT_COMMAND
     value: "fd --type f --hidden --exclude .git"
     scope: User
@@ -19,63 +13,25 @@ environment_variables:
     target: "Windows User Environment"
     os: windows
 
-  - name: MSYS2_ENV_CONV_EXCL
-    value: "NODE_PATH"
-    scope: User
-    target: "Windows User Environment"
-    os: windows
-
-  - name: MSYS2_ARG_CONV_EXCL
-    value: "/bin;/usr;/var;/etc;/app;/tmp;/opt;--entrypoint;-v;--volume;--mount;--workdir;-w"
+  - name: ENVCTL_TEMP
+    value: "C:\\temp"
     scope: User
     target: "Windows User Environment"
     os: windows
 
 config_files:
-  - id: bashrc
-    description: "MSYS2 Bash interactive configuration with aliases and completions"
-    source: "configs/.bashrc"
-    destination: "~/.bashrc"
-    strict_acl: false
-    category: "shell"
-    os: windows
-
-  - id: bash_profile
-    description: "MSYS2 Bash login profile ensuring .bashrc is sourced"
-    source: "configs/.bash_profile"
-    destination: "~/.bash_profile"
-    strict_acl: false
-    category: "shell"
-    os: windows
-
-  - id: nsswitch_conf
-    description: "MSYS2 NSSwitch configuration unifying home directory with Windows (%USERPROFILE%)"
-    source: "configs/nsswitch.conf"
-    destination: "C:/msys64/etc/nsswitch.conf"
-    strict_acl: false
-    category: "msys2"
-    os: windows
-
-  - id: msys_pathconv_profile
-    description: "MSYS2 Profile script bypassing argument path conversion for container paths"
-    source: "configs/msys_pathconv.sh"
-    destination: "C:/msys64/etc/profile.d/msys_pathconv.sh"
-    strict_acl: false
-    category: "msys2"
-    os: windows
-
   - id: opencode_config
-    description: "OpenCode global agent configuration with full LSP registration"
-    source: "configs/opencode.jsonc"
-    destination: "~/.config/opencode/opencode.jsonc"
+    description: "OpenCode global agent configuration (single source of truth, PowerShell shell on Windows)"
+    source: "configs/opencode.json"
+    destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
     os: windows
 
   - id: opencode_config_linux
     description: "OpenCode global agent configuration for Linux (no Windows shell/MCP/LSP)"
-    source: "configs/opencode.linux.jsonc"
-    destination: "~/.config/opencode/opencode.jsonc"
+    source: "configs/opencode.linux.json"
+    destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
     os: linux
@@ -103,13 +59,6 @@ config_files:
     strict_acl: false
     category: "opencode"
 
-  - id: opencode_tui
-    description: "OpenCode TUI plugins configuration"
-    source: "configs/tui.json"
-    destination: "~/.config/opencode/tui.json"
-    strict_acl: false
-    category: "opencode"
-
   - id: opencode_package_json
     description: "OpenCode plugins dependency declaration"
     source: "configs/package.json"
@@ -124,15 +73,8 @@ config_files:
     strict_acl: false
     category: "runtimes"
 
-  - id: agents_skill_lock
-    description: "OpenCode agent skills lock tracking 36 external tools"
-    source: "configs/.skill-lock.json"
-    destination: "~/.agents/.skill-lock.json"
-    strict_acl: false
-    category: "opencode"
-
   - id: windows_terminal_settings
-    description: "Windows Terminal profile configuration (MSYS2 default, MesloLGM Nerd Font, Dark+ theme)"
+    description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, MesloLGM Nerd Font, Dark+ theme)"
     source: "configs/terminal-settings.json"
     destination: "%LOCALAPPDATA%/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
     strict_acl: false
@@ -233,9 +175,6 @@ directories:
   - path: "~/.config/opencode/extras"
     strict_acl: false
     description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"
-  - path: "~/.agents/skills"
-    strict_acl: false
-    description: "External agent skills directory"
   - path: "~/.poshthemes"
     strict_acl: false
     description: "Oh-My-Posh themes directory"
@@ -247,3 +186,21 @@ directories:
     strict_acl: false
     description: "Directory for public open-source git projects"
     os: windows
+  - path: "C:/temp"
+    strict_acl: false
+    description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
+    os: windows
+  - path: "/temp"
+    strict_acl: false
+    description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
+    os: linux
+
+cleanup:
+  - id: stale_opencode_jsonc
+    description: "Remove stale opencode.jsonc (standardized on opencode.json)"
+    path: "~/.config/opencode/opencode.jsonc"
+    category: "opencode"
+  - id: stale_tui_json
+    description: "Remove non-functional TUI plugin config (tui.json)"
+    path: "~/.config/opencode/tui.json"
+    category: "opencode"

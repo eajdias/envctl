@@ -37,6 +37,7 @@ type ManifestRepository interface {
 	LoadEnvVars() ([]entity.EnvironmentVar, error)
 	LoadGitConfigs() ([]entity.GitConfig, error)
 	LoadDirectories() ([]entity.RestrictedDir, error)
+	LoadCleanupItems() ([]entity.CleanupItem, error)
 	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
 
 	SavePackages(pkgs []entity.Package) error

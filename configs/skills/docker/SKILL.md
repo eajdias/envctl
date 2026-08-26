@@ -22,17 +22,17 @@ description: Gerenciamento de Docker na máquina local. Use quando o usuário pe
 - `docker compose up -d` / `down` / `logs -f` / `ps` — na pasta do projeto (arquivos compose são lidos do diretório local; atenção à montagem de volumes entre WSL2 e C:\)
 - `docker pull <imagem>` / `docker push`
 
-## MSYS2 / Windows Path Conversion (Docker Exec & Volumes)
+## Shell Windows (PowerShell 7 + WSL2)
 
-No MSYS2 Bash no Windows, argumentos iniciados com `/` (ex: `/bin/sh`, `/var/run/docker.sock`) podem sofrer conversão automática para caminhos Windows locais (ex: `C:\msys64\usr\bin\sh`), quebrando comandos dentro do container.
-- O ambiente possui `MSYS2_ARG_CONV_EXCL` configurado e aliases `docker='MSYS_NO_PATHCONV=1 docker'`.
-- Em comandos manuais ou scripts avulsos, garanta o uso de `MSYS_NO_PATHCONV=1 docker exec <container> /bin/sh` ou barra dupla (`//bin/sh`) para prevenir erros como `OCI runtime exec failed: exec: "C:/msys64/...": no such file or directory`.
-- Em volumes no Windows, prefira caminhos absolutos no formato Windows misto (ex: `docker run -v "C:/meu/projeto:/app"`) ou com `MSYS_NO_PATHCONV=1`.
+O ambiente usa **PowerShell 7** como shell padrão — nenhuma conversão de caminhos POSIX acontece. Docker roda nativamente do PowerShell.
+- `docker exec -it <container> /bin/sh` funciona direto, sem conversão de caminhos.
+- Em volumes no Windows, use caminhos absolutos no formato misto (ex: `docker run -v "C:/meu/projeto:/app"`).
+- Para comandos Linux dentro de containers exigirem shell bash: `docker exec -it <container> bash`.
 
 ## Docker Hub (MCP docker-hub)
 
 - MCP server local do repositório `docker/hub-mcp` (clonado em `~/Documents/docker-hub-mcp-server`; roda via `node dist/index.js --transport=stdio`; NÃO existe pacote npm).
-- **Desabilitado por padrão** no opencode.jsonc (`enabled: false`). Se o usuário quiser usar as ferramentas de busca/pesquisa de imagens e repositórios do Hub, o AGENTE NÃO edita o config — parar e pedir ao usuário para habilitar (`"docker-hub": { "enabled": true }` no bloco mcp do `~\.config\opencode\opencode.jsonc`).
+- **Desabilitado por padrão** no opencode.json (`enabled: false`). Se o usuário quiser usar as ferramentas de busca/pesquisa de imagens e repositórios do Hub, o AGENTE NÃO edita o config — parar e pedir ao usuário para habilitar (`"docker-hub": { "enabled": true }` no bloco mcp do `~\.config\opencode\opencode.json`).
 - Auth opcional via env `HUB_USERNAME` + `HUB_PAT_TOKEN` (só para operações autenticadas; leitura pública funciona sem).
 
 ## Regras
