@@ -7,6 +7,29 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.0.33] - 2026-08-27
+
+### 🔐 Segredos e PII fora do versionamento
+
+- **Fixed**: `CONTEXT7_API_KEY` removida dos configs versionados — agora referenciada via `{file:~/.config/opencode/secrets/context7.key}` (variável de arquivo do opencode); chave antiga deve ser rotacionada no dashboard do Context7 (esteve no histórico do repo).
+- **Fixed**: MCP `docker-hub` com caminho absoluto do usuário removido do config versionado.
+- **Fixed**: Perfil PowerShell aponta para o tema Oh-My-Posh provisionado (`~/.poshthemes/`) via `$HOME` em vez de caminho absoluto com username.
+- **Fixed**: Fixture de teste de higiene temp sem username real.
+
+### 🛡️ Revisão multiplataforma: doctor 100% + hardening de provisionamento Linux
+
+- **Fixed**: `$HOME/go/bin` incluído no PATH do toolchain Linux (`linuxToolchainEnv`/`ensureProcessToolchainPath`) — `go install` (ex.: `gopls`) agora resolve em processo, sem depender de novo shell.
+- **Fixed**: Instalação do Go SDK remove `/usr/local/go` antes de extrair (guia oficial — evita stdlib órfã corrompendo builds).
+- **Fixed**: Diretórios na raiz do Linux (ex.: `/temp`) criados via `sudo` com sticky `1777` em vez de falhar com `permission denied`.
+- **Fixed**: Leitura de env vars POSIX prioriza rc files (fonte de verdade literal `$HOME`) sobre o processo (valor expandido pelo shell) — elimina WARN falso de `NODE_PATH` e torna `run shell` verdadeiramente idempotente.
+- **Fixed**: `csharp`/`csharp-ls` restritos a Windows (dotnet-tool não provisionado no Linux).
+- **Added**: LSP `toml` (Taplo via `@taplo/cli`) no `manifests/lsp.yaml` — era configurado no opencode.json mas nunca provisionado/auditado.
+- **Added**: Auditoria do `doctor` para `go`, `rustup`, `cargo` e `rust-analyzer` (seção Linux Bootstrap).
+- **Changed**: Hint de sudo NOPASSWD usa o usuário real (`$USER`) em vez de hardcoded `ubuntu`.
+- **Resultado**: `envctl doctor` = **166/166 (Linux VM)** e **179/179 (Windows)** — 0 WARN, 0 ERRO; idempotência validada (2ª execução sem reinstalações).
+
+---
+
 ## [v1.0.23] - 2026-08-26
 
 ### 🛡️ Otimização de Contexto e Conformidade de Skills (Context7 Analysis)

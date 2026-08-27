@@ -1,7 +1,7 @@
 # Standardized agent temp folder (created by envctl at disk root)
 $env:ENVCTL_TEMP = "C:\temp"
 
-oh-my-posh init pwsh --config "C:\Users\eajdias-note\oh-my-posh\themes\jandedobbeleer.omp.json" | Invoke-Expression
+oh-my-posh init pwsh --config "$HOME\.poshthemes\jandedobbeleer.omp.json" | Invoke-Expression
 
 # powershell completion for gh                                   
 function __gh_debug {

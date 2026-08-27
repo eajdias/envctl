@@ -20,7 +20,7 @@ func TestClassifyTempEntry(t *testing.T) {
 		{name: ".bdef99ebee6f3ffc-00000000.dll", want: true},
 		{name: ".feefafc39f67efee-00000001.node", want: true},
 		{name: "node-compile-cache", isDir: true, want: true},
-		{name: "tsx-eajdias-note", isDir: true, want: true},
+		{name: "tsx-someuser", isDir: true, want: true},
 		{name: "zscan-assist-LBbuFs", isDir: true, want: true},
 		{name: "zscan-assist-6.45.0.tar.gz", want: true},
 		{name: "Meslo.zip", want: true},

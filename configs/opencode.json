@@ -99,22 +99,13 @@
       "type": "remote",
       "url": "https://mcp.context7.com/mcp",
       "headers": {
-        "CONTEXT7_API_KEY": "ctx7sk-a8ac10ce-988f-4e67-8441-87b472a1832a"
+        "CONTEXT7_API_KEY": "{file:~/.config/opencode/secrets/context7.key}"
       },
       "enabled": true
     },
     "ssh-manager": {
       "type": "local",
       "command": ["mcp-ssh-manager"],
-      "enabled": false
-    },
-    "docker-hub": {
-      "type": "local",
-      "command": [
-        "node",
-        "C:/Users/eajdias-note/Documents/docker-hub-mcp-server/dist/index.js",
-        "--transport=stdio"
-      ],
       "enabled": false
     },
     "zscan": {
