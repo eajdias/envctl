@@ -27,10 +27,16 @@ func psQuote(s string) string {
 
 func (e *envManager) GetEnvVar(scope, name string) (string, error) {
 	if runtime.GOOS != "windows" {
+		// The rc files are the source of truth for vars persisted by envctl:
+		// they keep the portable $HOME form, while the process environment
+		// may hold the shell-expanded copy inherited from the login shell.
+		if val, _ := e.getEnvVarFromRC(name); val != "" {
+			return val, nil
+		}
 		if val := os.Getenv(name); val != "" {
 			return val, nil
 		}
-		return e.getEnvVarFromRC(name)
+		return "", nil
 	}
 	psCmd := fmt.Sprintf("[System.Environment]::GetEnvironmentVariable('%s', '%s')", psQuote(name), psQuote(scope))
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", psCmd)

@@ -111,15 +111,27 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			continue
 		}
 
-		if err := uc.fsManager.EnsureDirectory(dir.Path, 0700); err != nil {
+		dirErr := uc.fsManager.EnsureDirectory(dir.Path, 0700)
+		if dirErr != nil && runtime.GOOS == "linux" {
+			// Root-level directories (e.g. /temp) require sudo; retry via
+			// NOPASSWD sudo and leave a world-writable sticky scratch folder.
+			if _, serr := exec.Command("sudo", "-n", "mkdir", "-p", dir.Path).CombinedOutput(); serr == nil {
+				_ = exec.Command("sudo", "-n", "chmod", "1777", dir.Path).Run()
+				dirErr = nil
+				if uc.logger != nil {
+					uc.logger.Info("Created root-level directory '%s' via sudo", dir.Path)
+				}
+			}
+		}
+		if dirErr != nil {
 			if uc.logger != nil {
-				uc.logger.Error("Failed to ensure directory '%s': %v", dir.Path, err)
+				uc.logger.Error("Failed to ensure directory '%s': %v", dir.Path, dirErr)
 			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "Directory",
 				Target:   dir.Path,
-				Details:  fmt.Sprintf("Failed to create directory: %v", err),
+				Details:  fmt.Sprintf("Failed to create directory: %v", dirErr),
 			})
 			continue
 		}

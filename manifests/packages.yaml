@@ -343,6 +343,7 @@ packages:
   - id: csharp-ls
     name: C# Language Server Protocol
     type: dotnet-tool
+    os: windows
     category: lsp
     check_command: csharp-ls --version
 

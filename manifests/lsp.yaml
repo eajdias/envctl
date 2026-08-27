@@ -137,6 +137,7 @@ lsps:
     install_type: dotnet-tool
     install_target: "csharp-ls"
     check_binary: "csharp-ls"
+    os: windows
 
   - id: eslint
     language: javascript
