@@ -155,3 +155,12 @@ lsps:
     install_type: npm
     install_target: "intelephense"
     check_binary: "intelephense"
+
+  - id: toml
+    language: toml
+    server_name: "Taplo TOML Language Server"
+    command: "taplo"
+    args: ["lsp", "stdio"]
+    install_type: npm
+    install_target: "@taplo/cli"
+    check_binary: "taplo"

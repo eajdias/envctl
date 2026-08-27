@@ -413,6 +413,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"firecrawl", "Firecrawl CLI (via Volta)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
+			{"go", "Go programming language SDK"},
+			{"rustup", "Rustup Rust toolchain manager"},
+			{"cargo", "Cargo build tool (via Rustup)"},
+			{"rust-analyzer", "Rust Analyzer language server"},
 		}
 		for _, t := range bootstrapTools {
 			found := func() bool {

@@ -53,7 +53,8 @@ func linuxToolchainEnv(home string) []string {
 	voltaBin := filepath.Join(home, ".volta", "bin")
 	cargoBin := filepath.Join(home, ".cargo", "bin")
 	goBin := "/usr/local/go/bin"
-	path := strings.Join([]string{localBin, voltaBin, cargoBin, goBin, os.Getenv("PATH")}, string(os.PathListSeparator))
+	userGoBin := filepath.Join(home, "go", "bin")
+	path := strings.Join([]string{localBin, voltaBin, cargoBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
 	env := []string{
 		"PATH=" + path,
 		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
@@ -96,9 +97,10 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	voltaBin := filepath.Join(home, ".volta", "bin")
 	cargoBin := filepath.Join(home, ".cargo", "bin")
 	goBin := "/usr/local/go/bin"
+	userGoBin := filepath.Join(home, "go", "bin")
 	cur := os.Getenv("PATH")
 	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) || !strings.Contains(cur, cargoBin) {
-		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cargoBin, goBin, cur}, string(os.PathListSeparator)))
+		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cargoBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
 	}
 	if os.Getenv("VOLTA_HOME") == "" {
 		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
@@ -342,10 +344,13 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		"volta install stylelint")
 
 	// 14. Go SDK - official tarball into /usr/local/go (requires sudo).
+	// The prior install must be removed first: extracting over an old SDK
+	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
 	uc.step(ctx, result, "go", "Go programming language SDK",
 		`set -e
 GO_VER=$(curl -fsSL https://go.dev/VERSION?m=text | head -1)
 curl -fsSL "https://go.dev/dl/${GO_VER}.linux-amd64.tar.gz" -o /tmp/envctl-go.tar.gz
+sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
 rm -f /tmp/envctl-go.tar.gz
 echo "Installed ${GO_VER}"`)

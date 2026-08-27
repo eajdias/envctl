@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 
@@ -136,8 +137,12 @@ func runAllProvisioning() {
 	// Pre-flight: verify sudo NOPASSWD on Linux so apt packages don't fail silently.
 	if isLinux {
 		if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
+			user := os.Getenv("USER")
+			if user == "" {
+				user = "$USER"
+			}
 			pterm.Warning.Println("sudo NOPASSWD is not configured. APT packages will fail to install.")
-			pterm.Info.Println("Fix: run 'sudo visudo' and add: ubuntu ALL=(ALL) NOPASSWD:ALL")
+			pterm.Info.Printf("Fix: echo '%s ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/%s-nopasswd\n", user, user)
 			pterm.Println()
 		}
 	}
