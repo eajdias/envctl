@@ -145,6 +145,14 @@ func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error
 	return pkgs, nil
 }
 
+// pipPythonBin returns the correct python binary name for the current OS.
+func pipPythonBin() string {
+	if runtime.GOOS == "linux" {
+		return "python3"
+	}
+	return "python"
+}
+
 // PipManager handles global/user python packages.
 type PipManager struct{}
 
@@ -157,7 +165,7 @@ func (p *PipManager) Type() entity.PackageType {
 }
 
 func (p *PipManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "python", "-m", "pip", "--version")
+	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "--version")
 	return cmd.Run() == nil
 }
 
@@ -169,7 +177,7 @@ func (p *PipManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	}
-	cmd := exec.CommandContext(ctx, "python", "-m", "pip", "show", pkg.ID)
+	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "show", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), "Name: "+pkg.ID) {
 		return true, "installed via pip", nil
@@ -178,7 +186,7 @@ func (p *PipManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 }
 
 func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, "python", "-m", "pip", "install", "--upgrade", pkg.ID)
+	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "install", "--upgrade", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pip install %s failed: %s (%w)", pkg.ID, string(out), err)
@@ -187,7 +195,7 @@ func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
 }
 
 func (p *PipManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := exec.CommandContext(ctx, "python", "-m", "pip", "list", "--format=freeze")
+	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "list", "--format=freeze")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err

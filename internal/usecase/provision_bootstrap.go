@@ -45,15 +45,19 @@ func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
 	return linuxToolchainEnv(uc.userHome())
 }
 
-// linuxToolchainEnv builds an environment that resolves Volta shims and
-// user-local binaries, shared by the bootstrap and doctor use cases.
+// linuxToolchainEnv builds an environment that resolves Volta shims,
+// user-local binaries, Go, and Rustup/Cargo, shared by the bootstrap and
+// doctor use cases.
 func linuxToolchainEnv(home string) []string {
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
-	path := strings.Join([]string{localBin, voltaBin, os.Getenv("PATH")}, string(os.PathListSeparator))
+	cargoBin := filepath.Join(home, ".cargo", "bin")
+	goBin := "/usr/local/go/bin"
+	path := strings.Join([]string{localBin, voltaBin, cargoBin, goBin, os.Getenv("PATH")}, string(os.PathListSeparator))
 	env := []string{
 		"PATH=" + path,
 		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
+		"GOPATH=" + filepath.Join(home, "go"),
 	}
 	for _, kv := range os.Environ() {
 		key := kv[:strings.IndexByte(kv, '=')]
@@ -81,8 +85,8 @@ func toolAvailable(ctx context.Context, name string) bool {
 }
 
 // ensureProcessToolchainPath mutates the process environment so that Volta
-// shims and user-local binaries are resolvable by subsequent provisioning
-// steps running in the same process (e.g. shell npm install and LSP installs).
+// shims, user-local binaries, Go, and Rustup/Cargo are resolvable by
+// subsequent provisioning steps running in the same process.
 func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	home := uc.userHome()
 	if home == "" {
@@ -90,12 +94,17 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	}
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
+	cargoBin := filepath.Join(home, ".cargo", "bin")
+	goBin := "/usr/local/go/bin"
 	cur := os.Getenv("PATH")
-	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
-		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cur}, string(os.PathListSeparator)))
+	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) || !strings.Contains(cur, cargoBin) {
+		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cargoBin, goBin, cur}, string(os.PathListSeparator)))
 	}
 	if os.Getenv("VOLTA_HOME") == "" {
 		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
+	}
+	if os.Getenv("GOPATH") == "" {
+		os.Setenv("GOPATH", filepath.Join(home, "go"))
 	}
 }
 
@@ -331,6 +340,22 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 	// 13. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
 		"volta install stylelint")
+
+	// 14. Go SDK - official tarball into /usr/local/go (requires sudo).
+	uc.step(ctx, result, "go", "Go programming language SDK",
+		`set -e
+GO_VER=$(curl -fsSL https://go.dev/VERSION?m=text | head -1)
+curl -fsSL "https://go.dev/dl/${GO_VER}.linux-amd64.tar.gz" -o /tmp/envctl-go.tar.gz
+sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
+rm -f /tmp/envctl-go.tar.gz
+echo "Installed ${GO_VER}"`)
+
+	// 15. Rustup - official non-interactive installer (installs to ~/.cargo).
+	uc.step(ctx, result, "rustup", "Rustup Rust toolchain manager",
+		`set -e
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+rustup default stable`)
 
 	return result, nil
 }
