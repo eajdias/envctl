@@ -9,13 +9,11 @@ import (
 )
 
 func newSnapshotCmd() *cobra.Command {
-	var prFlag bool
-
 	cmd := &cobra.Command{
 		Use:     "snapshot",
 		Aliases: []string{"export", "sync"},
 		Short:   "Capture current environment state and synchronize manifests/configs",
-		Long:    `Inspects active configs, skills, and Git settings, and updates the manifests and configs directories. Optionally creates a GitHub Pull Request.`,
+		Long:    `Inspects active configs, skills, and Git settings, and updates the manifests and configs directories locally.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			pterm.DefaultHeader.WithFullWidth().Println("Exporting Environment Snapshot")
@@ -23,7 +21,7 @@ func newSnapshotCmd() *cobra.Command {
 			spinner, _ := pterm.DefaultSpinner.Start("Inspecting current system and updating manifests...")
 			ctx := context.Background()
 
-			result, err := appCtx.SnapshotSyncUC.Execute(ctx, prFlag)
+			result, err := appCtx.SnapshotSyncUC.Execute(ctx)
 			if err != nil {
 				spinner.Fail(fmt.Sprintf("Snapshot failed: %v", err))
 				return
@@ -37,23 +35,10 @@ func newSnapshotCmd() *cobra.Command {
 				pterm.Success.Printf("  • Updated: %s\n", file)
 			}
 			pterm.Info.Printf("  • Skills cataloged: %d\n", result.DiscoveredSkills)
-
-			if result.PRUrl != "" {
-				pterm.Println()
-				pterm.DefaultBox.WithTitle(pterm.LightGreen("🚀 GitHub Pull Request Created")).Println(
-					fmt.Sprintf("Branch: %s\nPR URL: %s",
-						pterm.Cyan(result.BranchName),
-						pterm.LightMagenta(result.PRUrl),
-					),
-				)
-			} else {
-				pterm.Println()
-				pterm.Info.Println("Tip: Pass '--pr' to automatically create a branch and open a GitHub Pull Request.")
-			}
+			pterm.Println()
+			pterm.Info.Println("Snapshot completed locally. Review changes and commit manually.")
 		},
 	}
-
-	cmd.Flags().BoolVarP(&prFlag, "pr", "p", false, "Create a Git branch and open a GitHub Pull Request via gh CLI")
 
 	return cmd
 }

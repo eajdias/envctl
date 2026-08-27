@@ -46,12 +46,11 @@ type ManifestRepository interface {
 	SaveGitConfigs(configs []entity.GitConfig) error
 }
 
-// GitManager handles global git configs, branches and GitHub PRs.
+// GitManager handles global git configs and version control operations.
 type GitManager interface {
 	GetGlobalConfig(ctx context.Context, key string) (string, error)
 	SetGlobalConfig(ctx context.Context, key, value string) error
 	EnsureGlobalConfigs(ctx context.Context, configs []entity.GitConfig) ([]entity.Diagnostic, error)
-	CreateSnapshotBranchAndPR(ctx context.Context, branchName, title, body string, changedFiles []string) (string, error)
 }
 
 // WindowsEnvManager manages Windows User and Machine environment variables.

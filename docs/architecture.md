@@ -65,7 +65,7 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionLSPsUseCase`**: Garante a presença dos 16 servidores de linguagem registrados.
 - **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux/macOS).
 - **`DoctorAuditUseCase`**: Executa uma bateria de 160+ checagens diagnósticas cobrindo todo o ecossistema.
-- **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina, sincroniza manifestos e abre pull requests automatizados via `gh pr create`.
+- **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
 
 ### 3. Camada de Infraestrutura (`internal/infra`)
 Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:

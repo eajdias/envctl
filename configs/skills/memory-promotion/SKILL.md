@@ -32,7 +32,7 @@ Teste rápido: se a entrada tem **mais de 2 passos** ou é **aplicável a situa�
 
 ## 3. Registrar para provisionamento
 
-- **Global** (skill em `~/.config/opencode/skills/`): rodar `envctl snapshot` (descobre skills novas → copia para `configs/skills/` + `manifests/skills.yaml` → abre PR). Após merge, `envctl run skills` provisão em todas as máquinas.
+- **Global** (skill em `~/.config/opencode/skills/`): rodar `envctl snapshot` (descobre skills novas → copia para `configs/skills/` + `manifests/skills.yaml`). Depois, commit manual e `envctl run skills` provisão em todas as máquinas.
 - **Projeto com envctl**: adicionar a skill em `configs/skills/<nome>/` + entrada em `manifests/skills.yaml` (ou `envctl snapshot` no diretório do projeto).
 
 ## 4. Validação
