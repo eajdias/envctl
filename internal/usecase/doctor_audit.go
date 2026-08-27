@@ -482,12 +482,19 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Details:  fmt.Sprintf("opencode.db is %.1f MB (threshold: 500 MB) — accumulated session history", float64(dbInfo.Size())/(1024*1024)),
 			FixHint:  "close OpenCode and prune old sessions (opencode sessions); VACUUM only helps if the DB has free pages",
 		})
-	} else {
+	} else if err == nil {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "OpenCode",
 			Target:   "Database",
 			Details:  fmt.Sprintf("Database OK (%.1f MB)", float64(dbInfo.Size())/(1024*1024)),
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "OpenCode",
+			Target:   "Database",
+			Details:  "Database not found (no opencode.db — clean state)",
 		})
 	}
 
