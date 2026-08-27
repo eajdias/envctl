@@ -20,7 +20,7 @@ license: MIT
    go build -o C:\temp\envctl-vm\envctl-linux ./cmd/envctl
    Remove-Item Env:GOOS, Env:GOARCH, Env:CGO_ENABLED
    ```
-2. **Upload + exec via paramiko** (senha, sem chave): script helper com `sftp.put` e `exec_command` (ver `C:\temp\envctl-vm\vmhelper.py` de sessões anteriores — recriar se não existir). VM: `172.18.191.250`, user `ubuntu`.
+2. **Upload + exec via paramiko** (senha, sem chave): script helper com `sftp.put` e `exec_command` (ex.: `C:\temp\envctl-vm\vmhelper.py` — recriar se não existir; dados de conexão no inventário local `~/.config/opencode/extras/ssh_servers.md`).
 3. **Doctor**: `bash -lc '/tmp/envctl doctor'` → meta `EXCELLENT` (0 WARN / 0 ERRO). Filtre ANSI com `sed 's/\x1b\[[0-9;]*m//g'`.
 4. **Idempotência**: rodar `bash -lc '/tmp/envctl run all'` pela 2ª vez → grep por `WARNING|ERROR|FAIL` deve ser **0** e sem linhas `Installing` (nada re-instala).
 5. **Smoke test LSPs** (sempre via `bash -lc` — PATH do volta só existe no login shell):
