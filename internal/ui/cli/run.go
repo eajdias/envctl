@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"runtime"
 
 	"github.com/pterm/pterm"
@@ -131,6 +132,16 @@ func runAllProvisioning() {
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Complete Environment Provisioning")
 
 	isLinux := runtime.GOOS == "linux"
+
+	// Pre-flight: verify sudo NOPASSWD on Linux so apt packages don't fail silently.
+	if isLinux {
+		if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
+			pterm.Warning.Println("sudo NOPASSWD is not configured. APT packages will fail to install.")
+			pterm.Info.Println("Fix: run 'sudo visudo' and add: ubuntu ALL=(ALL) NOPASSWD:ALL")
+			pterm.Println()
+		}
+	}
+
 	total := 6
 	if !isLinux {
 		total = 5
