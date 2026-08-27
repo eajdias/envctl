@@ -6,12 +6,19 @@ environment_variables:
     value: "fd --type f --hidden --exclude .git"
     scope: User
     target: "Windows User Environment"
+    os: windows
 
   - name: NODE_PATH
     value: "%USERPROFILE%\\node_modules"
     scope: User
     target: "Windows User Environment"
     os: windows
+
+  - name: NODE_PATH
+    value: "$HOME/node_modules"
+    scope: User
+    target: "Linux user profile"
+    os: linux
 
   - name: ENVCTL_TEMP
     value: "C:\\temp"

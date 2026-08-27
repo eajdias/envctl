@@ -209,84 +209,72 @@ packages:
   - id: node@24.19.0
     name: Node.js LTS (via Volta)
     type: volta
-    os: windows
     category: volta
     check_command: node -v
 
   - id: pnpm
     name: pnpm Fast Disk-Efficient Package Manager
     type: volta
-    os: windows
     category: volta
     check_command: pnpm -v
 
   - id: firecrawl-cli
     name: Firecrawl CLI (Web Scraper & Crawler for AI)
     type: volta
-    os: windows
     category: volta
     check_command: firecrawl --version
 
   - id: mcp-ssh-manager
     name: SSH Manager CLI & MCP Server
     type: volta
-    os: windows
     category: volta
     check_command: ssh-manager --version
 
   - id: stylelint
     name: Stylelint CSS/SCSS Linter
     type: volta
-    os: windows
     category: volta
     check_command: stylelint --version
 
   - id: sqllens-language-server
     name: SQL Lens Language Server Protocol
     type: volta
-    os: windows
     category: volta
     check_command: sqllens-language-server --version
 
   - id: typescript-language-server
     name: TypeScript Language Server
     type: volta
-    os: windows
     category: lsp
     check_command: typescript-language-server --version
 
   - id: pyright
     name: Pyright Language Server
     type: volta
-    os: windows
     category: lsp
     check_command: pyright --version
 
   - id: bash-language-server
     name: Bash Language Server
     type: volta
-    os: windows
     category: lsp
     check_command: bash-language-server --version
 
   - id: yaml-language-server
     name: YAML Language Server
     type: volta
-    os: windows
     category: lsp
     check_command: yaml-language-server --version
 
   - id: dockerfile-language-server-nodejs
     name: Dockerfile Language Server
     type: volta
-    os: windows
     category: lsp
     check_command: docker-langserver --version
 
   - id: vscode-langservers-extracted
     name: VSCode Extracted Language Servers (HTML/CSS/JSON/Markdown/ESLint)
     type: volta
-    os: windows
     category: lsp
     check_command: vscode-html-language-server --version
 
@@ -355,7 +343,6 @@ packages:
   - id: csharp-ls
     name: C# Language Server Protocol
     type: dotnet-tool
-    os: windows
     category: lsp
     check_command: csharp-ls --version
 
@@ -471,3 +458,72 @@ packages:
     os: linux
     category: toolchain
     check_command: sshpass -V
+
+  - id: shellcheck
+    name: shellcheck (bash script linting)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: shellcheck --version
+
+  - id: software-properties-common
+    name: software-properties-common (PPA/repo management)
+    type: apt
+    os: linux
+    category: system
+
+  - id: apt-transport-https
+    name: apt-transport-https (HTTPS repository support)
+    type: apt
+    os: linux
+    category: system
+
+  - id: ca-certificates
+    name: ca-certificates (TLS certificate authority)
+    type: apt
+    os: linux
+    category: system
+
+  - id: gnupg
+    name: gnupg (GnuPG signing keys)
+    type: apt
+    os: linux
+    category: system
+
+  - id: docker.io
+    name: Docker Engine
+    type: apt
+    os: linux
+    category: system
+    check_command: docker --version
+
+  # ============================================================================
+  # Agent Runtime Helpers (Linux — apt, avoids PEP 668 on Ubuntu 24.04+)
+  # ============================================================================
+  - id: python3-yaml
+    name: PyYAML (YAML parsing for python agent scripts)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import yaml"
+
+  - id: python3-requests
+    name: requests (HTTP client for python agent scripts)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import requests"
+
+  - id: python3-openpyxl
+    name: openpyxl (Excel xlsx read/write for python agent scripts)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import openpyxl"
+
+  - id: python3-bs4
+    name: beautifulsoup4 (HTML parsing for python agent scripts)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import bs4"

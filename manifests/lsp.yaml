@@ -37,7 +37,6 @@ lsps:
     install_type: go
     install_target: "golang.org/x/tools/gopls@latest"
     check_binary: "gopls"
-    os: windows
 
   - id: bash
     language: bash
@@ -129,7 +128,6 @@ lsps:
     install_type: rustup
     install_target: "rust-analyzer"
     check_binary: "rust-analyzer"
-    os: windows
 
   - id: csharp
     language: csharp
@@ -139,7 +137,6 @@ lsps:
     install_type: dotnet-tool
     install_target: "csharp-ls"
     check_binary: "csharp-ls"
-    os: windows
 
   - id: eslint
     language: javascript
@@ -149,3 +146,12 @@ lsps:
     install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-eslint-language-server"
+
+  - id: php
+    language: php
+    server_name: "Intelephense Language Server"
+    command: "intelephense"
+    args: ["--stdio"]
+    install_type: npm
+    install_target: "intelephense"
+    check_binary: "intelephense"
