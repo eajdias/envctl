@@ -12,6 +12,11 @@
 - 2026-08-26 ❌ Editar `configs/*` e rodar `envctl run shell` de diretório errado → ✅ Rebuild (`go build -o envctl.exe`) + rodar do root do repo (porque o `fsManager.ReadFile` lê `configs/` do CWD e cai no FS embutido ANTIGO se rodar de outro diretório — silenciosamente "Already up to date").
 - 2026-08-26 ❌ Adicionar pacotes pip/novos ao manifest e instalar com binário desatualizado → ✅ Rebuild antes de `envctl run pip`/`run shell` (porque o binário embute os manifests — o run pip "Processed 2 packages" com o binário velho pulou os pacotes novos).
 - 2026-08-26 ✅ Push na main do envctl dispara Release automático (`v1.0.<commit-count>`, workflow release.yml) + CI — atualizar o CHANGELOG.md com a versão ANTES do push (o nome da release vem do commit count; tag manual desnecessária).
+- 2026-08-27 ❌ Validar CLI Go na VM Linux com binário compilado no Windows → ✅ Cross-compilar `GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build` (porque `go build` default gera binário do host — "Exec format error" na VM).
+- 2026-08-27 ❌ Executar comandos na VM via paramiko/ssh sem login shell e esperar PATH completo → ✅ Usar `bash -lc "..."` (ou upload de script) (porque sessão não-login NÃO sourceia `.bashrc` — PATH fica vazio e volta/npm/ferramentas somem; aspas aninhadas pelo paramiko exigem script em arquivo).
+- 2026-08-27 ❌ Comparar env var POSIX lida do processo com valor literal do manifest (`$HOME/...`) → ✅ rc files (`~/.bashrc`/`~/.profile`) são a fonte de verdade (porque o shell expande `$HOME` no processo herdado — comparar expandido vs literal gera WARN falso e re-escritas a cada `run shell`; fix em `env_manager.GetEnvVar`).
+- 2026-08-27 ❌ Criar diretório na raiz do Linux (`/temp`) com `os.MkdirAll` como usuário comum → ✅ Fallback `sudo -n mkdir -p` + `chmod 1777` (sticky, scratch compartilhado) (porque a raiz do FS exige root — `permission denied` vira DiagError).
+- 2026-08-27 ❌ Versionar chaves de API em `configs/*.json` do envctl → ✅ Usar variável de arquivo do opencode `{file:~/.config/opencode/secrets/context7.key}` (porque configs são deployados para todas as máquinas e o histórico git preserva segredos; o arquivo de secrets fica local por máquina — `~/Documents/SSH-keys` e `~/.config/opencode/secrets/` NUNCA versionados).
 
 ## Padrões / Preferências (o que funciona)
 
