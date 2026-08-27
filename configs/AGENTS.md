@@ -3,7 +3,7 @@
 ## System Architecture
 
 - **OS:** Windows 11 Pro 25H2 (amd64)
-- **Workstation:** `eajdias-note` | User: `eajdias-note`
+- **Workstation:** `<hostname>` | User: `<user>`
 - **Shell Primary (OpenCode):** PowerShell 7.6.5 (`pwsh.exe`) — **shell default do OpenCode no Windows**. Todos os comandos dos agentes LLM são executados via PowerShell.
 - **Shell Secondary:** WSL Ubuntu 26.04 (`wsl.exe -d Ubuntu`) — subshell POSIX para scripts legados e ferramentas Linux, usar apenas quando necessário (`wsl -e bash -lc "..."`).
 - **Package Managers:** Winget (native Windows), Volta (Node ecosystem), Pip/Uv (Python), Dotnet Tool (.NET), APT (via WSL Ubuntu)
