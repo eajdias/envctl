@@ -355,7 +355,24 @@ echo "Installed ${GO_VER}"`)
 		`set -e
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 source "$HOME/.cargo/env"
-rustup default stable`)
+rustup default stable
+rustup component add rust-analyzer`)
+
+	// 16. Persist Go and Cargo PATH in shell profiles so future login shells
+	// find go, gopls, rustc, cargo, rust-analyzer, etc.
+	uc.step(ctx, result, "shell-path", "Persist Go/Cargo/Rust PATH in shell profiles",
+		`set -e
+PATH_LINES='
+# Go SDK (via envctl bootstrap)
+export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+# Rust/Cargo (via envctl bootstrap)
+export PATH="$HOME/.cargo/bin:$PATH"'
+for f in "$HOME/.bashrc" "$HOME/.profile"; do
+  if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
+    printf '%s\n' "$PATH_LINES" >> "$f"
+  fi
+done
+echo "Go and Cargo PATH persisted to ~/.bashrc and ~/.profile"`)
 
 	return result, nil
 }
