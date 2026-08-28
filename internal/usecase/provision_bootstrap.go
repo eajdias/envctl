@@ -289,9 +289,16 @@ curl -s https://ohmyposh.dev/install.sh | bash -s`)
 	}
 
 	// 10. fd symlink - the apt fd-find package exposes `fdfind`; expose it as `fd`.
+	// Bootstrap runs before the apt packages step, so on fresh VPSs fdfind may
+	// not exist yet: install fd-find here as a best-effort fallback.
 	if !uc.hasTool(ctx, "fd") {
 		uc.logger.Info("LinuxBootstrap: linking fdfind as fd")
 		out, err := uc.runShell(ctx, `FDFIND=$(command -v fdfind || true)
+if [ -z "$FDFIND" ]; then
+  sudo -n apt-get update >/dev/null 2>&1 || true
+  sudo -n apt-get install -y --no-install-recommends fd-find >/dev/null 2>&1 || true
+  FDFIND=$(command -v fdfind || true)
+fi
 if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$HOME/.local/bin/fd"; fi`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: fd symlink failed: %s (%s)", out, err)

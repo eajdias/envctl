@@ -13,6 +13,7 @@ import (
 type aptManager struct {
 	aptPath  string
 	dpkgPath string
+	updated  bool
 }
 
 // NewAptManager creates a PackageManager for Debian/Ubuntu apt.
@@ -71,6 +72,16 @@ func (a *aptManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 }
 
 func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
+	// Fresh VPS instances ship with empty APT package lists: every install
+	// fails with "Unable to locate package" until `apt-get update` runs.
+	// Refresh the index once per process.
+	if !a.updated {
+		if err := a.updatePackageLists(ctx); err != nil {
+			return err
+		}
+		a.updated = true
+	}
+
 	args := []string{"install", "-y", "--no-install-recommends"}
 	if len(pkg.Args) > 0 {
 		args = append(args, pkg.Args...)
@@ -89,6 +100,23 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("apt-get install %s failed: %s (%w)", pkg.ID, string(out), err)
+	}
+	return nil
+}
+
+// updatePackageLists refreshes the APT package index once per process
+// (required on fresh VPSs where the lists are empty).
+func (a *aptManager) updatePackageLists(ctx context.Context) error {
+	var cmd *exec.Cmd
+	if isNonRoot(ctx) {
+		cmd = exec.CommandContext(ctx, "sudo", "-n", a.aptPath, "update")
+	} else {
+		cmd = exec.CommandContext(ctx, a.aptPath, "update")
+	}
+	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("apt-get update failed: %s (%w)", string(out), err)
 	}
 	return nil
 }

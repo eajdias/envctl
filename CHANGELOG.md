@@ -7,6 +7,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.38] - 2026-08-28
+
+### 🆕 Day-0: provisionamento de VPS fresca (validado em zscanchatbot)
+
+- **Fixed**: `apt-get update` roda antes do primeiro `apt-get install` (uma vez por processo) — VPS novas têm listas apt vazias e todo install falhava com `Unable to locate package` (`internal/infra/apt/apt_manager.go`).
+- **Fixed**: No Linux, o passo *bootstrap* (Volta/Node/OpenCode/Go/Rust) roda ANTES de *packages* — pacotes gerenciados via Volta eram pulados como "manager not available" em VPS fresca (`internal/ui/cli/run.go`).
+- **Fixed**: Bootstrap instala `fd-find` via apt (fallback) quando ausente, para o symlink `fd` convergir mesmo com o bootstrap antes do passo apt (`internal/usecase/provision_bootstrap.go`).
+- **Fixed**: Managers de toolchain (volta, npm, dotnet, go, rustup) resolvem binários no PATH de toolchain (`~/.volta/bin`, `~/.local/bin`, `~/.cargo/bin`, `/usr/local/go/bin`, `~/go/bin`) — elimina falsos positivos do `doctor` em shells não-login (ssh/systemd) (`internal/infra/toolchain/*`).
+- **Validado**: VPS nova `zscanchatbot` (AWS Ubuntu) — bootstrap → `run all` → `doctor` = **167/167, 0 WARN, 0 ERRO** (antes: 26 WARN).
+
+---
+
 ## [v1.1.0] - 2026-08-28
 
 ### 🤖 Integração envctl ↔ OpenCode (controle autônomo de VPS/VM)

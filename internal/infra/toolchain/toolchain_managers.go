@@ -4,13 +4,70 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 )
+
+// execTool builds an exec.Cmd resolved against the Volta/user-local/Go/Cargo
+// toolchain PATH on Linux. envctl often runs from non-login shells (ssh,
+// systemd) where those shims are absent from the default PATH — without this,
+// every toolchain check would falsely report packages as missing.
+func execTool(ctx context.Context, name string, args ...string) *exec.Cmd {
+	if runtime.GOOS == "linux" {
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			toolchainPath := strings.Join([]string{
+				filepath.Join(home, ".volta", "bin"),
+				filepath.Join(home, ".local", "bin"),
+				filepath.Join(home, ".cargo", "bin"),
+				"/usr/local/go/bin",
+				filepath.Join(home, "go", "bin"),
+				os.Getenv("PATH"),
+			}, string(os.PathListSeparator))
+			// exec.LookPath only consults the process PATH, so resolve the
+			// binary explicitly against the toolchain PATH and hand the
+			// absolute path to exec.Command.
+			if resolved, err := lookPathWithEnv(name, toolchainPath); err == nil {
+				cmd := exec.CommandContext(ctx, resolved, args...)
+				env := os.Environ()
+				for i, kv := range env {
+					if strings.HasPrefix(kv, "PATH=") {
+						env[i] = "PATH=" + toolchainPath
+						break
+					}
+				}
+				cmd.Env = env
+				return cmd
+			}
+		}
+	}
+	return exec.CommandContext(ctx, name, args...)
+}
+
+// lookPathWithEnv searches for an executable in the given PATH string,
+// honoring the Unix executable-bit convention.
+func lookPathWithEnv(name, path string) (string, error) {
+	if filepath.IsAbs(name) {
+		return name, nil
+	}
+	for _, dir := range filepath.SplitList(path) {
+		if dir == "" {
+			dir = "."
+		}
+		candidate := filepath.Join(dir, name)
+		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
+			if fi.Mode()&0111 != 0 {
+				return candidate, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("executable %q not found in toolchain PATH", name)
+}
 
 // DotnetToolManager handles .NET global tools.
 type DotnetToolManager struct{}
@@ -24,12 +81,12 @@ func (d *DotnetToolManager) Type() entity.PackageType {
 }
 
 func (d *DotnetToolManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "dotnet", "--version")
+	cmd := execTool(ctx, "dotnet", "--version")
 	return cmd.Run() == nil
 }
 
 func (d *DotnetToolManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	cmd := exec.CommandContext(ctx, "dotnet", "tool", "list", "-g")
+	cmd := execTool(ctx, "dotnet", "tool", "list", "-g")
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(pkg.ID)) {
 		return true, "installed globally via dotnet tool", nil
@@ -38,7 +95,7 @@ func (d *DotnetToolManager) IsInstalled(ctx context.Context, pkg entity.Package)
 }
 
 func (d *DotnetToolManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, "dotnet", "tool", "install", "-g", pkg.ID)
+	cmd := execTool(ctx, "dotnet", "tool", "install", "-g", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "is already installed") {
@@ -50,7 +107,7 @@ func (d *DotnetToolManager) Install(ctx context.Context, pkg entity.Package) err
 }
 
 func (d *DotnetToolManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := exec.CommandContext(ctx, "dotnet", "tool", "list", "-g")
+	cmd := execTool(ctx, "dotnet", "tool", "list", "-g")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
@@ -87,19 +144,19 @@ func (n *NpmManager) Type() entity.PackageType {
 }
 
 func (n *NpmManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "npm", "-v")
+	cmd := execTool(ctx, "npm", "-v")
 	return cmd.Run() == nil
 }
 
 func (n *NpmManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
 		parts := strings.Fields(pkg.CheckCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := execTool(ctx, parts[0], parts[1:]...)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	}
-	cmd := exec.CommandContext(ctx, "npm", "list", "-g", "--depth=0", pkg.ID)
+	cmd := execTool(ctx, "npm", "list", "-g", "--depth=0", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), pkg.ID+"@") {
 		return true, "installed globally via npm", nil
@@ -110,7 +167,7 @@ func (n *NpmManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 	args := []string{"install", "-g"}
 	args = append(args, strings.Fields(pkg.ID)...)
-	cmd := exec.CommandContext(ctx, "npm", args...)
+	cmd := execTool(ctx, "npm", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("npm install -g %s failed: %s (%w)", pkg.ID, string(out), err)
@@ -119,7 +176,7 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 }
 
 func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := exec.CommandContext(ctx, "npm", "list", "-g", "--depth=0", "--json")
+	cmd := execTool(ctx, "npm", "list", "-g", "--depth=0", "--json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
@@ -229,14 +286,14 @@ func (g *GoManager) Type() entity.PackageType {
 }
 
 func (g *GoManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "go", "version")
+	cmd := execTool(ctx, "go", "version")
 	return cmd.Run() == nil
 }
 
 func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
 		parts := strings.Fields(pkg.CheckCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := execTool(ctx, parts[0], parts[1:]...)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
@@ -248,20 +305,22 @@ func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, 
 		binName = strings.Split(last, "@")[0]
 	}
 	if runtime.GOOS == "windows" {
-		cmd := exec.CommandContext(ctx, "where.exe", binName)
+		cmd := execTool(ctx, "where.exe", binName)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	} else {
-		if path, err := exec.LookPath(binName); err == nil {
-			return true, path, nil
+		// Resolve against the toolchain PATH (covers ~/go/bin, /usr/local/go/bin).
+		cmd := execTool(ctx, "bash", "-lc", "command -v "+binName+" >/dev/null 2>&1")
+		if cmd.Run() == nil {
+			return true, "in toolchain PATH", nil
 		}
 	}
 	return false, "", nil
 }
 
 func (g *GoManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, "go", "install", pkg.ID)
+	cmd := execTool(ctx, "go", "install", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go install %s failed: %s (%w)", pkg.ID, string(out), err)
@@ -285,19 +344,19 @@ func (r *RustupManager) Type() entity.PackageType {
 }
 
 func (r *RustupManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "rustup", "--version")
+	cmd := execTool(ctx, "rustup", "--version")
 	return cmd.Run() == nil
 }
 
 func (r *RustupManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
 		parts := strings.Fields(pkg.CheckCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := execTool(ctx, parts[0], parts[1:]...)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	}
-	cmd := exec.CommandContext(ctx, "rustup", "component", "list", "--installed")
+	cmd := execTool(ctx, "rustup", "component", "list", "--installed")
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), pkg.ID) {
 		return true, "installed via rustup component", nil
@@ -306,11 +365,11 @@ func (r *RustupManager) IsInstalled(ctx context.Context, pkg entity.Package) (bo
 }
 
 func (r *RustupManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, "rustup", "component", "add", pkg.ID)
+	cmd := execTool(ctx, "rustup", "component", "add", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Try toolchain install if component add failed
-		cmdFallback := exec.CommandContext(ctx, "rustup", "toolchain", "install", pkg.ID)
+		cmdFallback := execTool(ctx, "rustup", "toolchain", "install", pkg.ID)
 		outFallback, errFallback := cmdFallback.CombinedOutput()
 		if errFallback != nil {
 			return fmt.Errorf("rustup add/install %s failed: %s | fallback: %s (%w)", pkg.ID, string(out), string(outFallback), err)
@@ -320,7 +379,7 @@ func (r *RustupManager) Install(ctx context.Context, pkg entity.Package) error {
 }
 
 func (r *RustupManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := exec.CommandContext(ctx, "rustup", "component", "list", "--installed")
+	cmd := execTool(ctx, "rustup", "component", "list", "--installed")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err

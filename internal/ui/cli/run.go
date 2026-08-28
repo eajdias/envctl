@@ -160,17 +160,21 @@ func runAllProvisioning() {
 		PrintSection(section(1, "Skipping Windows Tweaks (Linux/POSIX environment)"))
 	}
 
-	// 2. Packages (Winget / Pacman / APT + Volta + Dotnet + Go + Rustup)
-	PrintSection(section(2, "Provisioning System Packages & Toolchains"))
-	runPackagesProvisioning("")
-
-	// 3. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only
+	// 2. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only.
+	// Runs BEFORE packages: the packages manifest includes Volta-managed npm
+	// packages (node, pnpm, firecrawl-cli, LSP servers) that require the Volta
+	// toolchain — on a fresh VPS `run all` must bootstrap first, otherwise
+	// every Volta package is skipped as "manager not available".
 	if isLinux {
-		PrintSection(section(3, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
+		PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
 		runBootstrapProvisioning()
 	} else {
-		PrintSection(section(3, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
+		PrintSection(section(2, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
 	}
+
+	// 3. Packages (Winget / APT + Volta + Dotnet + Go + Rustup)
+	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
+	runPackagesProvisioning("")
 
 	// 4. Shell, Env & Configs
 	PrintSection(section(4, "Provisioning Shell, Environment Variables & Config Files"))

@@ -3,7 +3,6 @@ package toolchain
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -22,7 +21,7 @@ func (v *VoltaManager) Type() entity.PackageType {
 }
 
 func (v *VoltaManager) IsAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "volta", "--version")
+	cmd := execTool(ctx, "volta", "--version")
 	return cmd.Run() == nil
 }
 
@@ -30,14 +29,14 @@ func (v *VoltaManager) IsInstalled(ctx context.Context, pkg entity.Package) (boo
 	// If custom check_command is specified, verify execution
 	if pkg.CheckCommand != "" {
 		parts := strings.Fields(pkg.CheckCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
+		cmd := execTool(ctx, parts[0], parts[1:]...)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	}
 
 	// Inspect volta list
-	cmd := exec.CommandContext(ctx, "volta", "list")
+	cmd := execTool(ctx, "volta", "list")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, "", err
@@ -59,7 +58,7 @@ func (v *VoltaManager) IsInstalled(ctx context.Context, pkg entity.Package) (boo
 }
 
 func (v *VoltaManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, "volta", "install", pkg.ID)
+	cmd := execTool(ctx, "volta", "install", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("volta install %s failed: %s (%w)", pkg.ID, string(out), err)
@@ -68,7 +67,7 @@ func (v *VoltaManager) Install(ctx context.Context, pkg entity.Package) error {
 }
 
 func (v *VoltaManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := exec.CommandContext(ctx, "volta", "list")
+	cmd := execTool(ctx, "volta", "list")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
