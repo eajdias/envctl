@@ -31,8 +31,8 @@ envctl doctor
    - Carregamento assíncrono do módulo `playwright` via Node.js em qualquer diretório.
    - Presença dos binários do Chromium instalados (`%LOCALAPPDATA%/ms-playwright` no Windows ou `~/.cache/ms-playwright` no Linux).
    - Scripts utilitários `pw-screenshot` e `pw-eval` operacionais.
-6. **Catálogo de 59 Skills de Agentes**:
-   - Existência e conformidade de todas as 59 skills em `~/.config/opencode/skills/`.
+6. **Catálogo de 73 Skills de Agentes**:
+   - Existência e conformidade de todas as 73 skills em `~/.config/opencode/skills/`.
 
 ---
 

@@ -18,7 +18,7 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 - **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`, `darwin`).
 
 ### 2. Standalone Self-Contained Binary (`//go:embed`)
-- Todos os manifestos declarativos (`manifests/`), templates de configuração (`configs/`) e as **59 Skills** de agentes de IA são embutidos diretamente no binário compilado.
+- Todos os manifestos declarativos (`manifests/`), templates de configuração (`configs/`) e as **73 Skills** de agentes de IA são embutidos diretamente no binário compilado.
 - Garante instalação determinística e offline com zero dependências externas ou requisições HTTP adicionais em tempo de execução.
 
 ### 3. Orquestração Distribuída via `vps-agent-dispatch`

@@ -39,6 +39,15 @@
 - **Docker:** `docker ps -a`, `docker logs --tail 50 <ctr>`, `docker restart <ctr>`
 - **PM2:** `pm2 list`, `pm2 logs <id> --lines 50`, `pm2 restart <id>`
 
+## Provisioning (envctl)
+
+- Esta máquina foi provisionada pelo `envctl` (`~/.local/bin/envctl`); nunca editar configs manualmente — usar:
+  - `envctl doctor` / `envctl doctor --fix` (auditoria e auto-remediação)
+  - `envctl run shell` (re-sync configs) / `envctl run skills` (re-sync skills)
+- Bootstrap em máquina nova: `curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash`
+- Atualizar o binário: baixar release `envctl-linux-amd64` para `~/.local/bin/envctl`
+- NUNCA usar `envctl snapshot` aqui (é sync REVERSO máquina→repo, para uso onde o repo existe, ex.: dev local)
+
 ## Common Patterns
 
 ### Privileged operations (non-root user)

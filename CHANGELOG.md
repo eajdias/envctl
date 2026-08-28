@@ -7,6 +7,22 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.0] - 2026-08-28
+
+### 🤖 Integração envctl ↔ OpenCode (controle autônomo de VPS/VM)
+
+- **Added**: Seção `VPS Infrastructure (envctl)` no AGENTS.md global — provisioner, bootstrap de 1 linha, comandos, inventário via `ssh-manager server list`, regra "NOVAS VM/VPS — SEMPRE usar envctl" (nunca configurar VPS manualmente).
+- **Added**: Skill `vps-provisioning` (workflow Day-0/Day-2 de provisionamento remoto idempotente) — catálogo de skills 72→73.
+- **Added**: Protocolo "Limites Free & Fallback de Token" na skill `vps-agent-dispatch` — limite Free estourado na VPS → perguntar TOKEN ao usuário; recusou → agente executa os comandos via SSH.
+- **Added**: Passo 4 no cadastro de VPS da skill `ssh-vps` — provisionar a VPS com envctl logo após o registro (VPS vira agente OpenCode orquestrável).
+- **Added**: Seção `Provisioning (envctl)` no `AGENTS.linux.md` (auto-manutenção nas VPSs provisionadas) e referência `envctl` no `opencode.json`.
+- **Added**: Seção "Workflow Inteligente Multi-VPS (OpenCode)" no README.
+- **Fixed**: Contador de progresso do `envctl run all` no Windows mostrava "6/5" — total agora é incondicional (6 seções).
+- **Changed**: Documentação alinhada ao estado real — contagem de skills 59→73, LSPs 16→18, remoção de referências a `tui.json` (arquivo removido do provisioning).
+- **Changed**: Versionamento de release promovido de `v1.0.<n>` para `v1.1.<n>`.
+
+---
+
 ## [v1.0.33] - 2026-08-27
 
 ### 🔐 Segredos e PII fora do versionamento

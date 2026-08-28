@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 59 Skills de IA.
+4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 73 Skills de IA.
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -66,7 +66,7 @@ go run ./cmd/envctl doctor
 go run ./cmd/envctl run all
 
 # 3. Ou compile o binário standalone
-go build -ldflags "-s -w -X main.Version=v1.0.13" -o envctl ./cmd/envctl
+go build -ldflags "-s -w -X main.Version=v1.1.0" -o envctl ./cmd/envctl
 sudo mv envctl /usr/local/bin/ # ou mv envctl ~/.local/bin/
 ```
 
@@ -86,10 +86,10 @@ envctl run volta
 # Apenas configurações de shell (.bashrc, aliases, git configs)
 envctl run shell
 
-# Apenas extração e validação das 59 Skills de Agentes
+# Apenas extração e validação das 73 Skills de Agentes
 envctl run skills
 
-# Apenas instalação dos servidores de linguagem (16 LSPs)
+# Apenas instalação dos servidores de linguagem (18 LSPs)
 envctl run lsp
 
 # Auditoria completa do ambiente

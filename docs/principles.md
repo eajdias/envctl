@@ -18,7 +18,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 - A camada de **Infraestrutura** lida com a realidade suja do sistema operacional (subshells, pipes, registry, códigos de saída de processos, gerenciamento de pacotes por OS).
 
 ### C. Self-Contained Binary (`//go:embed`)
-- O binário compilado (`envctl` / `envctl.exe`) carrega todos os manifestos declarativos, templates de configuração e as 59 Skills em tempo de compilação.
+- O binário compilado (`envctl` / `envctl.exe`) carrega todos os manifestos declarativos, templates de configuração e as 73 Skills em tempo de compilação.
 - Permite execução offline ou via pendrive sem requisições HTTP adicionais para baixar assets de configuração.
 
 ---
@@ -41,8 +41,8 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Go: `gopls`.
    - .NET: `csharp-ls`.
    - Rust: `rustup component add rust-analyzer`.
-5. **Ecossistema OpenCode & 59 Skills:**
-   - Implantação de `opencode.json`, `dcp.jsonc`, `tui.json`, `package.json` e `AGENTS.md`.
-   - Extração das 59 Skills do OpenCode para `~/.config/opencode/skills`.
+5. **Ecossistema OpenCode & 73 Skills:**
+   - Implantação de `opencode.json`, `dcp.jsonc`, `package.json` e `AGENTS.md`.
+   - Extração das 73 Skills do OpenCode para `~/.config/opencode/skills`.
 6. **Verificação, Diagnóstico e Relatório:**
    - Auditoria completa via `envctl doctor` com 160+ checagens diagnósticas e opção de auto-remediação (`--fix`).

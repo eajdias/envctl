@@ -4,10 +4,10 @@ BINARY_NAME=envctl
 SRC=./cmd/envctl
 
 build:
-	go build -ldflags "-s -w -X main.Version=v1.0.0" -o $(BINARY_NAME) $(SRC)
+	go build -ldflags "-s -w -X main.Version=v1.1.0" -o $(BINARY_NAME) $(SRC)
 
 build-windows:
-	go build -ldflags "-s -w -X main.Version=v1.0.0" -o envctl.exe $(SRC)
+	go build -ldflags "-s -w -X main.Version=v1.1.0" -o envctl.exe $(SRC)
 
 test:
 	go test -v ./...

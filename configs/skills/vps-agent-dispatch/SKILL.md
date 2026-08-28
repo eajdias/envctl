@@ -84,3 +84,15 @@ Quando você (agente local) for instruído a despachar uma tarefa para um VPS:
 5. **Cristalizar e Sintetizar**:
    - Processe a resposta recebida do VPS.
    - Apresente ao usuário local uma síntese limpa e objetiva, mantendo a janela de contexto local compacta e de alta qualidade.
+
+---
+
+## Limites Free & Fallback de Token
+
+O OpenCode na VPS roda no plano **Free** (limites de uso/modelo). Quando o limite estoura, o `opencode run` remoto falha com erro de quota/rate-limit (ex.: "usage limit", "quota exceeded", "rate limit").
+
+**Protocolo ao detectar limite Free estourado na VPS:**
+
+1. **PARE e PERGUNTE ao usuário** se ele quer registrar um TOKEN/API key no OpenCode da VPS (`opencode auth login` na VPS, ou `OPENCODE_API_KEY` no `.bashrc`). O agente NUNCA manuseia/armazena o token — o registro é do usuário.
+2. **Se o usuário não quiser registrar token:** execute a tarefa **por conta própria**, direto via SSH (`ssh-manager exec <vps> "..."` ou `ssh -i <chave> user@host`), sem depender do OpenCode remoto — mesmo fluxo: read-only → diagnóstico → execução → verificação → reporte.
+3. **Se o usuário registrar:** prossiga com `opencode run` normal na VPS.

@@ -17,8 +17,8 @@ envctl/
 │   ├── usecase/                 # Casos de Uso da Aplicação
 │   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
 │   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
-│   │   ├── provision_skills.go  # Extração e atualização das 59 Skills
-│   │   ├── provision_lsp.go     # Instalação e validação dos 16 LSPs
+│   │   ├── provision_skills.go  # Extração e atualização das 73 Skills
+│   │   ├── provision_lsp.go     # Instalação e validação dos 18 LSPs
 │   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
 │   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade (160+ checagens)
 │   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
@@ -61,8 +61,8 @@ envctl/
 Orquestra o fluxo de negócio do provisionador sem acoplamento a implementações concretas:
 - **`ProvisionPackagesUseCase`**: Itera pelos manifestos, filtra pelo OS corrente (`runtime.GOOS`) e orquestra a instalação em lote chamando os adaptadores específicos.
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
-- **`ProvisionSkillsUseCase`**: Extrai as 59 Skills do sistema embutido para o diretório local do OpenCode (`~/.config/opencode/skills/`).
-- **`ProvisionLSPsUseCase`**: Garante a presença dos 16 servidores de linguagem registrados.
+- **`ProvisionSkillsUseCase`**: Extrai as 73 Skills do sistema embutido para o diretório local do OpenCode (`~/.config/opencode/skills/`).
+- **`ProvisionLSPsUseCase`**: Garante a presença dos 18 servidores de linguagem registrados.
 - **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux/macOS).
 - **`DoctorAuditUseCase`**: Executa uma bateria de 160+ checagens diagnósticas cobrindo todo o ecossistema.
 - **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).

@@ -349,6 +349,11 @@ skills:
       source: configs/skills/vps-agent-dispatch
       target_dir: ""
       enabled: true
+    - name: vps-provisioning
+      description: Provisionar/manter VPS/VM remotas com envctl (bootstrap 1 linha + run all + doctor; nunca configurar manualmente; Day-0/Day-2 idempotente)
+      source: configs/skills/vps-provisioning
+      target_dir: ""
+      enabled: true
     - name: windows-admin
       description: OpenCode agent skill windows-admin
       source: configs/skills/windows-admin

@@ -92,6 +92,10 @@
     "playwright": {
       "path": "~/.config/opencode/skills/playwright-cli",
       "description": "Browser automation with Playwright Node.js API"
+    },
+    "envctl": {
+      "path": "C:/projetos/git-privado/envctl",
+      "description": "envctl - VPS/VM provisioner (Go CLI) source repo; bootstrap: curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash; commands: envctl run all / run shell / doctor / snapshot"
     }
   },
   "mcp": {

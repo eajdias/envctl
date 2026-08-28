@@ -67,6 +67,13 @@ SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
 
 **3. Testar e atualizar inventário local** — `ssh_manager_ssh_execute` com `echo "OK - $(hostname)"`; depois ADICIONE/ATUALIZE o servidor em `~/.config/opencode/extras/ssh_servers.md` (nome, host, usuário, OS, chave, observação). NUNCA adicione a tabela neste SKILL.md.
 
+**4. Provisionar com envctl (VPS vira agente OpenCode)** — após cadastro validado, NUNCA deixar a VPS crua: rode o bootstrap do envctl na VPS (1 linha) e provisione:
+```
+ssh <vps> "curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash"
+ssh <vps> "envctl run all && envctl doctor"
+```
+Assim a VPS ganha OpenCode + skills próprios (plano Free) e passa a ser orquestrável via `vps-agent-dispatch`. Se o usuário só quiser monitorar a VPS, pule este passo. Detalhes do fluxo completo: skill `vps-provisioning`.
+
 ## Como usar
 
 ### Opção A — CLI (padrão, sem MCP)

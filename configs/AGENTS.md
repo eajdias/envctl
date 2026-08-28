@@ -40,11 +40,22 @@
 - **Skill Promotion (OBRIGATÓRIO — parâmetro fixo em TODA gravação de memória):** ao gravar QUALQUER entrada em lessons.md/patterns.md (projeto ou global), CLASSIFIQUE antes de salvar: a entrada descreve um **PROCESSO reutilizável multi-passos** (workflow, critérios de decisão, checagem que se repete)? → **PROMOVA a skill**: carregue a skill `memory-promotion` e siga o procedimento (criar `SKILL.md` no local correto — global `~\.config\opencode\skills\<nome>\` ou projeto `.opencode\skills\<nome>\` —, registrar para provisionamento via `envctl snapshot`, e **REMOVER a entrada da memória** — sem redundância entre memória e skill). A entrada é LIÇÃO/anti-padrão, fato do ambiente ou preferência? → permanece na memória. Nunca manter o mesmo conteúdo em memória E skill. O ideal: skills novas por projeto e globais crescem conforme o uso; as globais (sem dados pessoais) são implementadas no envctl (`configs/skills/` + `manifests/skills.yaml`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
 
+## VPS Infrastructure (envctl)
+
+- **Provisioner:** `envctl` (CLI Go standalone; repo: `C:\projetos\git-privado\envctl` — fonte única de configs/skills/agentes; binário embutido: `~/.local/bin/envctl` nas VPSs provisionadas)
+- **Bootstrap (1 linha):** `curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash`
+- **Comandos:** `envctl run all` (Day-0 completo), `envctl run shell` / `envctl run skills` (re-sync de configs/skills), `envctl doctor` / `envctl doctor --fix` (auditoria e auto-remediação), `envctl snapshot` (sync REVERSO máquina→repo — NÃO usar em VPS remota)
+- **NOVAS VM/VPS — SEMPRE usar envctl:** nunca configurar servidor manualmente; fluxo padrão: SSH → bootstrap one-liner → `envctl run all` → `envctl doctor`. Provisionamento é idempotente (rodar N vezes = mesmo estado final). Workflow completo na skill `vps-provisioning`.
+- **Nova conexão SSH:** ao cadastrar VPS/VM, registrar seguindo os padrões (ssh-manager + inventário local — skill `ssh-vps`, workflow de 3 passos) e SEMPRE provisionar a VPS com envctl (bootstrap + `envctl run all`) — a VPS ganha OpenCode próprio (plano Free) e vira orquestrável.
+- **Limite Free na VPS:** se o OpenCode remoto estourar o limite free, PERGUNTAR ao usuário se quer registrar TOKEN (`opencode auth login` na VPS; o agente nunca manuseia o token). Se o usuário recusar, executar os comandos diretamente via SSH (skill `vps-agent-dispatch`, seção Limites Free & Fallback).
+- **Inventário:** dinâmico via `ssh-manager server list` + arquivo local `~/.config/opencode/extras/ssh_servers.md` (nunca versionar IPs/usuários/chaves em arquivos provisionados). VPSs conhecidas: `homologacaochatbot`, `zscanchatbot`, `zscanchatcomercial`, `zscanproxyprod`, `zscanintranet`, `zscansaclocal`.
+- **Orquestração remota:** skill `vps-agent-dispatch` (subagentes OpenCode remotos via SSH).
+
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**56 skills** — opencode + firecrawl + playwright)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**57 skills** — opencode + firecrawl + playwright)
 
-### opencode skills (22)
+### opencode skills (23)
 
 | Skill | Purpose |
 |-------|---------|
@@ -53,6 +64,7 @@
 | `universal-test-runner` | Multi-stack test runner & coverage (Node/TS, Python, Go, .NET, Rust) with TDD loop |
 | `api-contract-design` | API design & validation (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking change checks) |
 | `ssh-vps` | SSH/VPS management via ssh-manager (monitoring, recovery) |
+| `vps-provisioning` | Provision/manage VPSs via envctl bootstrap (Day-0/Day-2, idempotent) |
 | `windows-admin` | Windows 11 administration (services, registry, winget, firewall) |
 | `docker` | Docker Desktop/containers/compose + Docker Hub MCP |
 | `context7-auto` | Fetch up-to-date library docs before code |

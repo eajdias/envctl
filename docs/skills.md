@@ -1,6 +1,6 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **59 Skills de Agentes Especialistas** projetadas para o ecossistema OpenCode. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **73 Skills de Agentes Especialistas** projetadas para o ecossistema OpenCode. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
 
 ---
 
@@ -12,7 +12,7 @@ O `envctl` embuta e sincroniza **59 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das 59 Skills Catalogadas
+## 📋 Categorias das 73 Skills Catalogadas
 
 ### 1. Engenharia de Software & Arquitetura
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.

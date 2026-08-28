@@ -148,9 +148,6 @@ func runAllProvisioning() {
 	}
 
 	total := 6
-	if !isLinux {
-		total = 5
-	}
 	section := func(n int, text string) string {
 		return fmt.Sprintf("%d/%d %s", n, total, text)
 	}

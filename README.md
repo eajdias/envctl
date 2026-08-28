@@ -31,9 +31,22 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
 - **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
-- **Ecossistema OpenCode & 59 Skills**: `opencode.json`, `dcp.jsonc`, `tui.json`, plugins e **59 Skills de Agentes de IA** embutidas.
+- **Ecossistema OpenCode & 73 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **73 Skills de Agentes de IA** embutidas.
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
 - **Navegador Headless Playwright**: Scripts utilitários `pw-eval` e `pw-screenshot` prontos para automação web instantânea.
+
+---
+
+## 🤖 Workflow Inteligente Multi-VPS (OpenCode)
+
+O envctl transforma o OpenCode local num **orquestrador de frotas**: cada VPS/VM nova vira um agente autônomo, sem configuração manual.
+
+**Fluxo completo (o agente LLM local já sabe fazer):**
+
+1. **Instalação no Windows (recomendado):** `irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex` → `envctl run all` → `envctl doctor` (Day-0 local, idempotente).
+2. **Adicionar VPS/VM nova:** peça ao agente para cadastrar a conexão SSH — ele registra seguindo os padrões (ssh-manager + inventário local `~/.config/opencode/extras/ssh_servers.md`, skill `ssh-vps`) e **roda o envctl na VPS** (`curl -fsSL .../bootstrap.sh | bash` → `envctl run all`).
+3. **Controle:** a VPS passa a ter o próprio OpenCode (plano **Free**) + skills; tarefas pesadas são despachadas do local via skill `vps-agent-dispatch` (contexto local enxuto).
+4. **Limite Free estourado na VPS:** o orquestrador **PERGUNTA** se você quer registrar um TOKEN (`opencode auth login` na VPS). **Se você não quiser, ele executa os comandos por conta própria via SSH** — a orquestração nunca fica bloqueada.
 
 ---
 
@@ -54,7 +67,7 @@ envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
-envctl run skills       # Extração e sincronização das 59 Skills
+envctl run skills       # Extração e sincronização das 73 Skills
 envctl run lsp          # 18 Servidores de Linguagem (LSP)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
@@ -77,14 +90,14 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ### 🏛️ Engenharia & Especificações:
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
 - 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `lsp.yaml`, `windows.yaml`).
-- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 59 skills catalogadas, orquestração remota (`vps-agent-dispatch`) e automação Playwright.
+- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 73 skills catalogadas, orquestração remota (`vps-agent-dispatch`) e automação Playwright.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — 160+ pontos de diagnóstico, flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---
 
 ## 💎 Princípios Fundamentais
-1. **100% Standalone via `//go:embed`**: Todas as 59 Skills e templates residem dentro do próprio binário executável compilado.
+1. **100% Standalone via `//go:embed`**: Todas as 73 Skills e templates residem dentro do próprio binário executável compilado.
 2. **Idempotência Estrita**: Executar 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
 3. **Backup Atômico com Timestamp**: Arquivos modificados sofrem backup automático (`.bak.YYYYMMDD-HHMMSS`) caso haja divergência de hash.
 4. **Logging Persistente Estruturado**: Trilha de auditoria completa gerada em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.

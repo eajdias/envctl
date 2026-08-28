@@ -44,7 +44,7 @@ jobs:
             VERSION="${GITHUB_REF#refs/tags/}"
           else
             COMMIT_COUNT=$(git rev-list --count HEAD)
-            VERSION="v1.0.${COMMIT_COUNT}"
+            VERSION="v1.1.${COMMIT_COUNT}"
           fi
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building Release version: ${VERSION}"
