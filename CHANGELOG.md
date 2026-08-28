@@ -7,6 +7,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.39] - 2026-08-28
+
+### 🤖 Agentes OpenCode: review read-only sem erros de tool + modo goal (YOLO)
+
+- **Fixed**: Agente `review` e `plan` agora bloqueiam `bash`/`edit` via `permission` (deny) em vez de remoção do toolset — modelos menores paravam de gerar erros "unavailable tool" e recebem negação limpa que sabem interpretar.
+- **Added**: Agente primário `goal` (modo autônomo YOLO) — executa spec/objetivo até a conclusão sem pedir permissão, rastreia via goal tools (set_goal/create_goal/update_goal/get_goal), verifica com evidências antes de concluir (ponytail + verification-before-completion + agent-memory).
+- **Changed**: `configs/opencode.json` e `configs/opencode.linux.json` ganharam seção `agent` (review, plan, goal) — distribuída a todas as VPSs via provisioning.
+
+---
+
 ## [v1.1.38] - 2026-08-28
 
 ### 🆕 Day-0: provisionamento de VPS fresca (validado em zscanchatbot)

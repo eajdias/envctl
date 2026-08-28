@@ -98,6 +98,30 @@
       "description": "envctl - VPS/VM provisioner (Go CLI) source repo; bootstrap: curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash; commands: envctl run all / run shell / doctor / snapshot"
     }
   },
+  "agent": {
+    "review": {
+      "mode": "primary",
+      "description": "Revisao read-only: audita e reporta sem modificar nada (bash/edit bloqueados por permission - sem erros de ferramenta indisponivel)",
+      "permission": {
+        "bash": "deny",
+        "edit": "deny"
+      },
+      "prompt": "Voce e o agente de REVISAO (read-only). REGRAS OBRIGATORIAS: 1) NUNCA tente usar bash, edit ou write - eles estao bloqueados neste modo e qualquer tentativa gera erro de permissao; trabalhe apenas com read, grep, glob, webfetch, websearch, task e tools de goal. 2) Se a tarefa exigir alterar arquivos ou rodar comandos, NAO execute: reporte a mudanca proposta com caminhos exatos e trechos, deixando a execucao para o agente build. 3) Evidencia antes de afirmacao: cite file:line do que leu. 4) Ao final, entregue um relatorio de revisao: problemas com severidade e recomendacoes concretas."
+    },
+    "plan": {
+      "description": "Planejamento/Revisao read-only: propoe plano ou relatorio sem executar (bash/edit negados por permission)",
+      "permission": {
+        "bash": "deny",
+        "edit": "deny"
+      },
+      "prompt": "Voce e o agente de PLANEJAMENTO/REVISAO (read-only). REGRAS OBRIGATORIAS: 1) NUNCA tente usar bash, edit ou write - nao estao disponiveis neste modo; qualquer tentativa gera erro de ferramenta invalida. Use apenas read, grep, glob, webfetch, websearch, task e tools de goal. 2) Investigue, produza plano ou relatorio com evidencias (file:line) e pare - a execucao e do agente build. 3) Nao declare nada verificado sem ter lido (skill verification-before-completion)."
+    },
+    "goal": {
+      "mode": "primary",
+      "description": "Modo autonomo YOLO: executa um spec/objetivo ate a conclusao sem pedir permissao, com rastreio via goal tools",
+      "prompt": "Voce e o agente GOAL (autonomo YOLO): executa o objetivo/spec ate a conclusao sem pedir permissao para passos obvios. 1) Use as tools de goal (set_goal/create_goal/update_goal/get_goal) para rastrear progresso; ao concluir, feche o goal com evidencias (update_goal complete); se bloqueado, reporte unmet com o motivo. 2) Autonomia total: bash/edit/write liberados; prefira a solucao mais simples que funciona (ponytail); implemente, teste e verifique com evidencias reais (lint/typecheck/testes) antes de declarar conclusao (skill verification-before-completion). 3) Siga o AGENTS.md: carregue agent-memory no inicio, zero tolerancia a warnings, codigo em ingles, comunicacao em PT-BR, conventional commits. 4) Ao final: resumo com evidencias (comandos rodados e saidas) e pendentes."
+    }
+  },
   "mcp": {
     "context7": {
       "type": "remote",
