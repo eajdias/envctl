@@ -7,6 +7,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.41] - 2026-08-29
+
+### 🐛 Fix: Windows Terminal fechando instantaneamente (commandline UTF-8)
+
+- **Fixed**: o `commandline` do perfil PowerShell no Windows Terminal (`pwsh -Command "chcp 65001 > $null; $env:PATH = $env:PATH"`) executava o comando e saía sem `-NoExit`, fechando a aba/janela na hora. Removido de `configs/terminal-settings.json` — o encoding UTF-8 já é garantido pelo profile PowerShell (`[Console]::OutputEncoding/InputEncoding = UTF8` + `chcp 65001`), única camada necessária no launch.
+- **Nota**: a validação do v1.1.40 (doctor 181/181) não cobriu a abertura real de um novo terminal via Windows Terminal — o profile é carregado só após o launch, e o `pwsh -Command` sem `-NoExit` encerra o processo antes disso.
+
+---
+
 ## [v1.1.40] - 2026-08-29
 
 ### 🌐 Console UTF-8: correção do encoding Unicode (U+FFFD) no Windows
