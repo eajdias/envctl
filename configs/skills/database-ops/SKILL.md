@@ -1,6 +1,7 @@
 ---
 name: database-ops
-description: Operações dinâmicas com múltiplos bancos de dados (PostgreSQL, MySQL, Firebird, MongoDB, SQLite, Redis), migrações, containers Docker e consultas. Use quando o usuário pedir para inspecionar schemas, rodar migrations, validar queries, fazer backup/restore, manipular dados ou subir bancos em Docker. Triggers: database, banco, banco de dados, sql, postgres, postgresql, mysql, firebird, mongodb, mongo, sqlite, redis, migration, migrations, prisma, drizzle, alembic, efcore, schema, query.
+description: >-
+  Operações dinâmicas com múltiplos bancos de dados (PostgreSQL, MySQL, Firebird, MongoDB, SQLite, Redis), migrações, containers Docker e consultas. Use quando o usuário pedir para inspecionar schemas, rodar migrations, validar queries, fazer backup/restore, manipular dados ou subir bancos em Docker. Triggers: database, banco, banco de dados, sql, postgres, postgresql, mysql, firebird, mongodb, mongo, sqlite, redis, migration, migrations, prisma, drizzle, alembic, efcore, schema, query.
 ---
 
 # Operações com Múltiplos Bancos de Dados (Dinâmico & Multi-projeto)

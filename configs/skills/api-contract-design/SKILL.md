@@ -1,6 +1,7 @@
 ---
 name: api-contract-design
-description: Design, especificação, validação e documentação de contratos de API (OpenAPI/Swagger 3.x, GraphQL SDL, gRPC/Protobuf, REST). Use quando o usuário pedir para desenhar endpoints, validar schemas, gerar documentação de API, criar contratos de integração ou verificar breaking changes. Triggers: openapi, swagger, api contract, contrato api, endpoint, endpoints, rest api, graphql, schema, protobuf, grpc, spectral, redoc.
+description: >-
+  Design, especificação, validação e documentação de contratos de API (OpenAPI/Swagger 3.x, GraphQL SDL, gRPC/Protobuf, REST). Use quando o usuário pedir para desenhar endpoints, validar schemas, gerar documentação de API, criar contratos de integração ou verificar breaking changes. Triggers: openapi, swagger, api contract, contrato api, endpoint, endpoints, rest api, graphql, schema, protobuf, grpc, spectral, redoc.
 ---
 
 # API Contract Design & Schema Validation

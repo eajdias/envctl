@@ -1,6 +1,7 @@
 ---
 name: docker-desktop-wsl-restart
-description: Reiniciar Docker Desktop no Windows quando o WSL2 backend falha. Use quando docker reportar Wsl/ExecError, backend.sock não encontrado, daemon não responde ou montagem docker-desktop stale. Triggers: docker não sobe, docker desktop, wsl exec error, backend.sock, docker daemon, reiniciar docker, wsl shutdown, com.docker.service.
+description: >-
+  Reiniciar Docker Desktop no Windows quando o WSL2 backend falha. Use quando docker reportar Wsl/ExecError, backend.sock não encontrado, daemon não responde ou montagem docker-desktop stale. Triggers: docker não sobe, docker desktop, wsl exec error, backend.sock, docker daemon, reiniciar docker, wsl shutdown, com.docker.service.
 license: MIT
 compatibility: opencode
 ---

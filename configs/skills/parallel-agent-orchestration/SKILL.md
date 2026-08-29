@@ -1,6 +1,7 @@
 ---
 name: parallel-agent-orchestration
-description: Orquestrar subagentes paralelos trabalhando no mesmo repositório git sem conflitos. Use quando dividir tarefas grandes entre agentes simultâneos (refatoração, features independentes, migrações) no mesmo repo. Triggers: subagentes, paralelo, parallel agents, orquestrador, dividir tarefa, agentes simultâneos, conflito de edição.
+description: >-
+  Orquestrar subagentes paralelos trabalhando no mesmo repositório git sem conflitos. Use quando dividir tarefas grandes entre agentes simultâneos (refatoração, features independentes, migrações) no mesmo repo. Triggers: subagentes, paralelo, parallel agents, orquestrador, dividir tarefa, agentes simultâneos, conflito de edição.
 license: MIT
 compatibility: opencode
 ---

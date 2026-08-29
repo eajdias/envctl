@@ -1,6 +1,7 @@
 ---
 name: docker-build-local-vps-deploy
-description: Deploy de aplicações Docker em VPS fraca — build local, transporte por imagem e load no destino. Use quando a VPS não aguenta build pesado (tsc/npm), deploy demora ou trava, ou precisa atualizar serviços sem build na máquina remota. Triggers: vps, deploy docker, docker load, build local, imagem tar.gz, vps fraca, transporte imagem.
+description: >-
+  Deploy de aplicações Docker em VPS fraca — build local, transporte por imagem e load no destino. Use quando a VPS não aguenta build pesado (tsc/npm), deploy demora ou trava, ou precisa atualizar serviços sem build na máquina remota. Triggers: vps, deploy docker, docker load, build local, imagem tar.gz, vps fraca, transporte imagem.
 license: MIT
 compatibility: opencode
 ---

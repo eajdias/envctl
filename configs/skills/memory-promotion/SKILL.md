@@ -1,6 +1,7 @@
 ---
 name: memory-promotion
-description: Promover aprendizados (memórias) a skills reutilizáveis. Use SEMPRE ao gravar uma entrada em lessons.md/patterns.md (memória de projeto ou global) para classificar se o conteúdo é um PROCESSO reutilizável (→ vira skill, entrada removida) ou uma LIÇÃO/anti-padrão pontual (→ permanece na memória). Triggers: memória, lesson, pattern, aprendizado, promover, skill nova, memory-promotion, lição virou skill, classificar aprendizado.
+description: >-
+  Promover aprendizados (memórias) a skills reutilizáveis. Use SEMPRE ao gravar uma entrada em lessons.md/patterns.md (memória de projeto ou global) para classificar se o conteúdo é um PROCESSO reutilizável (→ vira skill, entrada removida) ou uma LIÇÃO/anti-padrão pontual (→ permanece na memória). Triggers: memória, lesson, pattern, aprendizado, promover, skill nova, memory-promotion, lição virou skill, classificar aprendizado.
 license: MIT
 compatibility: opencode
 ---

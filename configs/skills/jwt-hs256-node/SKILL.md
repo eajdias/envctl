@@ -1,6 +1,7 @@
 ---
 name: jwt-hs256-node
-description: Implementar JWT HS256 sem dependências externas em Node.js. Use quando precisar de autenticação interna leve (tokens de sessão/API) sem instalar jsonwebtoken ou similar. Triggers: jwt, token, hs256, auth, autenticação, createHmac, timingSafeEqual, assinatura.
+description: >-
+  Implementar JWT HS256 sem dependências externas em Node.js. Use quando precisar de autenticação interna leve (tokens de sessão/API) sem instalar jsonwebtoken ou similar. Triggers: jwt, token, hs256, auth, autenticação, createHmac, timingSafeEqual, assinatura.
 license: MIT
 compatibility: opencode
 ---

@@ -1,6 +1,7 @@
 ---
 name: vps-provisioning
-description: Provisionar e manter VPS/VM remotas com envctl (bootstrap de 1 linha + provisionamento idempotente: OpenCode, skills, LSPs, toolchains). Use quando o usuário pedir para provisionar, configurar, atualizar, revisar ou diagnosticar uma VPS/VM nova ou existente ("provisionar vps", "provisionar vm", "setup da vps", "instalar opencode na vps", "nova vps", "nova vm", "bootstrap na vps", "atualizar skills na vps", "envctl", "replicar ambiente no servidor").
+description: >-
+  Provisionar e manter VPS/VM remotas com envctl (bootstrap de 1 linha + provisionamento idempotente: OpenCode, skills, LSPs, toolchains). Use quando o usuário pedir para provisionar, configurar, atualizar, revisar ou diagnosticar uma VPS/VM nova ou existente ("provisionar vps", "provisionar vm", "setup da vps", "instalar opencode na vps", "nova vps", "nova vm", "bootstrap na vps", "atualizar skills na vps", "envctl", "replicar ambiente no servidor").
 ---
 
 # VPS Provisioning with envctl

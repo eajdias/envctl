@@ -1,6 +1,7 @@
 ---
 name: windows-admin
-description: Administração local do Windows 11. Use quando o usuário pedir para gerenciar serviços Windows, registro, tarefas agendadas, firewall, usuários locais, eventos, instalar/atualizar programas, ou qualquer operação de administração do sistema operacional. Triggers: windows, serviço windows, Get-Service, sc.exe, registry, registro, schtasks, tarefa agendada, winget, firewall, evento, event log, Get-WinEvent, usuário local, Get-LocalUser, restart service, serviço parado, iniciar serviço.
+description: >-
+  Administração local do Windows 11. Use quando o usuário pedir para gerenciar serviços Windows, registro, tarefas agendadas, firewall, usuários locais, eventos, instalar/atualizar programas, ou qualquer operação de administração do sistema operacional. Triggers: windows, serviço windows, Get-Service, sc.exe, registry, registro, schtasks, tarefa agendada, winget, firewall, evento, event log, Get-WinEvent, usuário local, Get-LocalUser, restart service, serviço parado, iniciar serviço.
 ---
 
 # Administração Windows 11 (máquina local)

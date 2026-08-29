@@ -1,6 +1,7 @@
 ---
 name: universal-test-runner
-description: Execução de testes unitários, integração, E2E e cálculo de cobertura de código em múltiplos ecossistemas (Node/TS, Python, Go, .NET, Rust). Use quando o usuário pedir para rodar testes, verificar regressões, medir cobertura ou validar código antes de finalizar. Triggers: test, testes, testar, coverage, cobertura, pytest, vitest, jest, go test, dotnet test, cargo test, tdd, benchmark.
+description: >-
+  Execução de testes unitários, integração, E2E e cálculo de cobertura de código em múltiplos ecossistemas (Node/TS, Python, Go, .NET, Rust). Use quando o usuário pedir para rodar testes, verificar regressões, medir cobertura ou validar código antes de finalizar. Triggers: test, testes, testar, coverage, cobertura, pytest, vitest, jest, go test, dotnet test, cargo test, tdd, benchmark.
 ---
 
 # Universal Test Runner & Coverage Analysis

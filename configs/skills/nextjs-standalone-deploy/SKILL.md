@@ -1,6 +1,7 @@
 ---
 name: nextjs-standalone-deploy
-description: Deploy de Next.js com output standalone e migração para v16. Use quando dockerizar Next.js (multi-stage, ARG NEXT_PUBLIC, public/), atualizar de v15 para v16, ou debugar quebras de build/standalone. Triggers: next.js, nextjs, standalone, next 16, next15, NEXT_PUBLIC, dockerfile next, migration next, output standalone.
+description: >-
+  Deploy de Next.js com output standalone e migração para v16. Use quando dockerizar Next.js (multi-stage, ARG NEXT_PUBLIC, public/), atualizar de v15 para v16, ou debugar quebras de build/standalone. Triggers: next.js, nextjs, standalone, next 16, next15, NEXT_PUBLIC, dockerfile next, migration next, output standalone.
 license: MIT
 compatibility: opencode
 ---

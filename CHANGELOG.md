@@ -7,6 +7,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.42] - 2026-08-29
+
+### 🐛 Fix: 20 skills invisíveis para o opencode (frontmatter YAML inválido)
+
+- **Fixed**: 20 skills (`agent-memory`, `git-workflow`, `database-ops`, `docker`, `windows-admin`, `vps-provisioning`, etc.) tinham `description` como scalar pleno com `: ` (ex.: `Triggers: git, ...`) — YAML interpreta `: ` como separador de mapping → erro de parse → o opencode **descarta a skill silenciosamente**. Todas convertidas para block scalar (`description: >-`), texto preservado.
+- **Impacto**: `agent-memory` (obrigatória pelo AGENTS.md) e outras nunca carregavam; agora as 73 skills são descobertas. Requer reiniciar o opencode.
+
+---
+
 ## [v1.1.41] - 2026-08-29
 
 ### 🐛 Fix: Windows Terminal fechando instantaneamente (commandline UTF-8)

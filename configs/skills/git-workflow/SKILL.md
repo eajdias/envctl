@@ -1,6 +1,7 @@
 ---
 name: git-workflow
-description: Fluxo de trabalho avançado com Git e GitHub CLI (gh). Use quando o usuário pedir para criar branches, fazer commits convencionais, criar/revisar Pull Requests, resolver conflitos, gerenciar stashes, tags, rebase ou inspecionar histórico. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, changelog, tag, release.
+description: >-
+  Fluxo de trabalho avançado com Git e GitHub CLI (gh). Use quando o usuário pedir para criar branches, fazer commits convencionais, criar/revisar Pull Requests, resolver conflitos, gerenciar stashes, tags, rebase ou inspecionar histórico. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, changelog, tag, release.
 ---
 
 # Git & GitHub CLI Workflow

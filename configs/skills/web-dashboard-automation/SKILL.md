@@ -1,6 +1,7 @@
 ---
 name: web-dashboard-automation
-description: Automatizar dashboards/SPAs web com autenticação e proteção CSRF. Use quando precisar extrair dados ou executar ações em sistemas SaaS/dashboards (fazer login, clicar, interceptar o request real, replicar chamadas). Triggers: dashboard, automação web, csrf, X-CSRF-Token, interceptar request, página autenticada, proxy de dashboard, saas.
+description: >-
+  Automatizar dashboards/SPAs web com autenticação e proteção CSRF. Use quando precisar extrair dados ou executar ações em sistemas SaaS/dashboards (fazer login, clicar, interceptar o request real, replicar chamadas). Triggers: dashboard, automação web, csrf, X-CSRF-Token, interceptar request, página autenticada, proxy de dashboard, saas.
 license: MIT
 compatibility: opencode
 ---
