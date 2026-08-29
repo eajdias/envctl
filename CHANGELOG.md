@@ -7,6 +7,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.43] - 2026-08-29
+
+### 🔧 MCP (playwright, chrome-devtools): bunx + versão pinada
+
+- **Changed**: comandos dos MCPs locais trocados de `npx -y @latest` para `bunx <pkg>@<versão>` (`@playwright/mcp@0.0.79`, `chrome-devtools-mcp@1.8.0`).
+- **Motivo**: (1) `@latest` re-resolve o pacote a cada spawn (start lento/instável); (2) npx roda em processo `node` — se o agente der `Stop-Process node` (ex.: liberar porta), os MCPs caem no meio da sessão e o opencode **não reconecta** (status `failed`, tools somem do toolset); (3) bunx roda em `bun.exe` — sobrevive a kill de node e sobe mais rápido. Validado com handshake MCP (initialize + tools/list) sob bun: 24 tools (playwright), 29 tools (chrome-devtools).
+
+---
+
 ## [v1.1.42] - 2026-08-29
 
 ### 🐛 Fix: 20 skills invisíveis para o opencode (frontmatter YAML inválido)

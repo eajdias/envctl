@@ -147,13 +147,13 @@
     },
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp@latest", "--browser", "chromium"],
+      "command": ["bunx", "@playwright/mcp@0.0.79", "--browser", "chromium"],
       "timeout": 30000,
       "enabled": false
     },
     "chrome-devtools": {
       "type": "local",
-      "command": ["npx", "-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"],
+      "command": ["bunx", "chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],
       "timeout": 30000,
       "enabled": false
     }
