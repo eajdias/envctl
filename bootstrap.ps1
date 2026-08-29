@@ -24,6 +24,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Fix encoding: ensure UTF-8 console for Unicode glyphs (emojis, checkmarks)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 | Out-Null
+
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "  🚀 envctl: Development Environment Provisioner Bootstrap" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan

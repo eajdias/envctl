@@ -1,3 +1,8 @@
+# Fix encoding: console must use UTF-8 for Unicode glyphs (emojis, Nerd Font icons, checkmarks)
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 | Out-Null
+
 # Standardized agent temp folder (created by envctl at disk root)
 $env:ENVCTL_TEMP = "C:\temp"
 

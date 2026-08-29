@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -470,6 +471,36 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				System:   "WSL",
 				Target:   "Ubuntu",
 				Details:  "WSL Ubuntu available as secondary POSIX shell",
+			})
+		}
+	}
+
+	// 12.6. Audit Windows console code page (UTF-8 required for Unicode glyph rendering)
+	if runtime.GOOS == "windows" {
+		out, err := exec.CommandContext(ctx, "chcp").CombinedOutput()
+		codePage := strings.TrimSpace(regexp.MustCompile(`\d+`).FindString(string(out)))
+		if err != nil {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Console",
+				Target:   "Code Page",
+				Details:  fmt.Sprintf("chcp check failed: %v", err),
+				FixHint:  "run 'envctl run shell' to reapply the UTF-8 PowerShell profile",
+			})
+		} else if codePage != "65001" {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Console",
+				Target:   "Code Page",
+				Details:  fmt.Sprintf("Console code page is %s — Unicode glyphs (emojis, checkmarks) render as U+FFFD", codePage),
+				FixHint:  "restart Windows Terminal (its profile now sets chcp 65001) or run 'envctl run shell' to reapply the PowerShell profile",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Console",
+				Target:   "Code Page",
+				Details:  "Console code page is UTF-8 (65001) — Unicode output safe",
 			})
 		}
 	}

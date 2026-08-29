@@ -7,6 +7,19 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.40] - 2026-08-29
+
+### 🌐 Console UTF-8: correção do encoding Unicode (U+FFFD) no Windows
+
+- **Fixed**: Console Windows com code page OEM 850 renderizava caracteres Unicode (🚀 ✔ ✘ ⚠ 🎉 e glyphs Nerd Font) como `�` (U+FFFD) — corrigido em 3 camadas:
+  - Profile PowerShell (`configs/Microsoft.PowerShell_profile.ps1`) agora define `[Console]::OutputEncoding/InputEncoding = UTF8` + `chcp 65001` no início.
+  - Windows Terminal (`configs/terminal-settings.json`): perfil PowerShell com `commandline: pwsh -Command "chcp 65001 > $null; $env:PATH = $env:PATH"`.
+  - Bootstrap Windows (`bootstrap.ps1`) força UTF-8 antes do banner.
+- **Added**: `envctl doctor` ganhou o check 12.6 *Console Code Page* — alerta WARN se `chcp != 65001` (com fix hint: reiniciar o Windows Terminal / `envctl run shell`).
+- **Validado**: `doctor` 181/181, 0 WARN, 0 ERRO com o profile ativo (antes: 1 WARN Code Page 850).
+
+---
+
 ## [v1.1.39] - 2026-08-28
 
 ### 🤖 Agentes OpenCode: review read-only sem erros de tool + modo goal (YOLO)
