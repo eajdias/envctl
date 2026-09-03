@@ -172,3 +172,4 @@ Use `dispatching-parallel-agents` skill for independent tasks; each agent runs i
 - **envctl hygiene**: `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch em `C:\temp` com mais de 24h.
 - Playwright usa Chromium headless por padrão.
 - Quando o shell do agente mostrar 'Windows PowerShell (5.1)', o config de shell foi ignorado (opencode issue #41426) — reiniciar o opencode para aplicar o pwsh 7.
+- **Encoding do shell tool**: o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command` — o profile PowerShell NUNCA carrega no bash tool. Com o beta UTF-8 do Windows desligado (ACP/OEMCP=850), output com acentos vira `�` (U+FFFD). Se `envctl doctor` acusar *System Code Page* 850, ativar "Beta: Use Unicode UTF-8 para todo o mundo" e reiniciar — não é bug do projeto.

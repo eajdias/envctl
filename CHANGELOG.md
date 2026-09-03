@@ -7,6 +7,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.48] - 2026-09-03
+
+### 🐛 Fix: encoding UTF-8 no shell tool do opencode — auditoria da causa raiz no doctor
+
+- **Fixed**: `doctor_audit.go` — novo check 12.6.1 *System Code Page*: audita `HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage` (ACP/OEMCP). O check 12.6 (`chcp`) reflete apenas o console de quem invoca o envctl (65001 no terminal interativo mascara o problema); o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command`, então o profile PowerShell (`[Console]::OutputEncoding = UTF8`) **nunca carrega** no shell tool e pwsh emite CP850 para pipe → o opencode decodifica como UTF-8 → U+FFFD `�`.
+- **FixHint** (novo check): ativar "Beta: Use Unicode UTF-8 para todo o mundo" (Settings > Time & Language > Language & region > Administrative language settings > Change system locale) ou setar ACP/OEMCP=65001 no registry, e reiniciar — cobre opencode, cmd.exe, serviços e exe nativos pipados.
+- **Motivo**: relato de caracteres `�` no terminal/console do opencode e ambiente Windows; fix anterior (profile + chcp) não alcança processos spawnados sem profile.
+
+---
+
 ## [v1.1.47] - 2026-09-03
 
 ### ⚡ Agentes sem "tool negada" + correções da auditoria (ARM64, snapshot, doctor)

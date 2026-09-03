@@ -529,6 +529,45 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				Details:  "Console code page is UTF-8 (65001) — Unicode output safe",
 			})
 		}
+
+		// 12.6.1. Audit system ACP/OEMCP — the durable root cause. The chcp result above
+		// depends on how envctl was launched (the PowerShell profile sets 65001 only in
+		// interactive shells); opencode spawns pwsh with -NoProfile, so the system code
+		// page is the only layer covering every process (shell tool, cmd.exe, services).
+		regOut, regErr := exec.CommandContext(ctx, "reg", "query", `HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage`).CombinedOutput()
+		acp, oemcp := "", ""
+		for _, m := range regexp.MustCompile(`(\w+)\s+REG_\w+\s+(\d+)`).FindAllStringSubmatch(string(regOut), -1) {
+			switch m[1] {
+			case "ACP":
+				acp = m[2]
+			case "OEMCP":
+				oemcp = m[2]
+			}
+		}
+		if regErr != nil || acp == "" || oemcp == "" {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Console",
+				Target:   "System Code Page",
+				Details:  fmt.Sprintf("system code page check failed: %v", regErr),
+				FixHint:  "enable 'Beta: Use Unicode UTF-8 for worldwide language support' (Settings > Time & Language > Language & region > Administrative language settings > Change system locale), then reboot",
+			})
+		} else if acp != "65001" || oemcp != "65001" {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Console",
+				Target:   "System Code Page",
+				Details:  fmt.Sprintf("System ACP/OEMCP is %s/%s — processes spawned without the PowerShell profile (opencode shell tool, cmd.exe, services) still emit CP%s and render as U+FFFD", acp, oemcp, oemcp),
+				FixHint:  "enable 'Beta: Use Unicode UTF-8 for worldwide language support' (Settings > Time & Language > Language & region > Administrative language settings > Change system locale) or set HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage ACP/OEMCP=65001, then reboot",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Console",
+				Target:   "System Code Page",
+				Details:  "System ACP/OEMCP is UTF-8 (65001) — Unicode safe for every process",
+			})
+		}
 	}
 
 	// 13. Audit OpenCode storage accumulation & standardized temp folder
