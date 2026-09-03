@@ -227,3 +227,8 @@ cleanup:
     description: "Remove non-functional TUI plugin config (tui.json)"
     path: "~/.config/opencode/tui.json"
     category: "opencode"
+  - id: stale_opencode_agents_dir
+    description: "Remove stale agent markdown definitions (agents now live in opencode.json only)"
+    path: "~/.config/opencode/agents"
+    category: "opencode"
+    recursive: true

@@ -276,7 +276,12 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			if !uc.fsManager.Exists(expandedPath) {
 				continue
 			}
-			if err := os.Remove(expandedPath); err != nil {
+			if item.Recursive {
+				err = os.RemoveAll(expandedPath)
+			} else {
+				err = os.Remove(expandedPath)
+			}
+			if err != nil {
 				if uc.logger != nil {
 					uc.logger.Warn("Failed to remove stale file '%s': %v", expandedPath, err)
 				}

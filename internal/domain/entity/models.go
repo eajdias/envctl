@@ -126,6 +126,7 @@ type CleanupItem struct {
 	Path        string `yaml:"path"` // expanded with env vars (e.g. ~ / %USERPROFILE%)
 	Category    string `yaml:"category"`
 	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	Recursive   bool   `yaml:"recursive,omitempty"` // remove directory tree (os.RemoveAll)
 }
 
 // DiagnosticStatus represents health check status.

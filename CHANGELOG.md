@@ -7,6 +7,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.45] - 2026-09-03
+
+### 🐛 Fix: agente `review` anulado por `review.md` stale + seeds de memória sincronizados
+
+- **Fixed**: `~/.config/opencode/agents/review.md` (criado em 2026-08-24, pré-v1.1.39) **sobrescrevia** a definição JSON do agente `review` — `bash: deny` total anulava o bash granular do v1.1.44 (validado via `opencode debug config`). Correções:
+  - Prompt do `review` no `opencode.json`/`opencode.linux.json` enriquecido com a metodologia que vivia no `.md` (severidades BLOCKER/MAJOR/MINOR/NIT, formato de achado, VERDICT, lente de segurança obrigatória, YAGNI check, sem linguagem performativa) — nada se perde com a remoção do arquivo.
+  - `CleanupItem` ganhou `recursive` (`models.go` + `provision_shell.go` com `os.RemoveAll`) e `manifests/shell.yaml` passou a remover `~/.config/opencode/agents` inteiro no provisioning (fonte única de agentes = `opencode.json`).
+- **Changed**: seeds de memória (`configs/memory/lessons.md`, `patterns.md`) sincronizados com a memória global — 7 lições novas (09-02: sudo no MCP ssh-manager, heredoc PHP, timeout não mata script; 09-03: mode built-in primary, defaults permissivos, refs superpowers, `.md` sobrescreve JSON) + pattern de agente read-only; entrada do `review` atualizada (agora em `opencode.json`, sem `agents/*.md`).
+- **Motivo**: questionamento do usuário sobre utilidade das memórias globais para o projeto revelou o seed defasado e o `review.md` stale conflitante.
+
+---
+
 ## [v1.1.44] - 2026-09-03
 
 ### ⚡ Agentes `plan` e `review`: bash read-only granular + escrita de planos
