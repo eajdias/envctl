@@ -45,7 +45,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 
 	result := &SnapshotResult{}
 
-	// 1. Sync Config files from system to configs/
+	// 1. Sync Config files from system to configs/ (only when content differs)
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
 		if cf.OS != "" && cf.OS != runtime.GOOS {
@@ -62,13 +62,30 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		}
 		if uc.fsManager.Exists(cf.Destination) {
 			data, err := uc.fsManager.ReadFile(cf.Destination)
-			if err == nil {
-				_ = os.MkdirAll(filepath.Dir(cf.Source), 0755)
-				_ = os.WriteFile(cf.Source, data, 0644)
-				result.UpdatedFiles = append(result.UpdatedFiles, cf.Source)
+			if err != nil {
 				if uc.logger != nil {
-					uc.logger.Info("Snapshot synced config '%s' -> '%s'", cf.Destination, cf.Source)
+					uc.logger.Warn("Snapshot: failed to read config '%s': %v", cf.Destination, err)
 				}
+				continue
+			}
+			if current, err := os.ReadFile(cf.Source); err == nil && string(current) == string(data) {
+				continue // no drift: leave the curated file untouched
+			}
+			if err := os.MkdirAll(filepath.Dir(cf.Source), 0755); err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Snapshot: failed to create dir for '%s': %v", cf.Source, err)
+				}
+				continue
+			}
+			if err := os.WriteFile(cf.Source, data, 0644); err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Snapshot: failed to write '%s': %v", cf.Source, err)
+				}
+				continue
+			}
+			result.UpdatedFiles = append(result.UpdatedFiles, cf.Source)
+			if uc.logger != nil {
+				uc.logger.Info("Snapshot synced config '%s' -> '%s'", cf.Destination, cf.Source)
 			}
 		}
 	}
@@ -85,7 +102,9 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 				skillDest := filepath.Join("configs", "skills", skillName)
 
 				// Copy skill files
-				_ = uc.copyDir(skillSrc, skillDest)
+				if err := uc.copyDir(skillSrc, skillDest); err != nil && uc.logger != nil {
+					uc.logger.Warn("Snapshot: failed to copy skill '%s': %v", skillName, err)
+				}
 
 				discoveredSkills = append(discoveredSkills, entity.Skill{
 					Name:        skillName,
@@ -165,6 +184,17 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		}
 	}
 	if len(currentGitConfigs) > 0 {
+		// Preserve curated manifest keys not present on this machine so a
+		// snapshot never drops versioned configuration.
+		seen := map[string]bool{}
+		for _, gc := range currentGitConfigs {
+			seen[gc.Key] = true
+		}
+		for _, ex := range existingGitConfigs {
+			if !seen[ex.Key] {
+				currentGitConfigs = append(currentGitConfigs, ex)
+			}
+		}
 		_ = uc.manifestRepo.SaveGitConfigs(currentGitConfigs)
 		result.UpdatedFiles = append(result.UpdatedFiles, "manifests/git.yaml")
 		if uc.logger != nil {
@@ -176,6 +206,11 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 }
 
 func (uc *SnapshotSyncUseCase) copyDir(src, dst string) error {
+	// Follow a top-level symlink (e.g. skill dir linked elsewhere) so the
+	// target content is copied instead of the link itself.
+	if resolved, err := filepath.EvalSymlinks(src); err == nil {
+		src = resolved
+	}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

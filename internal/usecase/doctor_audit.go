@@ -146,11 +146,30 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				FixHint:  "run 'envctl run shell'",
 			})
 		} else {
+			details := "Present on disk"
+			if !cf.SeedIfMissing {
+				// Content drift check: seed templates are intentionally local
+				// (per-machine additions), all other config files must match
+				// the provisioned source.
+				if src, err := uc.fsManager.ReadFile(cf.Source); err == nil {
+					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {
+						details = "Content diverges from provisioned source"
+						addDiag(entity.Diagnostic{
+							Category: entity.DiagWarning,
+							System:   "ConfigFile",
+							Target:   cf.Destination,
+							Details:  details,
+							FixHint:  "run 'envctl run shell' to restore the provisioned content",
+						})
+						continue
+					}
+				}
+			}
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagOK,
 				System:   "ConfigFile",
 				Target:   cf.Destination,
-				Details:  "Present on disk",
+				Details:  details,
 			})
 		}
 	}
@@ -369,8 +388,15 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 11. Audit Git Worktree Support
 	// `git worktree list` exits 128 outside a git repository, which is expected
 	// and not a fault of the git installation. Only run the command from inside a repo.
-	inRepo := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree")
-	if err := inRepo.Run(); err != nil {
+	if _, err := exec.LookPath("git"); err != nil {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Git",
+			Target:   "git worktree",
+			Details:  "git binary not found in PATH",
+			FixHint:  "install git (winget install Git.Git / apt-get install -y git)",
+		})
+	} else if err := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree").Run(); err != nil {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "Git",

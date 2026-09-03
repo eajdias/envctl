@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -85,6 +86,14 @@ if (Test-Path $path) {
 		expectedStr := fmt.Sprintf("%v", tweak.Value)
 		if strings.HasPrefix(outStr, "VALUE:") {
 			actualVal := strings.TrimPrefix(outStr, "VALUE:")
+			// Normalize numeric values (YAML int/float vs registry DWORD int32)
+			// so 1 == 1 and 1.0 == 1 regardless of the parsed YAML type.
+			if av, errA := strconv.ParseInt(actualVal, 10, 64); errA == nil {
+				if ev, errE := strconv.ParseInt(expectedStr, 10, 64); errE == nil {
+					actualVal = strconv.FormatInt(av, 10)
+					expectedStr = strconv.FormatInt(ev, 10)
+				}
+			}
 			if actualVal == expectedStr {
 				return true, fmt.Sprintf("Registry value matches (%s)", actualVal), nil
 			}

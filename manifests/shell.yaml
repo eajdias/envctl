@@ -195,6 +195,9 @@ directories:
   - path: "~/.config/opencode/memory"
     strict_acl: false
     description: "OpenCode agent memory directory (lessons and patterns)"
+  - path: "~/.config/opencode/secrets"
+    strict_acl: true
+    description: "OpenCode local secrets (context7.key etc. — NEVER versioned)"
   - path: "~/.config/opencode/extras"
     strict_acl: false
     description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"

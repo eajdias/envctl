@@ -232,7 +232,7 @@ func (uc *TempHygieneUseCase) Audit(ctx context.Context) []entity.Diagnostic {
 			System:   "TempHygiene",
 			Target:   target,
 			Details:  fmt.Sprintf("Stale temp artifacts: %.1f MB across %d entries — e.g. %s", float64(reclaimable)/(1024*1024), len(reclaimDetails), joinPreview(reclaimDetails, 3)),
-			FixHint:  "run 'envctl doctor --fix' (TempHygiene step) to prune them",
+			FixHint:  "run 'envctl run cleanup' to prune them",
 		})
 	} else if total > tempHygieneWarnThresholdBytes {
 		diags = append(diags, entity.Diagnostic{

@@ -114,28 +114,28 @@ packages:
     type: pip
     os: windows
     category: cli-tools
-    check_command: python -m pip show pyyaml
+    check_command: py -m pip show pyyaml
 
   - id: requests
     name: requests (HTTP client for python agent scripts)
     type: pip
     os: windows
     category: cli-tools
-    check_command: python -m pip show requests
+    check_command: py -m pip show requests
 
   - id: openpyxl
     name: openpyxl (Excel xlsx read/write for python agent scripts)
     type: pip
     os: windows
     category: cli-tools
-    check_command: python -m pip show openpyxl
+    check_command: py -m pip show openpyxl
 
   - id: beautifulsoup4
     name: beautifulsoup4 (HTML parsing for python agent scripts)
     type: pip
     os: windows
     category: cli-tools
-    check_command: python -m pip show beautifulsoup4
+    check_command: py -m pip show beautifulsoup4
 
   - id: jqlang.jq
     name: jq (JSON processor for CLI/agent pipelines)

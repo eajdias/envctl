@@ -51,11 +51,11 @@ else
   # 3.1. Try GitHub CLI first (supports private repos seamlessly)
   if command -v gh >/dev/null 2>&1; then
     echo "[*] Downloading envctl via GitHub CLI..."
-    TAG_ARG=""
+    TAG_ARGS=()
     if [ "${VERSION}" != "latest" ]; then
-      TAG_ARG="${VERSION}"
+      TAG_ARGS=("${VERSION}")
     fi
-    if gh release download ${TAG_ARG} --repo "${REPO}" --pattern "envctl-${OS}-${ARCH}.tar.gz" --dir "${TMP_DIR}" --clobber 2>/dev/null; then
+    if gh release download ${TAG_ARGS[@]+"${TAG_ARGS[@]}"} --repo "${REPO}" --pattern "envctl-${OS}-${ARCH}.tar.gz" --dir "${TMP_DIR}" --clobber 2>/dev/null; then
       if [ -f "${TMP_DIR}/envctl-${OS}-${ARCH}.tar.gz" ]; then
         tar -xzf "${TMP_DIR}/envctl-${OS}-${ARCH}.tar.gz" -C "${TMP_DIR}"
         cp "${TMP_DIR}/envctl" "${TARGET_PATH}"
@@ -80,7 +80,7 @@ else
     fi
 
     echo "[*] Downloading envctl (${VERSION}) for ${OS}-${ARCH}..."
-    if curl -fsSL "${AUTH_HEADER[@]}" "${DOWNLOAD_URL}" -o "${TMP_DIR}/envctl.tar.gz" 2>/dev/null; then
+    if curl -fsSL ${AUTH_HEADER[@]+"${AUTH_HEADER[@]}"} "${DOWNLOAD_URL}" -o "${TMP_DIR}/envctl.tar.gz" 2>/dev/null; then
       tar -xzf "${TMP_DIR}/envctl.tar.gz" -C "${TMP_DIR}"
       cp "${TMP_DIR}/envctl" "${TARGET_PATH}"
       chmod +x "${TARGET_PATH}"

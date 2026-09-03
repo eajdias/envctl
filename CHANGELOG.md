@@ -7,6 +7,34 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.47] - 2026-09-03
+
+### ⚡ Agentes sem "tool negada" + correções da auditoria (ARM64, snapshot, doctor)
+
+- **Changed**: `configs/opencode.json`/`opencode.linux.json` — agentes `plan`/`review`:
+  - `bash`: `"*": "deny"` → `"*": "ask"` (read-only auto; demais comandos — firecrawl CLI, node, python, docker — pedem aprovação em vez de erro duro "tool negada").
+  - `task: "allow"` (dispatch de explore/general) + `"subagent_depth": 2` global (subagent pode despachar sub-subagentes).
+  - Removido `permission.skill.firecrawl-*: deny` global e `references.envctl` (path local versionado).
+- **Fixed** `bootstrap.sh:83`: `${AUTH_HEADER[@]}` vazio + `set -u` quebrava no bash 3.2 (macOS) → `${AUTH_HEADER[@]+"${AUTH_HEADER[@]}"}`.
+- **Fixed** `provision_bootstrap.go`: installers de gh/delta/yq/Go agora detectam `uname -m` (amd64/arm64) — VPS ARM64 suportada; versão do Node derivada do `packages.yaml` (sem drift).
+- **Fixed** `snapshot_sync.go`: git.yaml preserva keys curadas ausentes na máquina; configs só reescritos quando o conteúdo difere; symlinks de skills seguem o alvo; erros de escrita logados.
+- **Fixed** `doctor_audit.go`: check de git worktree detecta git ausente (sem falso DiagOK); config files auditam conteúdo (drift vs fonte provisionada), exceto seeds locais.
+- **Fixed** `run cleanup` agora executa o `TempHygieneUseCase` (dead code eliminado; FixHint corrigido); `envctl run <desconhecido>` sai com exit 1.
+- **Fixed** `tweaks_manager.go`: comparação numérica robusta de DWORD (YAML int/float vs registry); `packages.yaml`: check_command pip usa `py -m pip show` (evita o stub do Microsoft Store).
+- **Changed** `manifests/shell.yaml`: dir `~/.config/opencode/secrets` (strict_acl, context7.key por máquina — nunca versionado). `configs/AGENTS.md`: catálogo de skills corrigido (74).
+- **Motivo**: falha reportada no modo Review ("task general está negado... não tenho bash para o firecrawl CLI") + auditoria do projeto contra docs oficiais do opencode.
+
+---
+
+## [v1.1.46] - 2026-09-03
+
+### 🐛 Fix: pipes bloqueados no bash read-only dos agentes `plan`/`review`
+
+- **Fixed**: `configs/opencode.json` e `configs/opencode.linux.json` — allow list bash dos agentes `plan`/`review` ampliada. O opencode valida **cada segmento** de pipe/`&&` separadamente e o pattern casa com o resource = prefixo de arity do comando (`permission/arity.ts`): `rg x | head -5` exigia `head*` na lista; `dotnet test*` nunca casava porque `dotnet` não está no dict de arity (resource = `dotnet`). Adicionados: `git grep*`, `grep*`, `head*`, `tail*`, `wc*`, `sort*`, `uniq*`, `awk*`, `sed*`, `dotnet*` (substitui `dotnet test*`) e filtros PowerShell `Select-Object*`, `Where-Object*`, `Select-String*`, `Measure-Object*`, `Sort-Object*`, `Group-Object*`, `Out-String*`, `Format-Table*`. Prompts atualizados (pipes/`&&` permitidos desde que cada segmento seja read-only).
+- **Motivo**: falha reportada no modo Review — "O pipe não é permitido. Vou usar rg puro."
+
+---
+
 ## [v1.1.45] - 2026-09-03
 
 ### 🐛 Fix: agente `review` anulado por `review.md` stale + seeds de memória sincronizados

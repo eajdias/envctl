@@ -18,8 +18,9 @@ import (
 // CLI and the user-local CLI tools (gh, delta, yq, uv, ruff, oh-my-posh, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
-	fsManager repository.FileSystemManager
-	logger    repository.Logger
+	fsManager    repository.FileSystemManager
+	manifestRepo repository.ManifestRepository
+	logger       repository.Logger
 }
 
 // BootstrapResult holds the diagnostics produced during bootstrap provisioning.
@@ -28,8 +29,8 @@ type BootstrapResult struct {
 }
 
 // NewProvisionBootstrapUseCase builds the Linux toolchain bootstrap use case.
-func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, logger repository.Logger) *ProvisionBootstrapUseCase {
-	return &ProvisionBootstrapUseCase{fsManager: fsManager, logger: logger}
+func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, manifestRepo repository.ManifestRepository, logger repository.Logger) *ProvisionBootstrapUseCase {
+	return &ProvisionBootstrapUseCase{fsManager: fsManager, manifestRepo: manifestRepo, logger: logger}
 }
 
 // userHome expands ~ to the current user's home directory.
@@ -177,21 +178,30 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 	uc.step(ctx, result, "volta", "Volta JS toolchain manager",
 		"curl -fsSL https://get.volta.sh | bash")
 
-	// 2. Node.js LTS + pnpm via Volta (mirrors the Windows pin). Idempotent.
+	// 2. Node.js LTS + pnpm via Volta (mirrors the Windows pin from packages.yaml). Idempotent.
+	nodeSpec := "node@24.19.0"
+	if pkgs, err := uc.manifestRepo.LoadPackages(); err == nil {
+		for _, p := range pkgs {
+			if p.Type == entity.PackageTypeVolta && strings.HasPrefix(p.ID, "node@") {
+				nodeSpec = p.ID
+				break
+			}
+		}
+	}
 	if uc.hasTool(ctx, "volta") {
-		uc.logger.Info("LinuxBootstrap: ensuring Node.js 24 + pnpm via Volta")
-		out, err := uc.runShell(ctx, "volta install node@24.19.0 pnpm")
+		uc.logger.Info("LinuxBootstrap: ensuring Node.js %s + pnpm via Volta", nodeSpec)
+		out, err := uc.runShell(ctx, "volta install "+nodeSpec+" pnpm")
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: volta install failed: %s (%s)", out, err)
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Node.js 24 + pnpm",
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Node.js + pnpm",
 				Details: fmt.Sprintf("volta install failed: %v (%s)", err, out),
-				FixHint: "Run 'volta install node@24.19.0 pnpm' manually",
+				FixHint: "Run 'volta install " + nodeSpec + " pnpm' manually",
 			})
 		} else {
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Node.js 24 + pnpm",
-				Details: "Provisioned via Volta (node@24.19.0)",
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Node.js + pnpm",
+				Details: "Provisioned via Volta (" + nodeSpec + ")",
 			})
 		}
 	}
@@ -235,28 +245,31 @@ fi`)
 	// 4. GitHub CLI (gh) - official release tarball into ~/.local/bin.
 	uc.step(ctx, result, "gh", "GitHub CLI",
 		`set -e
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) GHA=amd64;; aarch64|arm64) GHA=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
 VER=$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
 TVER=${VER#v}
-curl -fsSL "https://github.com/cli/cli/releases/download/${VER}/gh_${TVER}_linux_amd64.tar.gz" -o /tmp/envctl-gh.tgz
+curl -fsSL "https://github.com/cli/cli/releases/download/${VER}/gh_${TVER}_linux_${GHA}.tar.gz" -o /tmp/envctl-gh.tgz
 tar -xzf /tmp/envctl-gh.tgz -C /tmp
-cp /tmp/gh_${TVER}_linux_amd64/bin/gh "$HOME/.local/bin/gh"
+cp /tmp/gh_${TVER}_linux_${GHA}/bin/gh "$HOME/.local/bin/gh"
 chmod +x "$HOME/.local/bin/gh"
-rm -rf /tmp/envctl-gh.tgz /tmp/gh_${TVER}_linux_amd64`)
+rm -rf /tmp/envctl-gh.tgz /tmp/gh_${TVER}_linux_${GHA}`)
 
 	// 5. git-delta pager - official release tarball into ~/.local/bin.
 	uc.step(ctx, result, "delta", "git-delta pager",
 		`set -e
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) DELTA_ARCH=x86_64-unknown-linux-gnu;; aarch64|arm64) DELTA_ARCH=aarch64-unknown-linux-gnu;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
 VER=$(curl -fsSL https://api.github.com/repos/dandavison/delta/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
-curl -fsSL "https://github.com/dandavison/delta/releases/download/${VER}/delta-${VER}-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/envctl-delta.tgz
+curl -fsSL "https://github.com/dandavison/delta/releases/download/${VER}/delta-${VER}-${DELTA_ARCH}.tar.gz" -o /tmp/envctl-delta.tgz
 tar -xzf /tmp/envctl-delta.tgz -C /tmp
-cp /tmp/delta-${VER}-x86_64-unknown-linux-gnu/delta "$HOME/.local/bin/delta"
+cp /tmp/delta-${VER}-${DELTA_ARCH}/delta "$HOME/.local/bin/delta"
 chmod +x "$HOME/.local/bin/delta"
-rm -rf /tmp/envctl-delta.tgz /tmp/delta-${VER}-x86_64-unknown-linux-gnu`)
+rm -rf /tmp/envctl-delta.tgz /tmp/delta-${VER}-${DELTA_ARCH}`)
 
 	// 6. yq - static release binary into ~/.local/bin.
 	uc.step(ctx, result, "yq", "yq YAML/JSON processor",
 		`set -e
-curl -fsSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o "$HOME/.local/bin/yq"
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) YQ_ARCH=amd64;; aarch64|arm64) YQ_ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
+curl -fsSL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH} -o "$HOME/.local/bin/yq"
 chmod +x "$HOME/.local/bin/yq"`)
 
 	// 7. uv - official installer (installs to ~/.local/bin).
@@ -355,8 +368,9 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
 	uc.step(ctx, result, "go", "Go programming language SDK",
 		`set -e
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) GO_ARCH=amd64;; aarch64|arm64) GO_ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
 GO_VER=$(curl -fsSL https://go.dev/VERSION?m=text | head -1)
-curl -fsSL "https://go.dev/dl/${GO_VER}.linux-amd64.tar.gz" -o /tmp/envctl-go.tar.gz
+curl -fsSL "https://go.dev/dl/${GO_VER}.linux-${GO_ARCH}.tar.gz" -o /tmp/envctl-go.tar.gz
 sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
 rm -f /tmp/envctl-go.tar.gz

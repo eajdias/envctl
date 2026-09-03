@@ -54,9 +54,9 @@
 
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**57 skills** — opencode + firecrawl + playwright)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**74 skills** — opencode 40 + firecrawl 33 + playwright 1)
 
-### opencode skills (23)
+### opencode skills (40)
 
 | Skill | Purpose |
 |-------|---------|
@@ -85,6 +85,18 @@
 | `handoff` | Compact conversation for handoff |
 | `using-git-worktrees` | Isolated feature work |
 | `implementation-strategy` | Choose compatibility-aware scope |
+| `bulk-postgres-import` | Bulk upsert in PostgreSQL over high-latency SSH |
+| `docker-build-local-vps-deploy` | Build Docker locally, transport image to weak VPS |
+| `docker-desktop-wsl-restart` | Restart Docker Desktop when WSL2 backend fails |
+| `jwt-hs256-node` | JWT HS256 without external deps in Node.js |
+| `lsp-smoke-test` | Smoke test LSP servers before registering |
+| `memory-promotion` | Promote lessons to reusable skills |
+| `nextjs-standalone-deploy` | Next.js standalone output deploy & v16 migration |
+| `parallel-agent-orchestration` | Parallel subagents on the same git repo |
+| `phone-e164-normalization` | Normalize BR phone numbers to E.164 |
+| `playwright-prod-regression` | Safe Playwright regression against production |
+| `simple-feature-flag` | Simple auditable feature flags in DB-backed apps |
+| `web-dashboard-automation` | Automate authenticated dashboards/SPAs |
 
 ### agent skills (34) — Firecrawl + Playwright
 

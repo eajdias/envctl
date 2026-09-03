@@ -18,12 +18,13 @@ func newRunCmd() *cobra.Command {
 		Use:   "run [subsystem]",
 		Short: "Provision and configure the environment",
 		Long:  `Executes idempotent provisioning tasks for system packages, shell, skills, and LSPs.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 || args[0] == "all" {
 				runAllProvisioning()
-			} else {
-				_ = cmd.Help()
+				return nil
 			}
+			_ = cmd.Help()
+			return fmt.Errorf("unknown subsystem '%s' (valid: all, winget, apt, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
 		},
 	}
 
@@ -324,13 +325,28 @@ func runCleanup() {
 		return
 	}
 
-	if len(res.RemovedFiles) == 0 {
+	removed := res.RemovedFiles
+	freed := res.FreedBytes
+
+	if appCtx.TempHygieneUC != nil {
+		tempReport, tempErr := appCtx.TempHygieneUC.Cleanup(ctx)
+		if tempErr == nil {
+			if tempReport.Removed > 0 {
+				removed = append(removed, fmt.Sprintf("temp hygiene: %d stale entries (%.1f MB)", tempReport.Removed, float64(tempReport.FreedBytes)/(1024*1024)))
+			}
+			freed += tempReport.FreedBytes
+			removed = append(removed, tempReport.Skipped...)
+			removed = append(removed, tempReport.Failed...)
+		}
+	}
+
+	if len(removed) == 0 {
 		spinner.Success("Nothing to clean — OpenCode storage is already tidy")
 		return
 	}
 
-	spinner.Success(fmt.Sprintf("Removed %d items, freed %.1f MB", len(res.RemovedFiles), float64(res.FreedBytes)/(1024*1024)))
-	for _, f := range res.RemovedFiles {
+	spinner.Success(fmt.Sprintf("Removed %d items, freed %.1f MB", len(removed), float64(freed)/(1024*1024)))
+	for _, f := range removed {
 		pterm.Success.Printf("  • %s\n", f)
 	}
 }
