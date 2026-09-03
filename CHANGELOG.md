@@ -7,6 +7,22 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.1.44] - 2026-09-03
+
+### ⚡ Agentes `plan` e `review`: bash read-only granular + escrita de planos
+
+- **Changed**: `configs/opencode.json` e `configs/opencode.linux.json` — agentes `plan` e `review`:
+  - `plan` agora `mode: all` (primary via Tab E subagent dispatchável via task tool — antes era primary-only por herdar o built-in).
+  - `bash` trocado de `deny` total para granular read-only: `git log/status/diff/show`, `rg`, `go test/vet`, `pytest`, `npm test`, `dotnet test`, `cargo test` liberados; resto negado (`"*": "deny"`).
+  - `plan`: `edit` liberado apenas em `docs/superpowers/plans/**` (salvar o plano); `review`: `edit` segue negado.
+  - `task` restrito a `explore`; `todowrite` e `skill` liberados; `temperature: 0.1`; `steps: 25`.
+  - Prompts: carregam `agent-memory` e (plan) `writing-plans`; instruem uso de context7/webfetch; wording corrigido (permission error, não "tool inválida").
+- **Changed**: `configs/skills/writing-plans/SKILL.md` — removidas referências a skills inexistentes do pacote superpowers (`subagent-driven-development`, `executing-plans`, `superpowers:using-git-worktrees`); handoff adaptado ao fluxo local (task tool com subagent `general` por tarefa ou execução inline com checkpoints).
+- **Changed**: `configs/AGENTS.md` — documentados os 3 agentes customizados (review/plan/goal).
+- **Motivo**: falhas no agente `plan` — bash negado impedia coleta de evidências (estado do repo, baseline de testes), edit negado impedia salvar o plano, e o handoff da skill apontava para skills não instaladas. Fontes: docs oficiais opencode (agents/permissions/tools/mcp-servers) + obra/superpowers.
+
+---
+
 ## [v1.1.43] - 2026-08-29
 
 ### 🔧 MCP (playwright, chrome-devtools): bunx + versão pinada
