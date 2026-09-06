@@ -26,7 +26,11 @@
 
 - **Global config:** `~/.commandcode/settings.json` (padrão único)
 - **Global rules:** `~/.commandcode/AGENTS.md` — auto-carregado em todas as sessões CommandCode (este arquivo)
-- **Shell (Windows):** PowerShell 7 — os agentes LLM DEVEM executar comandos via PowerShell nativo.
+- **Shell (Windows):** PowerShell 7 (`C:\Program Files\PowerShell\7\pwsh.exe`) — **os agentes LLM DEVEM executar comandos via PowerShell nativo**. Regras:
+  1. Comandos do shell do CommandCode são PowerShell: `Get-ChildItem`, `Test-Path`, etc. — não usar sintaxe bash por padrão.
+  2. Ferramentas CLI (rg, fd, gh, git, docker, node, npm, npx) funcionam normalmente no PowerShell — sem wrapper.
+  3. Scripts POSIX legados que exigem Linux/bash: usar WSL — `wsl -e bash -lc "..."` (nunca ao contrário).
+  4. Variáveis de ambiente usam `$env:NOME` no PowerShell (ex.: `$env:ENVCTL_TEMP`).
 - **Custom Agents:** `~/.commandcode/agents/` — markdown files with frontmatter (review, plan, goal)
 - **Skills paths:** `~/.commandcode/skills/` (global) + `.commandcode/skills/` (project)
 - **MCP:** `~/.commandcode/mcp.json` (user-scope) + `.mcp.json` (project-scope)
