@@ -16,7 +16,8 @@ const path = require('path');
   const width = parseInt(process.argv[4] || '1280', 10);
   const height = parseInt(process.argv[5] || '720', 10);
 
-  const browser = await chromium.launch({ headless: true });
+  const bravePath = process.env.BRAVE_NIGHTLY_PATH || undefined;
+  const browser = await chromium.launch({ headless: true, executablePath: bravePath });
   try {
     const context = await browser.newContext({
       viewport: { width, height }

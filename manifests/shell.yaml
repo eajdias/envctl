@@ -26,6 +26,12 @@ environment_variables:
     target: "Windows User Environment"
     os: windows
 
+  - name: BRAVE_NIGHTLY_PATH
+    value: "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser-Nightly\\Application\\brave.exe"
+    scope: User
+    target: "Windows User Environment"
+    os: windows
+
 config_files:
   - id: opencode_config
     description: "OpenCode global agent configuration (single source of truth, PowerShell shell on Windows)"

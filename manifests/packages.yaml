@@ -339,6 +339,7 @@ packages:
     type: winget
     os: windows
     category: desktop-apps
+    check_command: brave --version
 
   - id: GitHub.GitHubDesktop
     name: GitHub Desktop
