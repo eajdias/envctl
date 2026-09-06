@@ -1,5 +1,9 @@
 version: '3'
 
+vars:
+  VERSION:
+    sh: git describe --tags --always 2>/dev/null || echo "v1.2.0"
+
 tasks:
   default:
     cmds:
@@ -8,12 +12,23 @@ tasks:
   build:
     desc: "Build the standalone envctl executable"
     cmds:
-      - go build -ldflags "-s -w -X main.Version=v1.2.0" -o envctl.exe ./cmd/envctl
+      - go build -ldflags "-s -w -X main.Version={{.VERSION}}" -o envctl.exe ./cmd/envctl
 
   test:
     desc: "Run all unit tests"
     cmds:
       - go test -v ./...
+
+  coverage:
+    desc: "Run tests with coverage report"
+    cmds:
+      - go test -coverprofile=coverage.out ./...
+      - go tool cover -func=coverage.out | tail -1
+
+  lint:
+    desc: "Run golangci-lint"
+    cmds:
+      - golangci-lint run ./...
 
   doctor:
     desc: "Run diagnostic health checks"

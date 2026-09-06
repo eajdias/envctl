@@ -86,6 +86,17 @@ jobs:
           tar -czf dist/envctl-darwin-arm64.tar.gz -C dist envctl
           rm dist/envctl
 
+      - name: Generate SHA256 Checksums
+        run: |
+          cd dist
+          sha256sum envctl-windows-amd64.exe envctl-windows-arm64.exe \
+            envctl-windows-amd64.zip envctl-windows-arm64.zip \
+            envctl-linux-amd64 envctl-linux-arm64 \
+            envctl-linux-amd64.tar.gz envctl-linux-arm64.tar.gz \
+            envctl-darwin-amd64 envctl-darwin-arm64 \
+            envctl-darwin-amd64.tar.gz envctl-darwin-arm64.tar.gz \
+            bootstrap.ps1 bootstrap.sh > SHA256SUMS.txt
+
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -107,6 +118,7 @@ jobs:
             dist/envctl-darwin-arm64
             dist/envctl-darwin-amd64.tar.gz
             dist/envctl-darwin-arm64.tar.gz
+            dist/SHA256SUMS.txt
             bootstrap.ps1
             bootstrap.sh
           generate_release_notes: true

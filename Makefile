@@ -1,4 +1,4 @@
-.PHONY: build test doctor doctor-fix run-all snapshot install clean
+.PHONY: build test coverage lint doctor doctor-fix run-all snapshot install clean
 
 BINARY_NAME=envctl
 SRC=./cmd/envctl
@@ -13,6 +13,14 @@ build-windows:
 
 test:
 	go test -v ./...
+
+coverage:
+	go test -coverprofile=coverage.out ./...
+	@echo "Coverage report: coverage.out"
+	@go tool cover -func=coverage.out | tail -1
+
+lint:
+	golangci-lint run ./...
 
 doctor: build
 	./$(BINARY_NAME) doctor
@@ -32,5 +40,5 @@ install: build
 	@echo "Installed $(BINARY_NAME) to ~/.local/bin"
 
 clean:
-	@rm -f $(BINARY_NAME) envctl.exe
+	@rm -f $(BINARY_NAME) envctl.exe coverage.out
 	@rm -rf dist/

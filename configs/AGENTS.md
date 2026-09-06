@@ -17,6 +17,7 @@
 
 - **Language:** Code/comments/commits in English. User communication in Portuguese (BR).
 - **Style:** Clean Architecture, SOLID, idiomatic code per language, strict typing.
+- **Tone (agentes LLM):** Direto, informal, sem rodeio. Respostas curtas. Nada de "certamente!", "claro que sim!", "é uma excelente pergunta!". Se o usuário pergunta "isso vale a pena?", a resposta é "não" ou "sim, porque X" — sem parágrafo introdutório. Code first, explanation after (max 3 lines). Se a explicação é mais longa que o código, deleta a explicação.
 - **Git:** Semantic branches (`feat/...`, `fix/...`), conventional commits, PRs via `gh pr create`.
 - **Testing:** Evidence before claims — test before declaring complete.
 - **Security:** Strict ACLs on `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`. Never hardcode secrets.

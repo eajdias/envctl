@@ -1,0 +1,40 @@
+run:
+  timeout: 3m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - misspell
+    - unconvert
+    - unparam
+    - bodyclose
+    - durationcheck
+    - exportloopref
+    - nilerr
+
+linters-settings:
+  errcheck:
+    check-blank: true
+  govet:
+    check-shadowing: false
+  gosec:
+    excludes:
+      - G104  # unhandled errors on deferred close — too noisy for this codebase
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - unparam
+    - linters:
+        - gosec
+      text: "G304"  # file path from variable — expected in a provisioner
