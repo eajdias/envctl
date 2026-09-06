@@ -8,7 +8,7 @@ tasks:
   build:
     desc: "Build the standalone envctl executable"
     cmds:
-      - go build -ldflags "-s -w -X main.Version=v1.0.0" -o envctl.exe ./cmd/envctl
+      - go build -ldflags "-s -w -X main.Version=v1.2.0" -o envctl.exe ./cmd/envctl
 
   test:
     desc: "Run all unit tests"

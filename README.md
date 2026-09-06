@@ -31,9 +31,10 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
 - **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
-- **Ecossistema OpenCode & CommandCode com 74 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **74 Skills de Agentes de IA** embutidas. Suporte completo a **CommandCode** (agentes review/plan/goal, MCPs, configs).
+- **Ecossistema OpenCode & CommandCode com 74 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **74 Skills de Agentes de IA** (73 provisionadas embutidas + 1 built-in). Suporte completo e equivalente a **CommandCode** (agentes review/plan/goal, MCPs, configs).
+- **Navegador Nativo do Sistema & Automação Web**: Google Chrome integrado nativamente para `@playwright/mcp` e `chrome-devtools-mcp`, além de scripts utilitários `pw-eval` e `pw-screenshot`.
+- **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
-- **Navegador Headless Playwright**: Scripts utilitários `pw-eval` e `pw-screenshot` prontos para automação web instantânea.
 
 ---
 

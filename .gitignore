@@ -29,6 +29,10 @@
 *.swp
 *.swo
 
+# Playwright scratch
+.playwright-cli/
+.playwright-mcp/
+
 # OS specific
 Thumbs.db
 Desktop.ini

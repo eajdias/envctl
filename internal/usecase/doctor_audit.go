@@ -310,7 +310,72 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 9. Audit Playwright Node API & Chromium Browser
+	// 9. Audit Browser & Playwright
+	// 9.1 Audit Google Chrome (native system browser for MCPs & CLI tools)
+	chromePath := ""
+	if runtime.GOOS == "windows" {
+		candidates := []string{
+			`C:\Program Files\Google\Chrome\Application\chrome.exe`,
+			`C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`,
+		}
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			candidates = append(candidates, filepath.Join(localAppData, `Google\Chrome\Application\chrome.exe`))
+		}
+		for _, c := range candidates {
+			if uc.fsManager.Exists(c) {
+				chromePath = c
+				break
+			}
+		}
+	} else if runtime.GOOS == "darwin" {
+		c := "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+		if uc.fsManager.Exists(c) {
+			chromePath = c
+		}
+	} else {
+		candidates := []string{
+			"/usr/bin/google-chrome",
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/chromium-browser",
+			"/usr/bin/chromium",
+		}
+		for _, c := range candidates {
+			if uc.fsManager.Exists(c) {
+				chromePath = c
+				break
+			}
+		}
+	}
+	if chromePath == "" {
+		if p, err := exec.LookPath("google-chrome"); err == nil {
+			chromePath = p
+		} else if p, err := exec.LookPath("chrome"); err == nil {
+			chromePath = p
+		}
+	}
+
+	if chromePath == "" {
+		fixHint := "install Google Chrome (winget install Google.Chrome / apt install google-chrome-stable)"
+		if runtime.GOOS == "darwin" {
+			fixHint = "install Google Chrome (brew install --cask google-chrome)"
+		}
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Browser",
+			Target:   "Google Chrome",
+			Details:  "Google Chrome not detected (recommended for chrome-devtools-mcp and Playwright MCP)",
+			FixHint:  fixHint,
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Browser",
+			Target:   "Google Chrome",
+			Details:  fmt.Sprintf("Google Chrome detected at %s", chromePath),
+		})
+	}
+
+	// 9.2 Audit Playwright Node API & Bundled Chromium Browser
 	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 	playwrightModule := filepath.Join(userHomeDir, "node_modules", "playwright")
 	if !uc.fsManager.Exists(playwrightModule) {

@@ -4,6 +4,27 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+async function launchBrowser() {
+  const customPath = process.env.CHROME_PATH || process.env.BRAVE_NIGHTLY_PATH || undefined;
+  if (customPath && fs.existsSync(customPath)) {
+    try {
+      return await chromium.launch({ headless: true, executablePath: customPath });
+    } catch (e) {
+      console.warn(`Warning: Failed to launch custom browser at ${customPath}: ${e.message}`);
+    }
+  }
+  try {
+    return await chromium.launch({ headless: true, channel: 'chrome' });
+  } catch {
+    try {
+      return await chromium.launch({ headless: true });
+    } catch (e) {
+      console.error('Error: No compatible browser found. Install Google Chrome or run "npx playwright install chromium".');
+      process.exit(1);
+    }
+  }
+}
+
 (async () => {
   const url = process.argv[2];
   if (!url) {
@@ -16,23 +37,17 @@ const path = require('path');
   const width = parseInt(process.argv[4] || '1280', 10);
   const height = parseInt(process.argv[5] || '720', 10);
 
-  const customPath = process.env.BRAVE_NIGHTLY_PATH || process.env.CHROME_PATH || undefined;
-  let browser;
-  if (customPath) {
-    browser = await chromium.launch({ headless: true, executablePath: customPath });
-  } else {
-    try {
-      browser = await chromium.launch({ headless: true, channel: 'chrome' });
-    } catch {
-      browser = await chromium.launch({ headless: true });
-    }
-  }
+  const browser = await launchBrowser();
   try {
     const context = await browser.newContext({
       viewport: { width, height }
     });
     const page = await context.newPage();
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    try {
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
+    } catch {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    }
     await page.screenshot({ path: path.resolve(output), fullPage: true });
     console.log(`Screenshot saved to: ${path.resolve(output)}`);
   } catch (err) {

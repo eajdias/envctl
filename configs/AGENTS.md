@@ -54,9 +54,9 @@
 
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**74 skills** — opencode 40 + firecrawl 33 + playwright 1)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**74 skills ativas** — 73 provisionadas: opencode 39 + firecrawl 33 + playwright 1; + 1 built-in: `customize-opencode`)
 
-### opencode skills (40)
+### opencode skills (39 provisionadas + 1 built-in)
 
 | Skill | Purpose |
 |-------|---------|
@@ -78,7 +78,7 @@
 | `skill-miner` | Discover skills from session history |
 | `skill-generalizer` | Make private skills publishable |
 | `skill-personalizer` | Adapt skills to user preferences |
-| `customize-opencode` | Edit opencode configuration |
+| `customize-opencode` | Edit opencode configuration (built-in OpenCode) |
 | `docs-sync` | Audit doc coverage vs code |
 | `ask-questions-if-underspecified` | Clarify requirements |
 | `dispatching-parallel-agents` | Run independent tasks in parallel |

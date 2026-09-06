@@ -3,11 +3,13 @@
 BINARY_NAME=envctl
 SRC=./cmd/envctl
 
+VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v1.2.0")
+
 build:
-	go build -ldflags "-s -w -X main.Version=v1.1.0" -o $(BINARY_NAME) $(SRC)
+	go build -ldflags "-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) $(SRC)
 
 build-windows:
-	go build -ldflags "-s -w -X main.Version=v1.1.0" -o envctl.exe $(SRC)
+	go build -ldflags "-s -w -X main.Version=$(VERSION)" -o envctl.exe $(SRC)
 
 test:
 	go test -v ./...

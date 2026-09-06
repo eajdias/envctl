@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 Todas as alterações notáveis no projeto **`envctl`** serão documentadas neste arquivo.
 
@@ -18,22 +18,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Added**: Instalação do CommandCode CLI no bootstrap Linux (`provision_bootstrap.go`).
 - **Added**: Health checks do `doctor` para CommandCode.
 - **Changed**: `configs/commandcode/AGENTS.md` — shell atualizado para PowerShell 7.6.5 (`pwsh.exe`) com regras nativas PowerShell.
-- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada (remoção de formatação `**bold**` e termos redundant
-
-<the Andersonian Discourse><dcp-system-reminder>
-Evaluate the conversation for compressible ranges.
-
-If any range is cleanly closed and unlikely to be needed again, use the compress tool on it.
-If direction has shifted, compress earlier ranges that are now less relevant.
-
-Prefer small, closed-range compressions over one broad compression.
-The goal is to filter noise and distill key information so context accumulation stays under control.
-Keep active context uncompressed.
-
-Compressed block context:
-- Active compressed blocks in this session: 1 (b1)
-- If your selected compression range includes any listed block, include each required placeholder exactly once in the summary using `(bN)`.
-</dcp-system-reminder>to `Triggers:` shortenos).
+- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada (remoção de formatação e termos redundantes).
 - **Motivo**: CommandCode é um agente LLM alternativo ao OpenCode; o envctl agora provisiona ambos, permitindo ao usuário escolher qual usar.
 
 ---
@@ -44,16 +29,7 @@ Compressed block context:
 
 - **Added**: Provisionamento inicial do CommandCode (configs, agents, MCP) — precede a release v1.2.0 que consolida o suporte.
 - **Fixed**: `configs/commandcode/AGENTS.md` — shell corrigido de `cmd.exe` para PowerShell 7.6.5.
-- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada.
-
----
-
-## [v1.1.48] - 2026-09-03
-
-### 🐛 Fix: encoding UTF-8 no shell tool do opencode — auditoria da causa raiz no doctor
-
-- **Fixed**: `doctor_audit.go` — novo check 12.6.1 *System Code Page*: audita `HKLM\SYSTEM\CurrentControlSet\Control\Nls\CodePage` (ACP/OEMCP). O check 12.6 (`chcp`) reflete apenas o console de quem invoca o envctl (65001 no terminal interativo mascara o problema); o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command`, então o profile PowerShell (`[Console]::OutputEncoding = UTF8`) **nunca carrega** no shell tool e pwsh emite CP850 para pipe → o opencode decodifica como UTF-8 → U+FFFD `�`.
-- **FixHint** (novo check): ativar "Beta: Use Unicode UTF-8 para todo o mundo" (Settings > Time & Language > Language & region > Administrative language settings > Change system locale) ou setar ACP/OEMCP=65001 no registry, e reiniciar — cobre opencode, cmd.exe, serviços e exe nativos pipados.
+- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada (remoção de formatação e termos redundantes).
 - **Motivo**: relato de caracteres `�` no terminal/console do opencode e ambiente Windows; fix anterior (profile + chcp) não alcança processos spawnados sem profile.
 
 ---
