@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 73 Skills de IA.
+4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 74 Skills de IA.
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -86,7 +86,7 @@ envctl run volta
 # Apenas configurações de shell (.bashrc, aliases, git configs)
 envctl run shell
 
-# Apenas extração e validação das 73 Skills de Agentes
+# Apenas extração e validação das 74 Skills de Agentes
 envctl run skills
 
 # Apenas instalação dos servidores de linguagem (18 LSPs)

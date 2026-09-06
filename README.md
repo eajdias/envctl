@@ -3,7 +3,7 @@
 > **Cross-Platform Environment Provisioner & Autonomous State Replicator**  
 > Provisionador determinístico, idempotente e auditável em **Go** para replicação 1:1 de ambientes de desenvolvimento e servidores.
 
-O projeto evoluiu de um script inicial de prototipagem focado exclusivamente em Windows 11 (`win11-new`) para um **ecossistema de provisionamento declarativo e orquestrador de subagentes autônomos multiplataforma em Go (`envctl`)**, cobrindo estações de trabalho e servidores remotos (Windows 11 PRO, Ubuntu / Debian Linux na AWS e Oracle Cloud, e macOS).  Ele transforma qualquer VPS remota em um trabalhador autônomo de IA via a skill vps-agent-dispatch e o OpenCode.
+O projeto evoluiu de um script inicial de prototipagem focado exclusivamente em Windows 11 (`win11-new`) para um **ecossistema de provisionamento declarativo e orquestrador de subagentes autônomos multiplataforma em Go (`envctl`)**, cobrindo estações de trabalho e servidores remotos (Windows 11 PRO, Ubuntu / Debian Linux na AWS e Oracle Cloud, e macOS).  Ele transforma qualquer VPS remota em um trabalhador autônomo de IA via a skill vps-agent-dispatch e o OpenCode/CommandCode.
 
 ---
 
@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
 - **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
-- **Ecossistema OpenCode & 73 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **73 Skills de Agentes de IA** embutidas.
+- **Ecossistema OpenCode & CommandCode com 74 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **74 Skills de Agentes de IA** embutidas. Suporte completo a **CommandCode** (agentes review/plan/goal, MCPs, configs).
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
 - **Navegador Headless Playwright**: Scripts utilitários `pw-eval` e `pw-screenshot` prontos para automação web instantânea.
 
@@ -67,7 +67,7 @@ envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
-envctl run skills       # Extração e sincronização das 73 Skills
+envctl run skills       # Extração e sincronização das 74 Skills
 envctl run lsp          # 18 Servidores de Linguagem (LSP)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
@@ -90,14 +90,14 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ### 🏛️ Engenharia & Especificações:
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
 - 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `lsp.yaml`, `windows.yaml`).
-- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 73 skills catalogadas, orquestração remota (`vps-agent-dispatch`) e automação Playwright.
+- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 74 skills catalogadas, orquestração remota (`vps-agent-dispatch`) e automação Playwright.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — 160+ pontos de diagnóstico, flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---
 
 ## 💎 Princípios Fundamentais
-1. **100% Standalone via `//go:embed`**: Todas as 73 Skills e templates residem dentro do próprio binário executável compilado.
+1. **100% Standalone via `//go:embed`**: Todas as 74 Skills e templates residem dentro do próprio binário executável compilado.
 2. **Idempotência Estrita**: Executar 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
 3. **Backup Atômico com Timestamp**: Arquivos modificados sofrem backup automático (`.bak.YYYYMMDD-HHMMSS`) caso haja divergência de hash.
 4. **Logging Persistente Estruturado**: Trilha de auditoria completa gerada em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.

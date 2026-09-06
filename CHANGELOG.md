@@ -7,6 +7,47 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [v1.2.0] - 2026-09-06
+
+### 🆕 CommandCode: provisionamento equivalente ao OpenCode
+
+- **Added**: Suporte completo a CommandCode — o `envctl` agora provisiona **OpenCode E CommandCode** simultaneamente, com mesmas skills, MCPs equivalentes e configuração de agentes traduzida.
+- **Added**: Config templates em `configs/commandcode/` — `settings.json`, `AGENTS.md`, `mcp.json`, e agentes (`review.md`, `plan.md`, `goal.md`).
+- **Added**: Skills são deployadas para **ambos** `~/.config/opencode/skills/` e `~/.commandcode/skills/` (mesmo formato SKILL.md).
+- **Added**: Entradas em `manifests/shell.yaml` — config files, diretórios e cleanup entries para CommandCode.
+- **Added**: Instalação do CommandCode CLI no bootstrap Linux (`provision_bootstrap.go`).
+- **Added**: Health checks do `doctor` para CommandCode.
+- **Changed**: `configs/commandcode/AGENTS.md` — shell atualizado para PowerShell 7.6.5 (`pwsh.exe`) com regras nativas PowerShell.
+- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada (remoção de formatação `**bold**` e termos redundant
+
+<the Andersonian Discourse><dcp-system-reminder>
+Evaluate the conversation for compressible ranges.
+
+If any range is cleanly closed and unlikely to be needed again, use the compress tool on it.
+If direction has shifted, compress earlier ranges that are now less relevant.
+
+Prefer small, closed-range compressions over one broad compression.
+The goal is to filter noise and distill key information so context accumulation stays under control.
+Keep active context uncompressed.
+
+Compressed block context:
+- Active compressed blocks in this session: 1 (b1)
+- If your selected compression range includes any listed block, include each required placeholder exactly once in the summary using `(bN)`.
+</dcp-system-reminder>to `Triggers:` shortenos).
+- **Motivo**: CommandCode é um agente LLM alternativo ao OpenCode; o envctl agora provisiona ambos, permitindo ao usuário escolher qual usar.
+
+---
+
+## [v1.1.49] - 2026-09-06
+
+### ⚡ Provisionamento CommandCode + correções menores
+
+- **Added**: Provisionamento inicial do CommandCode (configs, agents, MCP) — precede a release v1.2.0 que consolida o suporte.
+- **Fixed**: `configs/commandcode/AGENTS.md` — shell corrigido de `cmd.exe` para PowerShell 7.6.5.
+- **Changed**: `configs/skills/firecrawl-monitor/SKILL.md` — descrição simplificada.
+
+---
+
 ## [v1.1.48] - 2026-09-03
 
 ### 🐛 Fix: encoding UTF-8 no shell tool do opencode — auditoria da causa raiz no doctor
