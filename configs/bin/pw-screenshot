@@ -16,8 +16,17 @@ const path = require('path');
   const width = parseInt(process.argv[4] || '1280', 10);
   const height = parseInt(process.argv[5] || '720', 10);
 
-  const bravePath = process.env.BRAVE_NIGHTLY_PATH || undefined;
-  const browser = await chromium.launch({ headless: true, executablePath: bravePath });
+  const customPath = process.env.BRAVE_NIGHTLY_PATH || process.env.CHROME_PATH || undefined;
+  let browser;
+  if (customPath) {
+    browser = await chromium.launch({ headless: true, executablePath: customPath });
+  } else {
+    try {
+      browser = await chromium.launch({ headless: true, channel: 'chrome' });
+    } catch {
+      browser = await chromium.launch({ headless: true });
+    }
+  }
   try {
     const context = await browser.newContext({
       viewport: { width, height }

@@ -334,6 +334,12 @@ packages:
     os: windows
     category: desktop-apps
 
+  - id: Google.Chrome
+    name: Google Chrome
+    type: winget
+    os: windows
+    category: desktop-apps
+
   - id: Brave.Brave.Nightly
     name: Brave Browser Nightly
     type: winget

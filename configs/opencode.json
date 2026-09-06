@@ -217,7 +217,7 @@
     },
     "playwright": {
       "type": "local",
-      "command": ["bunx", "@playwright/mcp@0.0.79", "--browser", "chromium"],
+      "command": ["bunx", "@playwright/mcp@0.0.79", "--browser", "chrome"],
       "timeout": 30000,
       "enabled": false
     },
