@@ -89,6 +89,49 @@ config_files:
     category: "opencode"
     seed_if_missing: true
 
+  # --- CommandCode Configs ---
+  - id: commandcode_settings
+    description: "CommandCode project settings (permissions, hooks)"
+    source: "configs/commandcode/settings.json"
+    destination: "~/.commandcode/settings.json"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agents_manifest
+    description: "CommandCode global rules manifesto (auto-loaded from ~/.commandcode/AGENTS.md)"
+    source: "configs/commandcode/AGENTS.md"
+    destination: "~/.commandcode/AGENTS.md"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_mcp
+    description: "CommandCode user-scope MCP servers (context7, playwright)"
+    source: "configs/commandcode/mcp.json"
+    destination: "~/.commandcode/mcp.json"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agent_review
+    description: "CommandCode review agent definition"
+    source: "configs/commandcode/agents/review.md"
+    destination: "~/.commandcode/agents/review.md"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agent_plan
+    description: "CommandCode plan agent definition"
+    source: "configs/commandcode/agents/plan.md"
+    destination: "~/.commandcode/agents/plan.md"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agent_goal
+    description: "CommandCode goal agent definition"
+    source: "configs/commandcode/agents/goal.md"
+    destination: "~/.commandcode/agents/goal.md"
+    strict_acl: false
+    category: "commandcode"
+
   - id: user_package_json
     description: "User root package.json for Playwright API and agent automations"
     source: "configs/user-package.json"
@@ -201,6 +244,15 @@ directories:
   - path: "~/.config/opencode/extras"
     strict_acl: false
     description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"
+  - path: "~/.commandcode/skills"
+    strict_acl: false
+    description: "CommandCode agent skills directory"
+  - path: "~/.commandcode/agents"
+    strict_acl: false
+    description: "CommandCode agent definitions directory"
+  - path: "~/.commandcode/memory"
+    strict_acl: false
+    description: "CommandCode agent memory directory"
   - path: "~/.poshthemes"
     strict_acl: false
     description: "Oh-My-Posh themes directory"
@@ -235,3 +287,7 @@ cleanup:
     path: "~/.config/opencode/agents"
     category: "opencode"
     recursive: true
+  - id: stale_commandcode_settings_jsonc
+    description: "Remove stale CommandCode settings.jsonc (standardized on settings.json)"
+    path: "~/.commandcode/settings.jsonc"
+    category: "commandcode"

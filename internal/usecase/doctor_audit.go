@@ -657,5 +657,83 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
+	// 14. Audit CommandCode Agent Health
+	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
+		cmdPath, cmdErr := exec.LookPath("cmd")
+		if cmdErr != nil {
+			cmdPath, cmdErr = exec.LookPath("cmdc")
+		}
+		if cmdErr != nil {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "CommandCode",
+				Target:   "CommandCode CLI",
+				Details:  "CommandCode CLI not found in PATH",
+				FixHint:  "Run 'envctl run bootstrap' or 'npm install -g command-code'",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "CommandCode",
+				Target:   "CommandCode CLI",
+				Details:  fmt.Sprintf("Found at %s", cmdPath),
+			})
+		}
+
+		ccConfigDir, _ := uc.fsManager.ExpandUserPath("~/.commandcode")
+		if uc.fsManager.Exists(ccConfigDir) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "CommandCode",
+				Target:   "~/.commandcode/",
+				Details:  "Config directory exists",
+			})
+
+			mcpPath := filepath.Join(ccConfigDir, "mcp.json")
+			if uc.fsManager.Exists(mcpPath) {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "CommandCode",
+					Target:   "MCP config",
+					Details:  "mcp.json present",
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "CommandCode",
+					Target:   "MCP config",
+					Details:  "mcp.json not found",
+					FixHint:  "Run 'envctl run shell' to provision CommandCode configs",
+				})
+			}
+
+			skillsDir := filepath.Join(ccConfigDir, "skills")
+			if uc.fsManager.Exists(skillsDir) {
+				entries, _ := os.ReadDir(skillsDir)
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "CommandCode",
+					Target:   "Skills",
+					Details:  fmt.Sprintf("%d skills deployed", len(entries)),
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "CommandCode",
+					Target:   "Skills",
+					Details:  "Skills directory not found",
+					FixHint:  "Run 'envctl run skills' to deploy skills",
+				})
+			}
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "CommandCode",
+				Target:   "~/.commandcode/",
+				Details:  "Config directory not yet created (CommandCode not provisioned)",
+			})
+		}
+	}
+
 	return report, nil
 }

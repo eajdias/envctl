@@ -56,7 +56,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "bootstrap",
-		Short: "Provision the Linux toolchain (Volta, Node, OpenCode CLI, gh, delta, yq, uv, ruff, oh-my-posh, fd)",
+		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, oh-my-posh, fd)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runBootstrapProvisioning()
@@ -92,7 +92,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "skills",
-		Short: "Provision and deploy OpenCode agent skills",
+		Short: "Provision and deploy agent skills (OpenCode + CommandCode)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runSkillsProvisioning()
@@ -119,7 +119,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "cleanup",
-		Short: "Clean OpenCode storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)",
+		Short: "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runCleanup()
@@ -182,7 +182,7 @@ func runAllProvisioning() {
 	runShellProvisioning()
 
 	// 5. Skills
-	PrintSection(section(5, "Provisioning OpenCode Agent Skills"))
+	PrintSection(section(5, "Provisioning Agent Skills (OpenCode + CommandCode)"))
 	runSkillsProvisioning()
 
 	// 6. LSPs
@@ -273,25 +273,42 @@ func runShellProvisioning() {
 }
 
 func runSkillsProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Deploying OpenCode Agent Skills...")
+	spinner, _ := pterm.DefaultSpinner.Start("Deploying agent skills to OpenCode & CommandCode...")
 	ctx := context.Background()
 
+	// Deploy to OpenCode (default target)
 	results, err := appCtx.ProvisionSkillsUC.Execute(ctx, "")
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed skills deployment: %v", err))
+		spinner.Fail(fmt.Sprintf("Failed skills deployment to OpenCode: %v", err))
 		return
 	}
 
-	deployedCount := 0
+	deployedOC := 0
 	for _, r := range results {
 		if r.Status == entity.DiagOK {
-			deployedCount++
+			deployedOC++
 		} else {
-			pterm.Warning.Printf("  • Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
+			pterm.Warning.Printf("  • [OpenCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
 		}
 	}
 
-	spinner.Success(fmt.Sprintf("Deployed %d agent skills to ~/.config/opencode/skills/", deployedCount))
+	// Deploy to CommandCode
+	resultsCC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "~/.commandcode/skills")
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed skills deployment to CommandCode: %v", err))
+		return
+	}
+
+	deployedCC := 0
+	for _, r := range resultsCC {
+		if r.Status == entity.DiagOK {
+			deployedCC++
+		} else {
+			pterm.Warning.Printf("  • [CommandCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
+		}
+	}
+
+	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode", deployedOC, deployedCC))
 }
 
 func runLSPProvisioning() {
@@ -316,7 +333,7 @@ func runLSPProvisioning() {
 }
 
 func runCleanup() {
-	spinner, _ := pterm.DefaultSpinner.Start("Cleaning OpenCode storage accumulation...")
+	spinner, _ := pterm.DefaultSpinner.Start("Cleaning agent storage accumulation (OpenCode + CommandCode)...")
 	ctx := context.Background()
 
 	res, err := appCtx.CleanupOpenCodeUC.Execute(ctx)
@@ -340,8 +357,16 @@ func runCleanup() {
 		}
 	}
 
+	if appCtx.CleanupCommandCodeUC != nil {
+		ccReport, ccErr := appCtx.CleanupCommandCodeUC.Execute(ctx)
+		if ccErr == nil && len(ccReport.RemovedFiles) > 0 {
+			removed = append(removed, ccReport.RemovedFiles...)
+			freed += ccReport.FreedBytes
+		}
+	}
+
 	if len(removed) == 0 {
-		spinner.Success("Nothing to clean — OpenCode storage is already tidy")
+		spinner.Success("Nothing to clean — agent storage is already tidy")
 		return
 	}
 

@@ -43,6 +43,7 @@ type AppContext struct {
 	SnapshotSyncUC       *usecase.SnapshotSyncUseCase
 	TempHygieneUC        *usecase.TempHygieneUseCase
 	CleanupOpenCodeUC    *usecase.CleanupOpenCodeUseCase
+	CleanupCommandCodeUC *usecase.CleanupCommandCodeUseCase
 }
 
 var (
@@ -50,8 +51,8 @@ var (
 
 	rootCmd = &cobra.Command{
 		Use:   "envctl",
-		Short: "envctl: Universal Development Environment Provisioner (Windows 11 PRO & Ubuntu Linux / OpenCode)",
-		Long:  `envctl is an idempotent, Clean Architecture CLI tool designed to provision, audit, and synchronize your development environments across Windows 11 PRO workstations and Ubuntu Linux VPS servers.`,
+		Short: "envctl: Universal Development Environment Provisioner (Windows 11 PRO & Ubuntu Linux / OpenCode + CommandCode)",
+		Long:  `envctl is an idempotent, Clean Architecture CLI tool designed to provision, audit, and synchronize your development environments across Windows 11 PRO workstations and Ubuntu Linux VPS servers. Supports both OpenCode and CommandCode AI agents.`,
 		PersistentPostRun: func(cmd *cobra.Command, args []string) {
 			if appCtx != nil && appCtx.Logger != nil {
 				logPath := appCtx.Logger.GetLogFilePath()
@@ -116,6 +117,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
 		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
+		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
 	registerCommands()
@@ -141,7 +143,7 @@ func newVersionCmd() *cobra.Command {
 		Short: "Print envctl version",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
-			PrintInfo(fmt.Sprintf("envctl %s (Windows 11 PRO & Ubuntu Linux / OpenCode Ecosystem)", appVersion))
+			PrintInfo(fmt.Sprintf("envctl %s (Windows 11 PRO & Ubuntu Linux / OpenCode + CommandCode)", appVersion))
 		},
 	}
 }

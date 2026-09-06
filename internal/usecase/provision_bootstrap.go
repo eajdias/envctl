@@ -14,8 +14,9 @@ import (
 )
 
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
-// the global OpenCode environment on Ubuntu servers: Volta + Node, the OpenCode
-// CLI and the user-local CLI tools (gh, delta, yq, uv, ruff, oh-my-posh, fd).
+// the global OpenCode and CommandCode environments on Ubuntu servers: Volta +
+// Node, the OpenCode CLI, the CommandCode CLI, and the user-local CLI tools
+// (gh, delta, yq, uv, ruff, oh-my-posh, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    repository.FileSystemManager
@@ -241,6 +242,12 @@ export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
 if ! npm install -g --no-audit --no-fund --prefix "$HOME/.local" opencode-ai >/tmp/envctl-opencode-npm.log 2>&1; then
   curl -fsSL https://opencode.ai/install | bash >/tmp/envctl-opencode-curl.log 2>&1
 fi`)
+
+	// 3.5. CommandCode CLI - npm global (user prefix).
+	uc.step(ctx, result, "cmdc", "CommandCode CLI",
+		`set -e
+export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+npm install -g --no-audit --no-fund --prefix "$HOME/.local" command-code`)
 
 	// 4. GitHub CLI (gh) - official release tarball into ~/.local/bin.
 	uc.step(ctx, result, "gh", "GitHub CLI",

@@ -279,6 +279,15 @@ packages:
     check_command: vscode-html-language-server --version
 
   # ============================================================================
+  # AI Coding Agents
+  # ============================================================================
+  - id: command-code
+    name: CommandCode CLI
+    type: volta
+    category: ai-agents
+    check_command: cmdc --version
+
+  # ============================================================================
   # Desktop Applications & Productivity Tools (Winget)
   # ============================================================================
   - id: Microsoft.VisualStudioCode

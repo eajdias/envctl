@@ -68,7 +68,7 @@ func newDoctorCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Audit and verify the health of your Windows 11 / Ubuntu Linux / OpenCode environment",
+		Short: "Audit and verify the health of your Windows 11 / Ubuntu Linux / OpenCode + CommandCode environment",
 		Long:  `Performs comprehensive diagnostic checks across packages, configs, git, env vars, skills, and LSPs. Use --fix to automatically remediate any issues.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
@@ -103,7 +103,7 @@ func newDoctorCmd() *cobra.Command {
 				runShellProvisioning()
 
 				// 4. Skills
-				PrintSection("4/5 Remediating OpenCode Agent Skills")
+				PrintSection("4/5 Remediating Agent Skills (OpenCode + CommandCode)")
 				runSkillsProvisioning()
 
 				// 5. LSPs
