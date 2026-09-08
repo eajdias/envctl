@@ -1,0 +1,125 @@
+# gaming.yaml - Opt-in gaming stack for Arch/CachyOS (Steam, emulators, overlays)
+# Provisioned via `envctl run gaming` (NOT part of `run all` defaults).
+# Requires multilib enabled in /etc/pacman.conf (steam, lib32-*).
+# AUR entries need paru + passwordless sudo (see run pre-flight).
+# Eden (Switch) is intentionally absent: pinned legacy AppImage, manual install.
+version: "1.0"
+
+packages:
+  # Steam + runtime
+  - id: steam
+    name: Steam launcher (multilib)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: gamescope
+    name: gamescope compositor for upscaling (FSR)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: mangohud
+    name: MangoHud overlay
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: lib32-mangohud
+    name: MangoHud overlay (32-bit, Proton)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: ntfs-3g
+    name: NTFS read/write (Windows game libraries as cold storage)
+    type: pacman
+    os: linux
+    category: gaming
+
+  # Standalone emulators (official repos)
+  - id: dolphin-emu
+    name: Dolphin emulator (GameCube/Wii)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: retroarch
+    name: RetroArch frontend
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: ppsspp
+    name: PPSSPP emulator (PSP)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: mgba-qt
+    name: mGBA emulator (GB/GBC/GBA, Qt frontend)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: snes9x-gtk
+    name: Snes9x emulator (SNES, GTK frontend)
+    type: pacman
+    os: linux
+    category: gaming
+
+  - id: mednafen
+    name: Mednafen emulator (PCE/Saturn/PS1 cores)
+    type: pacman
+    os: linux
+    category: gaming
+
+  # GPU control
+  - id: lact
+    name: LACT GPU control daemon (AMD)
+    type: pacman
+    os: linux
+    category: gaming
+
+  # AUR binaries (no compilation)
+  - id: pcsx2-latest-bin
+    name: PCSX2 emulator (PS2, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: duckstation-qt-bin
+    name: DuckStation emulator (PS1, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: azahar-appimage
+    name: Azahar emulator (3DS, AppImage wrapper)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: melonds-bin
+    name: melonDS emulator (NDS, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: flycast-bin
+    name: Flycast emulator (Dreamcast/Naomi, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: vita3k-bin
+    name: Vita3K emulator (PS Vita, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
+
+  - id: cemu-bin
+    name: Cemu emulator (Wii U, prebuilt)
+    type: paru
+    os: linux
+    category: gaming
