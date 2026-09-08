@@ -58,7 +58,9 @@ jobs:
         run: go vet ./...
 
       - name: Run Unit Tests
-        run: go test -v -coverprofile=coverage.out ./...
+        # Space-separated flag: pwsh splits `-coverprofile=coverage.out` at `=`,
+        # making go treat `.out` as a package name.
+        run: go test -v -coverprofile coverage.out ./...
 
       - name: Build Executable
         run: go build -v ./cmd/envctl
