@@ -31,13 +31,11 @@ O `envctl` embuta e sincroniza **74 Skills de Agentes Especialistas** projetadas
 - **`docker`**: Gerenciamento de containers locais e remotos, volumes, networks, compose stacks e logs.
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
 
-### 3. Extração Web & Automação Inteligente (Firecrawl Suite)
+### 3. Extração Web (Firecrawl essencial)
 - **`firecrawl-search`** & **`firecrawl-scrape`**: Busca web em tempo real e extração limpa de markdown.
-- **`firecrawl-agent`**: Extração de dados estruturados com schemas JSON complexos.
 - **`firecrawl-crawl`** & **`firecrawl-map`**: Mapeamento de sitemaps e rastreamento em massa de documentações.
-- **`firecrawl-deep-research`** & **`firecrawl-research-papers`**: Síntese aprofundada de literatura científica e acadêmica (arXiv, PubMed, bioRxiv).
-- **`firecrawl-interact`**: Interação com páginas dinâmicas (login, paginação, formulários, SPA).
-- **`firecrawl-monitor`**: Monitoramento contínuo de alterações em páginas web com alertas inteligentes.
+- **`firecrawl`** (CLI base): fallback para o restante.
+- Demais skills Firecrawl removidas em 2026-09 (sem uso; Playwright local cobre automação).
 
 ### 4. Automação de Navegador & Testes Visuais (Playwright)
 - **`playwright-cli`**: Automação de navegador headless via Node.js API.
