@@ -31,6 +31,7 @@ type FileSystemManager interface {
 // ManifestRepository loads and saves declarative environment specifications.
 type ManifestRepository interface {
 	LoadPackages() ([]entity.Package, error)
+	LoadGamingPackages() ([]entity.Package, error)
 	LoadConfigFiles() ([]entity.ConfigFile, error)
 	LoadSkills() ([]entity.Skill, error)
 	LoadLSPs() ([]entity.LSP, error)

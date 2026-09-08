@@ -15,6 +15,8 @@ const (
 	PackageTypeGo         PackageType = "go"
 	PackageTypeRustup     PackageType = "rustup"
 	PackageTypeApt        PackageType = "apt"
+	PackageTypePacman     PackageType = "pacman"
+	PackageTypeParu       PackageType = "paru"
 )
 
 // PackageStatus indicates the installation status of a package.
@@ -125,7 +127,7 @@ type CleanupItem struct {
 	Description string `yaml:"description"`
 	Path        string `yaml:"path"` // expanded with env vars (e.g. ~ / %USERPROFILE%)
 	Category    string `yaml:"category"`
-	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	OS          string `yaml:"os,omitempty"`        // "windows", "linux" or empty for all
 	Recursive   bool   `yaml:"recursive,omitempty"` // remove directory tree (os.RemoveAll)
 }
 

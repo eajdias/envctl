@@ -17,7 +17,7 @@ Validar um LSP recém-instalado antes de registrar em config (opencode.json/VS C
 1. **NÃO usar `--version`** — vários LSPs (intelephense, tailwindcss-language-server) ignoram a flag e falham com "Connection input stream is not set".
 2. Rodar com stdin fechado: `<comando> --stdio < /dev/null` (no PowerShell: `cmd /c "<comando> --stdio < NUL"`).
 3. Verificar AUSÊNCIA do erro de conexão — sem o erro, o servidor está OK.
-4. Casos especiais: `taplo` usa subcomando `taplo lsp`; `csharp-ls`/`gopls` respondem a `--version` normalmente.
+4. Casos especiais: `taplo` usa subcomando `taplo lsp stdio` (o `taplo lsp` sozinho foi removido no taplo 0.10 e sai com erro); `csharp-ls`/`gopls` respondem a `--version` normalmente.
 
 ## Verificação
 

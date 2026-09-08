@@ -16,6 +16,8 @@ import (
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 	"github.com/eajdias/envctl/internal/infra/git"
 	"github.com/eajdias/envctl/internal/infra/logger"
+	"github.com/eajdias/envctl/internal/infra/pacman"
+	"github.com/eajdias/envctl/internal/infra/paru"
 	"github.com/eajdias/envctl/internal/infra/toolchain"
 	"github.com/eajdias/envctl/internal/infra/windows"
 	"github.com/eajdias/envctl/internal/infra/winget"
@@ -90,6 +92,8 @@ func InitApp(embeddedFS fs.FS, version string) {
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget:     winget.NewWingetManager(),
 		entity.PackageTypeApt:        apt.NewAptManager(),
+		entity.PackageTypePacman:     pacman.NewPacmanManager(),
+		entity.PackageTypeParu:       paru.NewParuManager(),
 		entity.PackageTypeVolta:      toolchain.NewVoltaManager(),
 		entity.PackageTypeDotnetTool: toolchain.NewDotnetToolManager(),
 		entity.PackageTypeNpm:        toolchain.NewNpmManager(),

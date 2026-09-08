@@ -24,7 +24,7 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 			_ = cmd.Help()
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, winget, apt, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
+			return fmt.Errorf("unknown subsystem '%s' (valid: all, winget, apt, pacman, paru, gaming, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
 		},
 	}
 
@@ -51,6 +51,33 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runPackagesProvisioning(entity.PackageTypeApt)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "pacman",
+		Short: "Provision Arch/CachyOS pacman packages",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runPackagesProvisioning(entity.PackageTypePacman)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "paru",
+		Short: "Provision Arch AUR packages via paru",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runPackagesProvisioning(entity.PackageTypeParu)
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "gaming",
+		Short: "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runGamingProvisioning()
 		},
 	})
 
@@ -237,6 +264,26 @@ func runPackagesProvisioning(filterType entity.PackageType) {
 	}
 
 	spinner.Success(fmt.Sprintf("Processed %d packages", len(pkgs)))
+}
+
+func runGamingProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Inspecting and installing gaming packages...")
+	ctx := context.Background()
+
+	pkgs, err := appCtx.ProvisionPkgsUC.ExecuteGaming(ctx, func(pkg entity.Package, status string, err error) {
+		if err != nil {
+			pterm.Warning.Printf("  • %s: %s (%v)\n", pkg, status, err)
+		} else {
+			pterm.Success.Printf("  • %s: %s\n", pkg, status)
+		}
+	})
+
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed gaming provisioning: %v", err))
+		return
+	}
+
+	spinner.Success(fmt.Sprintf("Processed %d gaming packages", len(pkgs)))
 }
 
 func runShellProvisioning() {

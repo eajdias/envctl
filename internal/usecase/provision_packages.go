@@ -42,6 +42,29 @@ func (uc *ProvisionPackagesUseCase) Execute(ctx context.Context, filterType enti
 		uc.logger.Info("Starting package provisioning (Total: %d manifests, Filter: '%s')", len(allPkgs), filterType)
 	}
 
+	return uc.provisionList(ctx, allPkgs, filterType, onProgress)
+}
+
+// ExecuteGaming provisions the opt-in gaming manifest (gaming.yaml): no type
+// filter is applied, so pacman and paru entries install side by side.
+func (uc *ProvisionPackagesUseCase) ExecuteGaming(ctx context.Context, onProgress PackageProgressHandler) ([]entity.Package, error) {
+	gamingPkgs, err := uc.manifestRepo.LoadGamingPackages()
+	if err != nil {
+		if uc.logger != nil {
+			uc.logger.Error("Failed to load gaming manifests: %v", err)
+		}
+		return nil, fmt.Errorf("failed to load gaming manifests: %w", err)
+	}
+
+	if uc.logger != nil {
+		uc.logger.Info("Starting gaming provisioning (Total: %d manifests)", len(gamingPkgs))
+	}
+
+	return uc.provisionList(ctx, gamingPkgs, "", onProgress)
+}
+
+func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs []entity.Package, filterType entity.PackageType, onProgress PackageProgressHandler) ([]entity.Package, error) {
+
 	var results []entity.Package
 
 	for _, pkg := range allPkgs {

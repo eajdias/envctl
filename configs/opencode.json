@@ -75,7 +75,7 @@
       "extensions": [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"]
     },
     "toml": {
-      "command": ["taplo", "lsp"],
+      "command": ["taplo", "lsp", "stdio"],
       "extensions": [".toml"]
     },
     "php": {
