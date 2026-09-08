@@ -67,6 +67,18 @@ func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
+func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
+	data, err := m.readManifestFile("gaming.yaml")
+	if err != nil {
+		return nil, err
+	}
+	var manifest packagesManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to parse gaming.yaml: %w", err)
+	}
+	return manifest.Packages, nil
+}
+
 type shellManifest struct {
 	EnvVars     []entity.EnvironmentVar `yaml:"environment_variables"`
 	ConfigFiles []entity.ConfigFile     `yaml:"config_files"`

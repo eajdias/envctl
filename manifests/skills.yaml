@@ -74,6 +74,11 @@ skills:
       source: configs/skills/context7-auto
       target_dir: ""
       enabled: true
+    - name: cachyos-gaming-setup
+      description: Tune CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores, BIOS, perfis)
+      source: configs/skills/cachyos-gaming-setup
+      target_dir: ""
+      enabled: true
     - name: database-ops
       description: OpenCode agent skill database-ops
       source: configs/skills/database-ops

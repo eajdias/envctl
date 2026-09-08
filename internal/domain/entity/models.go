@@ -16,6 +16,7 @@ const (
 	PackageTypeRustup     PackageType = "rustup"
 	PackageTypeApt        PackageType = "apt"
 	PackageTypePacman     PackageType = "pacman"
+	PackageTypeParu       PackageType = "paru"
 )
 
 // PackageStatus indicates the installation status of a package.
