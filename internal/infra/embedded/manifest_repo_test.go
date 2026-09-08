@@ -54,8 +54,8 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected skills to be non-empty")
 	}
 
-	if len(skills) != 46 {
-		t.Errorf("expected exactly 46 skills in manifest, got %d", len(skills))
+	if len(skills) != 48 {
+		t.Errorf("expected exactly 48 skills in manifest, got %d", len(skills))
 	}
 
 	if len(lsps) != 18 {
