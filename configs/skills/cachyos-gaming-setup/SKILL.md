@@ -23,7 +23,8 @@ Após `envctl run gaming`, ou para auditar tuning existente. Cobre o que manifes
 ## Emuladores
 - Vulkan em todos + resolução interna 1080p-classe onde a GPU sustenta (PSP 4x, PS2 3x, PS1 5x, 3DS 4x, DC 1080); Switch 1X (CPU-bound).
 - BIOS nos layouts oficiais de cada emu (DuckStation `bios/`, PCSX2 `bios/`, Azahar `sysdata/`+`nand/`, PPSSPP `flash0/`, Dolphin `GC/{USA,EUR,JAP}/`, RetroArch `system/`, melonDS/mGBA/flycast/snes9x/mednafen nos próprios dirs).
-- Controles XInput: SDL automático na maioria; exceções manuais na GUI: PCSX2 (Automatic Mapping), Azahar (Controls), Dolphin (perfis por tipo: GC/Nunchuk/Sideways/Upright/Classic).
+- Controles XInput: SDL automático na maioria; exceções manuais na GUI: PCSX2 (Automatic Mapping), Azahar (Controls), Dolphin (perfis abaixo).
+- Dolphin: 10 perfis Xbox 360 embutidos nesta skill (`profiles/GCPad/`, `profiles/Wiimote/`: GameCube, Nunchuk, Sideways, Upright, Classic × P1/P2). Instalar os necessários em `~/.local/share/dolphin-emu/Config/Profiles/{GCPad,Wiimote}/` e carregar na GUI (Controllers > Configure > Profile > Load). Mapeamento sem giroscópio: mira/swing no direcional direito (flick = golpe), sacudir = LB, R3 recentraliza.
 - Keys/firmware (Switch, Wii U, Vita, 3DS): SEMPRE do próprio console; mods de jogo casam por build ID (@nsobid) — versão errada = crash.
 
 ## Política de updates
