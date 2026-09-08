@@ -88,6 +88,7 @@ jobs:
 
       - name: Generate SHA256 Checksums
         run: |
+          cp bootstrap.ps1 bootstrap.sh dist/
           cd dist
           sha256sum envctl-windows-amd64.exe envctl-windows-arm64.exe \
             envctl-windows-amd64.zip envctl-windows-arm64.zip \
