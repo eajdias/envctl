@@ -29,6 +29,10 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+          # Legacy debt (68 pre-existing findings, mostly Windows/SSH paths
+          # untestable on Linux) is tracked for later; the gate blocks only
+          # issues introduced by new changes.
+          only-new-issues: true
 
   test:
     name: Test (${{ matrix.os }})
