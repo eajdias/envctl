@@ -59,6 +59,11 @@ skills:
       source: configs/skills/agent-memory
       target_dir: ""
       enabled: true
+    - name: aur-headless-install
+      description: Instalar pacotes AUR de shells não-interativos (makepkg como usuário + sudo pacman -U; sem retries de senha)
+      source: configs/skills/aur-headless-install
+      target_dir: ""
+      enabled: true
     - name: api-contract-design
       description: OpenCode agent skill api-contract-design
       source: configs/skills/api-contract-design
@@ -277,6 +282,11 @@ skills:
     - name: handoff
       description: OpenCode agent skill handoff
       source: configs/skills/handoff
+      target_dir: ""
+      enabled: true
+    - name: headless-gui-probe
+      description: Gerar configs e validar apps GUI sem display (offscreen/dummy, timeout -k, log scraping, disciplina de PIDs)
+      source: configs/skills/headless-gui-probe
       target_dir: ""
       enabled: true
     - name: implementation-strategy
