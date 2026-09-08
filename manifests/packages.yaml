@@ -537,3 +537,160 @@ packages:
     os: linux
     category: cli-tools
     check_command: python3 -c "import bs4"
+
+  # ============================================================================
+  # Arch Linux / CachyOS (pacman) — skipped automatically where pacman is absent
+  # ============================================================================
+  - id: fish
+    name: fish shell
+    type: pacman
+    os: linux
+    category: system
+    check_command: fish --version
+
+  - id: go
+    name: Go toolchain
+    type: pacman
+    os: linux
+    category: toolchain
+    check_command: go version
+
+  - id: git-delta
+    name: delta (syntax-highlighting pager for git diff)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: delta --version
+
+  - id: yq
+    name: yq YAML processor
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: yq --version
+
+  - id: dust
+    name: dust (du alternative)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: dust --version
+
+  - id: hyperfine
+    name: hyperfine command-line benchmarking
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: hyperfine --version
+
+  - id: shellcheck-pacman
+    name: shellcheck (bash script linting)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: shellcheck --version
+
+  - id: ruff
+    name: ruff Python linter
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: ruff --version
+
+  - id: tree-pacman
+    name: tree directory visualizer
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: tree --version
+
+  - id: fzf-pacman
+    name: fzf fuzzy finder
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: fzf --version
+
+  - id: bat-pacman
+    name: bat cat clone
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: bat --version
+
+  - id: fd-pacman
+    name: fd file search
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: fd --version
+
+  - id: ripgrep-pacman
+    name: ripgrep (rg)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: rg --version
+
+  - id: taplo-cli
+    name: Taplo TOML Language Server
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: taplo --version
+
+  - id: python-pipx
+    name: pipx (isolated Python CLIs)
+    type: pacman
+    os: linux
+    category: toolchain
+    check_command: pipx --version
+
+  - id: python-yaml
+    name: pyyaml (YAML for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import yaml"
+
+  - id: python-requests-pacman
+    name: requests (HTTP client for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import requests"
+
+  - id: python-openpyxl-pacman
+    name: openpyxl (Excel xlsx read/write for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import openpyxl"
+
+  - id: python-beautifulsoup4
+    name: beautifulsoup4 (HTML parsing for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import bs4"
+
+  - id: python-pypdf
+    name: pypdf (PDF for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import pypdf"
+
+  - id: python-docx
+    name: python-docx (Word for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import docx"
+
+  - id: python-lxml
+    name: lxml (HTML/XML for python agent scripts)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: python3 -c "import lxml"
