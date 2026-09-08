@@ -101,9 +101,9 @@
 
 ### agent skills (6) — Firecrawl + Playwright
 
-Firecrawl (5): `firecrawl` (CLI base), `firecrawl-scrape`, `firecrawl-search`, `firecrawl-crawl`, `firecrawl-map` (restante removido em 2026-09: sem uso; git history preserva)
+Firecrawl (5): `firecrawl` (CLI base), `firecrawl-scrape`, `firecrawl-search`, `firecrawl-crawl`, `firecrawl-map`
 
-Playwright (1): `playwright-cli` — use Node.js API, NOT `playwright-cli` command (blocks terminal):
+Playwright (1): `playwright-cli` — use Node.js API (verified headless):
 
 ```javascript
 const { chromium } = require('playwright');

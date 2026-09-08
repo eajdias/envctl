@@ -35,7 +35,6 @@ O `envctl` embuta e sincroniza **74 Skills de Agentes Especialistas** projetadas
 - **`firecrawl-search`** & **`firecrawl-scrape`**: Busca web em tempo real e extração limpa de markdown.
 - **`firecrawl-crawl`** & **`firecrawl-map`**: Mapeamento de sitemaps e rastreamento em massa de documentações.
 - **`firecrawl`** (CLI base): fallback para o restante.
-- Demais skills Firecrawl removidas em 2026-09 (sem uso; Playwright local cobre automação).
 
 ### 4. Automação de Navegador & Testes Visuais (Playwright)
 - **`playwright-cli`**: Automação de navegador headless via Node.js API.
