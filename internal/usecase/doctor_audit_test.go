@@ -24,12 +24,12 @@ type mockManifestRepo struct {
 	tweaks       []entity.WindowsTweak
 }
 
-func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error)         { return m.pkgs, nil }
-func (m *mockManifestRepo) LoadConfigFiles() ([]entity.ConfigFile, error)   { return m.configFiles, nil }
-func (m *mockManifestRepo) LoadSkills() ([]entity.Skill, error)             { return m.skills, nil }
-func (m *mockManifestRepo) LoadLSPs() ([]entity.LSP, error)                 { return m.lsps, nil }
-func (m *mockManifestRepo) LoadEnvVars() ([]entity.EnvironmentVar, error)   { return m.envVars, nil }
-func (m *mockManifestRepo) LoadGitConfigs() ([]entity.GitConfig, error)     { return m.gitConfigs, nil }
+func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error)       { return m.pkgs, nil }
+func (m *mockManifestRepo) LoadConfigFiles() ([]entity.ConfigFile, error) { return m.configFiles, nil }
+func (m *mockManifestRepo) LoadSkills() ([]entity.Skill, error)           { return m.skills, nil }
+func (m *mockManifestRepo) LoadLSPs() ([]entity.LSP, error)               { return m.lsps, nil }
+func (m *mockManifestRepo) LoadEnvVars() ([]entity.EnvironmentVar, error) { return m.envVars, nil }
+func (m *mockManifestRepo) LoadGitConfigs() ([]entity.GitConfig, error)   { return m.gitConfigs, nil }
 func (m *mockManifestRepo) LoadDirectories() ([]entity.RestrictedDir, error) {
 	return m.directories, nil
 }
@@ -84,8 +84,11 @@ func TestDoctorAudit_GoogleChromeDetection(t *testing.T) {
 	manifestRepo := &mockManifestRepo{}
 	fsManager := &mockFSManager{
 		existingPaths: map[string]bool{
+			// Windows candidates (used when runtime.GOOS == "windows").
 			`C:\Program Files\Google\Chrome\Application\chrome.exe`: true,
-			`node_modules/playwright`:                               true,
+			// Linux/macOS candidates (used on other platforms).
+			`/usr/bin/google-chrome`:  true,
+			`node_modules/playwright`: true,
 		},
 		fileContents: map[string][]byte{},
 	}
