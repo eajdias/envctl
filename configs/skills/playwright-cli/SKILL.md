@@ -381,17 +381,20 @@ const page = await browser.newPage();
 page.setDefaultTimeout(30000); // 30 seconds
 ```
 
-## CLI reference (manual use only)
+## CLI reference (official @playwright/cli, verified on Arch/CachyOS)
 
-If you need to use `playwright-cli` manually (not recommended for autonomous tasks):
+Install: `npm install -g @playwright/cli` (+ `playwright install chromium` for the bundled headless shell).
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli snapshot
-playwright-cli click e15
-playwright-cli type "hello"
-playwright-cli screenshot
-playwright-cli close
+playwright-cli -s=task open https://example.com --browser=chromium
+playwright-cli -s=task snapshot
+playwright-cli -s=task click e15
+playwright-cli -s=task screenshot
+playwright-cli close-all
 ```
 
-**Note:** CLI commands block the terminal. Use Node.js API for autonomous agent work.
+Rules learned the hard way:
+- Default channel is `google-chrome` (absent on minimal Linux) — always pass `--browser=chromium`.
+- Each command exits cleanly (daemon persists in background); use named sessions (`-s=`) and `close-all` at the end.
+- Run from the task scratch dir: snapshots/screenshots land in `.playwright-cli/`.
+- Node.js API stays the pick for scripted multi-step flows; the CLI wins on token cost for interactive browsing.

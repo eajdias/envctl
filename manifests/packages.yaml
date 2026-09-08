@@ -224,6 +224,12 @@ packages:
     category: volta
     check_command: firecrawl --version
 
+  - id: "@playwright/cli"
+    name: Playwright CLI for QA engineers, developers and coding agents
+    type: volta
+    category: volta
+    check_command: playwright-cli --help
+
   - id: mcp-ssh-manager
     name: SSH Manager CLI & MCP Server
     type: volta
