@@ -190,7 +190,7 @@ func runAllProvisioning() {
 
 	// 2. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only.
 	// Runs BEFORE packages: the packages manifest includes Volta-managed npm
-	// packages (node, pnpm, firecrawl-cli, LSP servers) that require the Volta
+	// packages (node, pnpm, LSP servers) that require the Volta
 	// toolchain — on a fresh VPS `run all` must bootstrap first, otherwise
 	// every Volta package is skipped as "manager not available".
 	if isLinux {
@@ -324,7 +324,7 @@ func runSkillsProvisioning() {
 	ctx := context.Background()
 
 	// Deploy to OpenCode (default target)
-	results, err := appCtx.ProvisionSkillsUC.Execute(ctx, "")
+	results, prunedOC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "")
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Failed skills deployment to OpenCode: %v", err))
 		return
@@ -338,9 +338,12 @@ func runSkillsProvisioning() {
 			pterm.Warning.Printf("  • [OpenCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
 		}
 	}
+	for _, name := range prunedOC {
+		pterm.Info.Printf("  • [OpenCode] Pruned stale skill: %s\n", name)
+	}
 
 	// Deploy to CommandCode
-	resultsCC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "~/.commandcode/skills")
+	resultsCC, prunedCC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "~/.commandcode/skills")
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Failed skills deployment to CommandCode: %v", err))
 		return
@@ -354,8 +357,11 @@ func runSkillsProvisioning() {
 			pterm.Warning.Printf("  • [CommandCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
 		}
 	}
+	for _, name := range prunedCC {
+		pterm.Info.Printf("  • [CommandCode] Pruned stale skill: %s\n", name)
+	}
 
-	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode", deployedOC, deployedCC))
+	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)", deployedOC, deployedCC, len(prunedOC), len(prunedCC)))
 }
 
 func runLSPProvisioning() {

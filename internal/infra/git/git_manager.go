@@ -68,4 +68,3 @@ func (g *gitManager) EnsureGlobalConfigs(ctx context.Context, configs []entity.G
 
 	return diagnostics, nil
 }
-

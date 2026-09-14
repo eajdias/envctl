@@ -17,7 +17,7 @@
 
 - **Language:** Code/comments/commits in English. User communication in Portuguese (BR).
 - **Style:** Clean Architecture, SOLID, idiomatic code per language, strict typing.
-- **Tone (agentes LLM):** Direto, informal, sem rodeio. Respostas curtas. Nada de "certamente!", "claro que sim!", "é uma excelente pergunta!". Se o usuário pergunta "isso vale a pena?", a resposta é "não" ou "sim, porque X" — sem parágrafo introdutório. Code first, explanation after (max 3 lines). Se a explicação é mais longa que o código, deleta a explicação.
+- **Tone (agentes LLM):** Direto, informal, sem rodeio. Respostas curtas. Nada de "certamente!", "claro que sim!", "é uma excelente pergunta!". Se o usuário pergunta "isso vale a pena?", a resposta é "não" ou "sim, porque X" — sem parágrafo introdutório. Code first, explanation after (max 3 lines). Se a explicação é mais longa que o código, deleta a explicação. Se um default/valor proposto pelo usuário for subótimo, **aponte e proponha o melhor com trade-offs** — não aceite em silêncio.
 - **Git:** Semantic branches (`feat/...`, `fix/...`), conventional commits, PRs via `gh pr create`.
 - **Testing:** Evidence before claims — test before declaring complete.
 - **Security:** Strict ACLs on `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`. Never hardcode secrets.
@@ -25,6 +25,7 @@
   1. **Falhas pré-existentes NÃO são desculpa**: qualquer warning/erro/falha encontrada — nova ou pré-existente, no código ou em testes — deve ser corrigida **no mesmo turno**, conforme a regra de Zero Tolerância acima. Proibido "reportar e seguir" ou "documentar para depois".
   2. **Evidência antes de afirmação**: exibir as saídas reais de lint/type-check/testes na resposta final; se o comando não foi rodado, a verificação não conta.
   3. **Se algo não pôde ser corrigido**: a tarefa permanece **não concluída** — reportar explicitamente o bloqueio e o motivo, sem declarar sucesso parcial.
+  4. **Fechamento com evidência fresca**: ao concluir uma tarefa com TODOs, **reconcílie a lista** (nada pendente) e **RE-EXECUTE a verificação** (build/test/lint/gofmt) para exibir saída atual — não basta afirmar que passou.
 
 ## OpenCode Configuration
 
@@ -36,8 +37,10 @@
   3. Scripts POSIX legados que exigem Linux/bash: usar WSL — `wsl -e bash -lc "..."` (nunca ao contrário).
   4. Variáveis de ambiente usam `$env:NOME` no PowerShell (ex.: `$env:ENVCTL_TEMP`).
 - **Plugins (3):** `@tarquinen/opencode-dcp@latest`, `@dietrichgebert/ponytail`, `@prevalentware/opencode-goal-plugin`
-- **Agentes customizados (3):** `review` (primary — revisão read-only, bash read-only para evidências), `plan` (mode `all` — primary via Tab E subagent via task tool; planejamento read-only: bash read-only, escrita apenas em `docs/superpowers/plans/`, carrega `writing-plans`/`agent-memory`/context7), `goal` (primary — modo autônomo com goal tools). Usar `plan` antes de implementações multi-passos e `review` antes de concluir/commitar.
+- **Agentes customizados (2):** `review` (primary — revisão read-only, bash read-only para evidências), `plan` (primary — planejamento read-only: bash read-only, escrita apenas em `docs/superpowers/plans/`, carrega `writing-plans`/`agent-memory`/context7). Usar `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. (O antigo agente `goal` foi removido — o `build` cobre o fluxo; o plugin `@prevalentware/opencode-goal-plugin` segue ativo para `/goal`.)
 - **Skills paths:** `~\.config\opencode\skills` (fonte única — sem duplicatas)
+- **MCPs (browser automation — padrão único):** `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`) — ambos `enabled: false` (opt-in por sessão via `/mcp`), pinados em `bunx` (nunca `npx @latest` — re-resolve a cada spawn e morre com `Stop-Process node`).
+- **DCP (context pruning):** compressão automática na banda **90% / 80%** do contexto (`dcp.jsonc`; `allowSubAgents: true` → também roda em subagentes) — limiar alto comprime menos vezes, priorizando **cache-hit** (evita invalidar o prefixo). O agente **pode e deve** chamar a tool `compress` **proativamente** quando trocar de assunto bruscamente ou concluir uma sub-tarefa cujo contexto verbatim não será mais usado — não espere só o nudge automático. `manualMode` fica **desligado** (ligá-lo desativa a compressão autônoma). Protegidos por padrão: `task`, `skill`, `todowrite`, `todoread`, `write`, `edit`.
 - **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode\memory\lessons.md` e `.opencode\memory\patterns.md` do projeto (se existirem) + `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
 - **Skill Promotion (OBRIGATÓRIO — parâmetro fixo em TODA gravação de memória):** ao gravar QUALQUER entrada em lessons.md/patterns.md (projeto ou global), CLASSIFIQUE antes de salvar: a entrada descreve um **PROCESSO reutilizável multi-passos** (workflow, critérios de decisão, checagem que se repete)? → **PROMOVA a skill**: carregue a skill `memory-promotion` e siga o procedimento (criar `SKILL.md` no local correto — global `~\.config\opencode\skills\<nome>\` ou projeto `.opencode\skills\<nome>\` —, registrar para provisionamento via `envctl snapshot`, e **REMOVER a entrada da memória** — sem redundância entre memória e skill). A entrada é LIÇÃO/anti-padrão, fato do ambiente ou preferência? → permanece na memória. Nunca manter o mesmo conteúdo em memória E skill. O ideal: skills novas por projeto e globais crescem conforme o uso; as globais (sem dados pessoais) são implementadas no envctl (`configs/skills/` + `manifests/skills.yaml`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
@@ -55,9 +58,9 @@
 
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**46 skills ativas** — 45 provisionadas: opencode 39 + firecrawl 5 + playwright 1; + 1 built-in: `customize-opencode`)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**50 skills ativas** — 49 provisionadas: opencode 43 + firecrawl 5 + playwright 1; + 1 built-in: `customize-opencode`)
 
-### opencode skills (39 provisionadas + 1 built-in)
+### opencode skills (43 provisionadas + 1 built-in)
 
 | Skill | Purpose |
 |-------|---------|
@@ -80,6 +83,10 @@
 | `skill-generalizer` | Make private skills publishable |
 | `skill-personalizer` | Adapt skills to user preferences |
 | `customize-opencode` | Edit opencode configuration (built-in OpenCode) |
+| `subagent-routing` | **Roteamento de subagentes** — quando delegar, qual tipo, paralelo vs sequencial |
+| `aur-headless-install` | Instalar pacotes AUR em shells não-interativos (makepkg + sudo pacman -U) |
+| `cachyos-gaming-setup` | Tune CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores) |
+| `headless-gui-probe` | Configs/validação de apps GUI sem display (offscreen/dummy, log scraping) |
 | `docs-sync` | Audit doc coverage vs code |
 | `ask-questions-if-underspecified` | Clarify requirements |
 | `dispatching-parallel-agents` | Run independent tasks in parallel |
@@ -115,6 +122,22 @@ const { chromium } = require('playwright');
   await browser.close();
 })();
 ```
+
+### Uso Proativo de SSH, Context7 e Busca Web (OBRIGATÓRIO)
+
+- **SSH / VPS** — skills `ssh-vps`, `vps-agent-dispatch`, `vps-provisioning`: para QUALQUER operação em servidor remoto, prefira a skill em vez de SSH cru — `ssh-vps` para inspecionar/operar serviços, `vps-agent-dispatch` para delegar tarefas pesadas (builds, testes, crawlers) a um OpenCode remoto, `vps-provisioning` para provisionar/manter VPS nova com envctl. Inventário dinâmico via `ssh-manager server list` (nunca IPs/chaves versionados).
+- **Context7 (docs de bibliotecas)** — skill `context7-auto` + MCP `context7`: ANTES de escrever código com uma lib/framework/API, busque documentação atualizada; não confie na memória do modelo para assinaturas/versões. Diga "use context7" ou carregue a skill.
+- **Busca na internet** — ferramentas built-in `WebSearch` (busca) e `WebFetch` (ler URL): use para fatos que mudam (versões, preços, notícias, docs públicas) em vez de assumir. Para scraping/renderização de páginas dinâmicas, use os MCPs de browser (`playwright` / `chrome-devtools`).
+
+### Delegação a Subagentes (uso proativo)
+
+Carregue a skill `subagent-routing` ao decidir delegar. Suba trabalho para **preservar o contexto do coordenador** e paralelizar domínios independentes (cada subagente tem contexto isolado e autocontido — nunca herda a sessão).
+
+- **Exploração** de codebase sem alvo definido ("onde está X", "como funciona Y") → subagente `explore`; 2+ áreas independentes → vários na MESMA resposta (paralelo).
+- **Pesquisa na internet/docs** → subagente `general` (+ `context7-auto`/`WebSearch`/`WebFetch`); fontes independentes podem rodar em paralelo.
+- **Debug sem causa conhecida** → investigar a causa raiz primeiro (`systematic-debugging`); paralelizar SÓ quando as falhas forem independentes (skill `dispatching-parallel-agents`).
+- **NÃO** paralelizar com falhas relacionadas / estado compartilhado / debug exploratório. Múltiplos agentes no mesmo repo git: skill `parallel-agent-orchestration`.
+- Prompt de cada subagente: focado, autocontido, output esperado explícito; o coordenador revisa e integra (build + suíte completa).
 
 ## Tool Access
 
@@ -157,7 +180,7 @@ Docker commands run natively from PowerShell without path-conversion workarounds
 
 ### Parallel Agent Execution
 
-Use `dispatching-parallel-agents` skill for independent tasks; each agent runs in its own context.
+Use a skill `subagent-routing` para decidir **quando/quem** delegar e `dispatching-parallel-agents` para a **execução paralela** (dispatches na mesma resposta); cada agente roda no seu próprio contexto.
 
 ## Temp & Scratch Hygiene (Mandatory)
 

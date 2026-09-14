@@ -6,9 +6,31 @@
       "type": "stdio"
     },
     "playwright": {
+      "command": "bunx",
+      "args": ["@playwright/mcp@0.0.79", "--browser", "chrome"],
+      "type": "stdio",
+      "enabled": false
+    },
+    "chrome-devtools": {
+      "command": "bunx",
+      "args": ["chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],
+      "type": "stdio",
+      "enabled": false
+    },
+    "ssh-manager": {
+      "command": "mcp-ssh-manager",
+      "type": "stdio",
+      "enabled": false
+    },
+    "zscan": {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"],
-      "type": "stdio"
+      "args": ["-y", "@eajdias/zscan-run", "assist"],
+      "env": {
+        "ZSCAN_LAUNCHER_COMMAND": "npx",
+        "ZSCAN_PRODUCT_ID": "assist"
+      },
+      "type": "stdio",
+      "enabled": false
     }
   }
 }

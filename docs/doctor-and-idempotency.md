@@ -30,9 +30,8 @@ envctl doctor
 5. **Runtime do Playwright & Navegadores Headless**:
    - Carregamento assíncrono do módulo `playwright` via Node.js em qualquer diretório.
    - Presença dos binários do Chromium instalados (`%LOCALAPPDATA%/ms-playwright` no Windows ou `~/.cache/ms-playwright` no Linux).
-   - Scripts utilitários `pw-screenshot` e `pw-eval` operacionais.
-6. **Catálogo de 74 Skills de Agentes**:
-   - Existência e conformidade de todas as 74 skills em `~/.config/opencode/skills/`.
+6. **Catálogo de 49 Skills de Agentes**:
+   - Existência e conformidade de todas as 49 skills em `~/.config/opencode/skills/`.
 
 ---
 

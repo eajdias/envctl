@@ -12,7 +12,7 @@ manifests/
 ├── git.yaml         # Otimizações de performance e configurações globais do Git
 ├── shell.yaml       # Variáveis de ambiente, diretórios protegidos e templates de arquivo
 ├── lsp.yaml         # Servidores de linguagem (LSP) para IDEs e OpenCode
-├── skills.yaml      # Catálogo e mapeamento das 74 Skills de Agentes de IA
+├── skills.yaml      # Catálogo e mapeamento das 49 Skills de Agentes de IA
 └── windows.yaml     # Tweaks de registro, Developer Mode e fontes do Windows 11
 ```
 
@@ -44,10 +44,10 @@ packages:
     test_binary: node
     description: "Node.js LTS runtime gerenciado pelo Volta"
 
-  - name: firecrawl-cli
+  - name: pnpm
     type: volta
-    test_binary: firecrawl
-    description: "CLI oficial do Firecrawl para raspagem e busca web"
+    test_binary: pnpm
+    description: "Gerenciador de pacotes Node.js gerenciado pelo Volta"
 
   # Ferramentas .NET
   - name: csharp-ls

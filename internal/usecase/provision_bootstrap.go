@@ -235,6 +235,16 @@ done`)
 		}
 	}
 
+	// 2c. Bun runtime - fast JS/TS runtime. The agent browser MCPs
+	// (playwright / chrome-devtools) launch through `bunx <pkg>@<version>`,
+	// so bun must be resolvable on PATH for those MCPs to spawn on Linux.
+	uc.step(ctx, result, "bun", "Bun JS/TS runtime",
+		`set -e
+export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+mkdir -p "$HOME/.local/bin"
+npm install -g --no-audit --no-fund --prefix "$HOME/.local" bun
+ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
+
 	// 3. OpenCode CLI - npm global (user prefix) with official script fallback.
 	uc.step(ctx, result, "opencode", "OpenCode CLI",
 		`set -e
@@ -361,16 +371,16 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		}
 	}
 
-	// 12. Firecrawl CLI - global npm tool used by the firecrawl-* agent skills
+	// Firecrawl CLI - global npm tool used by the firecrawl-* agent skills
 	// (mirrors the Windows volta global package).
 	uc.step(ctx, result, "firecrawl", "Firecrawl CLI",
 		"volta install firecrawl-cli")
 
-	// 13. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
+	// 12. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
 		"volta install stylelint")
 
-	// 14. Go SDK - official tarball into /usr/local/go (requires sudo).
+	// 13. Go SDK - official tarball into /usr/local/go (requires sudo).
 	// The prior install must be removed first: extracting over an old SDK
 	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
 	uc.step(ctx, result, "go", "Go programming language SDK",
@@ -383,7 +393,7 @@ sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
 rm -f /tmp/envctl-go.tar.gz
 echo "Installed ${GO_VER}"`)
 
-	// 15. Rustup - official non-interactive installer (installs to ~/.cargo).
+	// 14. Rustup - official non-interactive installer (installs to ~/.cargo).
 	uc.step(ctx, result, "rustup", "Rustup Rust toolchain manager",
 		`set -e
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -391,7 +401,7 @@ source "$HOME/.cargo/env"
 rustup default stable
 rustup component add rust-analyzer`)
 
-	// 16. Persist Go and Cargo PATH in shell profiles so future login shells
+	// 15. Persist Go and Cargo PATH in shell profiles so future login shells
 	// find go, gopls, rustc, cargo, rust-analyzer, etc.
 	uc.step(ctx, result, "shell-path", "Persist Go/Cargo/Rust PATH in shell profiles",
 		`set -e

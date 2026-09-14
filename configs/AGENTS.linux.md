@@ -7,7 +7,7 @@
 - **Shell Primary:** Bash (`/bin/bash`)
 - **Package Managers:** APT (system packages), Volta (Node ecosystem), npm, pip/uv (Python), cargo/rustup (Rust, optional)
 - **Node Runtime:** Node v24 LTS managed via Volta (`~/.volta`)
-- **Global Tools:** `rg` (ripgrep), `fd` (via `fdfind` symlink), `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `tree`, `zip/unzip`, `oh-my-posh`
+- **Global Tools:** `rg` (ripgrep), `fd` (via `fdfind` symlink), `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun` (`bunx` substitui `npx`), `tree`, `zip/unzip`, `oh-my-posh`
 - **OpenCode:** CLI installed via npm global (`opencode-ai`) into `~/.local/bin` (fallback: official install script)
 - **LSPs Registered:** `opencode.json` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, Rust Analyzer, CSharp-LS, ESLint, TOML, PHP — no PowerShell on Linux)
 - **Git:** `preloadindex=true`, `autocrlf=input`, `init.defaultBranch=main`, `delta` pager (no fscache/longpaths — Windows-only)
@@ -23,6 +23,7 @@
   1. **Falhas pré-existentes NÃO são desculpa**: qualquer warning/erro/falha encontrada — nova ou pré-existente, no código ou em testes — deve ser corrigida **no mesmo turno**, conforme a regra de Zero Tolerância acima. Proibido "reportar e seguir" ou "documentar para depois".
   2. **Evidência antes de afirmação**: exibir as saídas reais de lint/type-check/testes na resposta final; se o comando não foi rodado, a verificação não conta.
   3. **Se algo não pôde ser corrigido**: a tarefa permanece **não concluída** — reportar explicitamente o bloqueio e o motivo, sem declarar sucesso parcial.
+  4. **Fechamento com evidência fresca**: ao concluir uma tarefa com TODOs, reconcile a lista (nada pendente) e RE-EXECUTE a verificação (build/test/lint) para exibir saída atual — não basta afirmar que passou.
 
 ## OpenCode Configuration
 
@@ -30,6 +31,8 @@
 - **Global rules:** `~/.config/opencode/AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
 - **Plugin:** `@tarquinen/opencode-dcp@latest` (DCP context compression; config `~/.config/opencode/dcp.jsonc`; `compress` tool in experimental.primary_tools)
 - **Skills paths:** `~/.config/opencode/skills` (fonte única — sem duplicatas)
+- **MCPs (browser automation — padrão único):** `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`) — ambos `enabled: false` (opt-in por sessão via `/mcp`); `bun`/`bunx` são instalados pelo bootstrap Linux. O `playwright-cli` (Node API) segue disponível como alternativa.
+- **DCP (context pruning):** compressão automática na banda **90% / 80%** (`dcp.jsonc`; `allowSubAgents: true` → também em subagentes) — limiar alto = menos compressões, priorizando cache-hit. Chame a tool `compress` **proativamente** ao trocar de assunto bruscamente ou concluir uma sub-tarefa cujo contexto verbatim não será mais usado; `manualMode` fica **desligado** (ligá-lo desativa a compressão autônoma).
 - **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode/memory/lessons.md` e `.opencode/memory/patterns.md` do projeto (se existirem) + `~/.config/opencode/memory/lessons.md` e `~/.config/opencode/memory/patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
 - **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config`.
 
@@ -57,14 +60,6 @@ sudo -n apt-get update
 sudo -n systemctl restart nginx
 ```
 
-### Running Firecrawl Commands
-
-```bash
-firecrawl scrape "https://example.com"
-firecrawl search "query"
-firecrawl crawl "https://example.com" --limit 100
-```
-
 ### SSH exec on another VPS
 
 ```bash
@@ -78,9 +73,19 @@ docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
 docker exec -it <container> /bin/sh
 ```
 
+## Uso Proativo de SSH, Context7 e Busca Web (OBRIGATÓRIO)
+
+- **SSH / VPS** — skills `ssh-vps`, `vps-agent-dispatch`, `vps-provisioning`: para operações em servidores remotos, prefira a skill em vez de SSH cru (`ssh-vps` para operar serviços, `vps-agent-dispatch` para delegar tarefas pesadas a um OpenCode remoto, `vps-provisioning` para provisionar com envctl).
+- **Context7 (docs de bibliotecas)** — skill `context7-auto` + MCP `context7`: ANTES de escrever código com lib/framework/API, busque documentação atualizada; não confie na memória do modelo.
+- **Busca na internet** — ferramentas built-in `WebSearch`/`WebFetch`: use para fatos que mudam (versões, preços, docs públicas). Para páginas dinâmicas, use os MCPs de browser (`playwright` / `chrome-devtools`).
+
+## Delegação a Subagentes (uso proativo)
+
+Carregue a skill `subagent-routing` ao decidir delegar. Para preservar o contexto do coordenador: **exploração** de codebase sem alvo → `explore`; **pesquisa na internet/docs** → `general`; **debug** investiga a causa raiz primeiro. Paralelize domínios independentes na MESMA resposta; **não** paralelize falhas relacionadas / estado compartilhado / debug exploratório. Mecânica: `dispatching-parallel-agents`; mesmo repo git: `parallel-agent-orchestration`.
+
 ## Temp & Scratch Hygiene (Mandatory)
 
-- **Pasta de scratch padrão dos agentes LLM: `/temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — scripts do Playwright CLI, downloads, builds, extrações — **DEVE** ir para `/temp`, nunca para pastas do opencode, do projeto ou do sistema.
+- **Pasta de scratch padrão dos agentes LLM: `/temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — downloads, builds, extrações — **DEVE** ir para `/temp`, nunca para pastas do opencode, do projeto ou do sistema.
 - **Never leave scratch behind**: todo arquivo criado em `/temp` durante uma sessão **DEVE ser removido antes do fim da sessão**.
 - **Big downloads/extracts**: se um tarball/zip ou build output for necessário apenas para produzir um resultado (ex.: `*.tar.gz`, `*.zip`, `*.FDB` copies, `opencode/` scratch), baixar/extrair em `/temp/<tarefa>\`, usar e deletar na mesma sessão.
 - **After finishing a task**: rodar o cleanup pass sobre o scratch criado:

@@ -18,7 +18,7 @@
     "turns": 4
   },
   "experimental": {
-    "allowSubAgents": false,
+    "allowSubAgents": true,
     "customPrompts": false
   },
   "protectedFilePatterns": [],
@@ -27,10 +27,10 @@
     "permission": "allow",
     "showCompression": false,
     "summaryBuffer": true,
-    "maxContextLimit": "85%",
-    "minContextLimit": "75%",
-    "nudgeFrequency": 5,
-    "iterationNudgeThreshold": 20,
+    "maxContextLimit": "90%",
+    "minContextLimit": "80%",
+    "nudgeFrequency": 10,
+    "iterationNudgeThreshold": 30,
     "nudgeForce": "soft",
     "protectedTools": ["task", "skill", "todowrite", "todoread"],
     "protectTags": false,

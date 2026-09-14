@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 74 Skills de IA.
+4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 49 Skills de IA.
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -86,7 +86,7 @@ envctl run volta
 # Apenas configurações de shell (.bashrc, aliases, git configs)
 envctl run shell
 
-# Apenas extração e validação das 74 Skills de Agentes
+# Apenas extração e validação das 49 Skills de Agentes
 envctl run skills
 
 # Apenas instalação dos servidores de linguagem (18 LSPs)
@@ -121,9 +121,5 @@ ssh minha-vps 'opencode run "Diagnosticar uso de disco e containers Docker com a
 ssh minha-vps 'nohup opencode run "Executar testes de carga no endpoint /api/v1/auth e salvar resumo em /tmp/summary.md" < /dev/null > /tmp/agent.log 2>&1 &'
 ```
 
-### 3. Automação Headless com Playwright no Linux:
-O `envctl` instala as dependências nativas de sistema (`sudo npx playwright install-deps chromium`) para que a extração web headless funcione de forma nativa:
-```bash
-pw-screenshot https://meu-servico-web.internal /tmp/dashboard.png
-pw-eval https://meu-servico-web.internal "document.title"
-```
+### 3. Automação Headless com MCPs de Browser no Linux:
+O `envctl` instala o runtime `bun` (`bunx`) e as dependências nativas de sistema (`sudo npx playwright install-deps chromium`), e provisiona os MCPs `playwright` e `chrome-devtools` (`enabled: false` — ative por sessão via `/mcp`). Para scripts autônomos, a Node API (`require('playwright')`) roda com Chromium em `~/.cache/ms-playwright`.

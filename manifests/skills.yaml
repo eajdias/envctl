@@ -209,6 +209,11 @@ skills:
       source: configs/skills/universal-test-runner
       target_dir: ""
       enabled: true
+    - name: subagent-routing
+      description: Roteamento e delegação de subagentes (quando delegar, qual tipo, paralelo vs sequencial)
+      source: configs/skills/subagent-routing
+      target_dir: ""
+      enabled: true
     - name: using-git-worktrees
       description: OpenCode agent skill using-git-worktrees
       source: configs/skills/using-git-worktrees

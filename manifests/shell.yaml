@@ -105,30 +105,16 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_mcp
-    description: "CommandCode user-scope MCP servers (context7, playwright)"
+    description: "CommandCode user-scope MCP servers (context7, playwright, chrome-devtools)"
     source: "configs/commandcode/mcp.json"
     destination: "~/.commandcode/mcp.json"
     strict_acl: false
     category: "commandcode"
 
-  - id: commandcode_agent_review
-    description: "CommandCode review agent definition"
-    source: "configs/commandcode/agents/review.md"
-    destination: "~/.commandcode/agents/review.md"
-    strict_acl: false
-    category: "commandcode"
-
-  - id: commandcode_agent_plan
-    description: "CommandCode plan agent definition"
-    source: "configs/commandcode/agents/plan.md"
-    destination: "~/.commandcode/agents/plan.md"
-    strict_acl: false
-    category: "commandcode"
-
-  - id: commandcode_agent_goal
-    description: "CommandCode goal agent definition"
-    source: "configs/commandcode/agents/goal.md"
-    destination: "~/.commandcode/agents/goal.md"
+  - id: commandcode_agent_code_reviewer
+    description: "CommandCode code-reviewer agent (read-only, evidencia file:line); nomes reservados (review/plan/general/explore) sao IGNORADOS pelo CommandCode"
+    source: "configs/commandcode/agents/code-reviewer.md"
+    destination: "~/.commandcode/agents/code-reviewer.md"
     strict_acl: false
     category: "commandcode"
 
@@ -250,9 +236,6 @@ directories:
   - path: "~/.commandcode/agents"
     strict_acl: false
     description: "CommandCode agent definitions directory"
-  - path: "~/.commandcode/memory"
-    strict_acl: false
-    description: "CommandCode agent memory directory"
   - path: "~/.poshthemes"
     strict_acl: false
     description: "Oh-My-Posh themes directory"
@@ -290,4 +273,16 @@ cleanup:
   - id: stale_commandcode_settings_jsonc
     description: "Remove stale CommandCode settings.jsonc (standardized on settings.json)"
     path: "~/.commandcode/settings.jsonc"
+    category: "commandcode"
+  - id: stale_commandcode_agent_review
+    description: "Remove CommandCode agents/review.md (reserved name — ignored; superseded by code-reviewer)"
+    path: "~/.commandcode/agents/review.md"
+    category: "commandcode"
+  - id: stale_commandcode_agent_plan
+    description: "Remove CommandCode agents/plan.md (reserved name — ignored; built-in Plan covers it)"
+    path: "~/.commandcode/agents/plan.md"
+    category: "commandcode"
+  - id: stale_commandcode_agent_goal
+    description: "Remove CommandCode agents/goal.md (agent removed — build covers the flow)"
+    path: "~/.commandcode/agents/goal.md"
     category: "commandcode"

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -39,7 +41,11 @@ type SkillDeployResult struct {
 	ErrorMessage string
 }
 
-func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir string) ([]SkillDeployResult, error) {
+// Execute deploys the manifest skills into targetBaseDir and removes any skill
+// directory that is no longer in the manifest, so the target always mirrors the
+// manifest. It returns the per-skill deploy results and the names of the pruned
+// (stale) skill directories.
+func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir string) ([]SkillDeployResult, []string, error) {
 	if targetBaseDir == "" {
 		targetBaseDir = "~/.config/opencode/skills"
 	}
@@ -49,11 +55,18 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		if uc.logger != nil {
 			uc.logger.Error("Failed to load skills manifest: %v", err)
 		}
-		return nil, fmt.Errorf("failed to load skills manifest: %w", err)
+		return nil, nil, fmt.Errorf("failed to load skills manifest: %w", err)
 	}
 
 	if uc.logger != nil {
 		uc.logger.Info("Starting agent skills provisioning (Total: %d skills, Target: '%s')", len(skills), targetBaseDir)
+	}
+
+	wanted := make(map[string]bool, len(skills))
+	for _, skill := range skills {
+		if skill.Enabled {
+			wanted[skill.Name] = true
+		}
 	}
 
 	var results []SkillDeployResult
@@ -93,5 +106,47 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		}
 	}
 
-	return results, nil
+	var pruned []string
+	if base, expandErr := uc.fsManager.ExpandUserPath(targetBaseDir); expandErr == nil {
+		pruned = pruneStaleSkills(base, wanted, uc.logger)
+	} else if uc.logger != nil {
+		uc.logger.Warn("Could not expand skills target '%s' for pruning: %v", targetBaseDir, expandErr)
+	}
+
+	return results, pruned, nil
+}
+
+// pruneStaleSkills removes directories directly under baseDir whose names are
+// not in wanted, keeping the deployed skills mirroring the manifest. It is a
+// no-op when wanted is empty (safety against an empty/failed manifest) and
+// skips dot-directories. Removed names are returned.
+func pruneStaleSkills(baseDir string, wanted map[string]bool, logger repository.Logger) []string {
+	if baseDir == "" || len(wanted) == 0 {
+		return nil
+	}
+
+	entries, err := os.ReadDir(baseDir)
+	if err != nil {
+		return nil
+	}
+
+	var removed []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.IsDir() || strings.HasPrefix(name, ".") || wanted[name] {
+			continue
+		}
+		path := filepath.Join(baseDir, name)
+		if err := os.RemoveAll(path); err != nil {
+			if logger != nil {
+				logger.Warn("Failed to prune stale skill '%s' (%s): %v", name, path, err)
+			}
+			continue
+		}
+		removed = append(removed, name)
+		if logger != nil {
+			logger.Info("[SKILLS-PRUNE] removed stale skill '%s' from '%s'", name, baseDir)
+		}
+	}
+	return removed
 }

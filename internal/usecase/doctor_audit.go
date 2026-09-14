@@ -428,7 +428,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 10. Audit Custom CLI Scripts (~/.local/bin)
+	// Audit Custom CLI Scripts (~/.local/bin)
 	customScripts := []string{"pw-screenshot", "pw-eval"}
 	for _, cs := range customScripts {
 		scriptPath := filepath.Join(userHomeDir, ".local", "bin", cs)
@@ -450,7 +450,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 11. Audit Git Worktree Support
+	// 10. Audit Git Worktree Support
 	// `git worktree list` exits 128 outside a git repository, which is expected
 	// and not a fault of the git installation. Only run the command from inside a repo.
 	if _, err := exec.LookPath("git"); err != nil {
@@ -485,7 +485,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 12. Audit Linux Toolchain Bootstrap (Linux only)
+	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
 		env := linuxToolchainEnv(userHomeDir)
 		bootstrapTools := []struct {
@@ -505,6 +505,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"firecrawl", "Firecrawl CLI (via Volta)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
+			{"bun", "Bun JS/TS runtime (browser MCP launcher via bunx)"},
 			{"go", "Go programming language SDK"},
 			{"rustup", "Rustup Rust toolchain manager"},
 			{"cargo", "Cargo build tool (via Rustup)"},
@@ -535,7 +536,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 12.5. Audit WSL Ubuntu secondary shell (Windows only)
+	// 11.5. Audit WSL Ubuntu secondary shell (Windows only)
 	if runtime.GOOS == "windows" {
 		out, err := exec.CommandContext(ctx, "wsl.exe", "-l", "-q").CombinedOutput()
 		// Windows console output is UTF-16: strip null bytes before matching.
@@ -566,7 +567,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 12.6. Audit Windows console code page (UTF-8 required for Unicode glyph rendering)
+	// 11.6. Audit Windows console code page (UTF-8 required for Unicode glyph rendering)
 	if runtime.GOOS == "windows" {
 		out, err := exec.CommandContext(ctx, "chcp").CombinedOutput()
 		codePage := strings.TrimSpace(regexp.MustCompile(`\d+`).FindString(string(out)))
@@ -595,7 +596,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			})
 		}
 
-		// 12.6.1. Audit system ACP/OEMCP — the durable root cause. The chcp result above
+		// 11.6.1. Audit system ACP/OEMCP — the durable root cause. The chcp result above
 		// depends on how envctl was launched (the PowerShell profile sets 65001 only in
 		// interactive shells); opencode spawns pwsh with -NoProfile, so the system code
 		// page is the only layer covering every process (shell tool, cmd.exe, services).
@@ -635,7 +636,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 13. Audit OpenCode storage accumulation & standardized temp folder
+	// 12. Audit OpenCode storage accumulation & standardized temp folder
 	opencodeDataDir, _ := uc.fsManager.ExpandUserPath("~/.local/share/opencode")
 
 	dbPath := filepath.Join(opencodeDataDir, "opencode.db")
@@ -722,7 +723,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 14. Audit CommandCode Agent Health
+	// 13. Audit CommandCode Agent Health
 	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
 		cmdPath, cmdErr := exec.LookPath("cmd")
 		if cmdErr != nil {

@@ -7,6 +7,38 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [Unreleased]
+
+### 🧭 Agentes opencode: `plan` volta ao default (built-in) e agente `goal` removido
+
+- **Changed**: agente `plan` — removido o `"mode": "all"` de `opencode.json`/`opencode.linux.json`; volta ao default do opencode (**primary built-in**, não dispatchável via task tool). Prompt ajustado.
+- **Removed**: agente `goal` (autônomo YOLO) de `opencode.json`/`opencode.linux.json` e `configs/commandcode/agents/goal.md` (+ entrada `commandcode_agent_goal` em `manifests/shell.yaml`) — o agente `build` cobre o fluxo. O plugin `@prevalentware/opencode-goal-plugin` **permanece** (o `/goal` funciona a partir de qualquer agente, inclusive `build`).
+
+### 🧭 Dispatch de subagentes: diretiva proativa + skill `subagent-routing`
+
+- **Added**: skill `subagent-routing` — roteamento de subagentes (quando delegar, `explore` vs `general`, paralelo vs sequencial, quando NÃO delegar).
+- **Changed**: `configs/AGENTS.md`, `configs/AGENTS.linux.md` e `configs/commandcode/AGENTS.md` ganharam as seções **"Uso Proativo de SSH, Context7 e Busca Web (OBRIGATÓRIO)"** e **"Delegação a Subagentes (uso proativo)"**, e o `Tone`/`Zero Tolerância` passam a exigir sinalizar defaults subótimos com trade-offs e fechar tarefas com evidência fresca.
+- **Changed**: prompts dos agentes `review`/`plan` (`opencode.json`/`opencode.linux.json`) reforçados para dispatch proativo de `explore`/`general`, paralelizando domínios independentes na mesma resposta.
+
+### 🧠 DCP (context pruning) priorizando cache-hit + compressão manual
+
+- **Changed**: `configs/dcp.jsonc` — `experimental.allowSubAgents: true`; banda de compressão automática **90%/80%** e `nudgeFrequency: 10` / `iterationNudgeThreshold: 30` (menos compressões e menos injeções de nudge = **cache-hit melhor**); `manualMode` segue **desligado** (ligá-lo desativa a compressão autônoma).
+- **Changed**: `configs/AGENTS.md` e `configs/AGENTS.linux.md` — diretiva para chamar a tool `compress` **proativamente** (troca brusca de assunto / fim de sub-tarefa).
+
+### 🔌 Paridade opencode ↔ CommandCode (agentes + MCP + memory)
+
+- **Fixed**: agentes custom do CommandCode — `review.md`/`plan.md` usavam **nomes reservados** (`explore`/`plan`/`review`/`general`) e eram **ignorados** pelo CommandCode; o frontmatter ainda usava tool ids inválidos (`read`/`webfetch`/`websearch`). Substituídos por **`code-reviewer.md`** (nome válido; tools `read_file`, `read_directory`, `grep`, `glob`, `web_search`, `web_fetch`, `shell_command`) — read-only, evidência `file:line`, severidades + veredito. `plan.md` removido (o built-in **Plan** do CommandCode cobre). O cleanup passa a remover os `.md` stale (`review`/`plan`/`goal`).
+- **Removed**: diretório vestigial `~/.commandcode/memory` do `shell.yaml` (a memória do CommandCode é o `AGENTS.md`).
+- **Changed**: `configs/commandcode/mcp.json` — adicionados `ssh-manager` e `zscan` (`enabled: false`) para paridade com o opencode; `configs/commandcode/AGENTS.md` documenta built-ins/nomes reservados, memory = `AGENTS.md` e ganha o catálogo de skills.
+
+### 🧹 Poda de skills fora do manifesto + bun no bootstrap Linux
+
+- **Added**: `ProvisionSkillsUseCase.Execute` agora **poda** diretórios de skill que saíram do manifesto (guarda contra manifesto vazio; ignora dot-dirs; retorna os nomes removidos, exibidos pelo CLI). Coberto por `provision_skills_test.go`.
+- **Added**: `bun`/`bunx` no bootstrap Linux (`provision_bootstrap.go`) + auditoria no `doctor` — necessário para os MCPs `bunx` nas VPSs.
+- **Changed**: MCPs de browser (`playwright`, `chrome-devtools`) padronizados em `bunx` com versão pinada e `enabled: false` nos 3 configs; `docs/`, `README.md` e a memória global (`configs/memory/*.md`) sincronizados (7 lições novas de ambiente).
+
+---
+
 ## [v1.2.0] - 2026-09-06
 
 ### 🆕 CommandCode: provisionamento equivalente ao OpenCode
