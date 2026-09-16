@@ -4,8 +4,6 @@ description: "Use para revisar código/diff com evidência (correção, seguran�
 tools: read_file, read_directory, grep, glob, web_search, web_fetch, shell_command
 model: inherit
 reasoningEffort: high
-maxTurns: 40
-background: false
 ---
 
 You are a meticulous code reviewer. **Read-only** — never modify files.

@@ -9,6 +9,31 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🧹 Poda de skills estrangeiras/obsoletas + paridade de plataforma no CommandCode
+
+- **Removed**: 3 skills — `implementation-strategy` e `docs-sync` (conteúdo do projeto **openai-agents-python**: `mkdocs.yml`, `docs/ja|ko|zh`, `src/agents/`, `$openai-knowledge`/OpenAI Docs MCP, e um script `find_latest_release_tag.sh` que não existe neste repo) e `grill-me` (corpo de 2 linhas que só re-invocava `grilling`, via nome de tool do opencode). Catálogo: 43 → **40 skills provisionadas** (+1 built-in do opencode).
+- **Fixed**: skills com referências mortas — `docker` (seção do MCP `docker-hub`, removido do repo há versões, virou uma nota de que o MCP não existe), `vps-agent-dispatch` (`npm install -g @opencode-ai/cli` → `opencode-ai`, pacote correto; scratch `/tmp` → `/temp`), `memory-promotion` (banda DCP obsoleta 85/75 e menção a DCP), `handoff` e `lsp-smoke-test` (nome de tool/config parametrizados por agente).
+- **Fixed**: seeds de memória — removida a entrada DCP 85/75 (superada pela 90/80), corrigido o valor no registro de plugins, removido o módulo Node `playwright` da lista de libs globais (browser automation é MCP-only), numeração do `doctor` corrigida (12.6/12.6.1 → 11.6/11.6.1) e movidas para fora do seed global **11 entradas de DOMÍNIO** (projeto/fornecedor), que por regra pertencem à memória do projeto. As cópias por máquina não são afetadas (`seed_if_missing`).
+- **Added**: `configs/commandcode/AGENTS.linux.md` + filtro `os:` em `manifests/shell.yaml` — a VPS Linux recebia o manifesto **Windows** do CommandCode (PowerShell 7.6.5, `C:\temp`), enquanto o opencode já tinha variante Linux.
+- **Changed**: `docs/skills.md` reescrito como catálogo completo das 40 skills (antes listava ~20) + tabela de paridade OpenCode ↔ CommandCode (skills, memória, LSP, context pruning, regras globais).
+- **Changed**: `manifests/packages.yaml` — adicionadas `pypdf`, `python-docx` e `lxml` ao provisionamento pip do Windows; os docs (`AGENTS.md` e memória) já as listavam como disponíveis.
+- **Changed**: `configs/AGENTS.md` — removidas as linhas das 3 skills e contagem ajustada (41 ativas = 40 provisionadas + 1 built-in).
+- **Changed**: removido o número hardcoded de verificações do `doctor` dos docs ("160+") — a contagem é dinâmica (155 nesta máquina Windows, menor no Linux), então os docs passam a descrever o escopo em vez de um número que não se sustenta.
+- **Changed**: o teste do manifesto agora exige que `manifests/skills.yaml` e os diretórios embutidos de `configs/skills/` batam exatamente (skill embutida e não declarada nunca é deployada; declarada sem diretório quebra o provisionamento).
+
+### 🧩 Paridade CommandCode: config, metadata e validação no doctor
+
+- **Fixed**: `configs/commandcode/settings.json` — removido o `$schema` (`https://commandcode.ai/schema/settings.json` responde **404** e não é chave do registry de settings); removidas as entradas de permissão mortas herdadas do opencode (`todowrite`, `todoread`, `task`, `skill` — no CommandCode as tools são `todo_write`, `task_create/update/list/get/stop` e `activate_skill`) e as no-op (`Read`, `WebFetch`, `WebSearch`, `Shell(go test:*)`, `Shell(go vet:*)`); adicionadas regras `deny` (`Shell(git push --force*)`, `Shell(git reset --hard*)`, `Shell(git clean -*)`, `Edit(.git/**)`) e `ask` para segredos (`Read(.env*)`, `Read(~/.commandcode/auth.json)`).
+- **Fixed**: `configs/commandcode/AGENTS.md` — a afirmação "Config is NOT hot-reloaded: restart CommandCode after changes" era falsa (agents, skills e memória são re-lidos a cada turno; `settings.json` vale no próximo round; só um update staged exige `/reload`); catálogo de skills corrigido — faltavam `aur-headless-install`, `cachyos-gaming-setup` e `headless-gui-probe` (a contagem final do ciclo está na entrada de poda acima); adicionados `.agents/skills/` (compat), escopo local de MCP, precedência de MCP e o conjunto completo de campos do frontmatter de agente.
+- **Fixed**: agente `code-reviewer` — removido o `maxTurns: 40` (o default documentado do CommandCode é 100; o cap interrompia revisões longas).
+- **Fixed**: `manifests/shell.yaml` — novo cleanup `stale_commandcode_memory_dir` remove `~/.commandcode/memory` (sobra do provisionamento antigo; o CommandCode não tem memory-dir); descrição do `commandcode_mcp` atualizada para os 5 servidores reais.
+- **Fixed**: skills que referenciam caminhos exclusivos do opencode (`~/.config/opencode/memory/`, `.opencode/memory/`, `opencode.json`) foram neutralizadas/parametrizadas por agente — `agent-memory`, `memory-promotion`, `ssh-vps`, `docker`, `lsp-smoke-test`, `windows-admin`, `subagent-routing` (corrigido também `plan`/`goal` como agentes do CommandCode — `goal` não existe) e `skill-generalizer/references/platform-compatibility.md` (nova linha do Command Code).
+- **Changed**: removido `compatibility: opencode` de 13 `SKILL.md` — no CommandCode o campo significa **requisitos de ambiente**, então o valor era metadado enganoso (e a rubrica de portabilidade do projeto pede frontmatter conservador).
+- **Changed**: `manifests/skills.yaml` — as 25 descrições placeholder `"OpenCode agent skill <name>"` viraram descrições reais; `snapshot_sync.go` passa a derivar a descrição do frontmatter do `SKILL.md` em vez de gerar o placeholder.
+- **Added**: `internal/usecase/skill_frontmatter.go` — parser/validador de frontmatter (Agent Skills) compartilhado; o `doctor` agora valida o JSON de `settings.json`/`mcp.json`, o frontmatter de cada agente custom (nome == arquivo, nomes reservados ignorados) e o das skills implantadas (nome == diretório, descrição não vazia), além de comparar a contagem implantada com o manifesto.
+- **Changed**: contagens normalizadas em `README.md` e `docs/principles.md`.
+- **Changed**: `.gitignore` — o escopo de projeto do CommandCode passa a versionar os artefatos autorais (`skills/`, `commands/`, `agents/`); `settings.json`, `settings.local.json` e `taste/` seguem locais por máquina.
+
 ### 🔥 Trim do firecrawl + browser automation MCP-only (43 skills)
 
 - **Removed**: suite firecrawl completa — 5 skills (`firecrawl`, `firecrawl-crawl`, `firecrawl-map`, `firecrawl-scrape`, `firecrawl-search`), pacote volta `firecrawl-cli`, step de bootstrap Linux e check do `doctor`.

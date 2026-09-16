@@ -1,8 +1,6 @@
 {
-  "$schema": "https://commandcode.ai/schema/settings.json",
   "permissions": {
     "allow": [
-      "Read",
       "Edit",
       "Write",
       "Shell(git:*)",
@@ -13,24 +11,23 @@
       "Shell(bun:*)",
       "Shell(bunx:*)",
       "Shell(pytest:*)",
-      "Shell(go test:*)",
-      "Shell(go vet:*)",
       "Shell(cargo test:*)",
       "Shell(dotnet test:*)",
-      "Shell(docker:*)",
-      "skill",
-      "WebFetch",
-      "WebSearch",
-      "todowrite",
-      "todoread",
-      "task"
+      "Shell(docker:*)"
     ],
     "ask": [
       "Shell(rm:*)",
       "Shell(sudo:*)",
       "Shell(git push:*)",
-      "Shell(git commit:*)"
+      "Shell(git commit:*)",
+      "Read(.env*)",
+      "Read(~/.commandcode/auth.json)"
     ],
-    "deny": []
+    "deny": [
+      "Shell(git push --force*)",
+      "Shell(git reset --hard*)",
+      "Shell(git clean -*)",
+      "Edit(.git/**)"
+    ]
   }
 }

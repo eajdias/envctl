@@ -98,14 +98,23 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_agents_manifest
-    description: "CommandCode global rules manifesto (auto-loaded from ~/.commandcode/AGENTS.md)"
+    description: "CommandCode global rules manifesto for Windows workstations (auto-loaded from ~/.commandcode/AGENTS.md)"
     source: "configs/commandcode/AGENTS.md"
     destination: "~/.commandcode/AGENTS.md"
     strict_acl: false
     category: "commandcode"
+    os: windows
+
+  - id: commandcode_agents_manifest_linux
+    description: "CommandCode global rules manifesto for Linux VPS servers (no PowerShell/Windows paths)"
+    source: "configs/commandcode/AGENTS.linux.md"
+    destination: "~/.commandcode/AGENTS.md"
+    strict_acl: false
+    category: "commandcode"
+    os: linux
 
   - id: commandcode_mcp
-    description: "CommandCode user-scope MCP servers (context7, playwright, chrome-devtools)"
+    description: "CommandCode user-scope MCP servers (context7; playwright, chrome-devtools, ssh-manager, zscan disabled by default)"
     source: "configs/commandcode/mcp.json"
     destination: "~/.commandcode/mcp.json"
     strict_acl: false
@@ -256,6 +265,11 @@ cleanup:
     description: "Remove CommandCode agents/goal.md (agent removed — build covers the flow)"
     path: "~/.commandcode/agents/goal.md"
     category: "commandcode"
+  - id: stale_commandcode_memory_dir
+    description: "Remove stale CommandCode memory dir (CommandCode has no memory-dir — memory lives in AGENTS.md)"
+    path: "~/.commandcode/memory"
+    category: "commandcode"
+    recursive: true
   - id: stale_pw_screenshot
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-screenshot"

@@ -30,11 +30,9 @@ O ambiente usa **PowerShell 7** como shell padrão — nenhuma conversão de cam
 - Em volumes no Windows, use caminhos absolutos no formato misto (ex: `docker run -v "C:/meu/projeto:/app"`).
 - Para comandos Linux dentro de containers exigirem shell bash: `docker exec -it <container> bash`.
 
-## Docker Hub (MCP docker-hub)
+## Docker Hub
 
-- MCP server local do repositório `docker/hub-mcp` (clonado em `~/Documents/docker-hub-mcp-server`; roda via `node dist/index.js --transport=stdio`; NÃO existe pacote npm).
-- **Desabilitado por padrão** no opencode.json (`enabled: false`). Se o usuário quiser usar as ferramentas de busca/pesquisa de imagens e repositórios do Hub, o AGENTE NÃO edita o config — parar e pedir ao usuário para habilitar (`"docker-hub": { "enabled": true }` no bloco mcp do `~\.config\opencode\opencode.json`).
-- Auth opcional via env `HUB_USERNAME` + `HUB_PAT_TOKEN` (só para operações autenticadas; leitura pública funciona sem).
+Não existe MCP do Docker Hub neste ambiente (foi removido) — use a CLI `docker` (`docker search`, `docker pull`, `docker push`) ou o site do Hub. Nunca editar config de MCP por conta própria.
 
 ## Regras
 

@@ -94,7 +94,7 @@ envctl run windows
 # Apenas variáveis de ambiente (NODE_PATH, ENVCTL_TEMP) e arquivos de shell
 envctl run shell
 
-# Apenas catálogo de 43 Skills do OpenCode/CommandCode
+# Apenas catálogo de 40 Skills do OpenCode/CommandCode
 envctl run skills
 
 # Apenas servidores de linguagem (18 LSPs)

@@ -137,6 +137,27 @@ packages:
     category: cli-tools
     check_command: py -m pip show beautifulsoup4
 
+  - id: pypdf
+    name: pypdf (PDF text extraction for python agent scripts)
+    type: pip
+    os: windows
+    category: cli-tools
+    check_command: py -m pip show pypdf
+
+  - id: python-docx
+    name: python-docx (Word .docx read/write for python agent scripts)
+    type: pip
+    os: windows
+    category: cli-tools
+    check_command: py -m pip show python-docx
+
+  - id: lxml
+    name: lxml (fast XML/HTML parsing for python agent scripts)
+    type: pip
+    os: windows
+    category: cli-tools
+    check_command: py -m pip show lxml
+
   - id: jqlang.jq
     name: jq (JSON processor for CLI/agent pipelines)
     type: winget

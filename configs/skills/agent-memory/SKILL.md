@@ -12,16 +12,24 @@ nunca repetir erros e sempre aplicar preferências que já funcionaram.
 
 ## Localização
 
-- **Global:** `~/.config/opencode/memory/lessons.md` e `~/.config/opencode/memory/patterns.md`
-- **Projeto:** `.opencode/memory/lessons.md` e `.opencode/memory/patterns.md` (versionado, revisável em PR)
-- Se um arquivo de projeto não existir, crie-o com o template da seção "Formato".
+O par de arquivos depende do agente em uso — siga a coluna do seu:
+
+| Escopo | OpenCode | CommandCode |
+|---|---|---|
+| Global | `~/.config/opencode/memory/lessons.md` + `patterns.md` | `~/.commandcode/AGENTS.md` (memória user-tier — o CommandCode não tem memory-dir) |
+| Projeto | `.opencode/memory/lessons.md` + `patterns.md` | `AGENTS.md` na raiz do projeto (ou `.commandcode/AGENTS.md`) |
+
+No CommandCode os mesmos conteúdos vivem como seções `## Erros / Lições` e
+`## Padrões / Preferências` dentro do arquivo de memória do tier correspondente —
+crie os arquivos `lessons.md`/`patterns.md` apenas quando estiver no OpenCode.
+Se o arquivo de projeto não existir, crie-o com o template da seção "Formato".
 
 ## Fluxo obrigatório (LOAD → ACT → SAVE → REFLECT)
 
 ### 1. LOAD — OBRIGATÓRIO no início de QUALQUER tarefa
-**Antes de explorar código, escrever ou executar qualquer coisa**, CARREGUE esta skill (`skill` tool com `name: agent-memory`) e LEIA, nesta ordem: projeto `.opencode/memory/lessons.md`, projeto `.opencode/memory/patterns.md`, global `~/.config/opencode/memory/lessons.md`, global `~/.config/opencode/memory/patterns.md`.
+**Antes de explorar código, escrever ou executar qualquer coisa**, CARREGUE esta skill (CommandCode: `/agent-memory` ou a tool `activate_skill`; OpenCode: tool `skill` com `name: agent-memory`) e LEIA, na ordem projeto → global, os arquivos da sua coluna na tabela acima (lições e patterns de cada escopo).
 
-Isto vale para **todos os agentes e subagentes** (task, explore, general, etc.). Trate cada lição como **restrição ativa** da tarefa. Se um erro registrado estiver prestes a se repetir, PARE e refaça conforme a lição.
+Isto vale para **todos os agentes e subagentes** (task/agent, explore, general, etc.). Trate cada lição como **restrição ativa** da tarefa. Se um erro registrado estiver prestes a se repetir, PARE e refaça conforme a lição.
 
 ### 2. ACT — trabalhe
 Aplique os patterns que funcionam e evite os erros registrados.
@@ -43,7 +51,7 @@ vez de duplicar** (renove a data).
 ### 4. REFLECT — ao finalizar a sessão/tarefa
 - Revise os arquivos e pode duplicados/obsoletos (mantenha enxuto).
 - Garanta que as lições estão no formato acionável ❌→✅.
-- Projeto: deixe `.opencode/memory/*.md` commitável (o usuário revisa em PR).
+- Projeto: deixe o arquivo de memória do projeto commitável (o usuário revisa em PR).
 
 ## Formato (template de arquivo)
 
@@ -62,10 +70,10 @@ vez de duplicar** (renove a data).
 
 ## Regras
 
-- **Obrigatório por padrão**: esta skill é carregada no início de TODA tarefa (AGENTS.md global reforça). Se por qualquer motivo não foi carregada, carregue imediatamente (`skill` tool, `name: agent-memory`) antes de prosseguir.
+- **Obrigatório por padrão**: esta skill é carregada no início de TODA tarefa (a memória global do agente reforça). Se por qualquer motivo não foi carregada, carregue imediatamente (`/agent-memory` no CommandCode, tool `skill` no OpenCode) antes de prosseguir.
 - NUNCA apague lições sem motivo claro (poda apenas no REFLECT).
 - Não grave segredos/credenciais na memória — só referências genéricas.
-- Memórias globais (`~/.config/opencode/memory/`) são **individuais por máquina** — nunca versionar/sincronizar para repositórios.
-- `.opencode/memory/*.md` de projeto é versionável (revisável em PR) apenas se NÃO contiver dados privados.
+- Memória global é **individual por máquina** — nunca versionar/sincronizar para repositórios.
+- Memória de projeto é versionável (revisável em PR) apenas se NÃO contiver dados privados.
 - Memória é contexto, não documentação — mantenha curta e acionável.
 - Prefira PT-BR (idioma do usuário) nas entradas.

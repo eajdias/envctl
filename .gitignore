@@ -32,8 +32,14 @@
 # Playwright MCP scratch
 .playwright-mcp/
 
-# Local agent state (session permissions, machine-absolute paths, taste notes)
-.commandcode/
+# CommandCode project scope. Authored artifacts are shared with the team
+# (skills/, commands/, agents/ — see the docs); per-machine state stays local:
+# settings.json (session approvals + machine-absolute paths), settings.local.json
+# and the learned taste profile.
+.commandcode/*
+!.commandcode/skills/
+!.commandcode/commands/
+!.commandcode/agents/
 
 # OS specific
 Thumbs.db

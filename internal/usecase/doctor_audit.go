@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -682,12 +683,32 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 			mcpPath := filepath.Join(ccConfigDir, "mcp.json")
 			if uc.fsManager.Exists(mcpPath) {
-				addDiag(entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "CommandCode",
-					Target:   "MCP config",
-					Details:  "mcp.json present",
-				})
+				data, readErr := os.ReadFile(mcpPath)
+				switch {
+				case readErr != nil:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "MCP config",
+						Details:  fmt.Sprintf("mcp.json unreadable: %v", readErr),
+						FixHint:  "Run 'envctl run shell' to re-provision CommandCode configs",
+					})
+				case !json.Valid(data):
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "MCP config",
+						Details:  "mcp.json is not valid JSON — CommandCode cannot load the servers",
+						FixHint:  "Run 'envctl run shell' to re-provision CommandCode configs",
+					})
+				default:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagOK,
+						System:   "CommandCode",
+						Target:   "MCP config",
+						Details:  "mcp.json present and valid JSON",
+					})
+				}
 			} else {
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagWarning,
@@ -698,15 +719,111 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				})
 			}
 
+			settingsPath := filepath.Join(ccConfigDir, "settings.json")
+			if uc.fsManager.Exists(settingsPath) {
+				data, readErr := os.ReadFile(settingsPath)
+				switch {
+				case readErr != nil:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "Settings",
+						Details:  fmt.Sprintf("settings.json unreadable: %v", readErr),
+						FixHint:  "Run 'envctl run shell' to re-provision CommandCode configs",
+					})
+				case !json.Valid(data):
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "Settings",
+						Details:  "settings.json is not valid JSON — CommandCode refuses an invalid settings file",
+						FixHint:  "Run 'envctl run shell' to re-provision CommandCode configs",
+					})
+				default:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagOK,
+						System:   "CommandCode",
+						Target:   "Settings",
+						Details:  "settings.json present and valid JSON",
+					})
+				}
+			}
+
+			uc.auditCommandCodeAgents(ccConfigDir, addDiag)
+
 			skillsDir := filepath.Join(ccConfigDir, "skills")
 			if uc.fsManager.Exists(skillsDir) {
 				entries, _ := os.ReadDir(skillsDir)
-				addDiag(entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "CommandCode",
-					Target:   "Skills",
-					Details:  fmt.Sprintf("%d skills deployed", len(entries)),
-				})
+				deployed := 0
+				var rejected []string
+				for _, entry := range entries {
+					if !entry.IsDir() {
+						continue
+					}
+					name := entry.Name()
+					content, readErr := os.ReadFile(filepath.Join(skillsDir, name, "SKILL.md"))
+					if readErr != nil {
+						rejected = append(rejected, name+" (SKILL.md missing)")
+						continue
+					}
+					fm, ok := parseSkillFrontmatter(content)
+					if !ok {
+						rejected = append(rejected, name+" (frontmatter missing or invalid YAML)")
+						continue
+					}
+					if vErr := validateSkillFrontmatter(name, fm); vErr != nil {
+						rejected = append(rejected, fmt.Sprintf("%s (%v)", name, vErr))
+						continue
+					}
+					deployed++
+				}
+
+				total := deployed + len(rejected)
+				switch {
+				case len(rejected) > 0:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "Skills",
+						Details:  fmt.Sprintf("%d of %d deployed skills will not load: %s", len(rejected), total, strings.Join(rejected, "; ")),
+						FixHint:  "Fix the SKILL.md frontmatter (name must match the directory, description must be non-empty), then run 'envctl run skills'",
+					})
+				case deployed > 0:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagOK,
+						System:   "CommandCode",
+						Target:   "Skills",
+						Details:  fmt.Sprintf("%d skills deployed, frontmatter valid", deployed),
+					})
+				default:
+					addDiag(entity.Diagnostic{
+						Category: entity.DiagWarning,
+						System:   "CommandCode",
+						Target:   "Skills",
+						Details:  "Skills directory exists but holds no skill",
+						FixHint:  "Run 'envctl run skills' to deploy the manifest skills",
+					})
+				}
+
+				if total > 0 {
+					if manifestSkills, err := uc.manifestRepo.LoadSkills(); err == nil {
+						expected := 0
+						for _, s := range manifestSkills {
+							if s.Enabled {
+								expected++
+							}
+						}
+						if expected > 0 && total != expected {
+							addDiag(entity.Diagnostic{
+								Category: entity.DiagWarning,
+								System:   "CommandCode",
+								Target:   "Skills",
+								Details:  fmt.Sprintf("%d skills deployed but the manifest declares %d", total, expected),
+								FixHint:  "Run 'envctl run skills' to re-sync the deployed skills with the manifest",
+							})
+						}
+					}
+				}
 			} else {
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagWarning,
@@ -727,4 +844,60 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	return report, nil
+}
+
+// auditCommandCodeAgents validates every custom agent definition under
+// <ccConfigDir>/agents, so a broken file cannot silently disable delegation.
+// Reserved names are skipped: CommandCode owns those and ignores a custom file.
+func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag func(entity.Diagnostic)) {
+	agentsDir := filepath.Join(ccConfigDir, "agents")
+	entries, err := os.ReadDir(agentsDir)
+	if err != nil {
+		return
+	}
+
+	reserved := map[string]bool{"explore": true, "plan": true, "review": true, "general": true}
+
+	valid := 0
+	var broken []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".md") {
+			continue
+		}
+		id := strings.TrimSuffix(name, ".md")
+		if reserved[id] {
+			continue
+		}
+
+		content, readErr := os.ReadFile(filepath.Join(agentsDir, name))
+		if readErr != nil {
+			broken = append(broken, name+" (unreadable)")
+			continue
+		}
+		fm, ok := parseSkillFrontmatter(content)
+		if !ok || strings.TrimSpace(fm.Name) != id {
+			broken = append(broken, name+" (frontmatter 'name' missing or different from the filename)")
+			continue
+		}
+		valid++
+	}
+
+	if len(broken) > 0 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "CommandCode",
+			Target:   "Agents",
+			Details:  fmt.Sprintf("%d agent file(s) will not load: %s", len(broken), strings.Join(broken, "; ")),
+			FixHint:  "Fix the frontmatter or remove the stale file, then run 'envctl run shell'",
+		})
+		return
+	}
+
+	addDiag(entity.Diagnostic{
+		Category: entity.DiagOK,
+		System:   "CommandCode",
+		Target:   "Agents",
+		Details:  fmt.Sprintf("%d custom agent definition(s) valid", valid),
+	})
 }

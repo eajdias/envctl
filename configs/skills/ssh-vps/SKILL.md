@@ -15,7 +15,7 @@ O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e W
 - Chaves SSH: `~/Documents/SSH-keys/<VPS>/<VPS>.pem` (+ .txt com dados de conexão).
 
 ## MCP `ssh-manager` — DESATIVADO por padrão
-O MCP está registrado no opencode global (`~/.config/opencode/opencode.json`, seção `mcp.ssh-manager`) com `"enabled": false`, para não carregar ~43k tokens de contexto desnecessariamente.
+O MCP está registrado com `"enabled": false` para não carregar ~43k tokens de contexto desnecessariamente — user-scope em `~/.commandcode/mcp.json` (CommandCode, provisionado pelo envctl) e no bloco `mcp.ssh-manager` de `~/.config/opencode/opencode.json` (OpenCode).
 
 **Regra — o AGENT NUNCA edita o config por conta própria.**
 
@@ -26,8 +26,8 @@ O MCP está registrado no opencode global (`~/.config/opencode/opencode.json`, s
 - Upload/download/rsync estruturado (`ssh_upload/download/sync`) e tarefas repetitivas longas
 
 **Como pedir (mensagem ao usuário):** explique o motivo e peça para ativar o MCP:
-1. No opencode, use o comando `/mcp` (ou `Ctrl+P` → busque "mcp")
-2. Faça o toggle para **ativar** o `ssh-manager` — é hot-reload, não precisa reiniciar
+1. Abra o gerenciador de MCP do agente — `/mcp` (CommandCode ou OpenCode; no OpenCode também `Ctrl+P` → busque "mcp")
+2. Habilite/conecte o `ssh-manager` (no OpenCode é hot-reload, não precisa reiniciar; no CommandCode a sessão adota na próxima rodada)
 3. Avise quando estiver ativo para eu prosseguir com as ferramentas `ssh_*`
 
 **Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
@@ -37,7 +37,7 @@ O MCP está registrado no opencode global (`~/.config/opencode/opencode.json`, s
 **Os dados reais de servidores (IPs, usuários, caminhos de chaves) ficam APENAS em arquivos locais por máquina — NUNCA neste SKILL.md nem em qualquer arquivo versionado.**
 
 Fonte de consulta (em ordem):
-1. `~/.config/opencode/extras/ssh_servers.md` — inventário local de servidores (individual por PC/VPS, nunca commitado)
+1. `~/.config/opencode/extras/ssh_servers.md` — inventário local de servidores (diretório gerenciado pelo envctl, existe independente do agente em uso; individual por PC/VPS, nunca commitado)
 2. `~/.ssh-manager/.env` — config do ssh-manager (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo)
 3. `ssh-manager server list` (CLI) ou `ssh_list_servers` (MCP) — lista dinâmica
 
@@ -104,7 +104,7 @@ rsync -avz -e "ssh -i <chave>" ./dir/ <user>@<host>:/home/<user>/dir/
 ## Boas práticas
 - Comece SEMPRE com comandos read-only; só use sudo quando necessário (`ssh_execute_sudo`, ou `sudo -S` com SUDO_PASSWORD se definido no `.env`).
 - NADA de comandos interativos no remoto (vim, top, htop, nano) — use `cat`, `ps aux`, `systemctl status`.
-- Processos longos: `nohup <cmd> > /tmp/x.log 2>&1 &`.
+- Processos longos: `nohup <cmd> > /temp/x.log 2>&1 &`.
 - Arquivos pequenos (<1MB): base64 ou `ssh_upload`; grandes: rsync (`ssh_sync` usa rsync).
 - Alvos Windows (`PLATFORM=windows`): shell é PowerShell — comandos Linux (systemctl etc.) NÃO funcionam; use `Get-Service`, `sc.exe`, `Restart-Service`.
 - Nunca exponha chaves/senhas no output; não logue segredos.

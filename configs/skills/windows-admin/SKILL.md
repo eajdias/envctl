@@ -41,5 +41,5 @@ description: >-
 ## Regras
 
 - Operações que mudam estado (iniciar serviço, instalar, editar registro/firewall): confirmar com o usuário antes se houver dúvida de impacto.
-- Não editar configuração do opencode (opencode.json) por conta própria — se algo exigir mudança de config, parar e pedir ao usuário.
+- Não editar a configuração do agente por conta própria (opencode.json no OpenCode; `~/.commandcode/settings.json` no CommandCode, e este via `cmdc config set`) — se algo exigir mudança de config, parar e pedir ao usuário.
 - Para diagnóstico de serviços: sempre coletar `Get-Service` + eventos do Application log antes de reiniciar.

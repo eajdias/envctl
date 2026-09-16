@@ -58,9 +58,9 @@
 
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**44 skills ativas** — 43 provisionadas + 1 built-in: `customize-opencode`)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**41 skills ativas** — 40 provisionadas + 1 built-in: `customize-opencode`)
 
-### opencode skills (43 provisionadas + 1 built-in)
+### opencode skills (40 provisionadas + 1 built-in)
 
 | Skill | Purpose |
 |-------|---------|
@@ -71,14 +71,14 @@
 | `ssh-vps` | SSH/VPS management via ssh-manager (monitoring, recovery) |
 | `vps-provisioning` | Provision/manage VPSs via envctl bootstrap (Day-0/Day-2, idempotent) |
 | `windows-admin` | Windows 11 administration (services, registry, winget, firewall) |
-| `docker` | Docker Desktop/containers/compose + Docker Hub MCP |
+| `docker` | Docker Desktop/containers/compose + pull/push no Hub |
 | `context7-auto` | Fetch up-to-date library docs before code |
 | `writing-plans` | Create implementation plans |
 | `systematic-debugging` | Debug bugs methodically |
 | `verification-before-completion` | Verify before claiming done |
 | `receiving-code-review` | Handle code review feedback |
 | `stop-slop` | Remove AI writing patterns |
-| `grill-me` / `grilling` | Stress-test plans/thinking |
+| `grilling` | Stress-test plans/thinking |
 | `skill-miner` | Discover skills from session history |
 | `skill-generalizer` | Make private skills publishable |
 | `skill-personalizer` | Adapt skills to user preferences |
@@ -87,12 +87,10 @@
 | `aur-headless-install` | Instalar pacotes AUR em shells não-interativos (makepkg + sudo pacman -U) |
 | `cachyos-gaming-setup` | Tune CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores) |
 | `headless-gui-probe` | Configs/validação de apps GUI sem display (offscreen/dummy, log scraping) |
-| `docs-sync` | Audit doc coverage vs code |
 | `ask-questions-if-underspecified` | Clarify requirements |
 | `dispatching-parallel-agents` | Run independent tasks in parallel |
 | `handoff` | Compact conversation for handoff |
 | `using-git-worktrees` | Isolated feature work |
-| `implementation-strategy` | Choose compatibility-aware scope |
 | `bulk-postgres-import` | Bulk upsert in PostgreSQL over high-latency SSH |
 | `docker-build-local-vps-deploy` | Build Docker locally, transport image to weak VPS |
 | `docker-desktop-wsl-restart` | Restart Docker Desktop when WSL2 backend fails |
