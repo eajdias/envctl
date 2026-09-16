@@ -129,6 +129,8 @@ func InitApp(embeddedFS fs.FS, version string) {
 
 func registerCommands() {
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newCommandCodeCmd())
+	rootCmd.AddCommand(newOpenCodeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(newSnapshotCmd())
 	rootCmd.AddCommand(newVersionCmd())

@@ -286,11 +286,11 @@ func runGamingProvisioning() {
 	spinner.Success(fmt.Sprintf("Processed %d gaming packages", len(pkgs)))
 }
 
-func runShellProvisioning() {
+func runShellProvisioning(categories ...string) {
 	spinner, _ := pterm.DefaultSpinner.Start("Configuring shell, environment and configs...")
 	ctx := context.Background()
 
-	res, err := appCtx.ProvisionShellUC.Execute(ctx)
+	res, err := appCtx.ProvisionShellUC.Execute(ctx, categories...)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Failed shell provisioning: %v", err))
 		return
@@ -319,49 +319,52 @@ func runShellProvisioning() {
 	spinner.Success("Shell and configuration files aligned")
 }
 
-func runSkillsProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Deploying agent skills to OpenCode & CommandCode...")
+// runSkillsForTarget deploys the manifest skills to one target directory and
+// returns how many were deployed and how many stale ones were pruned.
+func runSkillsForTarget(label, targetBaseDir string) (deployed int, pruned int) {
 	ctx := context.Background()
 
-	// Deploy to OpenCode (default target)
-	results, prunedOC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "")
+	results, prunedNames, err := appCtx.ProvisionSkillsUC.Execute(ctx, targetBaseDir)
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed skills deployment to OpenCode: %v", err))
-		return
+		pterm.Error.Printf("  • [%s] skills deployment failed: %v\n", label, err)
+		return 0, 0
 	}
 
-	deployedOC := 0
 	for _, r := range results {
 		if r.Status == entity.DiagOK {
-			deployedOC++
+			deployed++
 		} else {
-			pterm.Warning.Printf("  • [OpenCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
+			pterm.Warning.Printf("  • [%s] skill %s failed: %s\n", label, r.SkillName, r.ErrorMessage)
 		}
 	}
-	for _, name := range prunedOC {
-		pterm.Info.Printf("  • [OpenCode] Pruned stale skill: %s\n", name)
+	for _, name := range prunedNames {
+		pterm.Info.Printf("  • [%s] pruned stale skill: %s\n", label, name)
 	}
+	return deployed, len(prunedNames)
+}
 
-	// Deploy to CommandCode
-	resultsCC, prunedCC, err := appCtx.ProvisionSkillsUC.Execute(ctx, "~/.commandcode/skills")
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed skills deployment to CommandCode: %v", err))
-		return
-	}
+func runSkillsProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Deploying agent skills to OpenCode & CommandCode...")
 
-	deployedCC := 0
-	for _, r := range resultsCC {
-		if r.Status == entity.DiagOK {
-			deployedCC++
-		} else {
-			pterm.Warning.Printf("  • [CommandCode] Skill %s failed: %s\n", r.SkillName, r.ErrorMessage)
-		}
-	}
-	for _, name := range prunedCC {
-		pterm.Info.Printf("  • [CommandCode] Pruned stale skill: %s\n", name)
-	}
+	deployedOC, prunedOC := runSkillsForTarget("OpenCode", "")
+	deployedCC, prunedCC := runSkillsForTarget("CommandCode", "~/.commandcode/skills")
 
-	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)", deployedOC, deployedCC, len(prunedOC), len(prunedCC)))
+	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)", deployedOC, deployedCC, prunedOC, prunedCC))
+}
+
+// runAgentProvisioning provisions a single agent end to end — its config files,
+// agent directories, cleanup items and skill tree — leaving the other agent
+// untouched. Machine-level layers (packages, toolchains, LSP binaries, shell/git
+// config) stay with `envctl run all`.
+func runAgentProvisioning(category, label, skillsTarget string) {
+	PrintSection(fmt.Sprintf("Provisioning %s (configs, agents, MCP, skills)", label))
+	runShellProvisioning(category)
+
+	PrintSection(fmt.Sprintf("Deploying %s skills", label))
+	deployed, pruned := runSkillsForTarget(label, skillsTarget)
+
+	pterm.Println()
+	pterm.Success.Printf("%s provisioning complete (%d skills deployed, %d pruned). Run 'envctl doctor' to verify.", label, deployed, pruned)
 }
 
 func runLSPProvisioning() {

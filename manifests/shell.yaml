@@ -59,6 +59,13 @@ config_files:
     category: "opencode"
     os: linux
 
+  - id: opencode_skill_index
+    description: "OpenCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
+    source: "configs/SKILL-INDEX.md"
+    destination: "~/.config/opencode/SKILL-INDEX.md"
+    strict_acl: false
+    category: "opencode"
+
   - id: opencode_dcp
     description: "OpenCode Dynamic Context Pruning configuration"
     source: "configs/dcp.jsonc"
@@ -112,6 +119,13 @@ config_files:
     strict_acl: false
     category: "commandcode"
     os: linux
+
+  - id: commandcode_skill_index
+    description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
+    source: "configs/commandcode/SKILL-INDEX.md"
+    destination: "~/.commandcode/SKILL-INDEX.md"
+    strict_acl: false
+    category: "commandcode"
 
   - id: commandcode_mcp
     description: "CommandCode user-scope MCP servers (context7; playwright, chrome-devtools, ssh-manager, zscan disabled by default)"
@@ -200,21 +214,27 @@ directories:
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"
+    category: "opencode"
   - path: "~/.config/opencode/memory"
     strict_acl: false
     description: "OpenCode agent memory directory (lessons and patterns)"
+    category: "opencode"
   - path: "~/.config/opencode/secrets"
     strict_acl: true
     description: "OpenCode local secrets (context7.key etc. — NEVER versioned)"
+    category: "opencode"
   - path: "~/.config/opencode/extras"
     strict_acl: false
     description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"
+    category: "opencode"
   - path: "~/.commandcode/skills"
     strict_acl: false
     description: "CommandCode agent skills directory"
+    category: "commandcode"
   - path: "~/.commandcode/agents"
     strict_acl: false
     description: "CommandCode agent definitions directory"
+    category: "commandcode"
   - path: "~/.poshthemes"
     strict_acl: false
     description: "Oh-My-Posh themes directory"

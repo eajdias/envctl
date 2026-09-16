@@ -50,18 +50,38 @@ type ProvisionShellResult struct {
 	RestrictedDirs    []string
 }
 
-func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellResult, error) {
+// categoryAllowed reports whether an entry belongs to one of the requested
+// agent subsystems. An empty filter provisions everything (machine-level
+// entries included, which is what `envctl run shell`/`run all` do); a filter
+// limits the run to the listed categories, so `envctl commandcode` never
+// touches opencode files and vice versa.
+func categoryAllowed(category string, filter []string) bool {
+	if len(filter) == 0 {
+		return true
+	}
+	for _, f := range filter {
+		if f == category {
+			return true
+		}
+	}
+	return false
+}
+
+// Execute provisions the shell, environment and config layers. Pass category
+// filters ("opencode", "commandcode") to restrict the run to one agent.
+func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...string) (*ProvisionShellResult, error) {
 	if uc.logger != nil {
-		uc.logger.Info("Starting shell, environment, git, and configs provisioning")
+		uc.logger.Info("Starting shell, environment, git, and configs provisioning (categories: %v)", categories)
 	}
 
 	result := &ProvisionShellResult{
 		CreatedBackups: make(map[string]string),
 	}
 
-	// 1. Environment Variables
+	// 1. Environment Variables (machine-level: skipped when a category filter
+	// limits the run to one agent subsystem).
 	envVars, err := uc.manifestRepo.LoadEnvVars()
-	if err == nil && len(envVars) > 0 {
+	if err == nil && len(envVars) > 0 && len(categories) == 0 {
 		diags, _ := uc.envManager.EnsureEnvVars(ctx, envVars)
 		result.EnvDiagnostics = diags
 		for _, d := range diags {
@@ -71,9 +91,10 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
-	// 2. Git Performance Configurations
+	// 2. Git Performance Configurations (machine-level: skipped when a category
+	// filter limits the run to one agent subsystem).
 	gitConfigs, err := uc.manifestRepo.LoadGitConfigs()
-	if err == nil && len(gitConfigs) > 0 {
+	if err == nil && len(gitConfigs) > 0 && len(categories) == 0 {
 		var applicable []entity.GitConfig
 		for _, gc := range gitConfigs {
 			if gc.OS != "" && gc.OS != runtime.GOOS {
@@ -109,6 +130,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 
 	for _, dir := range dirs {
 		if dir.OS != "" && dir.OS != runtime.GOOS {
+			continue
+		}
+		if !categoryAllowed(dir.Category, categories) {
 			continue
 		}
 
@@ -169,6 +193,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 
 	for _, cf := range configFiles {
 		if cf.OS != "" && cf.OS != runtime.GOOS {
+			continue
+		}
+		if !categoryAllowed(cf.Category, categories) {
 			continue
 		}
 
@@ -270,6 +297,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			if item.OS != "" && item.OS != runtime.GOOS {
 				continue
 			}
+			if !categoryAllowed(item.Category, categories) {
+				continue
+			}
 			expandedPath, err := uc.fsManager.ExpandUserPath(item.Path)
 			if err != nil {
 				continue
@@ -321,10 +351,10 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
-	// 5. OpenCode Plugins npm dependencies installation
+	// 5. OpenCode Plugins npm dependencies installation (opencode subsystem only)
 	opencodeConfigDir, _ := uc.fsManager.ExpandUserPath("~/.config/opencode")
 	packageJsonPath := filepath.Join(opencodeConfigDir, "package.json")
-	if uc.fsManager.Exists(packageJsonPath) {
+	if categoryAllowed("opencode", categories) && uc.fsManager.Exists(packageJsonPath) {
 		nodeModulesPath := filepath.Join(opencodeConfigDir, "node_modules")
 		if !uc.fsManager.Exists(nodeModulesPath) {
 			if uc.logger != nil {
@@ -368,7 +398,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 	// Node API module and no separate Chromium provisioning here.
 	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 	userPackageJsonPath := filepath.Join(userHomeDir, "package.json")
-	if uc.fsManager.Exists(userPackageJsonPath) {
+	if categoryAllowed("runtimes", categories) && uc.fsManager.Exists(userPackageJsonPath) {
 		userNodeModulesPath := filepath.Join(userHomeDir, "node_modules")
 		nodeModulesMissing := !uc.fsManager.Exists(userNodeModulesPath)
 		pkgJsonInfo, _ := os.Stat(userPackageJsonPath)

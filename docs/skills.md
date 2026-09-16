@@ -1,8 +1,12 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** (+ 1 skill built-in do opencode) projetadas para os ecossistemas **OpenCode e CommandCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
-> O mesmo conjunto é deployado em `~/.config/opencode/skills/` e `~/.commandcode/skills/`. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml` — edite lá e propague com `envctl run skills`.
+> **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
+
+> **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
+
+> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` no manifesto (`windows`/`linux`) e são **podadas** nas demais plataformas.
 
 ---
 
@@ -89,9 +93,9 @@ ssh <SERVER> 'cat /temp/report.md'
 
 ---
 
-## 🔀 Paridade OpenCode ↔ CommandCode
+## 🔀 CommandCode × OpenCode
 
-As skills são deployadas idênticas para os dois agentes. O que **não** tem equivalente é por diferença de plataforma, não por lacuna acidental:
+O conjunto base de skills é o mesmo, mas cada agente tem seu próprio **command** de provisionamento, seu **índice** (`SKILL-INDEX.md`) e suas peculiaridades. O que não tem equivalente é diferença de plataforma, não lacuna acidental:
 
 | Recurso | OpenCode | CommandCode |
 |---|---|---|

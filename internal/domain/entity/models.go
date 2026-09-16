@@ -126,7 +126,8 @@ type RestrictedDir struct {
 	Path        string `yaml:"path"`
 	StrictACL   bool   `yaml:"strict_acl"`
 	Description string `yaml:"description"`
-	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	Category    string `yaml:"category,omitempty"` // agent subsystem ("opencode", "commandcode") or empty for machine-level
+	OS          string `yaml:"os,omitempty"`       // "windows", "linux" or empty for all
 }
 
 // CleanupItem represents a stale file or directory to remove during provisioning.

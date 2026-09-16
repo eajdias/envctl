@@ -57,6 +57,10 @@ O envctl transforma o OpenCode local num **orquestrador de frotas**: cada VPS/VM
 # Provisionamento completo do ecossistema (Day-0)
 envctl run all
 
+# Agentes — cada um provisiona só o que é dele (não toca o outro)
+envctl commandcode      # CommandCode: settings, AGENTS.md, MCP, agentes, SKILL-INDEX e skills
+envctl opencode         # OpenCode: opencode.json, plugins, memory seeds, SKILL-INDEX e skills
+
 # Auditoria e diagnóstico de saúde de todo o ecossistema
 envctl doctor
 
