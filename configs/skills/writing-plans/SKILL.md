@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: obra (superpowers)
   source: https://github.com/obra/superpowers
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: envctl — descricao/triggers em PT-BR; planos vao para spec-agent/ (o upstream usava docs/superpowers/plans/)
 ---
 
 # Writing Plans

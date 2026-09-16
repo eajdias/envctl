@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: Matt Pocock
   source: https://github.com/mattpocock/skills
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: envctl — descricao/triggers em PT-BR + 3 paragrafos acrescentados (rodadas/fronteira, dispatch de subagente para fatos, criterio de fim); nucleo do design tree e do upstream
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.

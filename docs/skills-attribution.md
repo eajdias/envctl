@@ -26,14 +26,21 @@ metadata:
 
 Licenças verificadas via API do GitHub em 2026-09-16 (`license.spdx_id = MIT` em todos os três repositórios).
 
-### O que foi adaptado nas cópias
+### O que foi adaptado nas cópias (medido, não estimado)
 
-- **Descrição e triggers em PT-BR** — os upstreams têm descrição em inglês; aqui todas seguem o padrão "Use quando… Triggers: …", que é o texto contra o qual o agente faz o matching automático. Alguns corpos também foram traduzidos (`systematic-debugging`, `stop-slop`, `verification-before-completion`, `receiving-code-review` continuam em inglês; `writing-plans` teve o cabeçalho do plano ajustado).
-- **Caminhos** — o upstream `writing-plans` salvava em `docs/superpowers/plans/` (pasta do projeto dele). Aqui os planos vão para **`spec-agent/`** na raiz do projeto, e o agente `plan` do `opencode.json` só tem permissão de escrita ali.
-- **Nomes de agente/subagente** — referências a subagentes foram alinhadas com os nomes reais deste ambiente (`general`, `explore`, `plan`).
-- **Referências cruzadas** — refs a skills do upstream que não existem aqui (`subagent-driven-development`, `executing-plans`, `test-driven-development`, `superpowers:*`) foram removidas ou trocadas pelo equivalente local.
+Corpo de cada `SKILL.md` comparado com o do upstream em 2026-09-16:
 
-Nenhum destes arquivos está sendo redistribuído como trabalho original: o crédito ao autor está no `metadata` de cada um, e a licença MIT do upstream é a mesma declarada no frontmatter.
+| Skill | Corpo | Observação |
+|---|---|---|
+| `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion`, `skill-miner`, `skill-personalizer`, `skill-generalizer` | **idêntico** | só a `description` (e os triggers em PT-BR) foi reescrita — é o texto contra o qual o agente faz o matching automático |
+| `writing-plans` | idêntico + 1 edição | os planos vão para `spec-agent/` na raiz; o upstream gravava em `docs/superpowers/plans/` (pasta do projeto dele) |
+| `handoff` | idêntico + 1 edição | a linha que citava a "Skill tool" foi parametrizada por agente (`activate_skill` / `/<skill>`) |
+| `grilling` | **ampliado** (+3 parágrafos) | o núcleo do *design tree* é do upstream; acrescentamos as rodadas/fronteira, o dispatch de subagente para buscar fatos e o critério de fim |
+| `grill-me` | **reescrito** | o upstream tem 2 linhas (`Call the Skill tool with "grilling"` + `disable-model-invocation: true`). A nossa versão é um porteiro de ambiguidade — rubrica 0–100, limiares e cláusula de risco são **originais daqui** |
+
+Arquivos auxiliares mantidos: `agents/openai.yaml` em `grilling`, `handoff` e nos três `skill-*`; `scripts/scan_sessions.py` + `references/` em `skill-miner`; `references/` em `skill-personalizer` e `skill-generalizer`. **Não copiamos** o `plan-document-reviewer-prompt.md` do upstream `writing-plans` — ele não é referenciado em nenhum ponto da nossa cópia.
+
+Nada aqui está sendo redistribuído como trabalho original: o crédito ao autor está no `metadata` de cada arquivo e a licença declarada é a do upstream.
 
 ## 2. Autorais do envctl (sem upstream)
 

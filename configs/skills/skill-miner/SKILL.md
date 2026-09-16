@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: hqhq1025
   source: https://github.com/hqhq1025/skill-optimizer
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Skill Miner

@@ -6,7 +6,7 @@ license: MIT
 metadata:
   author: Matt Pocock
   source: https://github.com/mattpocock/skills
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: envctl — CORPO REESCRITO (a upstream so aponta para /grilling, 2 linhas); a rubrica de ambiguidade 0-100, os limiares e a clausula de risco sao originais daqui
 ---
 
 # Grill Me — porteiro de ambiguidade

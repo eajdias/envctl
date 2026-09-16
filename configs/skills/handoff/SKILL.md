@@ -7,7 +7,7 @@ license: MIT
 metadata:
   author: Matt Pocock
   source: https://github.com/mattpocock/skills
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: envctl — descricao/triggers em PT-BR; invocacao de skill parametrizada por agente
 ---
 
 Write a handoff document summarising the current conversation so a fresh agent can continue the work. Save to the temporary directory of the user's OS - not the current workspace.
