@@ -9,6 +9,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🔗 Referências do repo apontam para o remoto público
+
+- **Fixed**: `configs/AGENTS.md`, `configs/commandcode/AGENTS.md` e `configs/skills/vps-provisioning/SKILL.md` referenciavam o checkout local (`C:\projetos\git-privado\envctl`); a fonte da verdade agora é o remoto https://github.com/eajdias/envctl — as cópias locais são gerenciadas e edição direta nelas é sobrescrita pelo `envctl run shell`.
+- **Changed**: `.gitignore` passa a ignorar `.commandcode/` (scratch local do agente CommandCode — permissões de sessão e paths absolutos da máquina, não versionável).
+
 ### 🧭 Agentes opencode: `plan` volta ao default (built-in) e agente `goal` removido
 
 - **Changed**: agente `plan` — removido o `"mode": "all"` de `opencode.json`/`opencode.linux.json`; volta ao default do opencode (**primary built-in**, não dispatchável via task tool). Prompt ajustado.

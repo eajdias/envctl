@@ -33,6 +33,9 @@
 .playwright-cli/
 .playwright-mcp/
 
+# Local agent state (session permissions, machine-absolute paths, taste notes)
+.commandcode/
+
 # OS specific
 Thumbs.db
 Desktop.ini

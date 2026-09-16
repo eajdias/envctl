@@ -29,7 +29,7 @@ NUNCA configurar VPS manualmente (apt, node, opencode à mão). O `envctl` é o 
 
 ## Depois do provisionamento
 - Despachar tarefas remotas: skill `vps-agent-dispatch` (subagentes OpenCode via SSH)
-- Fonte da verdade: repo `C:\projetos\git-privado\envctl` (`configs/` + `manifests/`); mudanças de config vão lá e são propagadas com `envctl run shell`
+- Fonte da verdade: repo https://github.com/eajdias/envctl (`configs/` + `manifests/`) — edite lá e propague com `envctl run shell`; as cópias locais são gerenciadas e edição direta nelas é sobrescrita
 
 ## Notas
 - Não versionar IPs/usuários/chaves em skills ou configs provisionadas; inventário local por máquina em `~/.config/opencode/extras/ssh_servers.md`.

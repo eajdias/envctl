@@ -49,7 +49,7 @@ Provisionadas em `~/.commandcode/skills` (mesmo conjunto do opencode; catálogo 
 
 ## VPS Infrastructure (envctl)
 
-- **Provisioner:** `envctl` (CLI Go standalone; repo: `C:\projetos\git-privado\envctl`)
+- **Provisioner:** `envctl` (CLI Go standalone; repo: `C:\projetos\git-publico\envctl`)
 - **Bootstrap (1 linha):** `curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash`
 - **Comandos:** `envctl run all` (Day-0 completo), `envctl run shell` / `envctl run skills` (re-sync de configs/skills), `envctl doctor` / `envctl doctor --fix` (auditoria e auto-remediação), `envctl snapshot` (sync REVERSO máquina→repo — NÃO usar em VPS remota)
 
