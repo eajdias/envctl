@@ -86,5 +86,6 @@ git rebase --continue
 
 ## Regras de Segurança
 - NUNCA fazer force-push (`git push -f` ou `--force`) na branch `main`/`master`.
+- Em divergência com `origin`, o upstream prevalece: `git fetch` + `git rebase origin/main`, resolvendo conflitos a favor do que já foi mergeado no remoto — nunca force-push de intent local por cima.
 - NUNCA comitar segredos, chaves de API, arquivos `.pem`, senhas ou arquivos de ambiente (`.env`, `.env.local`).
 - SEMPRE rodar `git status` e `git diff --staged` antes de finalizar qualquer commit.

@@ -1,6 +1,7 @@
 ---
 name: writing-plans
-description: Use when you have a spec or requirements for a multi-step task, before touching code
+description: >-
+  Escrever especificação e plano de implementação passo a passo antes de tocar no código. Use em tarefa multi-passo ou multi-arquivo, feature nova, refatoração ampla, ou quando o usuário pedir plano/design/estratégia. Produz tarefas pequenas, ordenadas e verificáveis. Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
 ---
 
 # Writing Plans

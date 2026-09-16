@@ -1,12 +1,11 @@
 {
   "name": "envctl-user-root",
   "version": "1.0.0",
-  "description": "User root environment for Playwright API and agent automations",
+  "description": "User root environment for agent automations",
   "main": "index.js",
   "private": true,
   "type": "commonjs",
   "dependencies": {
-    "playwright": "^1.62.1",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0",
     "papaparse": "^5.4.1"

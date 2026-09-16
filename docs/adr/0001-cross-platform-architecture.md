@@ -33,5 +33,5 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 ## Consequências
 - **Positivas**:
   - Replicação de ambiente 1:1 realizável em menos de 2 minutos em qualquer máquina nova via one-liner (`bootstrap.ps1` ou `bootstrap.sh`).
-  - Idempotência absoluta e auditoria via `envctl doctor` com 160+ checagens e auto-remediação (`--fix`).
+  - Idempotência absoluta e auditoria via `envctl doctor` com checagens de todo o ecossistema e auto-remediação (`--fix`).
   - Trilha de auditoria persistente gerada em disco a cada execução (`~/.envctl/logs/`).

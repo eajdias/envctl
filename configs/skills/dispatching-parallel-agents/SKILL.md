@@ -1,6 +1,7 @@
 ---
 name: dispatching-parallel-agents
-description: Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
+description: >-
+  Mecânica de execução de tarefas independentes em paralelo com subagentes: dispatch múltiplo na mesma resposta, escopo e output esperado de cada um, integração final pelo coordenador. Use depois de decidir delegar, quando houver 2+ domínios disjuntos. Para decidir QUEM delegar, use a skill subagent-routing. Triggers: paralelizar, em paralelo, dispatch múltiplo, subagentes simultâneos, mesma resposta, fan-out, acelerar execução.
 ---
 
 # Dispatching Parallel Agents

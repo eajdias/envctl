@@ -59,6 +59,20 @@ config_files:
     category: "opencode"
     os: linux
 
+  - id: opencode_skill_index
+    description: "OpenCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
+    source: "configs/SKILL-INDEX.md"
+    destination: "~/.config/opencode/SKILL-INDEX.md"
+    strict_acl: false
+    category: "opencode"
+
+  - id: opencode_reference
+    description: "OpenCode operational reference (plugins, DCP, agents, memory, VPS, snippets); consulted on demand, NOT auto-loaded"
+    source: "configs/REFERENCE.md"
+    destination: "~/.config/opencode/REFERENCE.md"
+    strict_acl: false
+    category: "opencode"
+
   - id: opencode_dcp
     description: "OpenCode Dynamic Context Pruning configuration"
     source: "configs/dcp.jsonc"
@@ -98,14 +112,30 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_agents_manifest
-    description: "CommandCode global rules manifesto (auto-loaded from ~/.commandcode/AGENTS.md)"
+    description: "CommandCode global rules manifesto for Windows workstations (auto-loaded from ~/.commandcode/AGENTS.md)"
     source: "configs/commandcode/AGENTS.md"
     destination: "~/.commandcode/AGENTS.md"
     strict_acl: false
     category: "commandcode"
+    os: windows
+
+  - id: commandcode_agents_manifest_linux
+    description: "CommandCode global rules manifesto for Linux VPS servers (no PowerShell/Windows paths)"
+    source: "configs/commandcode/AGENTS.linux.md"
+    destination: "~/.commandcode/AGENTS.md"
+    strict_acl: false
+    category: "commandcode"
+    os: linux
+
+  - id: commandcode_skill_index
+    description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
+    source: "configs/commandcode/SKILL-INDEX.md"
+    destination: "~/.commandcode/SKILL-INDEX.md"
+    strict_acl: false
+    category: "commandcode"
 
   - id: commandcode_mcp
-    description: "CommandCode user-scope MCP servers (context7, playwright, chrome-devtools)"
+    description: "CommandCode user-scope MCP servers (context7; playwright, chrome-devtools, ssh-manager, zscan disabled by default)"
     source: "configs/commandcode/mcp.json"
     destination: "~/.commandcode/mcp.json"
     strict_acl: false
@@ -119,7 +149,7 @@ config_files:
     category: "commandcode"
 
   - id: user_package_json
-    description: "User root package.json for Playwright API and agent automations"
+    description: "User root package.json for agent automation libs (axios, cheerio, papaparse)"
     source: "configs/user-package.json"
     destination: "~/package.json"
     strict_acl: false
@@ -172,36 +202,6 @@ config_files:
     category: "ssh"
     os: linux
 
-  - id: pw_screenshot
-    description: "Headless Playwright screenshot utility script"
-    source: "configs/bin/pw-screenshot"
-    destination: "~/.local/bin/pw-screenshot"
-    strict_acl: false
-    category: "scripts"
-
-  - id: pw_screenshot_cmd
-    description: "Windows CMD wrapper for pw-screenshot"
-    source: "configs/bin/pw-screenshot.cmd"
-    destination: "~/.local/bin/pw-screenshot.cmd"
-    strict_acl: false
-    category: "scripts"
-    os: windows
-
-  - id: pw_eval
-    description: "Headless Playwright evaluation and page content extraction utility"
-    source: "configs/bin/pw-eval"
-    destination: "~/.local/bin/pw-eval"
-    strict_acl: false
-    category: "scripts"
-
-  - id: pw_eval_cmd
-    description: "Windows CMD wrapper for pw-eval"
-    source: "configs/bin/pw-eval.cmd"
-    destination: "~/.local/bin/pw-eval.cmd"
-    strict_acl: false
-    category: "scripts"
-    os: windows
-
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true
@@ -221,21 +221,27 @@ directories:
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"
+    category: "opencode"
   - path: "~/.config/opencode/memory"
     strict_acl: false
     description: "OpenCode agent memory directory (lessons and patterns)"
+    category: "opencode"
   - path: "~/.config/opencode/secrets"
     strict_acl: true
     description: "OpenCode local secrets (context7.key etc. — NEVER versioned)"
+    category: "opencode"
   - path: "~/.config/opencode/extras"
     strict_acl: false
     description: "OpenCode local extras (per-machine: ssh_servers.md, etc. — NEVER versioned)"
+    category: "opencode"
   - path: "~/.commandcode/skills"
     strict_acl: false
     description: "CommandCode agent skills directory"
+    category: "commandcode"
   - path: "~/.commandcode/agents"
     strict_acl: false
     description: "CommandCode agent definitions directory"
+    category: "commandcode"
   - path: "~/.poshthemes"
     strict_acl: false
     description: "Oh-My-Posh themes directory"
@@ -286,3 +292,36 @@ cleanup:
     description: "Remove CommandCode agents/goal.md (agent removed — build covers the flow)"
     path: "~/.commandcode/agents/goal.md"
     category: "commandcode"
+  - id: stale_commandcode_memory_dir
+    description: "Remove stale CommandCode memory dir (CommandCode has no memory-dir — memory lives in AGENTS.md)"
+    path: "~/.commandcode/memory"
+    category: "commandcode"
+    recursive: true
+  - id: stale_pw_screenshot
+    description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-screenshot"
+    category: "scripts"
+  - id: stale_pw_screenshot_cmd
+    description: "Remove pw-screenshot.cmd wrapper (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-screenshot.cmd"
+    category: "scripts"
+    os: windows
+  - id: stale_pw_eval
+    description: "Remove pw-eval CLI (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-eval"
+    category: "scripts"
+  - id: stale_pw_eval_cmd
+    description: "Remove pw-eval.cmd wrapper (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-eval.cmd"
+    category: "scripts"
+    os: windows
+  - id: prune_opencode_config_backups
+    description: "Prune old .bak.* provisioning backups in ~/.config/opencode (keep newest per file)"
+    path: "~/.config/opencode"
+    category: "opencode"
+    keep_newest: 1
+  - id: prune_commandcode_config_backups
+    description: "Prune old .bak.* provisioning backups in ~/.commandcode (keep newest per file)"
+    path: "~/.commandcode"
+    category: "commandcode"
+    keep_newest: 1

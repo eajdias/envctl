@@ -14,6 +14,7 @@ skills:
       source: configs/skills/docker-desktop-wsl-restart
       target_dir: ""
       enabled: true
+      os: windows
     - name: jwt-hs256-node
       description: Implementar JWT HS256 sem dependências em Node.js (createHmac + timingSafeEqual com hash duplo)
       source: configs/skills/jwt-hs256-node
@@ -55,7 +56,7 @@ skills:
       target_dir: ""
       enabled: true
     - name: agent-memory
-      description: OpenCode agent skill agent-memory
+      description: Memória persistente de lições e patterns do agente (load no início da tarefa, save ao aprender)
       source: configs/skills/agent-memory
       target_dir: ""
       enabled: true
@@ -64,18 +65,19 @@ skills:
       source: configs/skills/aur-headless-install
       target_dir: ""
       enabled: true
+      os: linux
     - name: api-contract-design
-      description: OpenCode agent skill api-contract-design
+      description: Design, validação e governança de contratos de API (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking changes)
       source: configs/skills/api-contract-design
       target_dir: ""
       enabled: true
     - name: ask-questions-if-underspecified
-      description: OpenCode agent skill ask-questions-if-underspecified
+      description: Esclarecer requisitos antes de implementar quando o pedido está ambíguo ou incompleto
       source: configs/skills/ask-questions-if-underspecified
       target_dir: ""
       enabled: true
     - name: context7-auto
-      description: OpenCode agent skill context7-auto
+      description: Buscar documentação atualizada de libs/frameworks via Context7 antes de escrever código
       source: configs/skills/context7-auto
       target_dir: ""
       enabled: true
@@ -84,68 +86,34 @@ skills:
       source: configs/skills/cachyos-gaming-setup
       target_dir: ""
       enabled: true
+      os: linux
     - name: database-ops
-      description: OpenCode agent skill database-ops
+      description: Operações multi-banco (PostgreSQL, MySQL, Firebird, MongoDB, SQLite), migrations e DBs em Docker
       source: configs/skills/database-ops
       target_dir: ""
       enabled: true
     - name: dispatching-parallel-agents
-      description: OpenCode agent skill dispatching-parallel-agents
+      description: Despachar 2+ tarefas independentes em paralelo preservando o contexto do coordenador
       source: configs/skills/dispatching-parallel-agents
       target_dir: ""
       enabled: true
     - name: docker
-      description: OpenCode agent skill docker
+      description: Docker local (Docker Desktop + WSL2) — containers, compose, volumes, imagens e pull/push no Hub
       source: configs/skills/docker
       target_dir: ""
       enabled: true
-    - name: docs-sync
-      description: OpenCode agent skill docs-sync
-      source: configs/skills/docs-sync
-      target_dir: ""
-      enabled: true
-    - name: firecrawl
-      description: OpenCode agent skill firecrawl
-      source: configs/skills/firecrawl
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-crawl
-      description: OpenCode agent skill firecrawl-crawl
-      source: configs/skills/firecrawl-crawl
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-map
-      description: OpenCode agent skill firecrawl-map
-      source: configs/skills/firecrawl-map
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-scrape
-      description: OpenCode agent skill firecrawl-scrape
-      source: configs/skills/firecrawl-scrape
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-search
-      description: OpenCode agent skill firecrawl-search
-      source: configs/skills/firecrawl-search
-      target_dir: ""
-      enabled: true
     - name: git-workflow
-      description: OpenCode agent skill git-workflow
+      description: Git & GitHub CLI — branches semânticas, conventional commits, PR lifecycle e resolução de conflitos
       source: configs/skills/git-workflow
       target_dir: ""
       enabled: true
-    - name: grill-me
-      description: OpenCode agent skill grill-me
-      source: configs/skills/grill-me
-      target_dir: ""
-      enabled: true
     - name: grilling
-      description: OpenCode agent skill grilling
+      description: Arguir o usuário sobre plano/decisão/ideia até as premissas caírem
       source: configs/skills/grilling
       target_dir: ""
       enabled: true
     - name: handoff
-      description: OpenCode agent skill handoff
+      description: Compactar a conversa atual em um documento de handoff autocontido para a próxima sessão
       source: configs/skills/handoff
       target_dir: ""
       enabled: true
@@ -154,58 +122,49 @@ skills:
       source: configs/skills/headless-gui-probe
       target_dir: ""
       enabled: true
-    - name: implementation-strategy
-      description: OpenCode agent skill implementation-strategy
-      source: configs/skills/implementation-strategy
-      target_dir: ""
-      enabled: true
+      os: linux
     - name: memory-promotion
       description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
       source: configs/skills/memory-promotion
       target_dir: ""
       enabled: true
-    - name: playwright-cli
-      description: OpenCode agent skill playwright-cli
-      source: configs/skills/playwright-cli
-      target_dir: ""
-      enabled: true
     - name: receiving-code-review
-      description: OpenCode agent skill receiving-code-review
+      description: Avaliar e aplicar feedback de code review com raciocínio crítico, sem concordar por reflexo
       source: configs/skills/receiving-code-review
       target_dir: ""
       enabled: true
     - name: skill-generalizer
-      description: OpenCode agent skill skill-generalizer
+      description: Preparar skills locais/privadas para publicação (portabilidade, metadados, licenciamento)
       source: configs/skills/skill-generalizer
       target_dir: ""
       enabled: true
     - name: skill-miner
-      description: OpenCode agent skill skill-miner
+      description: Minerar histórico de sessões de agentes para descobrir skills candidatas
       source: configs/skills/skill-miner
       target_dir: ""
       enabled: true
     - name: skill-personalizer
-      description: OpenCode agent skill skill-personalizer
+      description: Auditar e adaptar skills recém-criadas/baixadas às preferências e ao ambiente do usuário
       source: configs/skills/skill-personalizer
       target_dir: ""
       enabled: true
     - name: ssh-vps
-      description: OpenCode agent skill ssh-vps
+      description: Operar VPS/servidores remotos via SSH e ssh-manager — monitorar, diagnosticar e recuperar serviços
       source: configs/skills/ssh-vps
       target_dir: ""
       enabled: true
     - name: stop-slop
-      description: OpenCode agent skill stop-slop
+      description: Remover vícios de escrita de IA (clichês, hedging, enchimento) de textos
       source: configs/skills/stop-slop
       target_dir: ""
       enabled: true
     - name: systematic-debugging
-      description: OpenCode agent skill systematic-debugging
+      description: Investigar a causa raiz antes de propor correção (teste que falha primeiro)
       source: configs/skills/systematic-debugging
       target_dir: ""
       enabled: true
     - name: universal-test-runner
-      description: OpenCode agent skill universal-test-runner
+      description: Executar testes e cobertura multi-stack (Go, Python, Node/TS, .NET, Rust) com loop TDD
       source: configs/skills/universal-test-runner
       target_dir: ""
       enabled: true
@@ -215,12 +174,12 @@ skills:
       target_dir: ""
       enabled: true
     - name: using-git-worktrees
-      description: OpenCode agent skill using-git-worktrees
+      description: Isolar o trabalho de uma feature em git worktrees dedicadas
       source: configs/skills/using-git-worktrees
       target_dir: ""
       enabled: true
     - name: verification-before-completion
-      description: OpenCode agent skill verification-before-completion
+      description: Exigir evidência empírica (build/test/lint) antes de declarar uma tarefa concluída
       source: configs/skills/verification-before-completion
       target_dir: ""
       enabled: true
@@ -235,12 +194,13 @@ skills:
       target_dir: ""
       enabled: true
     - name: windows-admin
-      description: OpenCode agent skill windows-admin
+      description: Administração local do Windows 11 — serviços, registro, tarefas agendadas, firewall e winget
       source: configs/skills/windows-admin
       target_dir: ""
       enabled: true
+      os: windows
     - name: writing-plans
-      description: OpenCode agent skill writing-plans
+      description: Escrever especificações e planos de implementação passo a passo antes de codar
       source: configs/skills/writing-plans
       target_dir: ""
       enabled: true

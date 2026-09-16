@@ -94,7 +94,7 @@ envctl run windows
 # Apenas variáveis de ambiente (NODE_PATH, ENVCTL_TEMP) e arquivos de shell
 envctl run shell
 
-# Apenas catálogo de 49 Skills do OpenCode/CommandCode
+# Apenas catálogo de 40 Skills do OpenCode/CommandCode
 envctl run skills
 
 # Apenas servidores de linguagem (18 LSPs)
@@ -125,5 +125,4 @@ Para garantir que scripts autônomos (como Playwright) funcionem a partir de qua
 Todo arquivo temporário criado por agentes LLM (downloads, builds, extrações, screenshots) deve ir para `C:\temp` — pasta na raiz do disco, sem relação com o OpenCode, facilitando identificação e exclusão. `envctl run cleanup` remove scratch com mais de 24h.
 
 ### D. Automação Headless (MCPs de Browser)
-- O `envctl` provisiona os MCPs `playwright` (`@playwright/mcp`) e `chrome-devtools` (`chrome-devtools-mcp`) — ambos `enabled: false` (ative por sessão via `/mcp`).
-- Navegadores Chromium ficam armazenados em `%LOCALAPPDATA%\ms-playwright`.
+- O `envctl` provisiona os MCPs `playwright` (`@playwright/mcp`) e `chrome-devtools` (`chrome-devtools-mcp`) — ambos `enabled: false` (ative por sessão via `/mcp`). Browser automation é MCP-only, com o bundle do Chrome dos MCPs.

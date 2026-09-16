@@ -1,6 +1,7 @@
 ---
 name: skill-personalizer
-description: Use when auditing or adapting newly created, downloaded, forked, installed, or community Agent Skills to the user's tools, habits, directories, session history, and preferred workflows, especially when triggers feel wrong, noisy, or too generic.
+description: >-
+  Auditar e adaptar skills recém-criadas, baixadas ou da comunidade ao ambiente do usuário — ferramentas, hábitos, diretórios, histórico de sessões —, especialmente quando os triggers estão errados, barulhentos ou genéricos demais. Triggers: personalizar skill, adaptar skill, triggers ruins, ajustar skill ao meu ambiente, skill da comunidade, ruído de skill, skill-personalizer.
 ---
 
 # Skill Personalizer

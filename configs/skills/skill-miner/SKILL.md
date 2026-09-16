@@ -1,6 +1,7 @@
 ---
 name: skill-miner
-description: Use when mining coding-agent session history, archived transcripts, memories, or repeated local work to discover recurring workflows that should become new Agent Skills.
+description: >-
+  Minerar histórico de sessões de agentes, transcrições arquivadas e trabalho repetitivo local para descobrir workflows recorrentes que merecem virar skills novas. Triggers: minerar sessões, descobrir skill, workflow recorrente, histórico do agente, o que eu repito, nova skill a partir do uso, skill-miner.
 ---
 
 # Skill Miner

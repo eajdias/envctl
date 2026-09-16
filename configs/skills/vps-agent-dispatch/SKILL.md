@@ -33,16 +33,16 @@ Para rodar testes ou refatoração em código local transferido para o VPS:
 
 ```bash
 # 1. Sincronizar workspace local para pasta temporária no VPS
-rsync -avz --exclude '.git' --exclude 'node_modules' --exclude 'target' -e "ssh -i $KEYPATH" ./ $USER@$HOST:/tmp/workspace-$TASK_ID/
+rsync -avz --exclude '.git' --exclude 'node_modules' --exclude 'target' -e "ssh -i $KEYPATH" ./ $USER@$HOST:/temp/workspace-$TASK_ID/
 
 # 2. Executar OpenCode no diretório do workspace remoto
-ssh -i "$KEYPATH" $USER@$HOST "cd /tmp/workspace-$TASK_ID && opencode run '$PROMPT'"
+ssh -i "$KEYPATH" $USER@$HOST "cd /temp/workspace-$TASK_ID && opencode run '$PROMPT'"
 
 # 3. Trazer de volta resultados/patches (se necessário)
-rsync -avz -e "ssh -i $KEYPATH" $USER@$HOST:/tmp/workspace-$TASK_ID/results/ ./results/
+rsync -avz -e "ssh -i $KEYPATH" $USER@$HOST:/temp/workspace-$TASK_ID/results/ ./results/
 
 # 4. Limpar workspace remoto
-ssh -i "$KEYPATH" $USER@$HOST "rm -rf /tmp/workspace-$TASK_ID"
+ssh -i "$KEYPATH" $USER@$HOST "rm -rf /temp/workspace-$TASK_ID"
 ```
 
 ### 3. Despacho Assíncrono para Tarefas Longas (Nohup / Background)
@@ -50,13 +50,13 @@ Para tarefas de longa duração (benchmarks, crawls, grandes compilações):
 
 ```bash
 # Iniciar execução desacoplada
-ssh -i "$KEYPATH" $USER@$HOST "nohup opencode run '$PROMPT' > /tmp/agent-$TASK_ID.log 2>&1 & echo \$!"
+ssh -i "$KEYPATH" $USER@$HOST "nohup opencode run '$PROMPT' > /temp/agent-$TASK_ID.log 2>&1 & echo \$!"
 
 # Checar progresso / logs
-ssh -i "$KEYPATH" $USER@$HOST "tail -n 30 /tmp/agent-$TASK_ID.log"
+ssh -i "$KEYPATH" $USER@$HOST "tail -n 30 /temp/agent-$TASK_ID.log"
 
 # Aguardar conclusão e obter resultado final
-ssh -i "$KEYPATH" $USER@$HOST "wait <PID> 2>/dev/null; cat /tmp/agent-$TASK_ID.log"
+ssh -i "$KEYPATH" $USER@$HOST "wait <PID> 2>/dev/null; cat /temp/agent-$TASK_ID.log"
 ```
 
 ---
@@ -71,7 +71,7 @@ Quando você (agente local) for instruído a despachar uma tarefa para um VPS:
 
 2. **Verificar Pré-requisitos no VPS**:
    - Verifique se o OpenCode está instalado: `ssh <servidor> "which opencode || command -v opencode"`.
-   - Se ausente, sugira provisionar via `envctl run all` ou `npm install -g @opencode-ai/cli` / `curl -fsSL ...`.
+   - Se ausente, sugira provisionar via `envctl run all` (padrão) ou `npm install -g opencode-ai` / script oficial de instalação.
 
 3. **Montar o Prompt do Subagente Remoto**:
    - O prompt enviado deve ser **autocontido, explícito e com critérios claros de sucesso**.

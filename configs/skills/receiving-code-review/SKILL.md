@@ -1,6 +1,7 @@
 ---
 name: receiving-code-review
-description: Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
+description: >-
+  Avaliar feedback de code review com rigor técnico antes de implementar: verificar se o apontamento está correto em vez de concordar por reflexo, e pedir clareza quando o feedback for vago ou tecnicamente duvidoso. Use ao receber review humano ou de agente, ou comentários de PR. Triggers: code review, feedback de review, comentário no PR, revisão pedida, aplicar sugestão, discordar do reviewer, review feedback, críticas no PR.
 ---
 
 # Code Review Reception

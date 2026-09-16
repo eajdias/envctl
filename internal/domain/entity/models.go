@@ -63,14 +63,22 @@ type ConfigFile struct {
 	SeedIfMissing bool   `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
 }
 
-// Skill represents an OpenCode agent skill.
+// Skill represents an agent skill deployed to OpenCode and CommandCode.
 type Skill struct {
 	Name        string   `yaml:"name"`
 	Description string   `yaml:"description"`
 	Source      string   `yaml:"source"` // directory inside configs/skills/ or repository URL
 	TargetDir   string   `yaml:"target_dir"`
 	Enabled     bool     `yaml:"enabled"`
+	OS          string   `yaml:"os,omitempty"` // "windows", "linux" or empty for all
 	Files       []string `yaml:"files,omitempty"`
+}
+
+// AppliesToOS reports whether the skill belongs on goos. An empty OS means the
+// skill is portable and is deployed everywhere; a scoped skill is skipped (and
+// pruned) on every other platform, so it never pollutes that machine's catalog.
+func (s Skill) AppliesToOS(goos string) bool {
+	return s.OS == "" || s.OS == goos
 }
 
 // LSP represents a Language Server Protocol configuration.
@@ -118,7 +126,8 @@ type RestrictedDir struct {
 	Path        string `yaml:"path"`
 	StrictACL   bool   `yaml:"strict_acl"`
 	Description string `yaml:"description"`
-	OS          string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	Category    string `yaml:"category,omitempty"` // agent subsystem ("opencode", "commandcode") or empty for machine-level
+	OS          string `yaml:"os,omitempty"`       // "windows", "linux" or empty for all
 }
 
 // CleanupItem represents a stale file or directory to remove during provisioning.
@@ -129,6 +138,9 @@ type CleanupItem struct {
 	Category    string `yaml:"category"`
 	OS          string `yaml:"os,omitempty"`        // "windows", "linux" or empty for all
 	Recursive   bool   `yaml:"recursive,omitempty"` // remove directory tree (os.RemoveAll)
+	// KeepNewest prunes timestamped backups (<name>.bak.YYYYMMDD-HHMMSS) inside
+	// the Path directory, keeping the newest N per original file (0 = disabled).
+	KeepNewest int `yaml:"keep_newest,omitempty"`
 }
 
 // DiagnosticStatus represents health check status.

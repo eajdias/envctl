@@ -1,6 +1,12 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 skill built-in do opencode) projetadas para os ecossistemas **OpenCode e CommandCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+
+> **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
+
+> **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
+
+> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` no manifesto (`windows`/`linux`) e são **podadas** nas demais plataformas. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
 
 ---
 
@@ -8,16 +14,16 @@ O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 sk
 
 1. **Economia Massiva de Context Window**: Ferramentas MCP estáticas registram schemas JSON de centenas de parâmetros em *todo* início de sessão, consumindo de 10.000 a 30.000 tokens antes mesmo da primeira interação.
 2. **Ativação On-Demand**: As Skills são carregadas sob demanda apenas quando a intenção do usuário ou a complexidade do problema exige o conhecimento especialista.
-3. **Multiplataforma e Zero Sobrecarga de Rede**: Como os scripts e templates residem localmente em `~/.config/opencode/skills/`, não há latência de chamadas RPC de MCPs locais.
+3. **Multiplataforma e Zero Sobrecarga de Rede**: Como os scripts e templates residem localmente em `~/.config/opencode/skills/` e `~/.commandcode/skills/`, não há latência de chamadas RPC de MCPs locais.
 
 ---
 
-## 📋 Categorias das 74 Skills Catalogadas
+## 📋 Categorias das Skills (40)
 
-### 1. Engenharia de Software & Arquitetura
+### 1. Engenharia de Software & Arquitetura (9)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
 - **`database-ops`**: Gestão multi-banco dinâmica (PostgreSQL, MySQL, Firebird, MongoDB, SQLite) via Docker Compose e migrações ORM sem sobrecarga de MCPs estáticos.
-- **`universal-test-runner`**: Execução unificada de testes e análise de cobertura de código para Go, Python (pytest), Node/TypeScript (vitest/jest), .NET e Rust.
+- **`universal-test-runner`**: Execução unificada de testes e análise de cobertura para Go, Python (pytest), Node/TypeScript (vitest/jest), .NET e Rust.
 - **`api-contract-design`**: Especificação, validação e linting de contratos OpenAPI 3.x, GraphQL SDL e Protobuf/gRPC.
 - **`systematic-debugging`**: Metodologia científica para identificação e resolução de bugs antes de propor correções de código.
 - **`verification-before-completion`**: Protocolo rigoroso de auto-verificação por evidências empíricas antes de finalizar tarefas.
@@ -25,29 +31,48 @@ O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 sk
 - **`using-git-worktrees`**: Isolamento determinístico de workspaces através de árvores de trabalho do Git.
 - **`writing-plans`**: Elaboração de especificações e planos de implementação passo a passo.
 
-### 2. Orquestração de Infraestrutura & Servidores Remotos
+### 2. Orquestração de Infraestrutura & Servidores Remotos (6)
 - **`vps-agent-dispatch`**: Orquestrador autônomo que permite ao agente master no notebook delegar tarefas pesadas, builds longos e testes para instâncias remotas OpenCode em servidores VPS (AWS/Oracle) via SSH, trazendo de volta apenas o sumário técnico cristalizado.
 - **`ssh-vps`**: Operação, monitoramento e recuperação de serviços (Docker, Systemd, PM2) em parque de servidores remotos.
-- **`docker`**: Gerenciamento de containers locais e remotos, volumes, networks, compose stacks e logs.
+- **`vps-provisioning`**: Provisionamento e manutenção de VPS/VM com `envctl` (bootstrap de 1 linha + `run all` + `doctor`), idempotente e auditável — nunca configurar servidor à mão.
+- **`docker`**: Gerenciamento de containers locais (Docker Desktop/WSL2), volumes, networks, compose stacks, logs e `pull`/`push` no Hub.
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
+- **`aur-headless-install`**: Instalação de pacotes AUR em shells não-interativos (`makepkg` como usuário + `sudo pacman -U`), sem prompts de senha.
 
-### 3. Extração Web (Firecrawl essencial)
-- **`firecrawl-search`** & **`firecrawl-scrape`**: Busca web em tempo real e extração limpa de markdown.
-- **`firecrawl-crawl`** & **`firecrawl-map`**: Mapeamento de sitemaps e rastreamento em massa de documentações.
-- **`firecrawl`** (CLI base): fallback para o restante.
-
-### 4. Automação de Navegador & Testes Visuais (Playwright)
-- **`playwright-cli`**: Automação de navegador headless via Node.js API.
-- **Utilitários de Linha de Comando Embutidos** (`~/.local/bin/`):
-  - `pw-screenshot <url> [output.png]`: Captura instantânea de tela em alta resolução em menos de 1 segundo.
-  - `pw-eval <url> [expression]`: Avaliação rápida de JavaScript e extração do DOM de páginas web sem necessidade de abrir browser gráfico.
-
-### 5. Meta-Skills & Refinamento de IA
-- **`grilling`** / **`grill-me`**: Entrevistas impiedosas de design de software para validação de premissas e tomada de decisões técnicas.
+### 3. Contexto, Memória & Meta-Agente (13)
+- **`agent-memory`**: Memória persistente de lições e patterns — carregada no início de toda tarefa e atualizada a cada aprendizado (`.opencode/memory/` no OpenCode; `AGENTS.md` no CommandCode).
+- **`memory-promotion`**: Classifica cada aprendizado gravado e promove processos reutilizáveis a skills, removendo a entrada da memória (sem redundância memória ↔ skill).
+- **`context7-auto`**: Busca obrigatória de documentação atualizada de bibliotecas/frameworks via MCP Context7 antes de escrever código.
 - **`ask-questions-if-underspecified`**: Esclarecimento proativo de requisitos antes de iniciar implementações ambíguas.
-- **`stop-slop`**: Higienização e remoção de clichês e vícios de linguagem em respostas textuais de IA.
-- **`skill-miner`** & **`skill-personalizer`**: Descoberta e customização de novos padrões de fluxo de trabalho para criação de novas skills.
+- **`subagent-routing`**: Roteamento de delegação — quando delegar, qual subagente (`explore`/`general`), paralelo vs sequencial e quando **não** paralelizar.
+- **`dispatching-parallel-agents`**: Mecânica de execução de tarefas independentes em paralelo, preservando o contexto do coordenador.
+- **`parallel-agent-orchestration`**: Subagentes paralelos no **mesmo** repositório git — base comum primeiro, fronteiras disjuntas, integração final pelo orquestrador.
 - **`handoff`**: Compactação e sumarização de contexto de sessão para transferência transparente entre agentes.
+- **`grilling`**: Entrevista impiedosa de design (árvore de decisões em rodadas) para validar premissas antes de implementar.
+- **`stop-slop`**: Higienização e remoção de clichês e vícios de linguagem em respostas textuais de IA.
+- **`skill-miner`**: Mineração de histórico de sessões de agentes para descobrir skills candidatas.
+- **`skill-generalizer`**: Preparação de skills locais/privadas para publicação (portabilidade, metadados, licenciamento).
+- **`skill-personalizer`**: Auditoria e adaptação de skills recém-criadas/baixadas às preferências e ao ambiente do usuário.
+
+### 4. Domínio & Aplicações (12)
+- **`bulk-postgres-import`**: Import/upsert em massa no PostgreSQL (batch multi-VALUES, `ON CONFLICT`, dedupe) tolerante a latência alta (túnel SSH).
+- **`docker-build-local-vps-deploy`**: Build de imagem Docker local + transporte (`save`/`load`) para VPS fraca que não aguenta build.
+- **`docker-desktop-wsl-restart`**: Restart limpo do Docker Desktop no Windows quando o backend WSL2 falha (`Wsl/ExecError`, `backend.sock`).
+- **`jwt-hs256-node`**: Implementação de JWT HS256 sem dependências externas em Node.js (`createHmac` + `timingSafeEqual` com hash duplo).
+- **`lsp-smoke-test`**: Smoke test de LSP servers (`--stdio` com stdin fechado; nunca confiar em `--version`) antes de registrar na config.
+- **`nextjs-standalone-deploy`**: Deploy de Next.js com `output: standalone` (Dockerfile multi-stage, `NEXT_PUBLIC` no build, `public/`) e migração para v16.
+- **`phone-e164-normalization`**: Normalização de telefones BR para E.164 (DDI 55, ambiguidade do DDD 55 do RS, descarte registrado de malformados).
+- **`playwright-prod-regression`**: Regressão Playwright contra produção sem mutar dados reais (empty states, timing, filtro de 401 esperados).
+- **`simple-feature-flag`**: Feature flags simples e auditáveis (tabela `app_config` + API JWT + leitura no início de cada ciclo).
+- **`web-dashboard-automation`**: Automação de dashboards/SPAs autenticados (interceptar o request real via Playwright, CSRF token, replicar chamadas).
+- **`cachyos-gaming-setup`**: Tuning de CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores, perfis de controle).
+- **`headless-gui-probe`**: Geração de configs e validação de apps GUI (Qt/SDL) sem display (offscreen/dummy, `timeout -k`, log scraping).
+
+---
+
+## 🌐 Automação de Navegador (MCP-only)
+
+Browser automation usa exclusivamente os MCPs `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`), ambos `enabled: false` (opt-in por sessão via `/mcp`). Não há skill de browser/CLI nem scripts utilitários — o bundle do Chrome acompanha os MCPs.
 
 ---
 
@@ -60,8 +85,22 @@ Para executar uma tarefa em uma VPS remota sem sobrecarregar a memória do noteb
 ssh <SERVER> 'opencode run "Diagnosticar uso de memória dos containers Docker e retornar tabela formatada" < /dev/null'
 
 # 2. Execução desacoplada em background (tarefas longas)
-ssh <SERVER> 'nohup opencode run "Executar suíte de testes de integração e gerar relatório em /tmp/report.md" < /dev/null > /tmp/agent.log 2>&1 &'
+ssh <SERVER> 'nohup opencode run "Executar suíte de testes de integração e gerar relatório em /temp/report.md" < /dev/null > /temp/agent.log 2>&1 &'
 
 # 3. Coleta do resultado consolidado
-ssh <SERVER> 'cat /tmp/report.md'
+ssh <SERVER> 'cat /temp/report.md'
 ```
+
+---
+
+## 🔀 CommandCode × OpenCode
+
+O conjunto base de skills é o mesmo, mas cada agente tem seu próprio **command** de provisionamento, seu **índice** (`SKILL-INDEX.md`) e suas peculiaridades. O que não tem equivalente é diferença de plataforma, não lacuna acidental:
+
+| Recurso | OpenCode | CommandCode |
+|---|---|---|
+| Skills | `~/.config/opencode/skills/` | `~/.commandcode/skills/` |
+| Memória (lessons/patterns) | `~/.config/opencode/memory/` (seed enviado por `envctl`) | Não existe memory-dir — a memória é o `AGENTS.md` (tiers user/project) |
+| LSP | Bloco `lsp` do `opencode.json` (18 servidores) | Sem configuração própria — usa o LSP do IDE conectado (`/ide` + `get_diagnostics`) |
+| Context pruning | Plugin DCP (`dcp.jsonc`, banda 90%/80%) | Nativo (`/compact`, setting `compact-mode`) |
+| Regras globais | `~/.config/opencode/AGENTS.md` (variantes Windows/Linux) | `~/.commandcode/AGENTS.md` (variantes Windows/Linux) |

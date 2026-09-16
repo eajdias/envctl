@@ -4,13 +4,16 @@ description: >-
   Gerenciamento de Docker na máquina local. Use quando o usuário pedir para listar/inspecionar/reiniciar containers, ver logs, subir/derrubar stacks, imagens, volumes, redes, docker compose, ou operar o Docker Hub. Triggers: docker, container, containers, imagem, imagens, compose, docker compose, docker desktop, subir container, derrubar container, logs do container, restart container, docker hub, pull, push, docker ps, stack.
 ---
 
-# Docker na máquina local (Windows + Docker Desktop)
+# Docker (máquina local ou VPS)
 
 ## Contexto
 
-- Docker Desktop 4.87.0 instalado via winget. Binário: `C:\Program Files\Docker\Docker\resources\bin\docker.exe` (no PATH após restart do terminal).
-- Backend: WSL2 — daemon roda na distro `docker-desktop` (kernel Linux 29.7.2). Compose v5.4.0.
-- Daemon precisa estar rodando: serviço `com.docker.service` (Start-Service se parado) ou iniciar Docker Desktop. Verificar com `docker version` / `docker info`.
+Detecte o ambiente antes de agir — os comandos são os mesmos, o daemon não:
+
+- **Windows (Docker Desktop + WSL2):** Docker Desktop instalado via winget; binário em `C:\Program Files\Docker\Docker\resources\bin\docker.exe` (só entra no PATH após reiniciar o terminal). O daemon roda na distro `docker-desktop` (backend WSL2, kernel Linux). Precisa estar no ar: serviço `com.docker.service` (`Start-Service` se parado) ou abrir o Docker Desktop. Se o daemon não responder mesmo com o serviço iniciado, use a skill `docker-desktop-wsl-restart`.
+- **Linux (VPS/servidor):** daemon nativo via systemd — `systemctl status docker`, `sudo systemctl start docker`. Não há Docker Desktop nem WSL2 aqui.
+
+Valide sempre com `docker version` (client + server) e `docker info`.
 
 ## Comandos essenciais
 
@@ -23,18 +26,18 @@ description: >-
 - `docker compose up -d` / `down` / `logs -f` / `ps` — na pasta do projeto (arquivos compose são lidos do diretório local; atenção à montagem de volumes entre WSL2 e C:\)
 - `docker pull <imagem>` / `docker push`
 
-## Shell Windows (PowerShell 7 + WSL2)
+## Shell (Windows vs Linux)
 
-O ambiente usa **PowerShell 7** como shell padrão — nenhuma conversão de caminhos POSIX acontece. Docker roda nativamente do PowerShell.
+No **Windows**, o ambiente usa **PowerShell 7** como shell padrão — nenhuma conversão de caminhos POSIX acontece. Docker roda nativamente do PowerShell.
 - `docker exec -it <container> /bin/sh` funciona direto, sem conversão de caminhos.
 - Em volumes no Windows, use caminhos absolutos no formato misto (ex: `docker run -v "C:/meu/projeto:/app"`).
 - Para comandos Linux dentro de containers exigirem shell bash: `docker exec -it <container> bash`.
 
-## Docker Hub (MCP docker-hub)
+No **Linux**, caminhos são POSIX e não há camada de conversão: os mesmos comandos acima funcionam sem ajuste.
 
-- MCP server local do repositório `docker/hub-mcp` (clonado em `~/Documents/docker-hub-mcp-server`; roda via `node dist/index.js --transport=stdio`; NÃO existe pacote npm).
-- **Desabilitado por padrão** no opencode.json (`enabled: false`). Se o usuário quiser usar as ferramentas de busca/pesquisa de imagens e repositórios do Hub, o AGENTE NÃO edita o config — parar e pedir ao usuário para habilitar (`"docker-hub": { "enabled": true }` no bloco mcp do `~\.config\opencode\opencode.json`).
-- Auth opcional via env `HUB_USERNAME` + `HUB_PAT_TOKEN` (só para operações autenticadas; leitura pública funciona sem).
+## Docker Hub
+
+Não existe MCP do Docker Hub neste ambiente (foi removido) — use a CLI `docker` (`docker search`, `docker pull`, `docker push`) ou o site do Hub. Nunca editar config de MCP por conta própria.
 
 ## Regras
 

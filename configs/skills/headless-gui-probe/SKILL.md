@@ -1,6 +1,7 @@
 ---
 name: headless-gui-probe
-description: Gerar configs e validar apps GUI (Qt/SDL) sem display, para inspeção de arquivos de config e logs. Use ao configurar emuladores, extrair defaults de .ini/.toml ou testar se um binário roda na CPU atual. Triggers: headless, offscreen, gerar config, validar GUI, SIGILL, AVX2.
+description: >-
+  Gerar configs e validar apps GUI (Qt/SDL) sem display, para inspeção de arquivos de config e logs. Use ao configurar emuladores, extrair defaults de .ini/.toml ou testar se um binário roda na CPU atual. Triggers: headless, offscreen, gerar config, validar GUI, SIGILL, AVX2.
 ---
 
 # Headless GUI Probe
@@ -11,8 +12,8 @@ Precisa dos arquivos de config que um app GUI só cria ao abrir, ou quer saber s
 ## Passos
 1. Tentar plataforma offscreen/dummy primeiro (sem janela, sem risco):
    ```bash
-   QT_QPA_PLATFORM=offscreen timeout -k 3 10 <app> > /tmp/probe.log 2>&1
-   SDL_VIDEODRIVER=dummy timeout -k 3 10 <app> > /tmp/probe.log 2>&1
+   QT_QPA_PLATFORM=offscreen timeout -k 3 10 <app> > /temp/probe.log 2>&1
+   SDL_VIDEODRIVER=dummy timeout -k 3 10 <app> > /temp/probe.log 2>&1
    ```
 2. SEMPRE redirecionar para arquivo (nunca pipe): filhos que seguram stdout travam o `timeout` e a sessão.
 3. SEMPRE `timeout -k <kill> <secs>`: apps GUI ignoram SIGTERM; sem `-k` o processo sobrevive.

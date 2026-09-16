@@ -371,11 +371,6 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		}
 	}
 
-	// Firecrawl CLI - global npm tool used by the firecrawl-* agent skills
-	// (mirrors the Windows volta global package).
-	uc.step(ctx, result, "firecrawl", "Firecrawl CLI",
-		"volta install firecrawl-cli")
-
 	// 12. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
 		"volta install stylelint")

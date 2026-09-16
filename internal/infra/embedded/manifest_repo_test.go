@@ -1,6 +1,7 @@
 package embedded
 
 import (
+	"io/fs"
 	"testing"
 
 	"github.com/eajdias/envctl"
@@ -54,8 +55,40 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected skills to be non-empty")
 	}
 
-	if len(skills) != 49 {
-		t.Errorf("expected exactly 49 skills in manifest, got %d", len(skills))
+	const expectedSkills = 40
+	if len(skills) != expectedSkills {
+		t.Errorf("expected exactly %d skills in manifest, got %d", expectedSkills, len(skills))
+	}
+
+	// The manifest and the embedded skill directories must agree: a skill that
+	// is embedded but undeclared never gets deployed, and one that is declared
+	// without a directory breaks provisioning.
+	entries, readErr := fs.ReadDir(envctl.EmbeddedFS, "configs/skills")
+	if readErr != nil {
+		t.Fatalf("failed to read embedded skill directories: %v", readErr)
+	}
+	declared := map[string]bool{}
+	for _, s := range skills {
+		declared[s.Name] = true
+	}
+	shipped := map[string]bool{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			shipped[entry.Name()] = true
+		}
+	}
+	for name := range shipped {
+		if !declared[name] {
+			t.Errorf("skill directory %q is embedded but missing from manifests/skills.yaml", name)
+		}
+	}
+	for name := range declared {
+		if !shipped[name] {
+			t.Errorf("skill %q is declared in manifests/skills.yaml but has no embedded directory", name)
+		}
+	}
+	if len(shipped) != expectedSkills {
+		t.Errorf("expected exactly %d embedded skill directories, got %d", expectedSkills, len(shipped))
 	}
 
 	if len(lsps) != 18 {

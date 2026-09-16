@@ -106,9 +106,14 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 					uc.logger.Warn("Snapshot: failed to copy skill '%s': %v", skillName, err)
 				}
 
+				desc := skillDescription(skillSrc)
+				if desc == "" {
+					desc = fmt.Sprintf("Agent skill %s", skillName)
+				}
+
 				discoveredSkills = append(discoveredSkills, entity.Skill{
 					Name:        skillName,
-					Description: fmt.Sprintf("OpenCode agent skill %s", skillName),
+					Description: desc,
 					Source:      fmt.Sprintf("configs/skills/%s", skillName),
 					Enabled:     true,
 				})

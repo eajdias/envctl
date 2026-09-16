@@ -3,7 +3,6 @@ name: subagent-routing
 description: >-
   Roteamento e delegação de subagentes: quando delegar, qual tipo usar (explore para varredura de código, general para pesquisa/multi-passo), paralelo vs sequencial e quando NÃO delegar. Use ao encarar exploração de codebase sem alvo definido, pesquisa na internet/docs, debug sem causa conhecida, ou múltiplos domínios independentes. Triggers: subagente, delegar, dispatch, explorar codebase, pesquisar na internet, debug, paralelizar, preservar contexto.
 license: MIT
-compatibility: opencode
 ---
 
 # Roteamento de Subagentes (Delegação Proativa)
@@ -14,7 +13,7 @@ Suba o trabalho para **preservar o contexto do coordenador** e **paralelizar dom
 
 ## Quando delegar (e para quem)
 
-Tipos comuns: `explore` (read-only, varredura de código) e `general` (execução/pesquisa multi-passo). No CommandCode existem também `plan`/`goal`.
+Tipos comuns: `explore` (read-only, varredura de código) e `general` (execução/pesquisa multi-passo). O CommandCode tem ainda o `plan` (planejamento) — e `explore`/`plan`/`review`/`general` são nomes reservados lá.
 
 | Situação | Subagente | Paralelizar? |
 |---|---|---|
@@ -22,7 +21,7 @@ Tipos comuns: `explore` (read-only, varredura de código) e `general` (execuçã
 | Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ `context7-auto`/`WebSearch`/`WebFetch`) | Sim, se fontes independentes |
 | Debug sem causa conhecida | `explore`/`general` por domínio | **Não primeiro** — investigue a causa raiz; paralelo só com falhas independentes |
 | Tarefa pesada multi-passo (build, suíte de testes, crawler) | `general` ou skill `vps-agent-dispatch` (remoto) | Conforme independência |
-| Planejamento de implementação | agente `plan` direto (no opencode é primary, não dispatchável) | — |
+| Planejamento de implementação | `plan` (built-in dispatchável no CommandCode; no OpenCode é primary, não dispatchável) | — |
 
 ## Regras
 
