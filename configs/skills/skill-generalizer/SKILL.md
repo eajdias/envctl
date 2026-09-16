@@ -2,6 +2,11 @@
 name: skill-generalizer
 description: >-
   Transformar uma skill local/privada em skill publicável (GitHub, marketplace, time): remover caminhos privados, hábitos pessoais, credenciais, hosts internos e contexto de usuário. Triggers: publicar skill, generalizar skill, open source da skill, remover dados privados, compartilhar skill, marketplace, portabilidade, skill-generalizer.
+license: MIT
+metadata:
+  author: hqhq1025
+  source: https://github.com/hqhq1025/skill-optimizer
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Skill Generalizer

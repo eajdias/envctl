@@ -2,6 +2,11 @@
 name: verification-before-completion
 description: >-
   Exigir evidência empírica antes de declarar algo pronto, corrigido ou passando: rodar build, testes e lint e mostrar a saída real antes de commitar ou abrir PR. Use sempre ao concluir uma tarefa ou fechar TODOs. Triggers: terminei, está pronto, funcionou, corrigido, passou nos testes, evidência, antes de commitar, validar, build/test/lint, não afirmar sem rodar, regressão.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Verification Before Completion

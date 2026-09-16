@@ -2,6 +2,11 @@
 name: systematic-debugging
 description: >-
   Depurar sistematicamente: encontrar a causa raiz antes de propor qualquer correção, começando por um teste que reproduz a falha. Use em qualquer bug, teste vermelho, erro intermitente ou comportamento inesperado. Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Systematic Debugging

@@ -12,8 +12,9 @@
 | Bug, teste vermelho, erro intermitente, comportamento inesperado | `systematic-debugging` |
 | Antes de declarar "pronto"/corrigido/passando (inclusive antes de commitar ou abrir PR) | `verification-before-completion` |
 | Implementar algo multi-passo, feature nova ou refatoração ampla | `writing-plans` |
-| Pedido ambíguo, incompleto ou com premissas não ditas | `ask-questions-if-underspecified` |
+| Pedido ambíguo/vago — medir a clareza (0-100) e perguntar ANTES de agir | `grill-me` |
 | Endurecer, questionar ou stress-testar um plano/decisão | `grilling` |
+| Formular as perguntas de esclarecimento (opções, defaults, resposta curta) | `ask-questions-if-underspecified` |
 | Receber code review ou comentários de PR | `receiving-code-review` |
 | Commit, branch, PR, rebase, conflito, tag/release | `git-workflow` |
 | Isolar o trabalho num workspace próprio (feature paralela) | `using-git-worktrees` |

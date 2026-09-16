@@ -26,7 +26,7 @@ Config: `~/.config/opencode/dcp.jsonc`.
 Definidos no `opencode.json` — **não** existe mais `~/.config/opencode/agents/` (o provisioning remove o diretório; um `.md` lá sobrescreveria o JSON silenciosamente).
 
 - **`review`** (primary): revisão read-only — bash granular read-only para evidências, `edit` negado, `task: allow` + `subagent_depth: 2`. Severidades BLOCKER/MAJOR/MINOR/NIT (nit só se pedido), evidência obrigatória `file:line`, YAGNI check contra callers reais, veredito APPROVE/REQUEST-CHANGES.
-- **`plan`** (primary, default built-in — **não** dispatchável via task tool): planejamento read-only; escrita apenas em `docs/superpowers/plans/`; carrega `writing-plans`, `agent-memory` e context7.
+- **`plan`** (primary, default built-in — **não** dispatchável via task tool): planejamento read-only; escrita apenas em `spec-agent/` na raiz do projeto (convenção do envctl — nada de pastas da skill upstream); carrega `writing-plans`, `agent-memory` e context7.
 - O agente `goal` foi removido (o `build` cobre o fluxo); `/goal` continua funcionando pelo plugin.
 
 ## Memória do agente

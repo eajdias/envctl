@@ -107,6 +107,11 @@ skills:
       source: configs/skills/git-workflow
       target_dir: ""
       enabled: true
+    - name: grill-me
+      description: Porteiro de ambiguidade (0-100) — mede a clareza do pedido e pergunta ANTES de executar quando a nota é alta
+      source: configs/skills/grill-me
+      target_dir: ""
+      enabled: true
     - name: grilling
       description: Arguir o usuário sobre plano/decisão/ideia até as premissas caírem
       source: configs/skills/grilling

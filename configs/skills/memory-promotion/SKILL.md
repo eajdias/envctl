@@ -29,6 +29,7 @@ Teste rápido: se a entrada tem **mais de 2 passos** ou é **aplicável a situa�
 3. Frontmatter: `name` (obrigatório), `description` com triggers (obrigatório) — escrever descrição acionável ("Use quando... Triggers: ...").
 4. Corpo: seções `## Quando usar`, `## Passos` (numerados, com comandos reais), `## Verificação` (como provar que funcionou). Português, conciso, sem "AI speak".
 5. **Se a memória for promovida, REMOVER a entrada** do lessons.md/patterns.md (substituir por nada — a skill agora é a fonte). Exceção: guardar NA SKILL uma linha "Contexto: substitui a lição de <data>" se o contexto histórico importar.
+6. **Atribuição (obrigatória)**: se a skill foi adotada/derivada de terceiro, preencha `metadata.author`, `metadata.source` e `metadata.adapted`, e declare a licença do upstream no campo `license`. Skill autoral declara `license: MIT` e **não** ganha metadata de terceiro. Registre a linha na tabela de `docs/skills-attribution.md`. Nunca deixe crédito implícito.
 
 ## 3. Registrar para provisionamento
 

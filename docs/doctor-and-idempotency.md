@@ -28,8 +28,8 @@ envctl doctor
 4. **Language Servers (18 LSPs)**:
    - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 18 servidores de linguagem registrados.
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de 40 Skills de Agentes**:
-   - Existência e conformidade de todas as 40 skills em `~/.config/opencode/skills/`.
+6. **Catálogo de 41 Skills de Agentes**:
+   - Existência e conformidade de todas as 41 skills em `~/.config/opencode/skills/`.
 
 ---
 

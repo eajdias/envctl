@@ -1,6 +1,7 @@
 ---
 name: ssh-vps
 description: Operar VPS/servidores remotos da empresa via SSH (Linux + Windows OpenSSH) — monitorar, diagnosticar e recuperar serviços (systemd, Docker, PM2) em ~10 servidores. Use quando o usuário pedir para verificar, monitorar, reiniciar, corrigir ou gerenciar um servidor/VPS ("ssh", "vps", "server", "servidor", "instância", "monitorar servidor", "health check", "reiniciar serviço", "conectar no", "ssh-manager", "mcp de ssh", "subir serviço", "serviço caiu").
+license: MIT
 ---
 
 # SSH VPS Operations

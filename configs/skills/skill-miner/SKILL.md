@@ -2,6 +2,11 @@
 name: skill-miner
 description: >-
   Minerar histórico de sessões de agentes, transcrições arquivadas e trabalho repetitivo local para descobrir workflows recorrentes que merecem virar skills novas. Triggers: minerar sessões, descobrir skill, workflow recorrente, histórico do agente, o que eu repito, nova skill a partir do uso, skill-miner.
+license: MIT
+metadata:
+  author: hqhq1025
+  source: https://github.com/hqhq1025/skill-optimizer
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Skill Miner

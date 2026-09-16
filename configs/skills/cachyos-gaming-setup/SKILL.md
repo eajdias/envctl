@@ -2,6 +2,7 @@
 name: cachyos-gaming-setup
 description: >-
   Tune CachyOS for gaming/emulation (kernel params, scheduler, GPU, Steam, emulators, BIOS). Use when setting up or auditing a CachyOS gaming box, or after envctl run gaming. Triggers: gaming setup, otimização jogos, emuladores, Steam Proton, mangohud, LACT, mitigations.
+license: MIT
 ---
 
 # CachyOS Gaming Setup

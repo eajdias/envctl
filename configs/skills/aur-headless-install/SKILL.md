@@ -2,6 +2,7 @@
 name: aur-headless-install
 description: >-
   Instalar pacotes AUR de shells não-interativos (agentes, SSH, CI). Use quando paru pedir senha/TTY, falhar no sudo interno ou ao instalar com dependências make faltando. Triggers: paru, AUR, makepkg, sudo sem TTY, "terminal é necessário para ler a senha".
+license: MIT
 ---
 
 # AUR Headless Install

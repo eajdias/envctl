@@ -1,12 +1,14 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
 > **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
 
 > **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
 
 > **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` no manifesto (`windows`/`linux`) e são **podadas** nas demais plataformas. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
+
+> **Créditos.** Boa parte destas skills foi adotada de projetos de terceiros (obra/superpowers, mattpocock/skills, hqhq1025/skill-optimizer, Hardik Pandya) — o autor e o repositório de origem estão no `metadata` de cada `SKILL.md`. Tabela completa, o que foi adaptado e o checklist para adotar skill nova: [**Atribuição de Skills**](skills-attribution.md).
 
 ---
 
@@ -18,7 +20,7 @@ O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das Skills (40)
+## 📋 Categorias das Skills (41)
 
 ### 1. Engenharia de Software & Arquitetura (9)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
@@ -39,11 +41,12 @@ O `envctl` embuta e sincroniza **40 Skills de Agentes Especialistas** projetadas
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
 - **`aur-headless-install`**: Instalação de pacotes AUR em shells não-interativos (`makepkg` como usuário + `sudo pacman -U`), sem prompts de senha.
 
-### 3. Contexto, Memória & Meta-Agente (13)
-- **`agent-memory`**: Memória persistente de lições e patterns — carregada no início de toda tarefa e atualizada a cada aprendizado (`.opencode/memory/` no OpenCode; `AGENTS.md` no CommandCode).
-- **`memory-promotion`**: Classifica cada aprendizado gravado e promove processos reutilizáveis a skills, removendo a entrada da memória (sem redundância memória ↔ skill).
+### 3. Contexto, Memória & Meta-Agente (14)
+- **`agent-memory`**: Memória persistente de lições e patterns — consulte quando a tarefa parecer repetir algo já resolvido e registre quando aprender (`.opencode/memory/` no OpenCode; `AGENTS.md` no CommandCode).
+- **`memory-promotion`**: Classifica cada aprendizado gravado e promove processos reutilizáveis a skills, removendo a entrada da memória (sem redundância memória ↔ skill); aplica a regra de atribuição ao adotar skill de terceiro.
 - **`context7-auto`**: Busca obrigatória de documentação atualizada de bibliotecas/frameworks via MCP Context7 antes de escrever código.
-- **`ask-questions-if-underspecified`**: Esclarecimento proativo de requisitos antes de iniciar implementações ambíguas.
+- **`grill-me`**: Porteiro de ambiguidade — mede de 0 a 100 a clareza do pedido e, acima do limiar, pergunta **antes** de executar (melhor perguntar a mais do que executar errado e desfazer).
+- **`ask-questions-if-underspecified`**: A mecânica de perguntar bem — perguntas mínimas, opções com default, resposta compacta.
 - **`subagent-routing`**: Roteamento de delegação — quando delegar, qual subagente (`explore`/`general`), paralelo vs sequencial e quando **não** paralelizar.
 - **`dispatching-parallel-agents`**: Mecânica de execução de tarefas independentes em paralelo, preservando o contexto do coordenador.
 - **`parallel-agent-orchestration`**: Subagentes paralelos no **mesmo** repositório git — base comum primeiro, fronteiras disjuntas, integração final pelo orquestrador.

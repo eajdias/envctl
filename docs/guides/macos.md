@@ -78,7 +78,7 @@ envctl run volta
 # Provisionar variáveis de ambiente e arquivos de shell
 envctl run shell
 
-# Extrair e sincronizar as 40 Skills do OpenCode/CommandCode
+# Extrair e sincronizar as 41 Skills do OpenCode/CommandCode
 envctl run skills
 
 # Provisionar os 18 servidores de linguagem (LSP)

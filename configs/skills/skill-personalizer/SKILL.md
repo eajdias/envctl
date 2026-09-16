@@ -2,6 +2,11 @@
 name: skill-personalizer
 description: >-
   Auditar e adaptar skills recém-criadas, baixadas ou da comunidade ao ambiente do usuário — ferramentas, hábitos, diretórios, histórico de sessões —, especialmente quando os triggers estão errados, barulhentos ou genéricos demais. Triggers: personalizar skill, adaptar skill, triggers ruins, ajustar skill ao meu ambiente, skill da comunidade, ruído de skill, skill-personalizer.
+license: MIT
+metadata:
+  author: hqhq1025
+  source: https://github.com/hqhq1025/skill-optimizer
+  adapted: envctl — descricao/triggers em PT-BR; corpo identico ao upstream
 ---
 
 # Skill Personalizer
