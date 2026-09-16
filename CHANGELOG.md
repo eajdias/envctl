@@ -9,6 +9,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🧩 OpenCode: AGENTS.md compacto + REFERENCE.md sob demanda
+
+- **Changed**: `configs/AGENTS.md` (OpenCode Windows) reescrito compacto — **20,1 KB → 4,4 KB** (variante Linux: 13,4 KB → 4,6 KB), na mesma estrutura do CommandCode: **Ambiente · Regras · OpenCode · Referências (leia só se precisar)**.
+- **Added**: `configs/REFERENCE.md` → `~/.config/opencode/REFERENCE.md` (categoria `opencode`): plugins, DCP (bandas, `compress`, protegidos), agentes (`review`/`plan`), memória (paths + promoção a skill), infra VPS, snippets (serviços, SSH, Docker, privilegiado) e higiene de scratch/encoding. **Consultado sob demanda — não é auto-carregado.**
+- **Changed**: a diretiva "Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa)" virou uma regra enxuta por demanda ("consulte `agent-memory` quando a tarefa parecer repetir algo já resolvido; registre quando aprender"). O mandato de carregar antecipadamente contrariava a economia de contexto; a mecânica completa (paths, classificação, promoção a skill) foi para o `REFERENCE.md`.
+
 ### ⚡ AGENTS.md compacto, skills sob demanda e provisionamento por agente
 
 - **Changed (preferência corrigida)**: as skills voltam a ser **carregadas sob demanda**. Removido o mandato "carregue a skill ANTES de agir" dos 4 manifestos: a economia de contexto é justamente o motivo de usar skill em vez de MCP — o que entra no prompt a cada turno é apenas *nome + descrição*, e o corpo do `SKILL.md` só é lido quando a tarefa casa.

@@ -66,6 +66,13 @@ config_files:
     strict_acl: false
     category: "opencode"
 
+  - id: opencode_reference
+    description: "OpenCode operational reference (plugins, DCP, agents, memory, VPS, snippets); consulted on demand, NOT auto-loaded"
+    source: "configs/REFERENCE.md"
+    destination: "~/.config/opencode/REFERENCE.md"
+    strict_acl: false
+    category: "opencode"
+
   - id: opencode_dcp
     description: "OpenCode Dynamic Context Pruning configuration"
     source: "configs/dcp.jsonc"

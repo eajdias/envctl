@@ -1,132 +1,39 @@
 # OpenCode Environment Manifest
 
-## System Architecture
+## Ambiente
 
-- **OS:** Windows 11 Pro 25H2 (amd64)
-- **Workstation:** `<hostname>` | User: `<user>`
-- **Shell Primary (OpenCode):** PowerShell 7.6.5 (`pwsh.exe`) — **shell default do OpenCode no Windows**. Todos os comandos dos agentes LLM são executados via PowerShell.
-- **Shell Secondary:** WSL Ubuntu 26.04 (`wsl.exe -d Ubuntu`) — subshell POSIX para scripts legados e ferramentas Linux, usar apenas quando necessário (`wsl -e bash -lc "..."`).
-- **Package Managers:** Winget (native Windows), Volta (Node ecosystem), Pip/Uv (Python), Dotnet Tool (.NET), APT (via WSL Ubuntu)
-- **Node Runtime:** Node v24.19.0 managed via Volta (`NODE_PATH="%USERPROFILE%\node_modules"`)
-- **Global Tools:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `tree`, `zip/unzip`, `bun` (runtime JS/TS rápido — `bunx` substitui `npx`), `dust` (disk usage rápido — `du` trava no NTFS), `hyperfine` (benchmark de comandos), `shellcheck` (lint de bash p/ WSL/Linux), `csharp-ls`
-- **Agent libs globais (Windows — uso direto em scripts, sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` — `axios`, `cheerio`, `papaparse` (CSV); Python global — `pyyaml`, `requests`, `openpyxl` (xlsx), `beautifulsoup4` (HTML), `pypdf`, `python-docx`, `lxml`. SQLite via `python -c "import sqlite3"` (stdlib).
-- **LSPs Registered:** 18 language servers in `opencode.json` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, PowerShell, Rust Analyzer, CSharp-LS, ESLint, TOML, PHP)
-- **Git Optimizations:** `fscache=true`, `preloadindex=true`, `longpaths=true`, `autocrlf=input`, `delta` pager
+- **OS:** Windows 11 Pro 25H2 (amd64) · workstation `<hostname>` · usuário `<user>`
+- **Shell:** PowerShell 7 (`pwsh.exe`) é o shell do OpenCode — use sintaxe nativa (`Get-ChildItem`, `Test-Path`, `$env:NOME`), não bash. Script POSIX legado: `wsl -e bash -lc "..."` (nunca o contrário).
+- **CLIs no PATH:** `rg`, `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `git`, `docker`, `node`, `npm`, `bun`/`bunx` (substitui `npx`), `dust`, `hyperfine`, `shellcheck`, `csharp-ls`.
+- **Libs globais (sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` (`axios`, `cheerio`, `papaparse`); Python global (`pyyaml`, `requests`, `openpyxl`, `beautifulsoup4`, `pypdf`, `python-docx`, `lxml`, `sqlite3` stdlib).
+- **Scratch:** `C:\temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
+- **Git:** `fscache`, `preloadindex`, `longpaths`, `autocrlf=input`, pager `delta`.
 
-## Conventions & Rules
+## Regras
 
-- **Language:** Code/comments/commits in English. User communication in Portuguese (BR).
-- **Style:** Clean Architecture, SOLID, idiomatic code per language, strict typing.
-- **Tone (agentes LLM):** Direto, informal, sem rodeio. Respostas curtas. Nada de "certamente!", "claro que sim!", "é uma excelente pergunta!". Se o usuário pergunta "isso vale a pena?", a resposta é "não" ou "sim, porque X" — sem parágrafo introdutório. Code first, explanation after (max 3 lines). Se a explicação é mais longa que o código, deleta a explicação. Se um default/valor proposto pelo usuário for subótimo, **aponte e proponha o melhor com trade-offs** — não aceite em silêncio.
-- **Git:** Semantic branches (`feat/...`, `fix/...`), conventional commits, PRs via `gh pr create`.
-- **Testing:** Evidence before claims — test before declaring complete.
-- **Security:** Strict ACLs on `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`. Never hardcode secrets.
-- **Zero Tolerância:** qualquer WARNING (lint, compilador, ts(6xxx), etc.) ou ERROR encontrado deve ser corrigido imediatamente, seja pré-existente ou novo. Nunca ignorar ou deixar para depois — dívida técnica não é acumulada. Três reforços obrigatórios:
-  1. **Falhas pré-existentes NÃO são desculpa**: qualquer warning/erro/falha encontrada — nova ou pré-existente, no código ou em testes — deve ser corrigida **no mesmo turno**, conforme a regra de Zero Tolerância acima. Proibido "reportar e seguir" ou "documentar para depois".
-  2. **Evidência antes de afirmação**: exibir as saídas reais de lint/type-check/testes na resposta final; se o comando não foi rodado, a verificação não conta.
-  3. **Se algo não pôde ser corrigido**: a tarefa permanece **não concluída** — reportar explicitamente o bloqueio e o motivo, sem declarar sucesso parcial.
-  4. **Fechamento com evidência fresca**: ao concluir uma tarefa com TODOs, **reconcílie a lista** (nada pendente) e **RE-EXECUTE a verificação** (build/test/lint/gofmt) para exibir saída atual — não basta afirmar que passou.
+- Código, comentários e commits em inglês; conversa com o usuário em PT-BR.
+- **Tom:** direto, informal, sem rodeio; code first e explicação depois (≤3 linhas). Se um default proposto pelo usuário for subótimo, aponte e proponha o melhor com trade-offs.
+- Clean Architecture, SOLID, tipagem estrita, padrões do repositório em questão.
+- Branches semânticas (`feat/`, `fix/`), conventional commits, PRs via `gh pr create`.
+- **Evidência antes de afirmação:** exiba a saída real de build/test/lint; sem comando rodado, a verificação não conta.
+- **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
+- Nunca hardcode segredos. ACLs restritas em `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`.
+- Delegue o trabalho barulhento (varredura ampla, output volumoso) para preservar o contexto: `subagent-routing` decide *quem*, `dispatching-parallel-agents` dá a *mecânica*.
 
-## OpenCode Configuration
+## OpenCode
 
-- **Global config:** `~\.config\opencode\opencode.json` (padrão único — JSON, não JSONC; configs antigas `opencode.jsonc` são removidas automaticamente)
-- **Global rules:** `~\.config\opencode\AGENTS.md` — auto-carregado em todas as sessões opencode (este arquivo)
-- **Shell (Windows):** PowerShell 7 (`C:\Program Files\PowerShell\7\pwsh.exe`) — **os agentes LLM DEVEM executar comandos via PowerShell nativo**. Regras:
-  1. Comandos do shell do OpenCode são PowerShell: `Get-ChildItem`, `Test-Path`, etc. — não usar sintaxe bash por padrão.
-  2. Ferramentas CLI (rg, fd, gh, git, docker, node, npm, npx) funcionam normalmente no PowerShell — sem wrapper.
-  3. Scripts POSIX legados que exigem Linux/bash: usar WSL — `wsl -e bash -lc "..."` (nunca ao contrário).
-  4. Variáveis de ambiente usam `$env:NOME` no PowerShell (ex.: `$env:ENVCTL_TEMP`).
-- **Plugins (3):** `@tarquinen/opencode-dcp@latest`, `@dietrichgebert/ponytail`, `@prevalentware/opencode-goal-plugin`
-- **Agentes customizados (2):** `review` (primary — revisão read-only, bash read-only para evidências), `plan` (primary — planejamento read-only: bash read-only, escrita apenas em `docs/superpowers/plans/`, carrega `writing-plans`/`agent-memory`/context7). Usar `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. (O antigo agente `goal` foi removido — o `build` cobre o fluxo; o plugin `@prevalentware/opencode-goal-plugin` segue ativo para `/goal`.)
-- **Skills paths:** `~\.config\opencode\skills` (fonte única — sem duplicatas)
-- **MCPs (browser automation — padrão único):** `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`) — ambos `enabled: false` (opt-in por sessão via `/mcp`), pinados em `bunx` (nunca `npx @latest` — re-resolve a cada spawn e morre com `Stop-Process node`).
-- **DCP (context pruning):** compressão automática na banda **90% / 80%** do contexto (`dcp.jsonc`; `allowSubAgents: true` → também roda em subagentes) — limiar alto comprime menos vezes, priorizando **cache-hit** (evita invalidar o prefixo). O agente **pode e deve** chamar a tool `compress` **proativamente** quando trocar de assunto bruscamente ou concluir uma sub-tarefa cujo contexto verbatim não será mais usado — não espere só o nudge automático. `manualMode` fica **desligado** (ligá-lo desativa a compressão autônoma). Protegidos por padrão: `task`, `skill`, `todowrite`, `todoread`, `write`, `edit`.
-- **Agent Memory (OBRIGATÓRIO — ativo em TODA tarefa):** a skill `agent-memory` deve ser CARREGADA (tool `skill` com name `agent-memory`) e seus arquivos LIDOS no INÍCIO de qualquer tarefa — antes de qualquer exploração/código: `.opencode\memory\lessons.md` e `.opencode\memory\patterns.md` do projeto (se existirem) + `~\.config\opencode\memory\lessons.md` e `~\.config\opencode\memory\patterns.md` globais. Isso vale para TODOS os agentes/subagentes (task, explore, general, etc.). Ao final da tarefa (ou ao cometer erro / ser corrigido / descobrir padrão), GRAVE a lição/pattern no arquivo correspondente — não deixe para depois. NUNCA repita lições registradas. Memórias globais e `.opencode/memory` de projeto são individuais por máquina: **nunca versionar memórias globais**; `.opencode/memory/*.md` de projeto é versionável apenas SEM dados privados (skill `agent-memory`).
-- **Skill Promotion (OBRIGATÓRIO — parâmetro fixo em TODA gravação de memória):** ao gravar QUALQUER entrada em lessons.md/patterns.md (projeto ou global), CLASSIFIQUE antes de salvar: a entrada descreve um **PROCESSO reutilizável multi-passos** (workflow, critérios de decisão, checagem que se repete)? → **PROMOVA a skill**: carregue a skill `memory-promotion` e siga o procedimento (criar `SKILL.md` no local correto — global `~\.config\opencode\skills\<nome>\` ou projeto `.opencode\skills\<nome>\` —, registrar para provisionamento via `envctl snapshot`, e **REMOVER a entrada da memória** — sem redundância entre memória e skill). A entrada é LIÇÃO/anti-padrão, fato do ambiente ou preferência? → permanece na memória. Nunca manter o mesmo conteúdo em memória E skill. O ideal: skills novas por projeto e globais crescem conforme o uso; as globais (sem dados pessoais) são implementadas no envctl (`configs/skills/` + `manifests/skills.yaml`).
-- **Config is NOT hot-reloaded:** restart opencode after changes. Validate with `opencode debug config` (note: PowerShell `ConvertFrom-Json` fails on jsonc comments — expected).
+- **Config:** `~/.config/opencode/opencode.json` (padrão único, JSON — `opencode.jsonc`/`tui.json` são removidos pelo provisioning). **Regras:** `~/.config/opencode/AGENTS.md` (este arquivo), auto-carregado. **Config não é hot-reload:** reinicie o opencode e valide com `opencode debug config`.
+- **Agentes:** `review` e `plan` (ambos primary e read-only) — use `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
+- **Plugins:** `opencode-dcp` (poda de contexto), `ponytail`, `opencode-goal-plugin`. Detalhe (bandas do DCP, tool `compress`) em REFERENCE.md.
+- **MCP:** browser automation só via MCP `playwright`/`chrome-devtools`, ambos `enabled: false` — habilite com `/mcp` antes de usar. Context7 (docs) e ssh-manager no mesmo config.
+- **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>`. Para escolher entre elas, veja `~/.config/opencode/SKILL-INDEX.md`; não leia por padrão.
+- **Memória:** consulte `agent-memory` quando a tarefa parecer repetir algo já resolvido e registre lição/pattern quando aprender. Mecânica (paths, promoção a skill) em REFERENCE.md.
 
-## VPS Infrastructure (envctl)
+## Referências (leia só se precisar)
 
-- **Provisioner:** `envctl` (CLI Go standalone; repo: `C:\projetos\git-publico\envctl` — fonte única de configs/skills/agentes; binário embutido: `~/.local/bin/envctl` nas VPSs provisionadas)
-- **Bootstrap (1 linha):** `curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash`
-- **Comandos:** `envctl run all` (Day-0 completo), `envctl run shell` / `envctl run skills` (re-sync de configs/skills), `envctl doctor` / `envctl doctor --fix` (auditoria e auto-remediação), `envctl snapshot` (sync REVERSO máquina→repo — NÃO usar em VPS remota)
-- **NOVAS VM/VPS — SEMPRE usar envctl:** nunca configurar servidor manualmente; fluxo padrão: SSH → bootstrap one-liner → `envctl run all` → `envctl doctor`. Provisionamento é idempotente (rodar N vezes = mesmo estado final). Workflow completo na skill `vps-provisioning`.
-- **Nova conexão SSH:** ao cadastrar VPS/VM, registrar seguindo os padrões (ssh-manager + inventário local — skill `ssh-vps`, workflow de 3 passos) e SEMPRE provisionar a VPS com envctl (bootstrap + `envctl run all`) — a VPS ganha OpenCode próprio (plano Free) e vira orquestrável.
-- **Limite Free na VPS:** se o OpenCode remoto estourar o limite free, PERGUNTAR ao usuário se quer registrar TOKEN (`opencode auth login` na VPS; o agente nunca manuseia o token). Se o usuário recusar, executar os comandos diretamente via SSH (skill `vps-agent-dispatch`, seção Limites Free & Fallback).
-- **Inventário:** dinâmico via `ssh-manager server list` + arquivo local `~/.config/opencode/extras/ssh_servers.md` (nunca versionar IPs/usuários/chaves em arquivos provisionados). VPSs conhecidas: `homologacaochatbot`, `zscanchatbot`, `zscanchatcomercial`, `zscanproxyprod`, `zscanintranet`, `zscansaclocal`.
-- **Orquestração remota:** skill `vps-agent-dispatch` (subagentes OpenCode remotos via SSH).
-
-## Skill Locations
-
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**41 skills ativas** — 40 provisionadas + 1 built-in: `customize-opencode`)
-
-### Skills — sob demanda
-
-As skills **não** são carregadas antecipadamente: o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>` — é isso que economiza contexto. Quando precisar decidir *qual* skill usar, consulte `~/.config/opencode/SKILL-INDEX.md` (tabela situação → skill); não leia por padrão.
-
-- **Invocação:** `/<skill>`; a tool do modelo é `skill` (com `name: <skill>`).
-- **Built-in:** `customize-opencode` — use ao editar `opencode.json` / `dcp.jsonc` / agentes.
-- **Marcadores** do índice: `[win]` só no Windows, `[linux]` só no Linux.
-
-### agent skills — browser automation é MCP-only
-
-Browser automation usa exclusivamente os MCPs `playwright` e `chrome-devtools` (com o bundle do Chrome deles, `enabled: false`, opt-in por sessão via `/mcp`). Não existe skill de browser/CLI.
-
-### Uso Proativo de SSH, Context7 e Busca Web (OBRIGATÓRIO)
-
-- **SSH / VPS** — skills `ssh-vps`, `vps-agent-dispatch`, `vps-provisioning`: para QUALQUER operação em servidor remoto, prefira a skill em vez de SSH cru — `ssh-vps` para inspecionar/operar serviços, `vps-agent-dispatch` para delegar tarefas pesadas (builds, testes, crawlers) a um OpenCode remoto, `vps-provisioning` para provisionar/manter VPS nova com envctl. Inventário dinâmico via `ssh-manager server list` (nunca IPs/chaves versionados).
-- **Context7 (docs de bibliotecas)** — skill `context7-auto` + MCP `context7`: ANTES de escrever código com uma lib/framework/API, busque documentação atualizada; não confie na memória do modelo para assinaturas/versões. Diga "use context7" ou carregue a skill.
-- **Busca na internet** — ferramentas built-in `WebSearch` (busca) e `WebFetch` (ler URL): use para fatos que mudam (versões, preços, notícias, docs públicas) em vez de assumir. Para scraping/renderização de páginas dinâmicas, use os MCPs de browser (`playwright` / `chrome-devtools`).
-
-### Delegação a Subagentes (uso proativo)
-
-Carregue a skill `subagent-routing` ao decidir delegar. Suba trabalho para **preservar o contexto do coordenador** e paralelizar domínios independentes (cada subagente tem contexto isolado e autocontido — nunca herda a sessão).
-
-- **Exploração** de codebase sem alvo definido ("onde está X", "como funciona Y") → subagente `explore`; 2+ áreas independentes → vários na MESMA resposta (paralelo).
-- **Pesquisa na internet/docs** → subagente `general` (+ `context7-auto`/`WebSearch`/`WebFetch`); fontes independentes podem rodar em paralelo.
-- **Debug sem causa conhecida** → investigar a causa raiz primeiro (`systematic-debugging`); paralelizar SÓ quando as falhas forem independentes (skill `dispatching-parallel-agents`).
-- **NÃO** paralelizar com falhas relacionadas / estado compartilhado / debug exploratório. Múltiplos agentes no mesmo repo git: skill `parallel-agent-orchestration`.
-- Prompt de cada subagente: focado, autocontido, output esperado explícito; o coordenador revisa e integra (build + suíte completa).
-
-## Tool Access
-
-### Allowed Tools by Skill
-
-- **general skills:** `Bash(*)`, `Read`, `Write`, `Edit`, `Glob`, `Grep`
-
-## Common Patterns
-
-### SSH exec on a VPS (CLI fallback)
-
-```bash
-ssh-manager server list
-ssh-manager exec <server> "uptime && df -h /"
-```
-
-### Docker quick check & Container Exec
-
-```bash
-docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
-docker exec -it <container> /bin/sh
-```
-
-Docker commands run natively from PowerShell without path-conversion workarounds.
-
-### Parallel Agent Execution
-
-Use a skill `subagent-routing` para decidir **quando/quem** delegar e `dispatching-parallel-agents` para a **execução paralela** (dispatches na mesma resposta); cada agente roda no seu próprio contexto.
-
-## Temp & Scratch Hygiene (Mandatory)
-
-- **Pasta de scratch padrão dos agentes LLM: `C:\temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — downloads, builds, extrações, screenshots — **DEVE** ir para `C:\temp`, nunca para pastas do opencode (`~/.local/share/opencode`, `~/.cache/opencode`), do projeto ou do sistema.
-- **Nunca deixar scratch para trás**: todo arquivo criado em `C:\temp` durante uma sessão **DEVE ser removido antes do fim da sessão**. `C:\temp` é de identificação e exclusão fáceis por estar na raiz do disco.
-- **Big downloads/extracts**: se um tarball/zip ou output de build for necessário apenas para produzir um resultado, baixar/extrair em `C:\temp\<tarefa>\`, usar e deletar na mesma sessão.
-- **After finishing a task**: rodar o cleanup pass sobre o scratch criado:
-  ```powershell
-  Get-ChildItem C:\temp | Select-Object Name, LastWriteTime
-  Remove-Item -Recurse -Force C:\temp\<seu-scratch>   # substitua pelo caminho exato
-  ```
-  Preferir um subdiretório dedicado por sessão (ex.: `C:\temp\opencode-<tarefa>`) para que o cleanup seja um único `Remove-Item`.
-- **envctl hygiene**: `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch em `C:\temp` com mais de 24h.
-- Quando o shell do agente mostrar 'Windows PowerShell (5.1)', o config de shell foi ignorado (opencode issue #41426) — reiniciar o opencode para aplicar o pwsh 7.
-- **Encoding do shell tool**: o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command` — o profile PowerShell NUNCA carrega no bash tool. Com o beta UTF-8 do Windows desligado (ACP/OEMCP=850), output com acentos vira `�` (U+FFFD). Se `envctl doctor` acusar *System Code Page* 850, ativar "Beta: Use Unicode UTF-8 para todo o mundo" e reiniciar — não é bug do projeto.
+- **Qual skill para qual situação:** `~/.config/opencode/SKILL-INDEX.md`
+- **Operação do OpenCode** (plugins, DCP, agentes, memória, VPS, snippets): `~/.config/opencode/REFERENCE.md`
+- **Skills instaladas:** `~/.config/opencode/skills/<nome>/SKILL.md`
+- **Servidores SSH / chaves:** `~/.config/opencode/extras/ssh_servers.md` e `~/.ssh-manager/.env` (inventário local por máquina — NUNCA versionar)
+- **Fonte da verdade:** repo `https://github.com/eajdias/envctl` (`configs/` + `manifests/`). As cópias locais são gerenciadas — edite no repo e rode `envctl opencode` (só OpenCode), `envctl commandcode` (só CommandCode) ou `envctl run shell` (ambos).
+- **Comandos:** `envctl opencode` · `envctl commandcode` · `envctl run all|shell|skills|lsp|cleanup` · `envctl doctor [--fix]` · `envctl snapshot` (sync REVERSO máquina→repo — nunca em VPS remota)
