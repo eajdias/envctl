@@ -344,12 +344,12 @@ func runSkillsForTarget(label, targetBaseDir string) (deployed int, pruned int) 
 }
 
 func runSkillsProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Deploying agent skills to OpenCode & CommandCode...")
+	pterm.Info.Println("Deploying agent skills to OpenCode & CommandCode...")
 
 	deployedOC, prunedOC := runSkillsForTarget("OpenCode", "")
 	deployedCC, prunedCC := runSkillsForTarget("CommandCode", "~/.commandcode/skills")
 
-	spinner.Success(fmt.Sprintf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)", deployedOC, deployedCC, prunedOC, prunedCC))
+	pterm.Success.Printf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)\n", deployedOC, deployedCC, prunedOC, prunedCC)
 }
 
 // runAgentProvisioning provisions a single agent end to end — its config files,

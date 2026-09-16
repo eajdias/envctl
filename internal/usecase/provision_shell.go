@@ -477,8 +477,11 @@ func pruneTimestampedBackups(dir string, keep int) ([]string, error) {
 			continue
 		}
 		sort.Slice(files, func(i, j int) bool {
-			ii, _ := files[i].Info()
-			jj, _ := files[j].Info()
+			ii, iErr := files[i].Info()
+			jj, jErr := files[j].Info()
+			if iErr != nil || jErr != nil {
+				return files[i].Name() > files[j].Name()
+			}
 			if ii.ModTime().Equal(jj.ModTime()) {
 				return files[i].Name() > files[j].Name()
 			}

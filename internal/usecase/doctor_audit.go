@@ -416,7 +416,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
-		userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
+		userHomeDir, homeErr := uc.fsManager.ExpandUserPath("~")
+		if homeErr != nil && uc.logger != nil {
+			uc.logger.Warn("Could not expand the home directory for the Linux toolchain audit: %v", homeErr)
+		}
 		env := linuxToolchainEnv(userHomeDir)
 		bootstrapTools := []struct {
 			name string

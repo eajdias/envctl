@@ -24,10 +24,10 @@ func TestParseSkillFrontmatter(t *testing.T) {
 		},
 		{
 			name:    "folded description and extra fields",
-			content: "---\nname: agent-memory\ndescription: >-\n  Memória persistente.\nlicense: MIT\nmetadata:\n  author: envctl\n---\n# Body\n",
+			content: "---\nname: agent-memory\ndescription: >-\n  Agent memory description.\nlicense: MIT\nmetadata:\n  author: envctl\n---\n# Body\n",
 			wantOK:  true,
 			wantNm:  "agent-memory",
-			wantDsc: "Memória persistente.",
+			wantDsc: "Agent memory description.",
 		},
 		{
 			name:    "crlf line endings",
