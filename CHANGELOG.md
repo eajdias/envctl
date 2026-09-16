@@ -9,6 +9,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### © Créditos de terceiros, caminhos próprios e `grill-me`
+
+- **Added**: **atribuição de autoria** nas skills adotadas de terceiros. Cada uma agora traz `metadata.author`, `metadata.source` e `metadata.adapted`, com o repositório de origem: [obra/superpowers](https://github.com/obra/superpowers) (MIT) em `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion`, `writing-plans`; [mattpocock/skills](https://github.com/mattpocock/skills) (MIT) em `grill-me`, `grilling`, `handoff`; [hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer) (MIT) em `skill-miner`, `skill-personalizer`, `skill-generalizer`. `stop-slop` já creditava Hardik Pandya (hvpandya.com).
+- **Added**: `LICENSE` (MIT) na raiz e `license: MIT` nas 41 skills — antes só 13 declaravam licença e o repo não tinha arquivo de licença, o que deixava as outras 28 implicitamente "todos os direitos reservados".
+- **Added**: `docs/skills-attribution.md` — tabela de atribuição, o que foi adaptado em cada cópia, a pendência declarada (`ask-questions-if-underspecified` e `context7-auto` têm origem não confirmada) e o checklist para adotar skill de terceiro (verificar licença via `gh api`, preencher metadata, registrar na tabela).
+- **Changed**: `memory-promotion` ganhou a regra de atribuição obrigatória ao criar/adotar skill; `docs/skills.md` e `README.md` linkam a tabela.
+- **Fixed**: caminhos da skill upstream dentro do nosso projeto — o agente `plan` e `writing-plans` salvavam em `docs/superpowers/plans/` (pasta do projeto de origem); agora os planos vão para **`spec-agent/`** na raiz, e a permissão de escrita do agente `plan` acompanha (`opencode.json`, `opencode.linux.json`, `REFERENCE.md`, `writing-plans`).
+- **Added**: **`grill-me`** reescrita como **porteiro de ambiguidade**: rubrica de 0 a 100 (alvo, ação, critério de pronto, escopo, restrições, referentes soltos), limiares (≤20 executa, 21–50 pergunta só os bloqueadores, ≥51 não executa) e limiar de risco — operação irreversível com ambiguidade > 0 bloqueia. As quatro variantes de AGENTS.md ganharam uma regra explícita: ambiguidade alta → perguntar antes de agir. Fronteira documentada com `ask-questions-if-underspecified` (mecânica de perguntar) e `grilling` (arguição de plano existente).
+- **Changed**: catálogo 40 → **41 skills** (Windows deploya 38, Linux 39).
+
 ### 🧩 OpenCode: AGENTS.md compacto + REFERENCE.md sob demanda
 
 - **Changed**: `configs/AGENTS.md` (OpenCode Windows) reescrito compacto — **20,1 KB → 4,4 KB** (variante Linux: 13,4 KB → 4,6 KB), na mesma estrutura do CommandCode: **Ambiente · Regras · OpenCode · Referências (leia só se precisar)**.

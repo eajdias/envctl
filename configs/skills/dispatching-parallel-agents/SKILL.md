@@ -2,6 +2,11 @@
 name: dispatching-parallel-agents
 description: >-
   Mecânica de execução de tarefas independentes em paralelo com subagentes: dispatch múltiplo na mesma resposta, escopo e output esperado de cada um, integração final pelo coordenador. Use depois de decidir delegar, quando houver 2+ domínios disjuntos. Para decidir QUEM delegar, use a skill subagent-routing. Triggers: paralelizar, em paralelo, dispatch múltiplo, subagentes simultâneos, mesma resposta, fan-out, acelerar execução.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
 ---
 
 # Dispatching Parallel Agents

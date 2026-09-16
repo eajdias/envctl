@@ -2,6 +2,11 @@
 name: writing-plans
 description: >-
   Escrever especificação e plano de implementação passo a passo antes de tocar no código. Use em tarefa multi-passo ou multi-arquivo, feature nova, refatoração ampla, ou quando o usuário pedir plano/design/estratégia. Produz tarefas pequenas, ordenadas e verificáveis. Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
 ---
 
 # Writing Plans
@@ -16,8 +21,8 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created via the `using-git-worktrees` skill at execution time.
 
-**Save plans to:** `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`
-- (User preferences for plan location override this default)
+**Save plans to:** `spec-agent/YYYY-MM-DD-<feature-name>.md` (na raiz do projeto)
+- (Preferência do usuário por outro local de plano sobrepõe este default)
 
 ## Scope Check
 
@@ -155,7 +160,7 @@ If you find issues, fix them inline. No need to re-review — just fix and move 
 
 After saving the plan, offer execution choice:
 
-**"Plan complete and saved to `docs/superpowers/plans/<filename>.md`. Two execution options:**
+**"Plan complete and saved to `spec-agent/<filename>.md`. Two execution options:**
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh `general` subagent per task via the task tool, review between tasks, fast iteration
 

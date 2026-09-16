@@ -2,6 +2,11 @@
 name: receiving-code-review
 description: >-
   Avaliar feedback de code review com rigor técnico antes de implementar: verificar se o apontamento está correto em vez de concordar por reflexo, e pedir clareza quando o feedback for vago ou tecnicamente duvidoso. Use ao receber review humano ou de agente, ou comentários de PR. Triggers: code review, feedback de review, comentário no PR, revisão pedida, aplicar sugestão, discordar do reviewer, review feedback, críticas no PR.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
 ---
 
 # Code Review Reception

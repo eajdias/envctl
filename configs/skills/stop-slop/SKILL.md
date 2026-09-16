@@ -5,6 +5,7 @@ description: >-
 metadata:
   trigger: Writing prose, editing drafts, reviewing content for AI patterns
   author: Hardik Pandya (https://hvpandya.com)
+license: MIT
 ---
 
 # Stop Slop

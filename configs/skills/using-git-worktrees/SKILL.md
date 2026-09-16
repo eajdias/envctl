@@ -2,6 +2,11 @@
 name: using-git-worktrees
 description: >-
   Isolar o trabalho em um workspace separado (git worktree nativo ou fallback) antes de iniciar uma feature ou executar um plano que não pode mexer no diretório atual. Use quando precisar de isolamento do workspace corrente ou paralelizar no mesmo repositório. Triggers: worktree, isolar workspace, trabalhar em paralelo, branch separada, não sujar o diretório atual, isolamento de feature, git worktree.
+license: MIT
+metadata:
+  author: obra (superpowers)
+  source: https://github.com/obra/superpowers
+  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
 ---
 
 # Using Git Worktrees
