@@ -1,6 +1,6 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 skill built-in do opencode) projetadas para os ecossistemas **OpenCode e CommandCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **43 Skills de Agentes Especialistas** (mais 1 skill built-in do opencode) projetadas para os ecossistemas **OpenCode e CommandCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam agentes de IA a executar tarefas de engenharia complexas de ponta a ponta.
 
 ---
 
@@ -12,7 +12,7 @@ O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 sk
 
 ---
 
-## 📋 Categorias das 74 Skills Catalogadas
+## 📋 Categorias das Skills
 
 ### 1. Engenharia de Software & Arquitetura
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
@@ -31,18 +31,11 @@ O `envctl` embuta e sincroniza **49 Skills de Agentes Especialistas** (mais 1 sk
 - **`docker`**: Gerenciamento de containers locais e remotos, volumes, networks, compose stacks e logs.
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
 
-### 3. Extração Web (Firecrawl essencial)
-- **`firecrawl-search`** & **`firecrawl-scrape`**: Busca web em tempo real e extração limpa de markdown.
-- **`firecrawl-crawl`** & **`firecrawl-map`**: Mapeamento de sitemaps e rastreamento em massa de documentações.
-- **`firecrawl`** (CLI base): fallback para o restante.
+### 3. Automação de Navegador (MCP-only)
 
-### 4. Automação de Navegador & Testes Visuais (Playwright)
-- **`playwright-cli`**: Automação de navegador headless via Node.js API.
-- **Utilitários de Linha de Comando Embutidos** (`~/.local/bin/`):
-  - `pw-screenshot <url> [output.png]`: Captura instantânea de tela em alta resolução em menos de 1 segundo.
-  - `pw-eval <url> [expression]`: Avaliação rápida de JavaScript e extração do DOM de páginas web sem necessidade de abrir browser gráfico.
+- Browser automation usa exclusivamente os MCPs `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`), ambos `enabled: false` (opt-in por sessão via `/mcp`). Não há skill de browser/CLI nem scripts utilitários — o bundle do Chrome acompanha os MCPs.
 
-### 5. Meta-Skills & Refinamento de IA
+### 4. Meta-Skills & Refinamento de IA
 - **`grilling`** / **`grill-me`**: Entrevistas impiedosas de design de software para validação de premissas e tomada de decisões técnicas.
 - **`ask-questions-if-underspecified`**: Esclarecimento proativo de requisitos antes de iniciar implementações ambíguas.
 - **`stop-slop`**: Higienização e remoção de clichês e vícios de linguagem em respostas textuais de IA.

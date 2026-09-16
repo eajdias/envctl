@@ -33,7 +33,7 @@
   4. Variáveis de ambiente usam `$env:NOME` no PowerShell (ex.: `$env:ENVCTL_TEMP`).
 - **Custom Agents:** `~/.commandcode/agents/` — markdown (frontmatter: `name`, `description`, `tools`, `model`, `reasoningEffort`, `maxTurns`, `background`). Built-ins do CommandCode: **General** (default), **Explore** (read-only), **Plan** (read-only). **Nomes reservados** (`explore`/`plan`/`review`/`general`) são IGNORADOS — por isso o agente custom é `code-reviewer` (read-only, evidência file:line).
 - **Skills paths:** `~/.commandcode/skills/` (global) + `.commandcode/skills/` (project)
-- **MCP:** `~/.commandcode/mcp.json` (user-scope) + `.mcp.json` (project-scope). Browser automation (padrão único): `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`) — ambos `enabled: false` (opt-in via `/mcp`), pinados em `bunx` (nunca `npx @latest`). O `playwright-cli` (Node API) segue disponível como alternativa.
+- **MCP:** `~/.commandcode/mcp.json` (user-scope) + `.mcp.json` (project-scope). Browser automation (padrão único): `playwright` (`bunx @playwright/mcp@0.0.79 --browser chrome`) e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`) — ambos `enabled: false` (opt-in via `/mcp`), pinados em `bunx` (nunca `npx @latest`).
 - **Taste Learning:** CommandCode continuously learns from accept/reject/edit signals stored in `.commandcode/taste/taste.md`
 - **Memory:** `~/.commandcode/AGENTS.md` (user tier) é a memória do CommandCode — NÃO existe memory-dir de lessons/patterns (isso é do opencode).
 - **Config is NOT hot-reloaded:** restart CommandCode after changes.

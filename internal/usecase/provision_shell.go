@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -276,6 +277,27 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			if !uc.fsManager.Exists(expandedPath) {
 				continue
 			}
+			if item.KeepNewest > 0 {
+				pruned, err := pruneTimestampedBackups(expandedPath, item.KeepNewest)
+				if err != nil {
+					if uc.logger != nil {
+						uc.logger.Warn("Failed to prune backups in '%s': %v", expandedPath, err)
+					}
+					continue
+				}
+				if uc.logger != nil {
+					uc.logger.Info("Pruned %d old backup(s) in %s (%s)", len(pruned), expandedPath, item.Description)
+				}
+				if len(pruned) > 0 {
+					result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+						Category: entity.DiagOK,
+						System:   "Cleanup",
+						Target:   expandedPath,
+						Details:  fmt.Sprintf("Pruned %d old backup(s), kept newest %d per file: %s", len(pruned), item.KeepNewest, item.Description),
+					})
+				}
+				continue
+			}
 			if item.Recursive {
 				err = os.RemoveAll(expandedPath)
 			} else {
@@ -341,18 +363,20 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 		}
 	}
 
-	// 6. User Home npm dependencies & Playwright Browser Installation
+	// 6. User Home npm dependencies (agent automation libs: axios, cheerio, papaparse).
+	// Browser automation is MCP-only with the bundled browser — no Playwright
+	// Node API module and no separate Chromium provisioning here.
 	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 	userPackageJsonPath := filepath.Join(userHomeDir, "package.json")
 	if uc.fsManager.Exists(userPackageJsonPath) {
 		userNodeModulesPath := filepath.Join(userHomeDir, "node_modules")
-		playwrightInstalled := uc.fsManager.Exists(filepath.Join(userNodeModulesPath, "playwright"))
+		nodeModulesMissing := !uc.fsManager.Exists(userNodeModulesPath)
 		pkgJsonInfo, _ := os.Stat(userPackageJsonPath)
 		nmInfo, _ := os.Stat(userNodeModulesPath)
 		depsOutdated := pkgJsonInfo != nil && nmInfo != nil && pkgJsonInfo.ModTime().After(nmInfo.ModTime())
-		if !playwrightInstalled || depsOutdated {
+		if nodeModulesMissing || depsOutdated {
 			if uc.logger != nil {
-				uc.logger.Info("Installing user root dependencies (Playwright) in %s via npm", userHomeDir)
+				uc.logger.Info("Installing user root dependencies (agent libs) in %s via npm", userHomeDir)
 			}
 			cmd := exec.CommandContext(ctx, "npm", "install", "--no-audit", "--no-fund")
 			cmd.Dir = userHomeDir
@@ -363,7 +387,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 				}
 				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 					Category: entity.DiagWarning,
-					System:   "PlaywrightRuntime",
+					System:   "UserRuntime",
 					Target:   userPackageJsonPath,
 					Details:  fmt.Sprintf("npm install warning: %v", err),
 					FixHint:  "Run 'npm install' in user home directory",
@@ -371,115 +395,89 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context) (*ProvisionShellRe
 			} else {
 				if uc.logger != nil {
 					uc.logger.Info("Successfully installed user root npm dependencies")
-					uc.logger.LogIdempotency("PlaywrightRuntime", userPackageJsonPath, false, "Installed user root dependencies")
+					uc.logger.LogIdempotency("UserRuntime", userPackageJsonPath, false, "Installed user root dependencies")
 				}
 				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 					Category: entity.DiagOK,
-					System:   "PlaywrightRuntime",
+					System:   "UserRuntime",
 					Target:   userPackageJsonPath,
-					Details:  "User root npm dependencies installed (playwright)",
+					Details:  "User root npm dependencies installed (axios, cheerio, papaparse)",
 				})
 			}
 		} else {
 			if uc.logger != nil {
-				uc.logger.LogIdempotency("PlaywrightRuntime", userPackageJsonPath, true, "playwright already installed in user node_modules")
+				uc.logger.LogIdempotency("UserRuntime", userPackageJsonPath, true, "user node_modules already up to date")
 			}
 			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
 				Category: entity.DiagOK,
-				System:   "PlaywrightRuntime",
+				System:   "UserRuntime",
 				Target:   userPackageJsonPath,
-				Details:  "Playwright Node.js API runtime verified in user root",
+				Details:  "User root npm dependencies verified in user root",
 			})
 		}
 
-		// Ensure Playwright Chromium browser binaries are installed (only if missing).
-		var msPlaywrightDir string
-		if runtime.GOOS == "windows" {
-			msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
-		} else {
-			msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("~/.cache/ms-playwright")
-		}
-		chromiumFound := false
-		if entries, err := os.ReadDir(msPlaywrightDir); err == nil {
-			for _, e := range entries {
-				if strings.HasPrefix(e.Name(), "chromium-") || strings.HasPrefix(e.Name(), "chromium_headless_shell-") {
-					chromiumFound = true
-					break
-				}
-			}
-		}
-		if chromiumFound {
-			if uc.logger != nil {
-				uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Chromium already installed in "+msPlaywrightDir)
-			}
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "PlaywrightBrowser",
-				Target:   "chromium",
-				Details:  "Playwright Chromium browser binary already installed",
-			})
-		} else {
-			if uc.logger != nil {
-				uc.logger.Info("Ensuring Playwright Chromium browser binary is installed")
-			}
-			cmdBrowser := exec.CommandContext(ctx, "npx", "playwright", "install", "chromium")
-			cmdBrowser.Dir = userHomeDir
-			outBrowser, errBrowser := cmdBrowser.CombinedOutput()
-			if errBrowser != nil {
-				if uc.logger != nil {
-					uc.logger.Warn("Failed to install Playwright Chromium: %s (%v)", string(outBrowser), errBrowser)
-				}
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagWarning,
-					System:   "PlaywrightBrowser",
-					Target:   "chromium",
-					Details:  fmt.Sprintf("playwright install chromium warning: %v", errBrowser),
-					FixHint:  "Run 'npx playwright install chromium' in user home directory",
-				})
-			} else {
-				if uc.logger != nil {
-					uc.logger.Info("Playwright Chromium browser verified/installed successfully")
-					uc.logger.LogIdempotency("PlaywrightBrowser", "chromium", true, "Playwright Chromium browser ready")
-				}
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "PlaywrightBrowser",
-					Target:   "chromium",
-					Details:  "Playwright Chromium browser binary installed and verified",
-				})
-
-				// On Linux, install the system libraries Chromium needs to run
-				// headless (libnss3, libatk, ...). Best-effort with sudo -n.
-				if runtime.GOOS == "linux" {
-					depsCmd := exec.CommandContext(ctx, "sudo", "-n", "env", "PATH="+os.Getenv("PATH"), "npx", "playwright", "install-deps", "chromium")
-					depsCmd.Dir = userHomeDir
-					outDeps, errDeps := depsCmd.CombinedOutput()
-					if errDeps != nil {
-						if uc.logger != nil {
-							uc.logger.Warn("Failed to install Playwright Chromium system deps (best-effort): %s (%v)", string(outDeps), errDeps)
-						}
-						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-							Category: entity.DiagWarning,
-							System:   "PlaywrightBrowser",
-							Target:   "chromium system deps",
-							Details:  fmt.Sprintf("playwright install-deps warning (best-effort): %v", errDeps),
-							FixHint:  "Run 'sudo npx playwright install-deps chromium' in user home directory",
-						})
-					} else {
-						if uc.logger != nil {
-							uc.logger.Info("Playwright Chromium system dependencies installed")
-						}
-						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-							Category: entity.DiagOK,
-							System:   "PlaywrightBrowser",
-							Target:   "chromium system deps",
-							Details:  "Playwright Chromium system dependencies installed",
-						})
-					}
-				}
-			}
-		}
 	}
 
 	return result, nil
+}
+
+// pruneTimestampedBackups removes `<name>.bak.YYYYMMDD-HHMMSS` files inside dir,
+// keeping the newest keep per original file. Returns the removed file names.
+func pruneTimestampedBackups(dir string, keep int) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	groups := make(map[string][]os.DirEntry)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		idx := strings.Index(name, ".bak.")
+		if idx < 0 || !validBackupSuffix(name[idx+len(".bak."):]) {
+			continue
+		}
+		key := name[:idx]
+		groups[key] = append(groups[key], e)
+	}
+	var removed []string
+	for _, files := range groups {
+		if len(files) <= keep {
+			continue
+		}
+		sort.Slice(files, func(i, j int) bool {
+			ii, _ := files[i].Info()
+			jj, _ := files[j].Info()
+			if ii.ModTime().Equal(jj.ModTime()) {
+				return files[i].Name() > files[j].Name()
+			}
+			return ii.ModTime().After(jj.ModTime())
+		})
+		for _, f := range files[keep:] {
+			if err := os.Remove(filepath.Join(dir, f.Name())); err != nil {
+				return removed, err
+			}
+			removed = append(removed, f.Name())
+		}
+	}
+	sort.Strings(removed)
+	return removed, nil
+}
+
+// validBackupSuffix reports whether s matches the provisioning backup
+// timestamp format YYYYMMDD-HHMMSS (e.g. 20260916-140849).
+func validBackupSuffix(s string) bool {
+	if len(s) != 15 || s[8] != '-' {
+		return false
+	}
+	for i, c := range s {
+		if i == 8 {
+			continue
+		}
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

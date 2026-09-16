@@ -8,8 +8,8 @@
 - **Shell Secondary:** WSL Ubuntu 26.04 (`wsl.exe -d Ubuntu`) — subshell POSIX para scripts legados e ferramentas Linux, usar apenas quando necessário (`wsl -e bash -lc "..."`).
 - **Package Managers:** Winget (native Windows), Volta (Node ecosystem), Pip/Uv (Python), Dotnet Tool (.NET), APT (via WSL Ubuntu)
 - **Node Runtime:** Node v24.19.0 managed via Volta (`NODE_PATH="%USERPROFILE%\node_modules"`)
-- **Global Tools:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `tree`, `zip/unzip`, `bun` (runtime JS/TS rápido — `bunx` substitui `npx`), `dust` (disk usage rápido — `du` trava no NTFS), `hyperfine` (benchmark de comandos), `shellcheck` (lint de bash p/ WSL/Linux), `csharp-ls`, `pw-screenshot`, `pw-eval`
-- **Agent libs globais (Windows — uso direto em scripts, sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` — `playwright`, `axios`, `cheerio`, `papaparse` (CSV); Python global — `pyyaml`, `requests`, `openpyxl` (xlsx), `beautifulsoup4` (HTML), `pypdf`, `python-docx`, `lxml`. SQLite via `python -c "import sqlite3"` (stdlib).
+- **Global Tools:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `tree`, `zip/unzip`, `bun` (runtime JS/TS rápido — `bunx` substitui `npx`), `dust` (disk usage rápido — `du` trava no NTFS), `hyperfine` (benchmark de comandos), `shellcheck` (lint de bash p/ WSL/Linux), `csharp-ls`
+- **Agent libs globais (Windows — uso direto em scripts, sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` — `axios`, `cheerio`, `papaparse` (CSV); Python global — `pyyaml`, `requests`, `openpyxl` (xlsx), `beautifulsoup4` (HTML), `pypdf`, `python-docx`, `lxml`. SQLite via `python -c "import sqlite3"` (stdlib).
 - **LSPs Registered:** 18 language servers in `opencode.json` (TypeScript, Pyright, PyLSP, Gopls, Bash, SQL, HTML, JSON, YAML, Dockerfile, CSS, Markdown, PowerShell, Rust Analyzer, CSharp-LS, ESLint, TOML, PHP)
 - **Git Optimizations:** `fscache=true`, `preloadindex=true`, `longpaths=true`, `autocrlf=input`, `delta` pager
 
@@ -58,7 +58,7 @@
 
 ## Skill Locations
 
-- **Skills (fonte única):** `~\.config\opencode\skills\` (**50 skills ativas** — 49 provisionadas: opencode 43 + firecrawl 5 + playwright 1; + 1 built-in: `customize-opencode`)
+- **Skills (fonte única):** `~\.config\opencode\skills\` (**44 skills ativas** — 43 provisionadas + 1 built-in: `customize-opencode`)
 
 ### opencode skills (43 provisionadas + 1 built-in)
 
@@ -105,23 +105,12 @@
 | `playwright-prod-regression` | Safe Playwright regression against production |
 | `simple-feature-flag` | Simple auditable feature flags in DB-backed apps |
 | `web-dashboard-automation` | Automate authenticated dashboards/SPAs |
+| `agent-memory` | Persistent lessons & patterns (load at task start, save on learning) |
+| `vps-agent-dispatch` | Dispatch remote OpenCode subagents on VPSs via SSH |
 
-### agent skills (6) — Firecrawl + Playwright
+### agent skills — browser automation é MCP-only
 
-Firecrawl (5): `firecrawl` (CLI base), `firecrawl-scrape`, `firecrawl-search`, `firecrawl-crawl`, `firecrawl-map`
-
-Playwright (1): `playwright-cli` — use Node.js API (verified headless):
-
-```javascript
-const { chromium } = require('playwright');
-(async () => {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
-  await page.goto('https://example.com');
-  await page.screenshot({ path: 'screenshot.png' });
-  await browser.close();
-})();
-```
+Browser automation usa exclusivamente os MCPs `playwright` e `chrome-devtools` (com o bundle do Chrome deles, `enabled: false`, opt-in por sessão via `/mcp`). Não existe skill de browser/CLI.
 
 ### Uso Proativo de SSH, Context7 e Busca Web (OBRIGATÓRIO)
 
@@ -143,24 +132,9 @@ Carregue a skill `subagent-routing` ao decidir delegar. Suba trabalho para **pre
 
 ### Allowed Tools by Skill
 
-- **playwright-cli:** `Bash(node:*)`, `Bash(npm:*)`, `Bash(npx:*)`
-- **firecrawl skills:** `Bash(firecrawl:*)`, `Bash(npx:*)`, `Bash(node:*)`
 - **general skills:** `Bash(*)`, `Read`, `Write`, `Edit`, `Glob`, `Grep`
 
 ## Common Patterns
-
-### Running Firecrawl Commands
-
-```bash
-# Scrape a page
-firecrawl scrape "https://example.com"
-# Search
-firecrawl search "query"
-# Crawl site
-firecrawl crawl "https://example.com" --limit 100
-```
-
-Firecrawl auth: CLI reads key from `%APPDATA%\firecrawl-cli\credentials.json` (NOT an env var). `firecrawl --status` shows auth/concurrency/credits.
 
 ### SSH exec on a VPS (CLI fallback)
 
@@ -184,7 +158,7 @@ Use a skill `subagent-routing` para decidir **quando/quem** delegar e `dispatchi
 
 ## Temp & Scratch Hygiene (Mandatory)
 
-- **Pasta de scratch padrão dos agentes LLM: `C:\temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — scripts do Playwright CLI (`pw-screenshot`, `pw-eval`), downloads, builds, extrações, screenshots — **DEVE** ir para `C:\temp`, nunca para pastas do opencode (`~/.local/share/opencode`, `~/.cache/opencode`), do projeto ou do sistema.
+- **Pasta de scratch padrão dos agentes LLM: `C:\temp`** (variável `ENVCTL_TEMP` — criada pelo envctl na raiz do disco, SEM relação com o OpenCode). Todo arquivo temporário criado por agentes — downloads, builds, extrações, screenshots — **DEVE** ir para `C:\temp`, nunca para pastas do opencode (`~/.local/share/opencode`, `~/.cache/opencode`), do projeto ou do sistema.
 - **Nunca deixar scratch para trás**: todo arquivo criado em `C:\temp` durante uma sessão **DEVE ser removido antes do fim da sessão**. `C:\temp` é de identificação e exclusão fáceis por estar na raiz do disco.
 - **Big downloads/extracts**: se um tarball/zip ou output de build for necessário apenas para produzir um resultado, baixar/extrair em `C:\temp\<tarefa>\`, usar e deletar na mesma sessão.
 - **After finishing a task**: rodar o cleanup pass sobre o scratch criado:
@@ -194,6 +168,5 @@ Use a skill `subagent-routing` para decidir **quando/quem** delegar e `dispatchi
   ```
   Preferir um subdiretório dedicado por sessão (ex.: `C:\temp\opencode-<tarefa>`) para que o cleanup seja um único `Remove-Item`.
 - **envctl hygiene**: `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch em `C:\temp` com mais de 24h.
-- Playwright usa Chromium headless por padrão.
 - Quando o shell do agente mostrar 'Windows PowerShell (5.1)', o config de shell foi ignorado (opencode issue #41426) — reiniciar o opencode para aplicar o pwsh 7.
 - **Encoding do shell tool**: o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command` — o profile PowerShell NUNCA carrega no bash tool. Com o beta UTF-8 do Windows desligado (ACP/OEMCP=850), output com acentos vira `�` (U+FFFD). Se `envctl doctor` acusar *System Code Page* 850, ativar "Beta: Use Unicode UTF-8 para todo o mundo" e reiniciar — não é bug do projeto.

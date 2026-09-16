@@ -129,6 +129,9 @@ type CleanupItem struct {
 	Category    string `yaml:"category"`
 	OS          string `yaml:"os,omitempty"`        // "windows", "linux" or empty for all
 	Recursive   bool   `yaml:"recursive,omitempty"` // remove directory tree (os.RemoveAll)
+	// KeepNewest prunes timestamped backups (<name>.bak.YYYYMMDD-HHMMSS) inside
+	// the Path directory, keeping the newest N per original file (0 = disabled).
+	KeepNewest int `yaml:"keep_newest,omitempty"`
 }
 
 // DiagnosticStatus represents health check status.

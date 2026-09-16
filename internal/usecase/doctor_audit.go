@@ -375,81 +375,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 9.2 Audit Playwright Node API & Bundled Chromium Browser
-	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
-	playwrightModule := filepath.Join(userHomeDir, "node_modules", "playwright")
-	if !uc.fsManager.Exists(playwrightModule) {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Playwright",
-			Target:   "playwright (node_modules)",
-			Details:  "Playwright npm module not installed in user home",
-			FixHint:  "run 'envctl run shell'",
-		})
-	} else {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Playwright",
-			Target:   "playwright (node_modules)",
-			Details:  "Node.js API installed in user root",
-		})
-	}
-
-	var msPlaywrightDir string
-	if runtime.GOOS == "windows" {
-		msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("%LOCALAPPDATA%/ms-playwright")
-	} else {
-		msPlaywrightDir, _ = uc.fsManager.ExpandUserPath("~/.cache/ms-playwright")
-	}
-
-	chromiumFound := false
-	if entries, err := os.ReadDir(msPlaywrightDir); err == nil {
-		for _, e := range entries {
-			if strings.HasPrefix(e.Name(), "chromium-") || strings.HasPrefix(e.Name(), "chromium_headless_shell-") {
-				chromiumFound = true
-				break
-			}
-		}
-	}
-	if !chromiumFound {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Playwright",
-			Target:   "Chromium Browser",
-			Details:  fmt.Sprintf("Chromium browser binary not found in %s", msPlaywrightDir),
-			FixHint:  "run 'npx playwright install chromium'",
-		})
-	} else {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Playwright",
-			Target:   "Chromium Browser",
-			Details:  fmt.Sprintf("Chromium binary verified in %s", msPlaywrightDir),
-		})
-	}
-
-	// Audit Custom CLI Scripts (~/.local/bin)
-	customScripts := []string{"pw-screenshot", "pw-eval"}
-	for _, cs := range customScripts {
-		scriptPath := filepath.Join(userHomeDir, ".local", "bin", cs)
-		if !uc.fsManager.Exists(scriptPath) {
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "CLI-Scripts",
-				Target:   cs,
-				Details:  fmt.Sprintf("Script not found at %s", scriptPath),
-				FixHint:  "run 'envctl run shell'",
-			})
-		} else {
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "CLI-Scripts",
-				Target:   cs,
-				Details:  "Executable ready in ~/.local/bin",
-			})
-		}
-	}
-
 	// 10. Audit Git Worktree Support
 	// `git worktree list` exits 128 outside a git repository, which is expected
 	// and not a fault of the git installation. Only run the command from inside a repo.
@@ -487,6 +412,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
+		userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 		env := linuxToolchainEnv(userHomeDir)
 		bootstrapTools := []struct {
 			name string
@@ -503,7 +429,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"oh-my-posh", "Oh-My-Posh prompt engine"},
 			{"fd", "fd (fdfind symlink)"},
 			{"pylsp", "python-lsp-server (via uv)"},
-			{"firecrawl", "Firecrawl CLI (via Volta)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
 			{"bun", "Bun JS/TS runtime (browser MCP launcher via bunx)"},
 			{"go", "Go programming language SDK"},

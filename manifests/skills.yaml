@@ -104,31 +104,6 @@ skills:
       source: configs/skills/docs-sync
       target_dir: ""
       enabled: true
-    - name: firecrawl
-      description: OpenCode agent skill firecrawl
-      source: configs/skills/firecrawl
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-crawl
-      description: OpenCode agent skill firecrawl-crawl
-      source: configs/skills/firecrawl-crawl
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-map
-      description: OpenCode agent skill firecrawl-map
-      source: configs/skills/firecrawl-map
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-scrape
-      description: OpenCode agent skill firecrawl-scrape
-      source: configs/skills/firecrawl-scrape
-      target_dir: ""
-      enabled: true
-    - name: firecrawl-search
-      description: OpenCode agent skill firecrawl-search
-      source: configs/skills/firecrawl-search
-      target_dir: ""
-      enabled: true
     - name: git-workflow
       description: OpenCode agent skill git-workflow
       source: configs/skills/git-workflow
@@ -162,11 +137,6 @@ skills:
     - name: memory-promotion
       description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
       source: configs/skills/memory-promotion
-      target_dir: ""
-      enabled: true
-    - name: playwright-cli
-      description: OpenCode agent skill playwright-cli
-      source: configs/skills/playwright-cli
       target_dir: ""
       enabled: true
     - name: receiving-code-review

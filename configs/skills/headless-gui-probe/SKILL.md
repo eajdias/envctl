@@ -1,6 +1,7 @@
 ---
 name: headless-gui-probe
-description: Gerar configs e validar apps GUI (Qt/SDL) sem display, para inspeção de arquivos de config e logs. Use ao configurar emuladores, extrair defaults de .ini/.toml ou testar se um binário roda na CPU atual. Triggers: headless, offscreen, gerar config, validar GUI, SIGILL, AVX2.
+description: >-
+  Gerar configs e validar apps GUI (Qt/SDL) sem display, para inspeção de arquivos de config e logs. Use ao configurar emuladores, extrair defaults de .ini/.toml ou testar se um binário roda na CPU atual. Triggers: headless, offscreen, gerar config, validar GUI, SIGILL, AVX2.
 ---
 
 # Headless GUI Probe

@@ -27,11 +27,9 @@ envctl doctor
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
 4. **Language Servers (18 LSPs)**:
    - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 18 servidores de linguagem registrados.
-5. **Runtime do Playwright & Navegadores Headless**:
-   - Carregamento assíncrono do módulo `playwright` via Node.js em qualquer diretório.
-   - Presença dos binários do Chromium instalados (`%LOCALAPPDATA%/ms-playwright` no Windows ou `~/.cache/ms-playwright` no Linux).
-6. **Catálogo de 49 Skills de Agentes**:
-   - Existência e conformidade de todas as 49 skills em `~/.config/opencode/skills/`.
+5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
+6. **Catálogo de 43 Skills de Agentes**:
+   - Existência e conformidade de todas as 43 skills em `~/.config/opencode/skills/`.
 
 ---
 

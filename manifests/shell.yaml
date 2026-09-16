@@ -119,7 +119,7 @@ config_files:
     category: "commandcode"
 
   - id: user_package_json
-    description: "User root package.json for Playwright API and agent automations"
+    description: "User root package.json for agent automation libs (axios, cheerio, papaparse)"
     source: "configs/user-package.json"
     destination: "~/package.json"
     strict_acl: false
@@ -171,36 +171,6 @@ config_files:
     strict_acl: false
     category: "ssh"
     os: linux
-
-  - id: pw_screenshot
-    description: "Headless Playwright screenshot utility script"
-    source: "configs/bin/pw-screenshot"
-    destination: "~/.local/bin/pw-screenshot"
-    strict_acl: false
-    category: "scripts"
-
-  - id: pw_screenshot_cmd
-    description: "Windows CMD wrapper for pw-screenshot"
-    source: "configs/bin/pw-screenshot.cmd"
-    destination: "~/.local/bin/pw-screenshot.cmd"
-    strict_acl: false
-    category: "scripts"
-    os: windows
-
-  - id: pw_eval
-    description: "Headless Playwright evaluation and page content extraction utility"
-    source: "configs/bin/pw-eval"
-    destination: "~/.local/bin/pw-eval"
-    strict_acl: false
-    category: "scripts"
-
-  - id: pw_eval_cmd
-    description: "Windows CMD wrapper for pw-eval"
-    source: "configs/bin/pw-eval.cmd"
-    destination: "~/.local/bin/pw-eval.cmd"
-    strict_acl: false
-    category: "scripts"
-    os: windows
 
 directories:
   - path: "~/Documents/SSH-keys"
@@ -286,3 +256,31 @@ cleanup:
     description: "Remove CommandCode agents/goal.md (agent removed — build covers the flow)"
     path: "~/.commandcode/agents/goal.md"
     category: "commandcode"
+  - id: stale_pw_screenshot
+    description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-screenshot"
+    category: "scripts"
+  - id: stale_pw_screenshot_cmd
+    description: "Remove pw-screenshot.cmd wrapper (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-screenshot.cmd"
+    category: "scripts"
+    os: windows
+  - id: stale_pw_eval
+    description: "Remove pw-eval CLI (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-eval"
+    category: "scripts"
+  - id: stale_pw_eval_cmd
+    description: "Remove pw-eval.cmd wrapper (browser automation is MCP-only)"
+    path: "~/.local/bin/pw-eval.cmd"
+    category: "scripts"
+    os: windows
+  - id: prune_opencode_config_backups
+    description: "Prune old .bak.* provisioning backups in ~/.config/opencode (keep newest per file)"
+    path: "~/.config/opencode"
+    category: "opencode"
+    keep_newest: 1
+  - id: prune_commandcode_config_backups
+    description: "Prune old .bak.* provisioning backups in ~/.commandcode (keep newest per file)"
+    path: "~/.commandcode"
+    category: "commandcode"
+    keep_newest: 1

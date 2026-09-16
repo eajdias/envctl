@@ -29,8 +29,7 @@
 *.swp
 *.swo
 
-# Playwright scratch
-.playwright-cli/
+# Playwright MCP scratch
 .playwright-mcp/
 
 # Local agent state (session permissions, machine-absolute paths, taste notes)

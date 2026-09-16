@@ -9,6 +9,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🔥 Trim do firecrawl + browser automation MCP-only (43 skills)
+
+- **Removed**: suite firecrawl completa — 5 skills (`firecrawl`, `firecrawl-crawl`, `firecrawl-map`, `firecrawl-scrape`, `firecrawl-search`), pacote volta `firecrawl-cli`, step de bootstrap Linux e check do `doctor`.
+- **Removed**: via CLI de browser — skill `playwright-cli`, pacote volta `@playwright/cli`, scripts `pw-screenshot`/`pw-eval` (+ wrappers, entradas no `shell.yaml`, auditorias `CLI-Scripts`/`Chromium`/`Playwright` no `doctor`, bloco de instalação do Chromium no `run shell`, bloco `references` no `opencode.json`/`opencode.linux.json`, dep `playwright` no `user-package.json`). Browser automation é exclusivamente via MCPs `playwright` + `chrome-devtools` (com o bundle do Chrome deles).
+- **Changed**: contagens sincronizadas (43 provisionadas + 1 built-in) em `AGENTS.md`, `README.md`, `docs/skills.md`, `docs/principles.md`, `docs/doctor-and-idempotency.md` e teste de manifesto.
+- **Changed**: skill `git-workflow` — em divergência com `origin`, o upstream prevalece (rebase + resolver a favor do remoto; nunca force-push de intent local).
+
 ### 🔗 Referências do repo apontam para o remoto público
 
 - **Fixed**: `configs/AGENTS.md`, `configs/commandcode/AGENTS.md` e `configs/skills/vps-provisioning/SKILL.md` referenciavam o checkout local (`C:\projetos\git-privado\envctl`); a fonte da verdade agora é o remoto https://github.com/eajdias/envctl — as cópias locais são gerenciadas e edição direta nelas é sobrescrita pelo `envctl run shell`.
