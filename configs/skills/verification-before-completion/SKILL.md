@@ -1,6 +1,7 @@
 ---
 name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+description: >-
+  Exigir evidência empírica antes de declarar algo pronto, corrigido ou passando: rodar build, testes e lint e mostrar a saída real antes de commitar ou abrir PR. Use sempre ao concluir uma tarefa ou fechar TODOs. Triggers: terminei, está pronto, funcionou, corrigido, passou nos testes, evidência, antes de commitar, validar, build/test/lint, não afirmar sem rodar, regressão.
 ---
 
 # Verification Before Completion

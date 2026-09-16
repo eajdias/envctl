@@ -60,51 +60,60 @@
 
 - **Skills (fonte única):** `~\.config\opencode\skills\` (**41 skills ativas** — 40 provisionadas + 1 built-in: `customize-opencode`)
 
-### opencode skills (40 provisionadas + 1 built-in)
+### Skills — uso AUTOMÁTICO (obrigatório)
 
-| Skill | Purpose |
-|-------|---------|
-| `git-workflow` | Git & GitHub CLI workflow (semantic branches, conventional commits, PR lifecycle, conflict resolution) |
-| `database-ops` | Dynamic multi-database management (PostgreSQL, MySQL, Firebird, MongoDB, SQLite, migrations, Docker DBs) |
-| `universal-test-runner` | Multi-stack test runner & coverage (Node/TS, Python, Go, .NET, Rust) with TDD loop |
-| `api-contract-design` | API design & validation (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking change checks) |
-| `ssh-vps` | SSH/VPS management via ssh-manager (monitoring, recovery) |
-| `vps-provisioning` | Provision/manage VPSs via envctl bootstrap (Day-0/Day-2, idempotent) |
-| `windows-admin` | Windows 11 administration (services, registry, winget, firewall) |
-| `docker` | Docker Desktop/containers/compose + pull/push no Hub |
-| `context7-auto` | Fetch up-to-date library docs before code |
-| `writing-plans` | Create implementation plans |
-| `systematic-debugging` | Debug bugs methodically |
-| `verification-before-completion` | Verify before claiming done |
-| `receiving-code-review` | Handle code review feedback |
-| `stop-slop` | Remove AI writing patterns |
-| `grilling` | Stress-test plans/thinking |
-| `skill-miner` | Discover skills from session history |
-| `skill-generalizer` | Make private skills publishable |
-| `skill-personalizer` | Adapt skills to user preferences |
-| `customize-opencode` | Edit opencode configuration (built-in OpenCode) |
-| `subagent-routing` | **Roteamento de subagentes** — quando delegar, qual tipo, paralelo vs sequencial |
-| `aur-headless-install` | Instalar pacotes AUR em shells não-interativos (makepkg + sudo pacman -U) |
-| `cachyos-gaming-setup` | Tune CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores) |
-| `headless-gui-probe` | Configs/validação de apps GUI sem display (offscreen/dummy, log scraping) |
-| `ask-questions-if-underspecified` | Clarify requirements |
-| `dispatching-parallel-agents` | Run independent tasks in parallel |
-| `handoff` | Compact conversation for handoff |
-| `using-git-worktrees` | Isolated feature work |
-| `bulk-postgres-import` | Bulk upsert in PostgreSQL over high-latency SSH |
-| `docker-build-local-vps-deploy` | Build Docker locally, transport image to weak VPS |
-| `docker-desktop-wsl-restart` | Restart Docker Desktop when WSL2 backend fails |
-| `jwt-hs256-node` | JWT HS256 without external deps in Node.js |
-| `lsp-smoke-test` | Smoke test LSP servers before registering |
-| `memory-promotion` | Promote lessons to reusable skills |
-| `nextjs-standalone-deploy` | Next.js standalone output deploy & v16 migration |
-| `parallel-agent-orchestration` | Parallel subagents on the same git repo |
-| `phone-e164-normalization` | Normalize BR phone numbers to E.164 |
-| `playwright-prod-regression` | Safe Playwright regression against production |
-| `simple-feature-flag` | Simple auditable feature flags in DB-backed apps |
-| `web-dashboard-automation` | Automate authenticated dashboards/SPAs |
-| `agent-memory` | Persistent lessons & patterns (load at task start, save on learning) |
-| `vps-agent-dispatch` | Dispatch remote OpenCode subagents on VPSs via SSH |
+As skills são o **método padrão** deste ambiente e devem ser usadas **sem o usuário pedir**. Se a situação casar com a tabela abaixo, **carregue a skill ANTES de agir** e siga o procedimento dela. Não pergunte "quer que eu use a skill X?" — use. Nunca improvise um procedimento que já existe como skill.
+
+- **Invocação:** `/<skill>`; a tool do modelo é `skill` (com `name: <skill>`).
+- **Built-in:** `customize-opencode` — use ao editar `opencode.json` / `dcp.jsonc` / agentes.
+- **Marcadores:** `[win]` = só existe em máquinas Windows; `[linux]` = só existe em Linux. Sem marcador = em qualquer ambiente.
+- **Regra de ouro:** se a tarefa é "como fazer X neste ambiente", procure na tabela antes de improvisar.
+
+| Quando a situação for… | Skill |
+|---|---|
+| Escrever, alterar ou configurar código com lib/framework/API | `context7-auto` |
+| Bug, teste vermelho, erro intermitente, comportamento inesperado | `systematic-debugging` |
+| Antes de declarar "pronto"/corrigido/passando (inclusive antes de commitar ou abrir PR) | `verification-before-completion` |
+| Implementar algo multi-passo, feature nova ou refatoração ampla | `writing-plans` |
+| Pedido ambíguo, incompleto ou com premissas não ditas | `ask-questions-if-underspecified` |
+| Endurecer, questionar ou stress-testar um plano/decisão | `grilling` |
+| Receber code review ou comentários de PR | `receiving-code-review` |
+| Commit, branch, PR, rebase, conflito, tag/release | `git-workflow` |
+| Isolar o trabalho num workspace próprio (feature paralela) | `using-git-worktrees` |
+| Decidir delegar / explorar codebase / pesquisar na web | `subagent-routing` |
+| Executar 2+ tarefas independentes em paralelo | `dispatching-parallel-agents` |
+| Vários subagentes no mesmo repositório git | `parallel-agent-orchestration` |
+| Schema, migration, query, backup/restore de banco | `database-ops` |
+| Inserir/atualizar muitos registros no PostgreSQL | `bulk-postgres-import` |
+| Rodar testes, medir cobertura, rodar benchmark | `universal-test-runner` |
+| Desenhar/validar contrato de API (OpenAPI, GraphQL, gRPC) | `api-contract-design` |
+| Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
+| Provisionar, atualizar ou auditar VPS/VM com envctl | `vps-provisioning` |
+| Rodar tarefa pesada (build, suíte, crawler) numa VPS | `vps-agent-dispatch` |
+| Containers, compose, imagens, volumes, Docker Hub | `docker` |
+| Windows: serviços, registro, tarefas agendadas, firewall, winget | `windows-admin` `[win]` |
+| Docker Desktop não sobe / erro de backend WSL2 | `docker-desktop-wsl-restart` `[win]` |
+| Deploy de imagem Docker em VPS fraca (build local) | `docker-build-local-vps-deploy` |
+| Deploy de Next.js standalone / migração v15→v16 | `nextjs-standalone-deploy` |
+| Ligar/desligar funcionalidade sem re-deploy | `simple-feature-flag` |
+| JWT HS256 em Node.js sem dependências | `jwt-hs256-node` |
+| Padronizar telefone BR (E.164) | `phone-e164-normalization` |
+| Regressão/validação contra produção sem mutar dados | `playwright-prod-regression` |
+| Dashboard/SPA autenticado (login, extrair dados, executar ação via HTTP) | `web-dashboard-automation` |
+| Automação de browser (abrir, clicar, extrair, screenshot) | MCPs `playwright` / `chrome-devtools` — habilite via `/mcp` |
+| Validar servidor de linguagem (LSP) que não responde | `lsp-smoke-test` |
+| Texto, README, doc ou resposta com cara de IA | `stop-slop` |
+| Encerrar sessão longa / transferir contexto para outra sessão ou agente | `handoff` |
+| Início de qualquer tarefa (ler lições) e fim (gravar lições) | `agent-memory` |
+| Vai gravar entrada em lessons/patterns | `memory-promotion` |
+| Descobrir/criar skill a partir de uso repetido | `skill-miner` |
+| Ajustar skill recém-baixada ao ambiente do usuário | `skill-personalizer` |
+| Publicar/compartilhar skill (remover dados privados) | `skill-generalizer` |
+| Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
+| Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |
+| Validar app GUI (Qt/SDL) sem display | `headless-gui-probe` `[linux]` |
+
+**Delegação (sempre proativa):** `subagent-routing` decide *quem* delegar; `dispatching-parallel-agents` e `parallel-agent-orchestration` dão a *mecânica*. Catálogo completo em `docs/skills.md`.
 
 ### agent skills — browser automation é MCP-only
 

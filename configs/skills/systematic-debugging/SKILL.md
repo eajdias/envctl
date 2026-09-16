@@ -1,6 +1,7 @@
 ---
 name: systematic-debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: >-
+  Depurar sistematicamente: encontrar a causa raiz antes de propor qualquer correção, começando por um teste que reproduz a falha. Use em qualquer bug, teste vermelho, erro intermitente ou comportamento inesperado. Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
 ---
 
 # Systematic Debugging

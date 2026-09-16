@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -63,16 +64,21 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 	}
 
 	wanted := make(map[string]bool, len(skills))
+	goos := runtime.GOOS
 	for _, skill := range skills {
-		if skill.Enabled {
+		if skill.Enabled && skill.AppliesToOS(goos) {
 			wanted[skill.Name] = true
 		}
+	}
+
+	if uc.logger != nil {
+		uc.logger.Info("Agent skills applicable to %s: %d of %d", goos, len(wanted), len(skills))
 	}
 
 	var results []SkillDeployResult
 
 	for _, skill := range skills {
-		if !skill.Enabled {
+		if !skill.Enabled || !skill.AppliesToOS(goos) {
 			continue
 		}
 

@@ -1,6 +1,7 @@
 ---
 name: stop-slop
-description: Remove AI writing patterns from prose. Use when drafting, editing, or reviewing text to eliminate predictable AI tells.
+description: >-
+  Remover vícios de escrita de IA (clichês, hedging, enchimento, frases de efeito) de prosa e respostas. Use ao redigir, editar ou revisar texto — README, documentação, post, relatório, mensagem, resposta ao usuário — para o texto soar humano e direto. Triggers: texto com cara de IA, remover clichê, revisar texto, deixar mais natural, sem enrolação, slop, prosa, escrita enxuta, reescrever melhor.
 metadata:
   trigger: Writing prose, editing drafts, reviewing content for AI patterns
   author: Hardik Pandya (https://hvpandya.com)

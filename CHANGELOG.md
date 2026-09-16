@@ -9,6 +9,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🎯 Skills auto-invocáveis, escopo por ambiente e AGENTS.md como roteador
+
+- **Fixed**: `handoff` carregava `disable-model-invocation: true` — era a **única skill impossível de ser auto-invocada** (nunca entra no catálogo do modelo). Flag removida e a descrição agora diz quando usar.
+- **Changed**: 12 descrições reescritas no padrão "Use quando… Triggers: …" com gatilhos em PT-BR (o usuário escreve em português): `ask-questions-if-underspecified`, `writing-plans`, `systematic-debugging`, `dispatching-parallel-agents`, `grilling`, `stop-slop`, `using-git-worktrees`, `verification-before-completion`, `receiving-code-review`, `skill-miner`, `skill-personalizer`, `skill-generalizer`. Antes eram frases curtas em inglês (72–252 chars) sem vocabulário de gatilho, justamente as que dirigem o matching automático. Hoje **40/40** skills têm gatilho explícito; o catálogo sobe de ~3.0k para ~3.9k tokens.
+- **Added**: **escopo por ambiente** nas skills — campo `os` no `Skill` (manifesto), `Skill.AppliesToOS()` e filtro no `ProvisionSkillsUseCase`. `windows-admin` e `docker-desktop-wsl-restart` só vão para Windows; `cachyos-gaming-setup`, `aur-headless-install` e `headless-gui-probe` só para Linux. Uma instalação Windows deploya **37** skills (antes 40) e as 3 linux-only são **podadas** (deixam de existir no catálogo) — sem skill irrelevante consumindo contexto nem disparando na máquina errada.
+- **Fixed**: o check por skill do `doctor` exigia o manifesto inteiro mesmo no OS errado (e incluía skills desabilitadas) — agora aplica o mesmo filtro de ambiente/habilitação. `doctor` volta a **152/152, 0 warnings** após a mudança.
+- **Changed**: `configs/skills/docker` deixou de ser Windows-cêntrico no corpo (a skill é deployada também em VPS Linux): agora detecta o ambiente — Docker Desktop/WSL2 no Windows, daemon systemd no Linux — antes de agir.
+- **Changed**: os 4 manifestos (`configs/AGENTS.md`, `configs/AGENTS.linux.md`, `configs/commandcode/AGENTS.md`, `configs/commandcode/AGENTS.linux.md`) trocaram o **catálogo por nome** por uma **tabela situação → skill** com mandato explícito ("as skills são o método padrão; carregue ANTES de agir; não pergunte 'quer que eu use a skill X?'"). Uma lista de nomes não dá ao modelo nada para casar com a tarefa; a tabela roteia por intenção, que é o que efetivamente dispara a invocação automática. Bloco idêntico nos 4 arquivos (mesma padronização cross-agente/ambiente), com marcadores `[win]`/`[linux]` para as skills escopadas.
+
 ### 🧹 Poda de skills estrangeiras/obsoletas + paridade de plataforma no CommandCode
 
 - **Removed**: 3 skills — `implementation-strategy` e `docs-sync` (conteúdo do projeto **openai-agents-python**: `mkdocs.yml`, `docs/ja|ko|zh`, `src/agents/`, `$openai-knowledge`/OpenAI Docs MCP, e um script `find_latest_release_tag.sh` que não existe neste repo) e `grill-me` (corpo de 2 linhas que só re-invocava `grilling`, via nome de tool do opencode). Catálogo: 43 → **40 skills provisionadas** (+1 built-in do opencode).

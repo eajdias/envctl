@@ -231,9 +231,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 6. Audit Skills
+	// 6. Audit Skills (only the ones that belong on this OS and are enabled)
 	skills, _ := uc.manifestRepo.LoadSkills()
 	for _, s := range skills {
+		if !s.Enabled || !s.AppliesToOS(runtime.GOOS) {
+			continue
+		}
 		targetDir := s.TargetDir
 		if targetDir == "" {
 			targetDir = filepath.Join("~/.config/opencode/skills", s.Name)
@@ -809,7 +812,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 					if manifestSkills, err := uc.manifestRepo.LoadSkills(); err == nil {
 						expected := 0
 						for _, s := range manifestSkills {
-							if s.Enabled {
+							if s.Enabled && s.AppliesToOS(runtime.GOOS) {
 								expected++
 							}
 						}

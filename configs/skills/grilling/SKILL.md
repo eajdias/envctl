@@ -1,6 +1,7 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: >-
+  Arguição impiedosa do plano, decisão ou ideia do usuário em rodadas de perguntas, expondo premissas frágeis antes de implementar. Use quando o pedido estiver subespecificado ou arriscado, ou quando o usuário pedir para ser questionado/desafiado. Diferente de ask-questions-if-underspecified (preencher requisito faltante), aqui o objetivo é derrubar premissas. Triggers: me questione, me desafie, grilling, grill, endurecer plano, validar premissas, advogado do diabo, stress-test da ideia, pressão no design.
 ---
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.

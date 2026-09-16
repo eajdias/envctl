@@ -1,6 +1,7 @@
 ---
 name: skill-generalizer
-description: Use when turning local, private, or personal Agent Skills into publishable skills for GitHub, marketplaces, teams, or public sharing, especially when private paths, personal habits, credentials, internal hosts, or user-specific context must be removed.
+description: >-
+  Transformar uma skill local/privada em skill publicável (GitHub, marketplace, time): remover caminhos privados, hábitos pessoais, credenciais, hosts internos e contexto de usuário. Triggers: publicar skill, generalizar skill, open source da skill, remover dados privados, compartilhar skill, marketplace, portabilidade, skill-generalizer.
 ---
 
 # Skill Generalizer

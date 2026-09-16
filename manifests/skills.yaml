@@ -14,6 +14,7 @@ skills:
       source: configs/skills/docker-desktop-wsl-restart
       target_dir: ""
       enabled: true
+      os: windows
     - name: jwt-hs256-node
       description: Implementar JWT HS256 sem dependências em Node.js (createHmac + timingSafeEqual com hash duplo)
       source: configs/skills/jwt-hs256-node
@@ -64,6 +65,7 @@ skills:
       source: configs/skills/aur-headless-install
       target_dir: ""
       enabled: true
+      os: linux
     - name: api-contract-design
       description: Design, validação e governança de contratos de API (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking changes)
       source: configs/skills/api-contract-design
@@ -84,6 +86,7 @@ skills:
       source: configs/skills/cachyos-gaming-setup
       target_dir: ""
       enabled: true
+      os: linux
     - name: database-ops
       description: Operações multi-banco (PostgreSQL, MySQL, Firebird, MongoDB, SQLite), migrations e DBs em Docker
       source: configs/skills/database-ops
@@ -119,6 +122,7 @@ skills:
       source: configs/skills/headless-gui-probe
       target_dir: ""
       enabled: true
+      os: linux
     - name: memory-promotion
       description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
       source: configs/skills/memory-promotion
@@ -194,6 +198,7 @@ skills:
       source: configs/skills/windows-admin
       target_dir: ""
       enabled: true
+      os: windows
     - name: writing-plans
       description: Escrever especificações e planos de implementação passo a passo antes de codar
       source: configs/skills/writing-plans

@@ -1,6 +1,7 @@
 ---
 name: ask-questions-if-underspecified
-description: Clarify requirements before implementing. Use when serious doubts arise.
+description: >-
+  Fazer as perguntas mínimas necessárias antes de implementar, quando o pedido está ambíguo, incompleto ou carregado de premissas não ditas. Use antes de codar se faltar requisito, escopo, formato de saída ou critério de aceite — em vez de adivinhar. Triggers: requisito ambíguo, pouco claro, não entendi, faltou informação, especificar melhor, dúvida, premissas, escopo indefinido, o que exatamente, ambíguo.
 ---
 
 # Ask Questions If Underspecified
