@@ -245,6 +245,29 @@ mkdir -p "$HOME/.local/bin"
 npm install -g --no-audit --no-fund --prefix "$HOME/.local" bun
 ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
 
+	// 2d. Playwright bundled Chromium - headless browser for the Linux
+	// playwright MCP (`--browser chromium --headless --no-sandbox`). The
+	// MCP pins its own browser build (chromium-1237 for @0.0.79); install
+	// via the MCP's own installer so versions never drift.
+	if uc.hasTool(ctx, "bun") {
+		uc.logger.Info("LinuxBootstrap: ensuring Playwright bundled Chromium")
+		out, err := uc.runShell(ctx, `export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+bunx @playwright/mcp@0.0.79 install-browser chromium`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: playwright install-browser failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Playwright bundled Chromium",
+				Details: fmt.Sprintf("install-browser chromium failed: %v (%s)", err, out),
+				FixHint: "Run 'bunx @playwright/mcp@0.0.79 install-browser chromium' manually",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Playwright bundled Chromium",
+				Details: "Bundled Chromium provisioned via MCP installer (~/.cache/ms-playwright)",
+			})
+		}
+	}
+
 	// 3. OpenCode CLI - npm global (user prefix) with official script fallback.
 	uc.step(ctx, result, "opencode", "OpenCode CLI",
 		`set -e

@@ -495,30 +495,56 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
 			{"bun", "Bun JS/TS runtime (browser MCP launcher via bunx)"},
+			{"playwright-chromium", "Playwright bundled Chromium (headless browser via MCP installer)"},
 			{"go", "Go programming language SDK"},
 			{"rustup", "Rustup Rust toolchain manager"},
 			{"cargo", "Cargo build tool (via Rustup)"},
 			{"rust-analyzer", "Rust Analyzer language server"},
 		}
 		for _, t := range bootstrapTools {
-			found := func() bool {
-				c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+t.name+" >/dev/null 2>&1")
-				c.Env = env
-				return c.Run() == nil
-			}()
+			found := false
+			if t.name == "playwright-chromium" {
+				// Not a PATH binary: the bundled build lives under
+				// ~/.cache/ms-playwright (see the Browser/Playwright
+				// Chromium check). Mirror that logic here so both
+				// diagnostics agree.
+				if entries, err := os.ReadDir(filepath.Join(userHomeDir, ".cache", "ms-playwright")); err == nil {
+					for _, e := range entries {
+						n := e.Name()
+						if strings.HasPrefix(n, "chromium-") || strings.HasPrefix(n, "chromium_headless_shell-") {
+							found = true
+							break
+						}
+					}
+				}
+			} else {
+				found = func() bool {
+					c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+t.name+" >/dev/null 2>&1")
+					c.Env = env
+					return c.Run() == nil
+				}()
+			}
 			if found {
+				details := "Tool available on PATH (" + t.name + ")"
+				if t.name == "playwright-chromium" {
+					details = "Bundled Chromium present in ~/.cache/ms-playwright"
+				}
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagOK,
 					System:   "LinuxBootstrap",
 					Target:   t.desc,
-					Details:  "Tool available on PATH (" + t.name + ")",
+					Details:  details,
 				})
 			} else {
+				details := "Tool not found on PATH (" + t.name + ")"
+				if t.name == "playwright-chromium" {
+					details = "No bundled Chromium in ~/.cache/ms-playwright"
+				}
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagWarning,
 					System:   "LinuxBootstrap",
 					Target:   t.desc,
-					Details:  "Tool not found on PATH (" + t.name + ")",
+					Details:  details,
 					FixHint:  "run 'envctl run bootstrap'",
 				})
 			}

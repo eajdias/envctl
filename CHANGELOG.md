@@ -12,7 +12,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### 🩺 Doctor por-OS + browser headless no Linux
 
 - **Fixed**: `doctor` não avisa mais de pacotes cujo gerenciador não existe na máquina (ex.: 22 warnings `pacman` em Ubuntu/Debian) — entradas de gerenciador ausente são puladas silenciosamente; volta/npm/apt/winget universais seguem auditados normalmente.
-- **Changed**: playwright MCP no Linux roda headless no Chromium bundled (`--headless --no-sandbox --isolated`, `~/.cache/ms-playwright`) em vez de `--browser chrome`; Chrome ausente virou Info no Linux (só o chrome-devtools-mcp precisa dele). Windows mantém `--browser chrome` nativo.
+- **Changed**: playwright MCP no Linux roda headless no Chromium bundled (`--browser chromium --headless --no-sandbox --isolated`, `~/.cache/ms-playwright`, provisionado pelo bootstrap via `install-browser chromium`) em vez de `--browser chrome` (que procurava `/opt/google/chrome/chrome` e falhava); Chrome ausente virou Info no Linux (só o chrome-devtools-mcp precisa dele). Windows mantém `--browser chrome` nativo.
 - **Added**: `doctor` audita o Chromium bundled (`Browser/Playwright Chromium`) e valida referências `{file:...}` do `opencode.json` (ERROR se ausente — antes um `context7.key` faltante quebrava todo `opencode` com doctor verde).
 - **Changed**: context7 remoto sem header de key (free quota funciona — verificado live: initialize + tools/list + resolve-library-id sem auth).
 - **Docs**: `docs/skills.md`, lessons e patterns de memória refletem o padrão de browser por OS.
