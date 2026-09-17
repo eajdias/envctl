@@ -1,48 +1,58 @@
 ---
 name: docker
 description: >-
-  Gerenciamento de Docker na máquina local. Use quando o usuário pedir para listar/inspecionar/reiniciar containers, ver logs, subir/derrubar stacks, imagens, volumes, redes, docker compose, ou operar o Docker Hub. Triggers: docker, container, containers, imagem, imagens, compose, docker compose, docker desktop, subir container, derrubar container, logs do container, restart container, docker hub, pull, push, docker ps, stack.
+  Docker na máquina local e em VPS. Use para listar/inspecionar/reiniciar containers, ver logs, subir/derrubar stacks, imagens, volumes, redes, compose, build local + transporte de imagem (VPS fraca), restart limpo do Docker Desktop (WSL2) e pull/push no Hub. Triggers: docker, container, containers, imagem, imagens, compose, docker compose, docker desktop, subir container, derrubar container, logs do container, restart container, docker hub, pull, push, docker ps, stack, vps fraca, build local, wsl exec error, backend.sock.
 license: MIT
 ---
 
-# Docker (máquina local ou VPS)
+# Docker (máquina local + VPS)
 
-## Contexto
+## Contexto (detecte o ambiente)
 
-Detecte o ambiente antes de agir — os comandos são os mesmos, o daemon não:
+Os comandos são os mesmos; o daemon não:
 
-- **Windows (Docker Desktop + WSL2):** Docker Desktop instalado via winget; binário em `C:\Program Files\Docker\Docker\resources\bin\docker.exe` (só entra no PATH após reiniciar o terminal). O daemon roda na distro `docker-desktop` (backend WSL2, kernel Linux). Precisa estar no ar: serviço `com.docker.service` (`Start-Service` se parado) ou abrir o Docker Desktop. Se o daemon não responder mesmo com o serviço iniciado, use a skill `docker-desktop-wsl-restart`.
-- **Linux (VPS/servidor):** daemon nativo via systemd — `systemctl status docker`, `sudo systemctl start docker`. Não há Docker Desktop nem WSL2 aqui.
+- **Windows (Docker Desktop + WSL2):** daemon roda na distro `docker-desktop`. Precisa estar no ar: serviço `com.docker.service` (`Start-Service` se parado) ou abrir o Docker Desktop. Paths Windows — `docker run -v "C:/projeto:/app"`. `docker exec -it <c> /bin/sh` funciona direto.
+- **Linux (VPS/servidor):** daemon nativo via systemd — `systemctl status docker`, `sudo systemctl start docker`. Paths POSIX.
 
-Valide sempre com `docker version` (client + server) e `docker info`.
+Valide sempre com `docker version` (client + server).
 
 ## Comandos essenciais
 
-- `docker ps -a` — todos os containers (com status); `docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"`
-- `docker logs <container> --tail 100` (ou `-f` para seguir) — diagnóstico
-- `docker restart <container>` / `docker stop` / `docker start`
-- `docker images`, `docker image prune -f` (limpeza), `docker system df` (uso de disco)
-- `docker exec -it <container> <cmd>` — só quando necessário; preferir logs/inspeção sem entrar no container
-- `docker inspect <container>` — detalhes (network, mounts, env)
-- `docker compose up -d` / `down` / `logs -f` / `ps` — na pasta do projeto (arquivos compose são lidos do diretório local; atenção à montagem de volumes entre WSL2 e C:\)
-- `docker pull <imagem>` / `docker push`
+- `docker ps -a` (todos, com status); formato: `docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"`
+- `docker logs <c> --tail 100` (ou `-f`) — diagnóstico
+- `docker restart <c>` / `stop` / `start`
+- `docker images`, `docker image prune -f`, `docker system df`
+- `docker exec -it <c> <cmd>` — só quando necessário; prefira logs
+- `docker inspect <c>` — network, mounts, env
+- `docker compose up -d` / `down` / `logs -f` / `ps`
+- `docker pull <img>` / `docker push`
 
-## Shell (Windows vs Linux)
+Diagnóstico de "serviço caiu": `docker ps -a` → `docker logs` → `docker restart` → re-verificar.
 
-No **Windows**, o ambiente usa **PowerShell 7** como shell padrão — nenhuma conversão de caminhos POSIX acontece. Docker roda nativamente do PowerShell.
-- `docker exec -it <container> /bin/sh` funciona direto, sem conversão de caminhos.
-- Em volumes no Windows, use caminhos absolutos no formato misto (ex: `docker run -v "C:/meu/projeto:/app"`).
-- Para comandos Linux dentro de containers exigirem shell bash: `docker exec -it <container> bash`.
+## Build local + transporte de imagem (VPS fraca)
 
-No **Linux**, caminhos são POSIX e não há camada de conversão: os mesmos comandos acima funcionam sem ajuste.
+Quando a VPS não aguenta build pesado (npm/tsc, multistage) ou o compose usa `image:` + `build:` juntos:
 
-## Docker Hub
+1. Build local: `docker build -t <app>:<tag> .`
+2. Transportar: `docker save <app>:<tag> | gzip > dist/<app>.tar.gz`
+3. Na VPS: `docker load -i <app>.tar.gz` (rápido, sem build)
+4. `docker compose up -d` — com `image:` + `build:`, o `docker load` prevalece
+5. Runtime SEM devDependencies: `npm ci --omit=dev` direto no stage runtime (Docker não apaga camadas)
 
-Não existe MCP do Docker Hub neste ambiente (foi removido) — use a CLI `docker` (`docker search`, `docker pull`, `docker push`) ou o site do Hub. Nunca editar config de MCP por conta própria.
+## Restart limpo do Docker Desktop (WSL2)
+
+`docker version` falha, `Wsl/ExecError`, `backend.sock: no such file or directory`:
+
+1. `taskkill //F //IM "Docker Desktop.exe" //T`
+2. `wsl --shutdown`
+3. Reabrir Docker Desktop; aguardar ~45s
+4. Validar: `docker version` (client + server)
+
+**NUNCA** `wsl --unregister docker-desktop`. Se persistir, checar `com.docker.service`.
 
 ## Regras
 
-- Preferir `docker compose` quando o projeto tiver compose file; docker run avulso só para testes.
-- Nunca apagar volumes/containers com dados sem confirmar com o usuário (`docker rm -f`, `docker volume rm`).
-- Diagnóstico de "serviço caiu": `docker ps -a` → `docker logs` → `docker restart` → re-verificar com `docker ps` e healthcheck.
-- Para VPS remotos com Docker, usar as ferramentas ssh_* / ssh-manager (ver skill `ssh-vps`).
+- Preferir `docker compose` quando houver compose file
+- Nunca apagar volumes/containers com dados sem confirmar
+- Docker Hub = CLI `docker` (`search`/`pull`/`push`) ou site; não há MCP do Hub
+- VPS remotas com Docker: ver skills `ssh-vps` / `vps-provisioning`

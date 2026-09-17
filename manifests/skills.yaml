@@ -4,17 +4,11 @@ skills:
       source: configs/skills/bulk-postgres-import
       target_dir: ""
       enabled: true
-    - name: docker-build-local-vps-deploy
-      description: Deploy Docker em VPS fraca (build local + docker save/load + npm ci --omit=dev no runtime)
-      source: configs/skills/docker-build-local-vps-deploy
+    - name: docker
+      description: Docker (local + VPS) — containers, compose, build local/transporte de imagem (VPS fraca), restart WSL2, Hub
+      source: configs/skills/docker
       target_dir: ""
       enabled: true
-    - name: docker-desktop-wsl-restart
-      description: Restart limpo do Docker Desktop no Windows quando o backend WSL2 falha (Wsl/ExecError, backend.sock)
-      source: configs/skills/docker-desktop-wsl-restart
-      target_dir: ""
-      enabled: true
-      os: windows
     - name: jwt-hs256-node
       description: Implementar JWT HS256 sem dependências em Node.js (createHmac + timingSafeEqual com hash duplo)
       source: configs/skills/jwt-hs256-node
@@ -28,11 +22,6 @@ skills:
     - name: nextjs-standalone-deploy
       description: Deploy Next.js com output standalone + migração v16 (Dockerfile multi-stage, NEXT_PUBLIC no build, public/)
       source: configs/skills/nextjs-standalone-deploy
-      target_dir: ""
-      enabled: true
-    - name: parallel-agent-orchestration
-      description: Orquestrar subagentes paralelos no mesmo repo git (base comum primeiro, fronteiras disjuntas, integração final)
-      source: configs/skills/parallel-agent-orchestration
       target_dir: ""
       enabled: true
     - name: phone-e164-normalization
@@ -90,16 +79,6 @@ skills:
     - name: database-ops
       description: Operações multi-banco (PostgreSQL, MySQL, Firebird, MongoDB, SQLite), migrations e DBs em Docker
       source: configs/skills/database-ops
-      target_dir: ""
-      enabled: true
-    - name: dispatching-parallel-agents
-      description: Despachar 2+ tarefas independentes em paralelo preservando o contexto do coordenador
-      source: configs/skills/dispatching-parallel-agents
-      target_dir: ""
-      enabled: true
-    - name: docker
-      description: Docker local (Docker Desktop + WSL2) — containers, compose, volumes, imagens e pull/push no Hub
-      source: configs/skills/docker
       target_dir: ""
       enabled: true
     - name: git-workflow
@@ -178,11 +157,6 @@ skills:
       source: configs/skills/subagent-routing
       target_dir: ""
       enabled: true
-    - name: using-git-worktrees
-      description: Isolar o trabalho de uma feature em git worktrees dedicadas
-      source: configs/skills/using-git-worktrees
-      target_dir: ""
-      enabled: true
     - name: verification-before-completion
       description: Exigir evidência empírica (build/test/lint) antes de declarar uma tarefa concluída
       source: configs/skills/verification-before-completion
@@ -207,5 +181,15 @@ skills:
     - name: writing-plans
       description: Escrever especificações e planos de implementação passo a passo antes de codar
       source: configs/skills/writing-plans
+      target_dir: ""
+      enabled: true
+    - name: task-hang-watchdog
+      description: Prevenir/recuperar terminais travados e tarefas autônomas presas (background, timeout, kill, monitor)
+      source: configs/skills/task-hang-watchdog
+      target_dir: ""
+      enabled: true
+    - name: subagent-supervision
+      description: Coordenador monitora subagentes paralelos e mata os que alucinam/loopam/travam (agent_output kill)
+      source: configs/skills/subagent-supervision
       target_dir: ""
       enabled: true

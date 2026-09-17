@@ -9,6 +9,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🧹 Consolidação do catálogo (41 → 38 skills) + 2 skills novas
+
+- **Removed / merged** (redundâncias eliminadas): `dispatching-parallel-agents` + `parallel-agent-orchestration` foram absorvidas por `subagent-routing` (agora cobre roteamento, dispatch paralelo e orquestração no mesmo repo numa skill única de ~60 ln); `docker-build-local-vps-deploy` + `docker-desktop-wsl-restart` foram absorvidas por `docker` (agora cobre local/VPS/build-transport/restart WSL2 em ~50 ln); `using-git-worktrees` foi dobrado dentro de `git-workflow` (worktree é workflow git).
+- **Added**: **`task-hang-watchdog`** — previne e recupera terminais travados e tarefas autônomas presas (background, timeout, classificar read-only vs interativos, matar processos hungidos via `kill_shell`, `monitor_command` para saídas longas); **`subagent-supervision`** — o coordenador vigia subagentes paralelos e, se um alucina/loopa/trava, mata via `agent_output(action: "kill")` e decide retry refinado ou escala ao usuário (sem retry infinito).
+- **Trim**: `systematic-debugging` (278→~80 ln) e `verification-before-completion` (115→~50 ln) — mantidas apenas as mecânicas essenciais.
+- **Changed**: contagens normalizadas (41→38) em `README.md`, `docs/skills.md` e documentos afetados; catálogo reescrito sem redundâncias.
+
 ### © Créditos de terceiros, caminhos próprios e `grill-me`
 
 - **Added**: **atribuição de autoria** nas skills adotadas de terceiros. Cada uma agora traz `metadata.author`, `metadata.source` e `metadata.adapted`, com o repositório de origem: [obra/superpowers](https://github.com/obra/superpowers) (MIT) em `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion`, `writing-plans`; [mattpocock/skills](https://github.com/mattpocock/skills) (MIT) em `grill-me`, `grilling`, `handoff`; [hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer) (MIT) em `skill-miner`, `skill-personalizer`, `skill-generalizer`. `stop-slop` já creditava Hardik Pandya (hvpandya.com).

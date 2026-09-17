@@ -1,6 +1,6 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **38 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
 > **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
 
@@ -20,7 +20,7 @@ O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das Skills (41)
+## 📋 Categorias das Skills (38)
 
 ### 1. Engenharia de Software & Arquitetura (9)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
@@ -41,15 +41,15 @@ O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas
 - **`windows-admin`**: Administração avançada de sistemas Windows 11 (serviços, registro, tarefas agendadas, firewall, eventos).
 - **`aur-headless-install`**: Instalação de pacotes AUR em shells não-interativos (`makepkg` como usuário + `sudo pacman -U`), sem prompts de senha.
 
-### 3. Contexto, Memória & Meta-Agente (14)
-- **`agent-memory`**: Memória persistente de lições e patterns — consulte quando a tarefa parecer repetir algo já resolvido e registre quando aprender (`.opencode/memory/` no OpenCode; `AGENTS.md` no CommandCode).
+### 3. Contexto, Memória & Operação Autônoma (14)
+- **`agent-memory`**: Memória persistente de lições e patterns — consulte quando a tarefa parecer repetir algo já resolvido e registre quando aprender.
 - **`memory-promotion`**: Classifica cada aprendizado gravado e promove processos reutilizáveis a skills, removendo a entrada da memória (sem redundância memória ↔ skill); aplica a regra de atribuição ao adotar skill de terceiro.
 - **`context7-auto`**: Busca obrigatória de documentação atualizada de bibliotecas/frameworks via MCP Context7 antes de escrever código.
-- **`grill-me`**: Porteiro de ambiguidade — mede de 0 a 100 a clareza do pedido e, acima do limiar, pergunta **antes** de executar (melhor perguntar a mais do que executar errado e desfazer).
+- **`grill-me`**: Porteiro de ambiguidade — mede de 0 a 100 a clareza do pedido e, acima do limiar, pergunta **antes** de executar.
 - **`ask-questions-if-underspecified`**: A mecânica de perguntar bem — perguntas mínimas, opções com default, resposta compacta.
-- **`subagent-routing`**: Roteamento de delegação — quando delegar, qual subagente (`explore`/`general`), paralelo vs sequencial e quando **não** paralelizar.
-- **`dispatching-parallel-agents`**: Mecânica de execução de tarefas independentes em paralelo, preservando o contexto do coordenador.
-- **`parallel-agent-orchestration`**: Subagentes paralelos no **mesmo** repositório git — base comum primeiro, fronteiras disjuntas, integração final pelo orquestrador.
+- **`subagent-routing`**: Roteamento e despacho de subagentes — quando delegar, qual tipo (`explore`/`general`/`plan`), paralelo vs sequencial, mecânica de dispatch múltiplo na mesma resposta, e orquestração no mesmo repositório (fronteiras disjuntas, base comum, integração final).
+- **`subagent-supervision`**: O coordenador vigia subagentes paralelos — monitora progresso e, se um alucina/loopa/trava, mata via `agent_output(action: "kill")` e decide retry (com prompt refinado) ou escala ao usuário. Nunca retry infinito.
+- **`task-hang-watchdog`**: Previne e recupera terminais travados e tarefas autônomas presas — roda em background, usa timeout, classifica comandos read-only vs interativos (para prompts), detecta processos travados e mata via `kill_shell`; para saídas longas usa `monitor_command`.
 - **`handoff`**: Compactação e sumarização de contexto de sessão para transferência transparente entre agentes.
 - **`grilling`**: Entrevista impiedosa de design (árvore de decisões em rodadas) para validar premissas antes de implementar.
 - **`stop-slop`**: Higienização e remoção de clichês e vícios de linguagem em respostas textuais de IA.
@@ -57,10 +57,8 @@ O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas
 - **`skill-generalizer`**: Preparação de skills locais/privadas para publicação (portabilidade, metadados, licenciamento).
 - **`skill-personalizer`**: Auditoria e adaptação de skills recém-criadas/baixadas às preferências e ao ambiente do usuário.
 
-### 4. Domínio & Aplicações (12)
+### 4. Domínio & Aplicações (10)
 - **`bulk-postgres-import`**: Import/upsert em massa no PostgreSQL (batch multi-VALUES, `ON CONFLICT`, dedupe) tolerante a latência alta (túnel SSH).
-- **`docker-build-local-vps-deploy`**: Build de imagem Docker local + transporte (`save`/`load`) para VPS fraca que não aguenta build.
-- **`docker-desktop-wsl-restart`**: Restart limpo do Docker Desktop no Windows quando o backend WSL2 falha (`Wsl/ExecError`, `backend.sock`).
 - **`jwt-hs256-node`**: Implementação de JWT HS256 sem dependências externas em Node.js (`createHmac` + `timingSafeEqual` com hash duplo).
 - **`lsp-smoke-test`**: Smoke test de LSP servers (`--stdio` com stdin fechado; nunca confiar em `--version`) antes de registrar na config.
 - **`nextjs-standalone-deploy`**: Deploy de Next.js com `output: standalone` (Dockerfile multi-stage, `NEXT_PUBLIC` no build, `public/`) e migração para v16.

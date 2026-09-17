@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
 - **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
-- **Ecossistema OpenCode & CommandCode com 41 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **41 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
+- **Ecossistema OpenCode & CommandCode com 38 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **38 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Navegador Nativo do Sistema & Automação Web**: Google Chrome integrado nativamente para os MCPs `@playwright/mcp` e `chrome-devtools-mcp` (padrão único: `bunx` com versão pinada, opt-in por sessão).
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
@@ -72,7 +72,7 @@ envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
-envctl run skills       # Extração e sincronização das 41 Skills
+envctl run skills       # Extração e sincronização das 38 Skills
 envctl run lsp          # 18 Servidores de Linguagem (LSP)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
@@ -95,7 +95,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ### 🏛️ Engenharia & Especificações:
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
 - 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `lsp.yaml`, `windows.yaml`).
-- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 41 skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
+- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 38 skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
 - ©️ [**Atribuição de Skills**](docs/skills-attribution.md) — De onde veio cada skill adotada de terceiros (autor + repositório), o que foi adaptado e como creditar skill nova.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
@@ -103,7 +103,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ---
 
 ## 💎 Princípios Fundamentais
-1. **100% Standalone via `//go:embed`**: Todas as 41 Skills e templates residem dentro do próprio binário executável compilado.
+1. **100% Standalone via `//go:embed`**: Todas as 38 Skills e templates residem dentro do próprio binário executável compilado.
 2. **Idempotência Estrita**: Executar 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
 3. **Backup Atômico com Timestamp**: Arquivos modificados sofrem backup automático (`.bak.YYYYMMDD-HHMMSS`) caso haja divergência de hash.
 4. **Logging Persistente Estruturado**: Trilha de auditoria completa gerada em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.
