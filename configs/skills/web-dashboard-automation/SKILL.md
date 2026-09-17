@@ -11,9 +11,14 @@ license: MIT
 
 Qualquer automação contra SPA/dashboard com sessão autenticada — extração de dados, ações (aprovar, exportar), integração sem API pública.
 
+## Escolha da ferramenta
+
+- **Exploratório / interativo / 2FA manual**: MCP `chrome-devtools` (habilite via `/mcp`) — `navigate_page`, `take_snapshot`, `click`, `fill`, `type_text`, `list_network_requests`. O browser abre visível: acompanhe e digite códigos manualmente quando preciso.
+- **Determinístico / repetível / regressão**: `playwright-cli` via shell (`open`, `snapshot`, `click e15`, `screenshot`) — token-efficient, sem carregar schemas de MCP no contexto. `--headed` para acompanhar, headless em VPS/sem display.
+
 ## Passos
 
-1. **Descobrir o endpoint real**: com Playwright, clicar na ação manualmente e interceptar via `page.on('request')` — captura URL exata, headers e payload (mais confiável que adivinhar rotas).
+1. **Descobrir o endpoint real**: navegar até a ação e interceptar o request real — no MCP via `list_network_requests` + `get_network_request`; no CLI via `requests` + `request <n>` — captura URL exata, headers e payload (mais confiável que adivinhar rotas).
 2. **Extrair o CSRF token**: ler `<meta name="csrf-token">` da página autenticada (padrão Yii2/SPA).
 3. **Replicar a chamada** com os mesmos headers (incluindo `X-CSRF-Token` em POST/PUT/PATCH) e payload capturado.
 4. Se a sessão expirar, re-autenticar e re-extrair o token antes de repetir.

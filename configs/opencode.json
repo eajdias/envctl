@@ -200,12 +200,6 @@
       },
       "enabled": false
     },
-    "playwright": {
-      "type": "local",
-      "command": ["bunx", "@playwright/mcp@0.0.79", "--browser", "chrome"],
-      "timeout": 30000,
-      "enabled": false
-    },
     "chrome-devtools": {
       "type": "local",
       "command": ["bunx", "chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],

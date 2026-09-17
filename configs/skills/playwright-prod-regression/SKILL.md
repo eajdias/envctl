@@ -11,6 +11,10 @@ license: MIT
 
 Validar produção após deploy/migração sem risco de alterar dados reais.
 
+## Ferramenta
+
+`playwright-cli` via shell (token-efficient para fluxos repetíveis): `open <url>`, `snapshot`, `click`/`fill`, `console`, `screenshot`. Headless por padrão; `--headed` para acompanhar. Para inspeção profunda pontual (DevTools, performance, network detalhado), MCP `chrome-devtools` via `/mcp`.
+
 ## Regras
 
 1. **NUNCA mutar dados reais** — ações de escrita (aprovar, criar, deletar) só nos e2e; em produção validar presença/empty state.
@@ -20,8 +24,8 @@ Validar produção após deploy/migração sem risco de alterar dados reais.
 
 ## Passos
 
-1. Abrir fluxos principais (login, listagem, detalhe) com o perfil de teste.
-2. Capturar console errors/network failures separando esperados de reais.
+1. Abrir fluxos principais (login, listagem, detalhe) com o perfil de teste (`playwright-cli open <url> --headed` para acompanhar, ou headless em VPS).
+2. Capturar console errors/network failures (`console`, `requests`) separando esperados de reais.
 3. Assertar presença de dados e empty states conforme o contexto.
 4. Reportar apenas falhas REAIS (erro não-filtrado, ausência inesperada).
 

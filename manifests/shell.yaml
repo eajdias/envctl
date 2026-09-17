@@ -141,7 +141,7 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_mcp
-    description: "CommandCode user-scope MCP servers (context7; playwright, chrome-devtools, ssh-manager, zscan disabled by default)"
+    description: "CommandCode user-scope MCP servers (context7; chrome-devtools, ssh-manager, zscan disabled by default)"
     source: "configs/commandcode/mcp.json"
     destination: "~/.commandcode/mcp.json"
     strict_acl: false

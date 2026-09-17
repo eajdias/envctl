@@ -121,5 +121,5 @@ ssh minha-vps 'opencode run "Diagnosticar uso de disco e containers Docker com a
 ssh minha-vps 'nohup opencode run "Executar testes de carga no endpoint /api/v1/auth e salvar resumo em /tmp/summary.md" < /dev/null > /tmp/agent.log 2>&1 &'
 ```
 
-### 3. Automação Headless com MCPs de Browser no Linux:
-O `envctl` instala o runtime `bun` (`bunx`) e provisiona os MCPs `playwright` e `chrome-devtools` (`enabled: false` — ative por sessão via `/mcp`). Browser automation é MCP-only, com o bundle do Chrome dos MCPs.
+### 3. Automação de Browser Headless no Linux:
+O `envctl` instala o runtime `bun` (`bunx`), o `playwright-cli` (via volta, com browsers próprios em `~/.cache/ms-playwright`) e provisiona o MCP `chrome-devtools` (`enabled: false` — ative por sessão via `/mcp`). O agente usa o MCP para o interativo e o CLI no shell para fluxos determinísticos (headless, sem display).

@@ -9,13 +9,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🌐 Browser em dois trilhos (chrome-devtools MCP + playwright-cli)
+
+- **Removed**: MCP `@playwright/mcp` dos 3 configs (opencode.json, opencode.linux.json, commandcode mcp.json) — duplicava o chrome-devtools no interativo e é token-heavy frente ao CLI nos fluxos repetíveis.
+- **Added**: pacote volta `@playwright/cli` (`playwright-cli --version`); bootstrap Linux instala os browsers via `install-browser chromium`; `doctor` audita o bundle (`Browser/Playwright Chromium` + `LinuxBootstrap/playwright-chromium`) e trata Chrome ausente como Info no Linux (só o chrome-devtools-mcp precisa dele).
+- **Changed**: skills `web-dashboard-automation` e `playwright-prod-regression` orientam a escolha (MCP interativo vs CLI determinístico); AGENTS.md, SKILL-INDEX.md, README, guides, `docs/skills.md` e memória refletem os dois trilhos.
+
 ### 🩺 Doctor por-OS + browser headless no Linux
 
 - **Fixed**: `doctor` não avisa mais de pacotes cujo gerenciador não existe na máquina (ex.: 22 warnings `pacman` em Ubuntu/Debian) — entradas de gerenciador ausente são puladas silenciosamente; volta/npm/apt/winget universais seguem auditados normalmente.
-- **Changed**: playwright MCP no Linux roda headless no Chromium bundled (`--browser chromium --headless --no-sandbox --isolated`, `~/.cache/ms-playwright`, provisionado pelo bootstrap via `install-browser chromium`) em vez de `--browser chrome` (que procurava `/opt/google/chrome/chrome` e falhava); Chrome ausente virou Info no Linux (só o chrome-devtools-mcp precisa dele). Windows mantém `--browser chrome` nativo.
-- **Added**: `doctor` audita o Chromium bundled (`Browser/Playwright Chromium`) e valida referências `{file:...}` do `opencode.json` (ERROR se ausente — antes um `context7.key` faltante quebrava todo `opencode` com doctor verde).
+- **Added**: `doctor` valida referências `{file:...}` do `opencode.json` (ERROR se ausente — antes um `context7.key` faltante quebrava todo `opencode` com doctor verde).
 - **Changed**: context7 remoto sem header de key (free quota funciona — verificado live: initialize + tools/list + resolve-library-id sem auth).
-- **Docs**: `docs/skills.md`, lessons e patterns de memória refletem o padrão de browser por OS.
 
 ### 🧹 Consolidação do catálogo (41 → 38 skills) + 2 skills novas
 

@@ -32,7 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go, .NET SDK, Rust (`rustup`), Docker CLI.
 - **Language Server Protocol (18 LSPs)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, CSharp-LS, Rust-Analyzer, TOML, PHP, etc.
 - **Ecossistema OpenCode & CommandCode com 38 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **38 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
-- **Navegador Nativo do Sistema & Automação Web**: Google Chrome integrado nativamente para os MCPs `@playwright/mcp` e `chrome-devtools-mcp` (padrão único: `bunx` com versão pinada, opt-in por sessão).
+- **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `playwright-cli` (via volta) para automação determinística e token-efficient no shell — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
 

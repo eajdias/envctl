@@ -235,9 +235,9 @@ done`)
 		}
 	}
 
-	// 2c. Bun runtime - fast JS/TS runtime. The agent browser MCPs
-	// (playwright / chrome-devtools) launch through `bunx <pkg>@<version>`,
-	// so bun must be resolvable on PATH for those MCPs to spawn on Linux.
+	// 2c. Bun runtime - fast JS/TS runtime. Browser automation CLIs
+	// (playwright-cli) and MCP servers (chrome-devtools) launch through
+	// `bunx <pkg>@<version>`, so bun must be resolvable on PATH.
 	uc.step(ctx, result, "bun", "Bun JS/TS runtime",
 		`set -e
 export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
@@ -245,25 +245,25 @@ mkdir -p "$HOME/.local/bin"
 npm install -g --no-audit --no-fund --prefix "$HOME/.local" bun
 ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
 
-	// 2d. Playwright bundled Chromium - headless browser for the Linux
-	// playwright MCP (`--browser chromium --headless --no-sandbox`). The
-	// MCP pins its own browser build (chromium-1237 for @0.0.79); install
-	// via the MCP's own installer so versions never drift.
+	// 2d. Playwright CLI browsers - headless browser builds used by
+	// `playwright-cli` (the deterministic/token-efficient automation path;
+	// interactive work goes through chrome-devtools MCP). Installed via the
+	// CLI's own installer so versions never drift.
 	if uc.hasTool(ctx, "bun") {
-		uc.logger.Info("LinuxBootstrap: ensuring Playwright bundled Chromium")
+		uc.logger.Info("LinuxBootstrap: ensuring Playwright CLI browsers")
 		out, err := uc.runShell(ctx, `export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
-bunx @playwright/mcp@0.0.79 install-browser chromium`)
+bunx @playwright/cli@latest install-browser chromium`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: playwright install-browser failed: %s (%s)", out, err)
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Playwright bundled Chromium",
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Playwright CLI browsers",
 				Details: fmt.Sprintf("install-browser chromium failed: %v (%s)", err, out),
-				FixHint: "Run 'bunx @playwright/mcp@0.0.79 install-browser chromium' manually",
+				FixHint: "Run 'bunx @playwright/cli@latest install-browser chromium' manually",
 			})
 		} else {
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Playwright bundled Chromium",
-				Details: "Bundled Chromium provisioned via MCP installer (~/.cache/ms-playwright)",
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Playwright CLI browsers",
+				Details: "Playwright browsers provisioned via CLI installer (~/.cache/ms-playwright)",
 			})
 		}
 	}

@@ -26,7 +26,7 @@
 - **Config:** `~/.config/opencode/opencode.json` (padrão único, JSON — `opencode.jsonc`/`tui.json` são removidos pelo provisioning). **Regras:** `~/.config/opencode/AGENTS.md` (este arquivo), auto-carregado. **Config não é hot-reload:** reinicie o opencode e valide com `opencode debug config`.
 - **Agentes:** `review` e `plan` (ambos primary e read-only) — use `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
 - **Plugins:** `opencode-dcp` (poda de contexto), `ponytail`, `opencode-goal-plugin`. Detalhe (bandas do DCP, tool `compress`) em REFERENCE.md.
-- **MCP:** browser automation só via MCP `playwright`/`chrome-devtools`, ambos `enabled: false` — habilite com `/mcp` antes de usar. Context7 (docs) e ssh-manager no mesmo config.
+- **MCP:** browser interativo via MCP `chrome-devtools` (`enabled: false` — habilite com `/mcp`); automação determinística via `playwright-cli` no shell (skills `web-dashboard-automation`, `playwright-prod-regression`). Context7 (docs) e ssh-manager no mesmo config.
 - **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>`. Para escolher entre elas, veja `~/.config/opencode/SKILL-INDEX.md`; não leia por padrão.
 - **Memória:** consulte `agent-memory` quando a tarefa parecer repetir algo já resolvido e registre lição/pattern quando aprender. Mecânica (paths, promoção a skill) em REFERENCE.md.
 

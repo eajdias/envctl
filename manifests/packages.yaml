@@ -239,6 +239,12 @@ packages:
     category: volta
     check_command: pnpm -v
 
+  - id: "@playwright/cli"
+    name: Playwright CLI for coding agents (token-efficient browser automation)
+    type: volta
+    category: cli-tools
+    check_command: playwright-cli --version
+
   - id: mcp-ssh-manager
     name: SSH Manager CLI & MCP Server
     type: volta

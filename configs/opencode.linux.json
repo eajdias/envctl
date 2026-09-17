@@ -174,12 +174,6 @@
       "url": "https://mcp.context7.com/mcp",
       "enabled": true
     },
-    "playwright": {
-      "type": "local",
-      "command": ["bunx", "@playwright/mcp@0.0.79", "--browser", "chromium", "--headless", "--no-sandbox", "--isolated"],
-      "timeout": 30000,
-      "enabled": false
-    },
     "chrome-devtools": {
       "type": "local",
       "command": ["bunx", "chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],

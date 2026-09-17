@@ -5,12 +5,6 @@
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "type": "stdio"
     },
-    "playwright": {
-      "command": "bunx",
-      "args": ["@playwright/mcp@0.0.79", "--browser", "chrome"],
-      "type": "stdio",
-      "enabled": false
-    },
     "chrome-devtools": {
       "command": "bunx",
       "args": ["chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],

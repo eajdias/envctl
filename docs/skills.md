@@ -71,9 +71,9 @@ O `envctl` embuta e sincroniza **38 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 🌐 Automação de Navegador (MCP-only)
+## 🌐 Automação de Navegador (chrome-devtools MCP + playwright-cli)
 
-Browser automation usa exclusivamente os MCPs `playwright` e `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`), ambos `enabled: false` (opt-in por sessão via `/mcp`). O playwright varia por OS: no Windows `bunx @playwright/mcp@0.0.79 --browser chrome` (Chrome nativo do sistema, auditado pelo `doctor`); no Linux `bunx @playwright/mcp@0.0.79 --browser chromium --headless --no-sandbox --isolated` (Chromium bundled headless em `~/.cache/ms-playwright`, provisionado pelo bootstrap via `install-browser chromium` — sem Chrome do sistema; o `doctor` audita o bundle e trata Chrome ausente como Info). Não há skill de browser/CLI nem scripts utilitários.
+Browser interativo (exploratório, 2FA manual, inspeção ao vivo) via MCP `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`, `enabled: false` — opt-in por sessão via `/mcp`; o agente escolhe quando usar). Automação determinística e token-efficient (regressões, fluxos repetíveis, extrações) via `playwright-cli` no shell (`open`, `snapshot`, `click e15`, `screenshot`; `--headed` para acompanhar, headless em VPS/sem display) — skills `web-dashboard-automation` e `playwright-prod-regression` orientam o uso. Cada browser usa seu próprio build (Chrome do sistema/Chrome for Testing no chrome-devtools, Chromium bundled em `~/.cache/ms-playwright` no CLI) — sem conflito com o navegador do usuário.
 
 ---
 

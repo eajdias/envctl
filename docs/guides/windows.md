@@ -124,5 +124,5 @@ Para garantir que scripts autônomos (como Playwright) funcionem a partir de qua
 ### C. Pasta de Scratch Padrão dos Agentes LLM (`ENVCTL_TEMP`)
 Todo arquivo temporário criado por agentes LLM (downloads, builds, extrações, screenshots) deve ir para `C:\temp` — pasta na raiz do disco, sem relação com o OpenCode, facilitando identificação e exclusão. `envctl run cleanup` remove scratch com mais de 24h.
 
-### D. Automação Headless (MCPs de Browser)
-- O `envctl` provisiona os MCPs `playwright` (`@playwright/mcp`) e `chrome-devtools` (`chrome-devtools-mcp`) — ambos `enabled: false` (ative por sessão via `/mcp`). Browser automation é MCP-only, com o bundle do Chrome dos MCPs.
+### D. Automação de Browser (MCP chrome-devtools + playwright-cli)
+- O `envctl` provisiona o MCP `chrome-devtools` (`chrome-devtools-mcp`, `enabled: false` — ative por sessão via `/mcp`) para o interativo (o agente escolhe quando usar; 2FA manual e inspeção ao vivo) e o `playwright-cli` (via volta) para automação determinística no shell. Cada um usa seu próprio build de browser — sem conflito com o navegador do usuário.

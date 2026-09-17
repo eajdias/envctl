@@ -63,4 +63,4 @@ Skill `agent-memory`:
 - `envctl doctor` reporta acúmulo em cache/DB/tool-output/temp; `envctl run cleanup` remove duplicatas de plugins, tool-output >10 MB e scratch com mais de 24h.
 - **Encoding (Windows):** o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command` e o profile **nunca** carrega no bash tool — com o beta UTF-8 do Windows desligado (ACP/OEMCP=850) acentos viram `�`. Se o `doctor` acusar *System Code Page* 850, ative "Beta: Use Unicode UTF-8 para todo o mundo" e reinicie (não é bug do projeto).
 - Se o shell do agente mostrar "Windows PowerShell (5.1)", o config de shell foi ignorado (opencode #41426) — reinicie o opencode.
-- Scripts: criar em `C:\temp`/`/temp` ou no home, nunca em pastas de sistema. No Linux, o Playwright headless usa o Chromium do sistema (`sudo npx playwright install-deps chromium`).
+- Scripts: criar em `C:\temp`/`/temp` ou no home, nunca em pastas de sistema. Automação de browser determinística: `playwright-cli` no shell (browsers próprios em `~/.cache/ms-playwright`, via `install-browser chromium`).

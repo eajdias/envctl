@@ -33,7 +33,8 @@
 | Padronizar telefone BR (E.164) | `phone-e164-normalization` |
 | Regressão/validação contra produção sem mutar dados | `playwright-prod-regression` |
 | Dashboard/SPA autenticado (login, extrair dados, executar ação via HTTP) | `web-dashboard-automation` |
-| Automação de browser (abrir, clicar, extrair, screenshot) | MCPs `playwright` / `chrome-devtools` — habilite via `/mcp` |
+| Automação de browser interativa (abrir, clicar, 2FA manual, inspeção) | MCP `chrome-devtools` — habilite via `/mcp` |
+| Automação de browser determinística (regressão, scripts repetíveis) | `playwright-cli` via shell (skills `web-dashboard-automation`, `playwright-prod-regression`) |
 | Validar servidor de linguagem (LSP) que não responde | `lsp-smoke-test` |
 | Texto, README, doc ou resposta com cara de IA | `stop-slop` |
 | Encerrar sessão longa / transferir contexto para outra sessão ou agente | `handoff` |

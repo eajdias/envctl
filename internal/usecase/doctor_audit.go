@@ -327,10 +327,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 9. Audit Browser & Playwright
-	// 9.1 Audit Google Chrome (native system browser for MCPs & CLI tools).
-	// On Linux the Playwright MCP runs headless on its bundled Chromium, so a
+	// 9.1 Audit Google Chrome (native system browser for chrome-devtools MCP
+	// & CLI tools). Playwright CLI brings its own bundled Chromium, so a
 	// missing system Chrome only matters for chrome-devtools-mcp — downgrade
-	// to Info there instead of warning on every headless VPS.
+	// to Info on Linux instead of warning on every headless VPS.
 	isLinux := runtime.GOOS == "linux"
 	chromePath := ""
 	if runtime.GOOS == "windows" {
@@ -381,10 +381,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 		category := entity.DiagWarning
 		system := "Browser"
-		details := "Google Chrome not detected (recommended for chrome-devtools-mcp and Playwright MCP)"
+		details := "Google Chrome not detected (recommended for chrome-devtools-mcp)"
 		if isLinux {
 			category = entity.DiagInfo
-			details = "Google Chrome not detected (only needed for chrome-devtools-mcp; Playwright MCP runs headless on bundled Chromium)"
+			details = "Google Chrome not detected (only needed for chrome-devtools-mcp; Playwright CLI brings its own bundled Chromium)"
 		}
 		addDiag(entity.Diagnostic{
 			Category: category,
@@ -402,9 +402,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 9.2 Audit Playwright bundled Chromium (Linux headless VPS): the
-	// linux playwright MCP runs on the bundled build, so verify at least
-	// one usable binary exists under ~/.cache/ms-playwright.
+	// 9.2 Audit Playwright CLI bundled Chromium: deterministic automation
+	// (`playwright-cli`) runs on the bundled build, so verify at least one
+	// usable binary exists under ~/.cache/ms-playwright.
 	if isLinux {
 		homeDir, _ := uc.fsManager.ExpandUserPath("~")
 		found := false
@@ -422,15 +422,15 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				Category: entity.DiagOK,
 				System:   "Browser",
 				Target:   "Playwright Chromium",
-				Details:  "Bundled Chromium present in ~/.cache/ms-playwright (headless MCP ready)",
+				Details:  "Bundled Chromium present in ~/.cache/ms-playwright (playwright-cli ready)",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "Browser",
 				Target:   "Playwright Chromium",
-				Details:  "No bundled Chromium in ~/.cache/ms-playwright — headless Playwright MCP cannot launch a browser",
-				FixHint:  "run 'bunx playwright install --only-shell chromium' (or full 'bunx playwright install chromium')",
+				Details:  "No bundled Chromium in ~/.cache/ms-playwright — playwright-cli cannot launch a browser",
+				FixHint:  "run 'bunx @playwright/cli@latest install-browser chromium'",
 			})
 		}
 	}
@@ -494,8 +494,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"fd", "fd (fdfind symlink)"},
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
-			{"bun", "Bun JS/TS runtime (browser MCP launcher via bunx)"},
-			{"playwright-chromium", "Playwright bundled Chromium (headless browser via MCP installer)"},
+			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},
+			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},
 			{"go", "Go programming language SDK"},
 			{"rustup", "Rustup Rust toolchain manager"},
 			{"cargo", "Cargo build tool (via Rustup)"},
