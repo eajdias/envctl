@@ -657,17 +657,35 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 13. Audit CommandCode Agent Health
 	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
-		cmdPath, cmdErr := exec.LookPath("cmd")
-		if cmdErr != nil {
+		var cmdPath string
+		var cmdErr error
+		if runtime.GOOS == "windows" {
+			// On Windows bare `cmd` resolves to System32\cmd.exe even when
+			// CommandCode is absent, so only cmdc/command-code prove install.
 			cmdPath, cmdErr = exec.LookPath("cmdc")
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("command-code")
+			}
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("commandcode")
+			}
+		} else {
+			cmdPath, cmdErr = exec.LookPath("cmd")
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("cmdc")
+			}
 		}
 		if cmdErr != nil {
+			fixHint := "Run 'envctl run bootstrap' or 'npm install -g command-code'"
+			if runtime.GOOS == "windows" {
+				fixHint = "Run 'envctl run volta' or 'volta install command-code'"
+			}
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "CommandCode",
 				Target:   "CommandCode CLI",
 				Details:  "CommandCode CLI not found in PATH",
-				FixHint:  "Run 'envctl run bootstrap' or 'npm install -g command-code'",
+				FixHint:  fixHint,
 			})
 		} else {
 			addDiag(entity.Diagnostic{
