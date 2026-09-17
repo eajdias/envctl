@@ -52,19 +52,10 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 			continue
 		}
 		// Never reverse-sync sensitive or per-machine local files into the repo:
-		// ~/.ssh/*, CommandCode auth/state (~/.commandcode/auth.json,
-		// ~/.commandcode/history.jsonl, backups), agent memory
-		// (~/.config/opencode/memory/*), and local extras
+		// ~/.ssh/*, agent memory (~/.config/opencode/memory/*), and local extras
 		// (~/.config/opencode/extras/*) are individual per PC/VPS.
 		destLower := strings.ToLower(filepath.ToSlash(cf.Destination))
 		if strings.Contains(destLower, ".ssh/") ||
-			strings.Contains(destLower, ".commandcode/auth.json") ||
-			strings.Contains(destLower, ".commandcode/history") ||
-			strings.Contains(destLower, ".commandcode/file-history") ||
-			strings.Contains(destLower, ".commandcode/cache") ||
-			strings.Contains(destLower, ".commandcode/logs") ||
-			strings.Contains(destLower, ".commandcode/projects") ||
-			(strings.Contains(destLower, ".commandcode/") && strings.Contains(destLower, ".bak.")) ||
 			strings.Contains(destLower, ".config/opencode/memory") ||
 			strings.Contains(destLower, ".config/opencode/extras") {
 			continue
@@ -99,26 +90,14 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		}
 	}
 
-	// 2. Discover skills in the deployed skill trees and sync to
-	// configs/skills/ & manifests/skills.yaml. Both agent trees mirror the
-	// same manifest, but a skill installed by hand (`cmdc skills add --global`
-	// lands in ~/.commandcode/skills) must be discovered too — scanning only
-	// the OpenCode tree would silently drop it.
-	discoveredByName := map[string]bool{}
-	var discoveredSkills []entity.Skill
-	for _, skillsDirRaw := range []string{"~/.config/opencode/skills", "~/.commandcode/skills"} {
-		skillsDir, _ := uc.fsManager.ExpandUserPath(skillsDirRaw)
-		entries, err := os.ReadDir(skillsDir)
-		if err != nil {
-			continue
-		}
+	// 2. Discover skills in ~/.config/opencode/skills/ and sync to configs/skills/ & manifests/skills.yaml
+	skillsDir, _ := uc.fsManager.ExpandUserPath("~/.config/opencode/skills")
+	entries, err := os.ReadDir(skillsDir)
+	if err == nil {
+		var discoveredSkills []entity.Skill
 		for _, entry := range entries {
 			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 				skillName := entry.Name()
-				if discoveredByName[skillName] {
-					continue
-				}
-				discoveredByName[skillName] = true
 				skillSrc := filepath.Join(skillsDir, skillName)
 				skillDest := filepath.Join("configs", "skills", skillName)
 
@@ -140,9 +119,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 				})
 			}
 		}
-	}
 
-	if len(discoveredSkills) > 0 {
 		existingSkills, _ := uc.manifestRepo.LoadSkills()
 		existingByName := map[string]entity.Skill{}
 		for _, s := range existingSkills {
@@ -153,15 +130,13 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		for _, disc := range discoveredSkills {
 			seen[disc.Name] = true
 			if ex, ok := existingByName[disc.Name]; ok {
-				// Preserve curated metadata (description, source, target_dir,
-				// enabled, os, files).
+				// Preserve curated metadata (description, source, target_dir, enabled, files).
 				merged = append(merged, entity.Skill{
 					Name:        ex.Name,
 					Description: ex.Description,
 					Source:      ex.Source,
 					TargetDir:   ex.TargetDir,
 					Enabled:     ex.Enabled,
-					OS:          ex.OS,
 					Files:       ex.Files,
 				})
 				continue

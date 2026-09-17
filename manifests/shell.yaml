@@ -26,12 +26,6 @@ environment_variables:
     target: "Windows User Environment"
     os: windows
 
-  - name: ENVCTL_TEMP
-    value: "/temp"
-    scope: User
-    target: "Linux user profile"
-    os: linux
-
 config_files:
   - id: opencode_config
     description: "OpenCode global agent configuration (single source of truth, PowerShell shell on Windows)"
