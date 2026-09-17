@@ -2,7 +2,10 @@
 
 Thank you for your interest in contributing to envctl!
 
-## How to Contribute
+> **Note:** the repository owner commits directly to `main` (no branches or PRs
+> for own work). The flow below is for **external contributors only**.
+
+## How to Contribute (external contributors)
 
 1. **Fork** the repository
 2. **Clone** your fork locally

@@ -379,41 +379,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 10. Audit Git Worktree Support
-	// `git worktree list` exits 128 outside a git repository, which is expected
-	// and not a fault of the git installation. Only run the command from inside a repo.
-	if _, err := exec.LookPath("git"); err != nil {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Git",
-			Target:   "git worktree",
-			Details:  "git binary not found in PATH",
-			FixHint:  "install git (winget install Git.Git / apt-get install -y git)",
-		})
-	} else if err := exec.CommandContext(ctx, "git", "rev-parse", "--is-inside-work-tree").Run(); err != nil {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Git",
-			Target:   "git worktree",
-			Details:  "git worktree supported (command not run: current directory is not inside a git repository)",
-		})
-	} else if _, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Git",
-			Target:   "git worktree",
-			Details:  fmt.Sprintf("Worktree check failed: %v", err),
-			FixHint:  "Ensure git is installed and updated",
-		})
-	} else {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Git",
-			Target:   "git worktree",
-			Details:  "Worktree command supported and active",
-		})
-	}
-
 	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
 		userHomeDir, homeErr := uc.fsManager.ExpandUserPath("~")
@@ -657,17 +622,35 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 13. Audit CommandCode Agent Health
 	if runtime.GOOS == "linux" || runtime.GOOS == "windows" {
-		cmdPath, cmdErr := exec.LookPath("cmd")
-		if cmdErr != nil {
+		var cmdPath string
+		var cmdErr error
+		if runtime.GOOS == "windows" {
+			// On Windows bare `cmd` resolves to System32\cmd.exe even when
+			// CommandCode is absent, so only cmdc/command-code prove install.
 			cmdPath, cmdErr = exec.LookPath("cmdc")
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("command-code")
+			}
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("commandcode")
+			}
+		} else {
+			cmdPath, cmdErr = exec.LookPath("cmd")
+			if cmdErr != nil {
+				cmdPath, cmdErr = exec.LookPath("cmdc")
+			}
 		}
 		if cmdErr != nil {
+			fixHint := "Run 'envctl run bootstrap' or 'npm install -g command-code'"
+			if runtime.GOOS == "windows" {
+				fixHint = "Run 'envctl run volta' or 'volta install command-code'"
+			}
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "CommandCode",
 				Target:   "CommandCode CLI",
 				Details:  "CommandCode CLI not found in PATH",
-				FixHint:  "Run 'envctl run bootstrap' or 'npm install -g command-code'",
+				FixHint:  fixHint,
 			})
 		} else {
 			addDiag(entity.Diagnostic{

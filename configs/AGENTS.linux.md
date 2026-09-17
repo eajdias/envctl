@@ -13,7 +13,7 @@
 - Código, comentários e commits em inglês; conversa com o usuário em PT-BR.
 - **Tom:** direto, informal, sem rodeio; code first e explicação depois (≤3 linhas). Se um default proposto pelo usuário for subótimo, aponte e proponha o melhor com trade-offs.
 - Clean Architecture, SOLID, tipagem estrita, padrões do repositório em questão.
-- Branches semânticas (`feat/`, `fix/`), conventional commits, PRs via `gh pr create`.
+- O dono commita direto na `main` (sem branch/PR); conventional commits. Contribuidor externo: fork + PR (CONTRIBUTING.md).
 - **Evidência antes de afirmação:** exiba a saída real de build/test/lint; sem comando rodado, a verificação não conta.
 - **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
 - Nunca hardcode segredos. ACLs restritas em `~/.ssh`.

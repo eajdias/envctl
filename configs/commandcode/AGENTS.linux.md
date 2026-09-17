@@ -12,7 +12,7 @@
 
 - Código, comentários e commits em inglês; conversa com o usuário em PT-BR.
 - Clean Architecture, SOLID, tipagem estrita, padrões do repositório em questão.
-- Branches semânticas (`feat/`, `fix/`), conventional commits, PRs via `gh pr create`.
+- O dono commita direto na `main` (sem branch/PR); conventional commits. Contribuidor externo: fork + PR (CONTRIBUTING.md).
 - **Evidência antes de afirmação:** rode build/test/lint e mostre a saída real antes de dizer que terminou.
 - **Zero tolerância a WARNING/ERROR** (lint, compilador, ts(6xxx)): corrija na hora, inclusive pré-existente. Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
 - Nunca hardcode segredos. ACLs restritas em `~/.ssh`.
