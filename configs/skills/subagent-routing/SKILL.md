@@ -1,38 +1,70 @@
 ---
 name: subagent-routing
 description: >-
-  Roteamento e delegação de subagentes: quando delegar, qual tipo usar (explore para varredura de código, general para pesquisa/multi-passo), paralelo vs sequencial e quando NÃO delegar. Use ao encarar exploração de codebase sem alvo definido, pesquisa na internet/docs, debug sem causa conhecida, ou múltiplos domínios independentes. Triggers: subagente, delegar, dispatch, explorar codebase, pesquisar na internet, debug, paralelizar, preservar contexto.
+  Roteamento e despacho de subagentes: QUANDO delegar (explore/general/plan), COMO despachar em paralelo na mesma resposta (dispatch múltiplo), roteiro por situação, isolamento de contexto, integração final e quando NÃO delegar. Inclui mecânica de despacho paralelo e orquestração no mesmo repositório (fronteiras disjuntas, base comum). Use ao preservar o contexto do coordenador ou dividir 2+ tarefas independentes. Triggers: subagente, delegar, despachar, dispatch, paralelo, mesmo repositório, orquestrador, fronteira, contexto isolado, integrar.
 license: MIT
 ---
 
-# Roteamento de Subagentes (Delegação Proativa)
+# Subagent Routing (Roteamento & Despacho de Subagentes)
 
-## Princípio
-
-Suba o trabalho para **preservar o contexto do coordenador** e **paralelizar domínios independentes**. Cada subagente recebe contexto isolado e autocontido (nunca herda a sessão). O coordenador gasta o seu contexto integrando e verificando, não varrendo tudo.
+Suba trabalho para **preservar o contexto do coordenador** e **paralelizar domínios
+independentes**. Cada subagente recebe contexto isolado e autocontido — nunca herda a
+sessão. O coordenador gasta o seu contexto integrando e verificando, não varrendo tudo.
 
 ## Quando delegar (e para quem)
 
-Tipos comuns: `explore` (read-only, varredura de código) e `general` (execução/pesquisa multi-passo). O CommandCode tem ainda o `plan` (planejamento) — e `explore`/`plan`/`review`/`general` são nomes reservados lá.
-
 | Situação | Subagente | Paralelizar? |
 |---|---|---|
-| Exploração de codebase sem arquivo-alvo ("onde está X", "como funciona Y") | `explore` | Sim, se 2+ áreas independentes — vários na MESMA resposta |
+| Exploração de codebase sem arquivo-alvo ("onde está X", "como funciona Y") | `explore` | Sim — vários na mesma resposta, se 2+ áreas independentes |
 | Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ `context7-auto`/`WebSearch`/`WebFetch`) | Sim, se fontes independentes |
 | Debug sem causa conhecida | `explore`/`general` por domínio | **Não primeiro** — investigue a causa raiz; paralelo só com falhas independentes |
-| Tarefa pesada multi-passo (build, suíte de testes, crawler) | `general` ou skill `vps-agent-dispatch` (remoto) | Conforme independência |
-| Planejamento de implementação | `plan` (built-in dispatchável no CommandCode; no OpenCode é primary, não dispatchável) | — |
+| Tarefa pesada multi-passo (build, suíte, crawler) | `general` ou `vps-agent-dispatch` (remoto) | Conforme independência |
+| Planejamento de implementação | `plan` | — |
 
-## Regras
+Tipos comuns: `explore` (read-only, varredura), `general` (execução/pesquisa),
+`plan` (planejamento). No CommandCode `plan` é built-in dispatchável; no OpenCode é
+primary (não dispatchável via task tool).
 
-- **Paralelo = vários dispatches NA MESMA resposta** (rodam concorrentes). Um por resposta = sequencial.
-- **Prompt de cada subagente**: escopo único, autocontido, output esperado explícito e constraints ("não tocar X — outro agente é dono").
-- **NÃO delegar/paralelizar quando**: falhas relacionadas (consertar uma pode consertar outra), estado compartilhado (mesmos arquivos/recursos), debug exploratório sem domínios definidos, ou quando entender o sistema exige o contexto inteiro.
-- Delegue o "barulhento" (varredura ampla, output volumoso) para não poluir o contexto do coordenador.
-- Mecânica de execução paralela: skill `dispatching-parallel-agents`. Múltiplos agentes no MESMO repo git: skill `parallel-agent-orchestration`.
+## Mecânica do despacho paralelo
 
-## Verificação
+**Paralelo = vários `agent`/dispatch na MESMA resposta** (roda concorrente). Um por
+resposta = sequencial.
 
-- Contexto do coordenador preservado (não leu o dump inteiro do subagente — só o resumo).
-- Subagentes em domínios disjuntos, sem edições conflitantes.
-- Build + suíte completa rodados **após** a integração (nunca confiar só no retorno dos subagentes).
+Cada dispatch recebe:
+- **Escopo único** — um domínio/problema
+- **Contexto autocontido** — tudo que o agente precisa, sem depender da sessão
+- **Output esperado explícito** — o que ele deve devolver (resumo, evidência `file:line`, decisão)
+- **Constraints** — "não tocar X — outro agente é dono", não tocar fora da fronteira
+
+Exemplo (3 dispatches simultâneos):
+```
+agent(explore) → "Onde está a lógica de cobrança? Retorne os paths."
+agent(general) → "Qual a versão estável da lib X hoje? Use Context7."
+agent(explore) → "Liste os endpoints de pagamento com method:line."
+```
+
+## Orquestração no mesmo repositório
+
+Quando subagentes paralelos tocam o **mesmo repo git**, siga estes 5 passos:
+
+1. **Base comum primeiro**: orquestrador aplica schema/shared/bootstrap num commit
+   próprio, antes de despachar.
+2. **Fronteiras disjuntas explícitas**: cada subagente recebe a lista exata de arquivos que
+   pode tocar + proibições ("não tocar X — outro agente é dono").
+3. **Despacho paralelo** em contexto isolado (sem estado compartilhado).
+4. **Integração pelo orquestrador no final**: registros, exports, composição.
+5. **Suíte completa após integração** (build + testes) — nunca confiar só nos testes
+   individuais.
+
+## Quando NÃO delegar
+
+- Falhas relacionadas (consertar uma pode consentar outra) — investigue junto primeiro.
+- Precisa entender o estado inteiro do sistema.
+- Debug exploratório sem domínios definidos.
+- Estado compartilhado (mesmos arquivos/recursos) entre agentes.
+
+## Após o retorno
+
+- Leia o resumo de cada subagente; verifique se não há conflitos.
+- Rode a suíte completa (build + testes) após integrar.
+- Confirme que nenhum arquivo fora da fronteira foi modificado (diff por agente).

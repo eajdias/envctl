@@ -16,11 +16,8 @@
 | Endurecer, questionar ou stress-testar um plano/decisão | `grilling` |
 | Formular as perguntas de esclarecimento (opções, defaults, resposta curta) | `ask-questions-if-underspecified` |
 | Receber code review ou comentários de PR | `receiving-code-review` |
-| Commit, branch, PR, rebase, conflito, tag/release | `git-workflow` |
-| Isolar o trabalho num workspace próprio (feature paralela) | `using-git-worktrees` |
-| Decidir delegar / explorar codebase / pesquisar na web | `subagent-routing` |
-| Executar 2+ tarefas independentes em paralelo | `dispatching-parallel-agents` |
-| Vários subagentes no mesmo repositório git | `parallel-agent-orchestration` |
+| Commit, branch, PR, rebase, conflito, tag/release + isolamento via worktree | `git-workflow` |
+| Roteamento e despacho de subagentes (quando/como delegar + mecânica paralela + mesmo repo) | `subagent-routing` |
 | Schema, migration, query, backup/restore de banco | `database-ops` |
 | Inserir/atualizar muitos registros no PostgreSQL | `bulk-postgres-import` |
 | Rodar testes, medir cobertura, rodar benchmark | `universal-test-runner` |
@@ -28,10 +25,8 @@
 | Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
 | Provisionar, atualizar ou auditar VPS/VM com envctl | `vps-provisioning` |
 | Rodar tarefa pesada (build, suíte, crawler) numa VPS | `vps-agent-dispatch` |
-| Containers, compose, imagens, volumes, Docker Hub | `docker` |
+| Containers, compose, imagens, volumes, Docker Hub, build local/transporte (VPS fraca) e restart WSL2 | `docker` |
 | Windows: serviços, registro, tarefas agendadas, firewall, winget | `windows-admin` `[win]` |
-| Docker Desktop não sobe / erro de backend WSL2 | `docker-desktop-wsl-restart` `[win]` |
-| Deploy de imagem Docker em VPS fraca (build local) | `docker-build-local-vps-deploy` |
 | Deploy de Next.js standalone / migração v15→v16 | `nextjs-standalone-deploy` |
 | Ligar/desligar funcionalidade sem re-deploy | `simple-feature-flag` |
 | JWT HS256 em Node.js sem dependências | `jwt-hs256-node` |
@@ -50,5 +45,7 @@
 | Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
 | Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |
 | Validar app GUI (Qt/SDL) sem display | `headless-gui-probe` `[linux]` |
+| Prevenir/recover terminal travado ou tarefa presa (background/timeout/kill) | `task-hang-watchdog` |
+| Coordenador vigiar e matar subagentes que alucinam/loopam/travam | `subagent-supervision` |
 
-**Delegação:** `subagent-routing` decide *quem* delegar; `dispatching-parallel-agents` e `parallel-agent-orchestration` dão a *mecânica*.
+**Delegação:** `subagent-routing` cobre roteamento, despacho paralelo e orquestração no mesmo repo.

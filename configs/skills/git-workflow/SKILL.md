@@ -1,92 +1,47 @@
 ---
 name: git-workflow
 description: >-
-  Fluxo de trabalho avançado com Git e GitHub CLI (gh). Use quando o usuário pedir para criar branches, fazer commits convencionais, criar/revisar Pull Requests, resolver conflitos, gerenciar stashes, tags, rebase ou inspecionar histórico. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, changelog, tag, release.
+  Fluxo de trabalho com Git e GitHub CLI (gh): branches semânticas, conventional commits, ciclo de PRs, resolução de conflitos, stashes, tags, rebase, isolamento via git worktree (criação, detecção, segurança) e inspecção de histórico. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, changelog, tag, release, worktree, isolar workspace.
 license: MIT
 ---
 
 # Git & GitHub CLI Workflow
 
 ## Contexto
-- Git for Windows v2.55+ com otimizações ativas (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`).
-- GitHub CLI (`gh`) autenticado globalmente (`gh version 2.97+`).
-- Shell padrão: PowerShell 7 (WSL Ubuntu disponível via `wsl -e bash -lc "..."` para comandos POSIX).
 
-## Convenções de Branches & Commits
+- Git for Windows v2.55+ com otimizações (`fscache`, `preloadindex`, `longpaths`, `autocrlf input`).
+- `gh` autenticado globalmente. Shell padrão PowerShell 7 (WSL via `wsl -e bash -lc "..."`).
 
-### 1. Nomenclatura de Branches
-- `feat/<escopo>-<descricao-curta>` — Novas funcionalidades
-- `fix/<escopo>-<descricao-curta>` — Correção de bugs
-- `refactor/<escopo>-<descricao-curta>` — Refatoração sem alteração de comportamento
-- `docs/<escopo>-<descricao-curta>` — Documentação
-- `test/<escopo>-<descricao-curta>` — Criação ou ajuste de testes
-- `chore/<escopo>-<descricao-curta>` — Ajustes de build, dependências ou configs
+## Branches & Commits
 
-### 2. Padrão Conventional Commits
-Formato obrigatório: `<tipo>(<escopo opcional>): <mensagem imperativa em minúsculas>`
-- `feat(auth): add jwt refresh token rotation`
-- `fix(docker): resolve volume permission mapping on windows`
-- `refactor(db): optimize connection pool settings`
-- `chore(deps): update volta node runtime to v24.19.0`
+Branches: `feat/<escopo>-<curta>`, `fix/...`, `refactor/...`, `docs/...`, `test/...`, `chore/...`.
+Conventional commits: `tipo(<escopo opcional>): mensagem imperativa em minúsculas`.
+Commits atômicos; `git status` + `git diff --staged` antes de cada commit.
 
-## Comandos Essenciais
+## Ciclo de PR (`gh`)
 
-### Status, Diffs e Histórico
+`git push -u origin HEAD` → `gh pr create` → `gh pr checks` → `gh pr merge --squash --delete-branch`.
+Conflitos: `git fetch origin main` + `git rebase origin/main`, resolvendo a favor do remoto. **NUNCA** force-push em `main`/`master`.
+
+## Isolamento com git worktree
+
+Quando precisar de workspace isolado (feature, plano, paralelo no mesmo repo) — use como complemento ao fluxo acima.
+
+**Detecção (sempre primeiro):**
 ```bash
-git status -s
-git diff
-git diff --staged
-git log --oneline --graph --decorate -n 15
+GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
+GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 ```
+- Se `GIT_DIR != GIT_COMMON` (e não submodule: `git rev-parse --show-superproject-working-tree`): já está num linked worktree — siga direto.
+- Senão: peça consentimento antes de criar. O usuário pode trabalhar no lugar.
 
-### Criação e Troca Segura de Branches
-```bash
-git checkout -b feat/nova-feature
-# ou com git switch
-git switch -c fix/correcao-bug
-```
+**Criar (sem ferramenta nativa de worktree):** siga preferência declarada → `.worktrees/` (preferido, oculto) → `worktrees/` → default `.worktrees/`. **Obrigatório** verificar `git check-ignore -q <dir>`; se ignorado, adicione ao `.gitignore` e commit. Crie com `git worktree add <path> -b <branch>`. Em erro de permissão (sandbox), trabalhe no diretório atual e reporte.
 
-### Staging e Commits Atômicos
-```bash
-# Inspecionar o que está modificado antes de stagear
-git status
-# Adicionar apenas arquivos intencionais (NUNCA credenciais ou arquivos .env)
-git add <arquivo1> <arquivo2>
-git commit -m "feat(api): add endpoint for user profile export"
-```
+**Baseline:** rode os testes do projeto no worktree antes de implementar. Reporte falhas e aguarde decisão.
 
-### Ciclo de Vida de Pull Request com `gh`
-```bash
-# 1. Enviar branch para o remote
-git push -u origin HEAD
+**Importante:** se tiver ferramenta nativa (`/worktree`, `enter_worktree`), use-a em vez do `git worktree add` — ela cuida posicionamento, branch e limpeza.
 
-# 2. Criar Pull Request interativo ou direto
-gh pr create --title "feat(escopo): resumo da funcionalidade" --body "## Descrição\n...\n\n## Testes Realizados\n..."
+## Regras de segurança
 
-# 3. Inspecionar status de PRs, checks e reviews
-gh pr list
-gh pr view
-gh pr checks
-
-# 4. Fazer merge após aprovação e checks verdes
-gh pr merge --squash --delete-branch
-```
-
-### Resolução Segura de Conflitos
-```bash
-# Atualizar base e fazer rebase
-git fetch origin main
-git rebase origin/main
-
-# Em caso de conflito, verificar arquivos em conflito:
-git status
-# Resolver marcadores <<<<<<< ======= >>>>>>> nos arquivos
-git add <arquivos-resolvidos>
-git rebase --continue
-```
-
-## Regras de Segurança
-- NUNCA fazer force-push (`git push -f` ou `--force`) na branch `main`/`master`.
-- Em divergência com `origin`, o upstream prevalece: `git fetch` + `git rebase origin/main`, resolvendo conflitos a favor do que já foi mergeado no remoto — nunca force-push de intent local por cima.
-- NUNCA comitar segredos, chaves de API, arquivos `.pem`, senhas ou arquivos de ambiente (`.env`, `.env.local`).
-- SEMPRE rodar `git status` e `git diff --staged` antes de finalizar qualquer commit.
+- NUNCA force-push em `main`/`master`. Em divergência, `rebase` a favor do upstream.
+- NUNCA comitar segredos, `.pem`, `.env`, `.env.local`.
