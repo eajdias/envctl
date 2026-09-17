@@ -1,63 +1,46 @@
-# Atribuição de Skills (autores e upstreams)
+# Atribuição de Skills do envctl
 
-Metade das skills deste repositório **não foi escrita do zero aqui**. Este documento registra de onde cada uma veio, o que foi adaptado e qual é a regra para incluir skill de terceiro daqui pra frente.
+**Não existe obrigação de fidelidade 1:1 com nenhum upstream.** Toda skill deste repositório é sua para adaptar, reescrever e ajustar às suas preferências, ao seu estilo de programação e ao que fizer sentido para o seu ambiente — independentemente de onde a ideia original veio. O que este documento registra é apenas **de onde a ideia veio** (para dar o crédito devido) e **o que foi adaptado** em cada cópia. Nenhuma skill aqui está presa a "espelhar" o autor original: se amanhã você quiser reescrever uma derivada do zero, pode.
 
-> **Regra do projeto:** toda skill adotada de terceiro **declara o autor e o repositório de origem** no próprio `SKILL.md`, no bloco `metadata`, e mantém a licença do upstream. Skill sem upstream identificado declara-se autoral. Nada de crédito implícito.
+O crédito ao upstream (declaro no `metadata` de cada `SKILL.md`) já cumpre o papel de reconhecer quem trouxe a ideia; o resto é seu.
 
 ```yaml
-# formato usado no frontmatter
+# formato usado no frontmatter das que vieram de terceiro
 license: MIT
 metadata:
   author: <autor/handle do upstream>
   source: https://github.com/<owner>/<repo>
-  adapted: envctl (descricao e triggers em PT-BR, caminhos e comandos ajustados)
+  adapted: <o que foi mudado — ver a tabela>
 ```
 
 ---
 
-## 1. Derivadas de terceiros (crédito obrigatório)
+## 1. Com upstream conhecido (ideia veio daqui)
 
-| Upstream | Licença | Skills derivadas |
-|---|---|---|
-| [obra/superpowers](https://github.com/obra/superpowers) — *An agentic skills framework & software development methodology that works* | MIT | `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion`, `writing-plans` |
-| [mattpocock/skills](https://github.com/mattpocock/skills) — *Skills for Real Engineers* | MIT | `grill-me`, `grilling`, `handoff` |
-| [hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer) — *Agent Skills lifecycle toolkit* | MIT | `skill-miner`, `skill-personalizer`, `skill-generalizer` |
-| Hardik Pandya — [hvpandya.com](https://hvpandya.com) | MIT (declarada no corpo da skill) | `stop-slop` |
+| Upstream | Licença | Skills | Como foi adaptado (medido) |
+|---|---|---|---|
+| [obra/superpowers](https://github.com/obra/superpowers) | MIT | `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion` | Corpo **idêntico** ao upstream — só a `description`/triggers foram reescritos em PT-BR (o texto que dirige o matching). Você pode reescrever o corpo quando quiser. |
+| [obra/superpowers](https://github.com/obra/superpowers) | MIT | `writing-plans` | Corpo idêntico + 1 edição: os planos agora vão para `spec-agent/` na raiz do projeto (o upstream gravava em `docs/superpowers/plans/`, pasta dele). |
+| [mattpocock/skills](https://github.com/mattpocock/skills) | MIT | `grill-me`, `grilling`, `handoff` | `handoff`: corpo idêntico + a linha de invocação da tool parametrizada por agente. `grilling`: núcleo do *design tree* é do upstream; acrescentamos 3 parágrafos (rodadas/fronteira, dispatch de subagente para fatos, critério de fim). `grill-me`: **reescrito** — o upstream são 2 linhas mandando invocar `/grilling`; a rubrica 0–100, os limiares e a cláusula de risco são nossos. |
+| [hqhq1025/skill-optimizer](https://github.com/hqhq1025/skill-optimizer) | MIT | `skill-miner`, `skill-personalizer`, `skill-generalizer` | Corpo **idêntico** — só a `description`/triggers em PT-BR. Mantidos `agents/openai.yaml`, `scripts/scan_sessions.py` + `references/` (skill-miner) e `references/` (personalizer/generalizer). |
+| Hardik Pandya — [hvpandya.com](https://hvpandya.com) | MIT (no corpo da skill) | `stop-slop` | Atribuída no frontmatter; licença declarada no corpo. |
 
-Licenças verificadas via API do GitHub em 2026-09-16 (`license.spdx_id = MIT` em todos os três repositórios).
+Licenças verificadas via API do GitHub em 2026-09-16 (`license.spdx_id = MIT`).
 
-### O que foi adaptado nas cópias (medido, não estimado)
-
-Corpo de cada `SKILL.md` comparado com o do upstream em 2026-09-16:
-
-| Skill | Corpo | Observação |
-|---|---|---|
-| `dispatching-parallel-agents`, `receiving-code-review`, `systematic-debugging`, `using-git-worktrees`, `verification-before-completion`, `skill-miner`, `skill-personalizer`, `skill-generalizer` | **idêntico** | só a `description` (e os triggers em PT-BR) foi reescrita — é o texto contra o qual o agente faz o matching automático |
-| `writing-plans` | idêntico + 1 edição | os planos vão para `spec-agent/` na raiz; o upstream gravava em `docs/superpowers/plans/` (pasta do projeto dele) |
-| `handoff` | idêntico + 1 edição | a linha que citava a "Skill tool" foi parametrizada por agente (`activate_skill` / `/<skill>`) |
-| `grilling` | **ampliado** (+3 parágrafos) | o núcleo do *design tree* é do upstream; acrescentamos as rodadas/fronteira, o dispatch de subagente para buscar fatos e o critério de fim |
-| `grill-me` | **reescrito** | o upstream tem 2 linhas (`Call the Skill tool with "grilling"` + `disable-model-invocation: true`). A nossa versão é um porteiro de ambiguidade — rubrica 0–100, limiares e cláusula de risco são **originais daqui** |
-
-Arquivos auxiliares mantidos: `agents/openai.yaml` em `grilling`, `handoff` e nos três `skill-*`; `scripts/scan_sessions.py` + `references/` em `skill-miner`; `references/` em `skill-personalizer` e `skill-generalizer`. **Não copiamos** o `plan-document-reviewer-prompt.md` do upstream `writing-plans` — ele não é referenciado em nenhum ponto da nossa cópia.
-
-Nada aqui está sendo redistribuído como trabalho original: o crédito ao autor está no `metadata` de cada arquivo e a licença declarada é a do upstream.
-
-## 2. Autorais do envctl (sem upstream)
-
-As skills abaixo foram escritas aqui — a maioria **promovida da memória do próprio usuário** pelo pipeline `memory-promotion` (commit `216ccd9`, "11 promoted skills"), ou específicas deste ambiente (VPS, Windows, Docker, banco):
+## 2. Sem upstream confirmado (suas)
 
 `agent-memory`, `api-contract-design`, `ask-questions-if-underspecified`, `aur-headless-install`, `bulk-postgres-import`, `cachyos-gaming-setup`, `context7-auto`, `database-ops`, `docker`, `docker-build-local-vps-deploy`, `docker-desktop-wsl-restart`, `git-workflow`, `headless-gui-probe`, `jwt-hs256-node`, `lsp-smoke-test`, `memory-promotion`, `nextjs-standalone-deploy`, `parallel-agent-orchestration`, `phone-e164-normalization`, `playwright-prod-regression`, `simple-feature-flag`, `ssh-vps`, `subagent-routing`, `universal-test-runner`, `vps-agent-dispatch`, `vps-provisioning`, `web-dashboard-automation`, `windows-admin`
 
-**Pendência declarada:** duas destas têm estilo de skill de terceiro e **origem não confirmada** — `ask-questions-if-underspecified` e `context7-auto`. Se você reconhecer o upstream, adicione `metadata.author`/`source` nelas. Enquanto isso, ficam como autorais.
+A maioria foi promovida da sua própria memória pelo `memory-promotion` (commit `216ccd9`) ou é específica do seu ambiente. **Pendência:** `ask-questions-if-underspecified` e `context7-auto` têm estilo de skill de terceiro e origem não confirmada. Se reconhecer o upstream, adicione `metadata`; enquanto não, seguem como suas.
 
-## 3. Licença do projeto
+## 3. Licença
 
-O repositório tem um `LICENSE` (MIT) na raiz, que cobre as skills autorais e o código do `envctl`. As derivadas mantêm a licença MIT dos seus upstreams — como todas são MIT, o conjunto é compatível.
+Repositório com `LICENSE` (MIT) na raiz. Todas as skills declaram `license: MIT` no frontmatter. Como todos os upstreams são MIT, o conjunto é compatível — você pode adaptar qualquer uma livremente.
 
-## 4. Checklist para adotar skill de terceiro
+## 4. Ao adotar skill de terceiro daqui pra frente
 
-1. Verifique a licença do upstream (`gh api repos/<owner>/<repo> --jq .license.spdx_id`). Só adote licença compatível (MIT/Apache-2.0/BSD); **não** adote sem licença ou copyleft forte sem decisão explícita.
-2. Copie para `configs/skills/<nome>/`, mantenha o nome da skill igual ao do upstream quando fizer sentido.
-3. Preencha o `metadata` com `author`, `source` e `adapted`.
-4. Registre a linha na tabela da seção 1 deste arquivo.
-5. Rode `envctl run skills` e confirme no `cmdc skills list` que a skill carrega.
+1. Verifique a licença do upstream (`gh api repos/<owner>/<repo> --jq .license.spdx_id`). Prefira MIT/Apache-2.0/BSD.
+2. Copie para `configs/skills/<nome>/` e preencha `metadata.author`/`source` + `adapted`.
+3. Adapte o corpo como quiser — fidelidade ao upstream não é necessária.
+4. Registre na tabela da seção 1.
+5. Rode `envctl run skills`; confirme no `cmdc skills list`.
