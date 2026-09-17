@@ -168,14 +168,21 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 			}
 			merged = append(merged, disc)
 		}
-		// Keep curated entries that are no longer present on disk.
+		// Keep curated entries that are no longer present on disk (e.g. a
+		// linux-only skill on a Windows machine): snapshot must never drop
+		// versioned configuration just because the local tree is filtered.
 		for _, ex := range existingSkills {
 			if !seen[ex.Name] {
 				merged = append(merged, ex)
 			}
 		}
 
-		if len(merged) > 0 {
+		if skillsManifestEqual(existingSkills, merged) {
+			if uc.logger != nil {
+				uc.logger.Info("Snapshot discovered %d agent skills, manifest already in sync", len(discoveredSkills))
+			}
+			result.DiscoveredSkills = len(discoveredSkills)
+		} else if len(merged) > 0 {
 			result.DiscoveredSkills = len(discoveredSkills)
 			_ = uc.manifestRepo.SaveSkills(merged)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/skills.yaml")
@@ -225,14 +232,74 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 				currentGitConfigs = append(currentGitConfigs, ex)
 			}
 		}
-		_ = uc.manifestRepo.SaveGitConfigs(currentGitConfigs)
-		result.UpdatedFiles = append(result.UpdatedFiles, "manifests/git.yaml")
-		if uc.logger != nil {
-			uc.logger.Info("Snapshot captured %d global Git configurations", len(currentGitConfigs))
+		if !gitConfigsEqual(existingGitConfigs, currentGitConfigs) {
+			_ = uc.manifestRepo.SaveGitConfigs(currentGitConfigs)
+			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/git.yaml")
+			if uc.logger != nil {
+				uc.logger.Info("Snapshot captured %d global Git configurations", len(currentGitConfigs))
+			}
 		}
 	}
 
 	return result, nil
+}
+
+// skillsManifestEqual reports whether two skill lists carry the same entries
+// regardless of order, so snapshot does not rewrite the manifest (reordering
+// it as a side effect) when nothing actually changed.
+func skillsManifestEqual(a, b []entity.Skill) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	byName := make(map[string]entity.Skill, len(a))
+	for _, s := range a {
+		byName[s.Name] = s
+	}
+	for _, s := range b {
+		ex, ok := byName[s.Name]
+		if !ok || !skillsEqual(ex, s) {
+			return false
+		}
+	}
+	return true
+}
+
+// skillsEqual compares two skill entries field by field (reflect.DeepEqual on
+// the whole struct would also work, but explicit comparison keeps the
+// semantics visible: every curated field must survive a snapshot round-trip).
+func skillsEqual(a, b entity.Skill) bool {
+	if a.Name != b.Name || a.Description != b.Description || a.Source != b.Source ||
+		a.TargetDir != b.TargetDir || a.Enabled != b.Enabled || a.OS != b.OS {
+		return false
+	}
+	if len(a.Files) != len(b.Files) {
+		return false
+	}
+	for i := range a.Files {
+		if a.Files[i] != b.Files[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// gitConfigsEqual reports whether two git config lists carry the same entries
+// regardless of order.
+func gitConfigsEqual(a, b []entity.GitConfig) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	byKey := make(map[string]entity.GitConfig, len(a))
+	for _, gc := range a {
+		byKey[gc.Key] = gc
+	}
+	for _, gc := range b {
+		ex, ok := byKey[gc.Key]
+		if !ok || ex != gc {
+			return false
+		}
+	}
+	return true
 }
 
 func (uc *SnapshotSyncUseCase) copyDir(src, dst string) error {
