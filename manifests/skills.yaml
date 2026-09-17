@@ -193,3 +193,18 @@ skills:
       source: configs/skills/subagent-supervision
       target_dir: ""
       enabled: true
+    - name: test-driven-development
+      description: Desenvolver em ciclo TDD red-green-refactor em TS/Node, Python ou Go (teste falhando primeiro, código mínimo depois)
+      source: configs/skills/test-driven-development
+      target_dir: ""
+      enabled: true
+    - name: docs-sync
+      description: Auditar ou atualizar a documentação contra a implementação real (gaps, incorreções, docstrings TS/PY/GO)
+      source: configs/skills/docs-sync
+      target_dir: ""
+      enabled: true
+    - name: variant-analysis
+      description: Caçar as outras instâncias de um bug já encontrado — variantes da mesma causa raiz no resto do código
+      source: configs/skills/variant-analysis
+      target_dir: ""
+      enabled: true

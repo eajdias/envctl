@@ -10,6 +10,7 @@
 |---|---|
 | Escrever, alterar ou configurar código com lib/framework/API | `context7-auto` |
 | Bug, teste vermelho, erro intermitente, comportamento inesperado | `systematic-debugging` |
+| Achou um bug e quer saber onde mais o mesmo padrão ocorre | `variant-analysis` |
 | Antes de declarar "pronto"/corrigido/passando (inclusive antes de commitar ou abrir PR) | `verification-before-completion` |
 | Implementar algo multi-passo, feature nova ou refatoração ampla | `writing-plans` |
 | Pedido ambíguo/vago — medir a clareza (0-100) e perguntar ANTES de agir | `grill-me` |
@@ -21,6 +22,8 @@
 | Schema, migration, query, backup/restore de banco | `database-ops` |
 | Inserir/atualizar muitos registros no PostgreSQL | `bulk-postgres-import` |
 | Rodar testes, medir cobertura, rodar benchmark | `universal-test-runner` |
+| Feature nova, bugfix, refatoração em TS/PY/GO (teste antes do código) | `test-driven-development` |
+| Auditar/atualizar docs contra a implementação real | `docs-sync` |
 | Desenhar/validar contrato de API (OpenAPI, GraphQL, gRPC) | `api-contract-design` |
 | Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
 | Provisionar, atualizar ou auditar VPS/VM com envctl | `vps-provisioning` |

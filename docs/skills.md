@@ -1,6 +1,6 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **38 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
 > **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
 
@@ -20,18 +20,21 @@ O `envctl` embuta e sincroniza **38 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das Skills (38)
+## 📋 Categorias das Skills (41)
 
-### 1. Engenharia de Software & Arquitetura (9)
+### 1. Engenharia de Software & Arquitetura (12)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
 - **`database-ops`**: Gestão multi-banco dinâmica (PostgreSQL, MySQL, Firebird, MongoDB, SQLite) via Docker Compose e migrações ORM sem sobrecarga de MCPs estáticos.
 - **`universal-test-runner`**: Execução unificada de testes e análise de cobertura para Go, Python (pytest), Node/TypeScript (vitest/jest), .NET e Rust.
+- **`test-driven-development`**: Ciclo TDD red-green-refactor em TS/Node, Python e Go — teste falhando primeiro, código mínimo depois (ideia de obra/superpowers, ciclo e exemplos adaptados).
 - **`api-contract-design`**: Especificação, validação e linting de contratos OpenAPI 3.x, GraphQL SDL e Protobuf/gRPC.
 - **`systematic-debugging`**: Metodologia científica para identificação e resolução de bugs antes de propor correções de código.
+- **`variant-analysis`**: Caça às outras instâncias de um bug já encontrado — variantes da mesma causa raiz no resto do código (original, sem upstream).
 - **`verification-before-completion`**: Protocolo rigoroso de auto-verificação por evidências empíricas antes de finalizar tarefas.
 - **`receiving-code-review`**: Raciocínio crítico para avaliação e implementação de feedbacks de code review.
 - **`using-git-worktrees`**: Isolamento determinístico de workspaces através de árvores de trabalho do Git.
 - **`writing-plans`**: Elaboração de especificações e planos de implementação passo a passo.
+- **`docs-sync`**: Auditoria/atualização da documentação contra a implementação real (gaps, incorreções, docstrings TS/PY/GO) — audit-only por default (ideia de openai/openai-agents-python, workflow adaptado).
 
 ### 2. Orquestração de Infraestrutura & Servidores Remotos (6)
 - **`vps-agent-dispatch`**: Orquestrador autônomo que permite ao agente master no notebook delegar tarefas pesadas, builds longos e testes para instâncias remotas OpenCode em servidores VPS (AWS/Oracle) via SSH, trazendo de volta apenas o sumário técnico cristalizado.

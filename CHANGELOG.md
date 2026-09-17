@@ -9,6 +9,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🧪 3 skills novas: TDD, docs-sync, variant-analysis (38 → 41)
+
+- **Added**: **`test-driven-development`** — ciclo red-green-refactor em TS/Node (vitest), Python (pytest) e Go (`go test`): teste falhando primeiro, código mínimo depois. Ideia de obra/superpowers (MIT), ciclo e exemplos escritos do zero para as 3 linguagens, com wiring para `universal-test-runner` (execução/cobertura) + `verification-before-completion` (gate final). Uma skill única, não três especializadas: o núcleo (lei de ferro, racionalizações, red flags, checklist) é idêntico e só os comandos de ciclo mudam.
+- **Added**: **`docs-sync`** — auditoria/atualização da documentação contra a implementação real (doc-first/code-first, missing/incorrect/structural), com Apêndice A de docstrings TS (TSDoc) / PY (Google style) / GO (godoc). Ideia de openai/openai-agents-python (MIT), workflow escrito do zero para a estrutura real (README/CHANGELOG/docs/manifests/configs), audit-only por default (reporta, não edita sem autorização).
+- **Added**: **`variant-analysis`** — original, sem upstream (licença do trailofbits é CC-BY-SA, incompatível): caça às outras instâncias de um bug já encontrado em 5 passos (causa raiz → match exato com `rg`/`fd` → generalizar um elemento por vez → triage com severidade → relatório). Entrada típica: Fase 4 do `systematic-debugging`; saída: correções via TDD + gate de verificação.
+- **Changed**: contagens normalizadas (38→41) em `README.md`, `AGENTS.md`, índices, `docs/skills.md`, attribution e documentos afetados; teste de manifesto (`expectedSkills`) acompanha.
+
 ### 🌐 Browser em dois trilhos (chrome-devtools MCP + playwright-cli)
 
 - **Removed**: MCP `@playwright/mcp` dos 3 configs (opencode.json, opencode.linux.json, commandcode mcp.json) — duplicava o chrome-devtools no interativo e é token-heavy frente ao CLI nos fluxos repetíveis.
