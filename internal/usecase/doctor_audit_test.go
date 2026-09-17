@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -162,5 +163,127 @@ func TestDoctorAudit_GoogleChromeMissing(t *testing.T) {
 
 	if !chromeDiagFound {
 		t.Errorf("expected Google Chrome diagnostic in results")
+	}
+}
+
+// expandingFSManager is a mockFSManager whose ExpandUserPath maps "~" to a
+// temp dir, so auditOpenCodeFileRefs can be exercised against real files.
+type expandingFSManager struct {
+	mockFSManager
+	home string
+}
+
+func (m *expandingFSManager) ExpandUserPath(path string) (string, error) {
+	if path == "~" || path == "~/" {
+		return m.home, nil
+	}
+	if len(path) > 2 && path[:2] == "~/" {
+		return filepath.Join(m.home, filepath.FromSlash(path[2:])), nil
+	}
+	return path, nil
+}
+
+func TestDoctorAudit_OpenCodeFileRefsMissing(t *testing.T) {
+	home := t.TempDir()
+	deployedDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(deployedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	missingRef := "~/.config/opencode/secrets/context7.key"
+	content := `{"mcp":{"context7":{"headers":{"CONTEXT7_API_KEY":"{file:` + missingRef + `}"}}}}`
+	if err := os.WriteFile(filepath.Join(deployedDir, "opencode.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	uc := NewDoctorAuditUseCase(
+		&mockManifestRepo{},
+		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
+		nil,
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+
+	var diags []entity.Diagnostic
+	uc.auditOpenCodeFileRefs(func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 file-refs diagnostic, got %d", len(diags))
+	}
+	d := diags[0]
+	if d.Category != entity.DiagError {
+		t.Errorf("expected ERROR for missing file ref, got %v: %s", d.Category, d.Details)
+	}
+	if d.System != "OpenCode" || d.Target != "Config file references" {
+		t.Errorf("unexpected diagnostic identity: %s/%s", d.System, d.Target)
+	}
+	if d.FixHint == "" {
+		t.Errorf("expected non-empty FixHint for missing file ref")
+	}
+}
+
+func TestDoctorAudit_OpenCodeFileRefsOK(t *testing.T) {
+	home := t.TempDir()
+	deployedDir := filepath.Join(home, ".config", "opencode")
+	secretsDir := filepath.Join(deployedDir, "secrets")
+	if err := os.MkdirAll(secretsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ref := "~/.config/opencode/secrets/context7.key"
+	content := `{"mcp":{"context7":{"headers":{"CONTEXT7_API_KEY":"{file:` + ref + `}"}}}}`
+	if err := os.WriteFile(filepath.Join(deployedDir, "opencode.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(secretsDir, "context7.key"), []byte("dummy"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	uc := NewDoctorAuditUseCase(
+		&mockManifestRepo{},
+		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
+		nil,
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+
+	var diags []entity.Diagnostic
+	uc.auditOpenCodeFileRefs(func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 file-refs diagnostic, got %d", len(diags))
+	}
+	if diags[0].Category != entity.DiagOK {
+		t.Errorf("expected OK when file ref resolves, got %v: %s", diags[0].Category, diags[0].Details)
+	}
+}
+
+func TestDoctorAudit_OpenCodeFileRefsNone(t *testing.T) {
+	home := t.TempDir()
+	deployedDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(deployedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(deployedDir, "opencode.json"), []byte(`{"mcp":{}}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	uc := NewDoctorAuditUseCase(
+		&mockManifestRepo{},
+		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
+		nil,
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+
+	var diags []entity.Diagnostic
+	uc.auditOpenCodeFileRefs(func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic when opencode.json has no file refs, got %d", len(diags))
 	}
 }

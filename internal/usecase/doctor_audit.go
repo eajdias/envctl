@@ -194,6 +194,13 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
+	// 4.5. Audit OpenCode MCP file references: opencode fails hard at
+	// startup when a `{file:...}` reference points to a missing file
+	// (e.g. a secrets key that was never created on this machine), so a
+	// "present on disk" opencode.json is not enough — every referenced
+	// file must exist too.
+	uc.auditOpenCodeFileRefs(addDiag)
+
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
@@ -428,6 +435,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"volta", "Volta JS toolchain manager"},
 			{"node", "Node.js (via Volta)"},
 			{"opencode", "OpenCode CLI"},
+			{"cmdc", "CommandCode CLI"},
 			{"gh", "GitHub CLI"},
 			{"delta", "git-delta pager"},
 			{"yq", "yq YAML/JSON processor"},
@@ -868,6 +876,64 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	return report, nil
+}
+
+// openCodeFileRefPattern matches opencode `{file:...}` variable references
+// embedded in config values (e.g. MCP headers pointing at a secrets file).
+var openCodeFileRefPattern = regexp.MustCompile(`\{file:([^}]+)\}`)
+
+// auditOpenCodeFileRefs resolves every `{file:...}` reference found in the
+// deployed opencode.json and reports the ones pointing at missing files.
+// opencode aborts with "Configuration is invalid: bad file reference" when
+// any of them is absent, which breaks EVERY command (even `opencode models`),
+// while a plain "file present" check on opencode.json stays green — exactly
+// the blind spot that left a VPS with a dead opencode and a passing doctor.
+func (uc *DoctorAuditUseCase) auditOpenCodeFileRefs(addDiag func(entity.Diagnostic)) {
+	rawPath := "~/.config/opencode/opencode.json"
+	expanded, err := uc.fsManager.ExpandUserPath(rawPath)
+	if err != nil {
+		return
+	}
+	data, err := os.ReadFile(expanded)
+	if err != nil {
+		return
+	}
+	matches := openCodeFileRefPattern.FindAllSubmatch(data, -1)
+	if len(matches) == 0 {
+		return
+	}
+	seen := map[string]bool{}
+	var missing []string
+	for _, m := range matches {
+		ref := strings.TrimSpace(string(m[1]))
+		if ref == "" || seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		resolved, err := uc.fsManager.ExpandUserPath(ref)
+		if err != nil {
+			resolved = ref
+		}
+		if _, statErr := os.Stat(resolved); statErr != nil {
+			missing = append(missing, ref)
+		}
+	}
+	if len(missing) > 0 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagError,
+			System:   "OpenCode",
+			Target:   "Config file references",
+			Details:  fmt.Sprintf("opencode.json references %d missing file(s): %s — opencode refuses to start until they exist", len(missing), strings.Join(missing, "; ")),
+			FixHint:  "create the missing file(s) or run 'envctl run shell' to re-provision opencode.json",
+		})
+		return
+	}
+	addDiag(entity.Diagnostic{
+		Category: entity.DiagOK,
+		System:   "OpenCode",
+		Target:   "Config file references",
+		Details:  fmt.Sprintf("%d {file:...} reference(s) resolve on disk", len(seen)),
+	})
 }
 
 // auditCommandCodeAgents validates every custom agent definition under
