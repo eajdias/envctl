@@ -9,6 +9,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🩺 Doctor por-OS + browser headless no Linux
+
+- **Fixed**: `doctor` não avisa mais de pacotes cujo gerenciador não existe na máquina (ex.: 22 warnings `pacman` em Ubuntu/Debian) — entradas de gerenciador ausente são puladas silenciosamente; volta/npm/apt/winget universais seguem auditados normalmente.
+- **Changed**: playwright MCP no Linux roda headless no Chromium bundled (`--headless --no-sandbox --isolated`, `~/.cache/ms-playwright`) em vez de `--browser chrome`; Chrome ausente virou Info no Linux (só o chrome-devtools-mcp precisa dele). Windows mantém `--browser chrome` nativo.
+- **Added**: `doctor` audita o Chromium bundled (`Browser/Playwright Chromium`) e valida referências `{file:...}` do `opencode.json` (ERROR se ausente — antes um `context7.key` faltante quebrava todo `opencode` com doctor verde).
+- **Changed**: context7 remoto sem header de key (free quota funciona — verificado live: initialize + tools/list + resolve-library-id sem auth).
+- **Docs**: `docs/skills.md`, lessons e patterns de memória refletem o padrão de browser por OS.
+
 ### 🧹 Consolidação do catálogo (41 → 38 skills) + 2 skills novas
 
 - **Removed / merged** (redundâncias eliminadas): `dispatching-parallel-agents` + `parallel-agent-orchestration` foram absorvidas por `subagent-routing` (agora cobre roteamento, dispatch paralelo e orquestração no mesmo repo numa skill única de ~60 ln); `docker-build-local-vps-deploy` + `docker-desktop-wsl-restart` foram absorvidas por `docker` (agora cobre local/VPS/build-transport/restart WSL2 em ~50 ln); `using-git-worktrees` foi dobrado dentro de `git-workflow` (worktree é workflow git).

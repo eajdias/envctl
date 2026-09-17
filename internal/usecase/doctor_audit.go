@@ -79,6 +79,13 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			if uc.logger != nil {
 				uc.logger.Error("[AUDIT-FAIL] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
 			}
+		default:
+			// DiagInfo and future informational categories count as passed:
+			// they carry context, not problems.
+			report.Passed++
+			if uc.logger != nil {
+				uc.logger.Info("[AUDIT-INFO] [%s] %s: %s", diag.System, diag.Target, diag.Details)
+			}
 		}
 	}
 
@@ -210,12 +217,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 		mgr, ok := uc.managers[pkg.Type]
 		if !ok || !mgr.IsAvailable(ctx) {
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   string(pkg.Type),
-				Target:   pkg.ID,
-				Details:  fmt.Sprintf("Manager %s not available", pkg.Type),
-			})
+			// A package whose manager does not exist on this machine (e.g.
+			// pacman entries on Ubuntu/Debian, winget entries on Linux) is
+			// not applicable here — skip silently instead of warning, or
+			// every Ubuntu doctor would drown in 20+ pacman warnings.
 			continue
 		}
 
@@ -322,7 +327,11 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 9. Audit Browser & Playwright
-	// 9.1 Audit Google Chrome (native system browser for MCPs & CLI tools)
+	// 9.1 Audit Google Chrome (native system browser for MCPs & CLI tools).
+	// On Linux the Playwright MCP runs headless on its bundled Chromium, so a
+	// missing system Chrome only matters for chrome-devtools-mcp — downgrade
+	// to Info there instead of warning on every headless VPS.
+	isLinux := runtime.GOOS == "linux"
 	chromePath := ""
 	if runtime.GOOS == "windows" {
 		candidates := []string{
@@ -370,11 +379,18 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		if runtime.GOOS == "darwin" {
 			fixHint = "install Google Chrome (brew install --cask google-chrome)"
 		}
+		category := entity.DiagWarning
+		system := "Browser"
+		details := "Google Chrome not detected (recommended for chrome-devtools-mcp and Playwright MCP)"
+		if isLinux {
+			category = entity.DiagInfo
+			details = "Google Chrome not detected (only needed for chrome-devtools-mcp; Playwright MCP runs headless on bundled Chromium)"
+		}
 		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Browser",
+			Category: category,
+			System:   system,
 			Target:   "Google Chrome",
-			Details:  "Google Chrome not detected (recommended for chrome-devtools-mcp and Playwright MCP)",
+			Details:  details,
 			FixHint:  fixHint,
 		})
 	} else {
@@ -384,6 +400,39 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Target:   "Google Chrome",
 			Details:  fmt.Sprintf("Google Chrome detected at %s", chromePath),
 		})
+	}
+
+	// 9.2 Audit Playwright bundled Chromium (Linux headless VPS): the
+	// linux playwright MCP runs on the bundled build, so verify at least
+	// one usable binary exists under ~/.cache/ms-playwright.
+	if isLinux {
+		homeDir, _ := uc.fsManager.ExpandUserPath("~")
+		found := false
+		if entries, err := os.ReadDir(filepath.Join(homeDir, ".cache", "ms-playwright")); err == nil {
+			for _, e := range entries {
+				n := e.Name()
+				if strings.HasPrefix(n, "chromium-") || strings.HasPrefix(n, "chromium_headless_shell-") {
+					found = true
+					break
+				}
+			}
+		}
+		if found {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Browser",
+				Target:   "Playwright Chromium",
+				Details:  "Bundled Chromium present in ~/.cache/ms-playwright (headless MCP ready)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Browser",
+				Target:   "Playwright Chromium",
+				Details:  "No bundled Chromium in ~/.cache/ms-playwright — headless Playwright MCP cannot launch a browser",
+				FixHint:  "run 'bunx playwright install --only-shell chromium' (or full 'bunx playwright install chromium')",
+			})
+		}
 	}
 
 	// 10. Audit Git Worktree Support
