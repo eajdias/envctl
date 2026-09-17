@@ -14,7 +14,14 @@ Qualquer automação contra SPA/dashboard com sessão autenticada — extração
 ## Escolha da ferramenta
 
 - **Exploratório / interativo / 2FA manual**: MCP `chrome-devtools` (habilite via `/mcp`) — `navigate_page`, `take_snapshot`, `click`, `fill`, `type_text`, `list_network_requests`. O browser abre visível: acompanhe e digite códigos manualmente quando preciso.
-- **Determinístico / repetível / regressão**: `playwright-cli` via shell (`open`, `snapshot`, `click e15`, `screenshot`) — token-efficient, sem carregar schemas de MCP no contexto. `--headed` para acompanhar, headless em VPS/sem display.
+- **Determinístico / repetível / regressão**: `playwright-cli` via shell (`open`, `snapshot`, `click e15`, `screenshot`) — token-efficient, sem carregar schemas de MCP no contexto. `--headed` para acompanhar, headless em VPS/sem display. No Linux passe sempre `--browser=chromium` (o default `chrome` procura `/opt/google/chrome/chrome` e falha).
+
+## Hang no Windows
+
+`playwright-cli open`/`attach` trava o shell do agente no Windows (daemon `detached:true` herda o Job Object — issues microsoft/playwright#41530, opencode#24731, ambas `closed as not planned`). Regras:
+- Prefira o MCP `chrome-devtools` no Windows sempre que possível.
+- Se usar o CLI: rode com timeout explícito (`timeout 60 playwright-cli ...` no bash) e feche a sessão ao fim (`close`/`close-all`); nunca deixe sessão headed aberta sem `close`.
+- Headed parado há >1h sem comando não consome nada além do processo parado — `close-all`/`kill-all` limpa.
 
 ## Passos
 

@@ -13,7 +13,11 @@ Validar produção após deploy/migração sem risco de alterar dados reais.
 
 ## Ferramenta
 
-`playwright-cli` via shell (token-efficient para fluxos repetíveis): `open <url>`, `snapshot`, `click`/`fill`, `console`, `screenshot`. Headless por padrão; `--headed` para acompanhar. Para inspeção profunda pontual (DevTools, performance, network detalhado), MCP `chrome-devtools` via `/mcp`.
+`playwright-cli` via shell (token-efficient para fluxos repetíveis): `open <url>`, `snapshot`, `click`/`fill`, `console`, `screenshot`. Headless por padrão; `--headed` para acompanhar. No Linux passe sempre `--browser=chromium`. Para inspeção profunda pontual (DevTools, performance, network detalhado), MCP `chrome-devtools` via `/mcp`.
+
+## Hang no Windows
+
+`playwright-cli open` trava o shell do agente no Windows (daemon herda o Job Object — sem fix upstream). Prefira o MCP `chrome-devtools`; se usar o CLI, rode com timeout explícito e `close`/`close-all` ao fim.
 
 ## Regras
 

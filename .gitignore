@@ -32,6 +32,9 @@
 # Playwright MCP scratch
 .playwright-mcp/
 
+# Playwright CLI session snapshots
+.playwright-cli/
+
 # CommandCode project scope. Authored artifacts are shared with the team
 # (skills/, commands/, agents/ — see the docs); per-machine state stays local:
 # settings.json (session approvals + machine-absolute paths), settings.local.json
