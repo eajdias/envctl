@@ -13,7 +13,7 @@ Validar produção após deploy/migração sem risco de alterar dados reais.
 
 ## Ferramenta
 
-Skill `playwright-cli` (`/playwright-cli`, token-efficient para fluxos repetíveis): `open <url>`, `snapshot`, `click`/`fill`, `console`, `screenshot`. Headless por padrão; `--headed` para acompanhar. No Linux passe sempre `--browser=chromium`. Para inspeção profunda pontual (DevTools, performance, network detalhado), MCP `chrome-devtools` via `/mcp`. Nunca invoque `playwright-cli open` cru no shell do agente no Windows (trava — ver `web-dashboard-automation`, seção "Por que via Skill").
+`pw` (wrapper versionado em `~/.local/bin`, provisionado pelo envctl; mesma CLI por baixo, token-efficient para fluxos repetíveis): `open <url>`, `snapshot`, `click`/`fill`, `console`, `screenshot`. Headless por padrão; `--headed` para acompanhar. No Linux passe sempre `--browser=chromium`. Para inspeção profunda pontual (DevTools, performance, network detalhado), MCP `chrome-devtools` via `/mcp`. Nunca invoque `playwright-cli open` cru no shell do agente no Windows (trava — ver `web-dashboard-automation`, seção "Por que `pw`").
 
 ## Regras
 
@@ -24,7 +24,7 @@ Skill `playwright-cli` (`/playwright-cli`, token-efficient para fluxos repetíve
 
 ## Passos
 
-1. Abrir fluxos principais (login, listagem, detalhe) com o perfil de teste via `/playwright-cli` (`open <url> --headed` para acompanhar, ou headless em VPS).
+1. Abrir fluxos principais (login, listagem, detalhe) com o perfil de teste via `pw` (`open <url> --headed` para acompanhar, ou headless em VPS).
 2. Capturar console errors/network failures (`console`, `requests`) separando esperados de reais.
 3. Assertar presença de dados e empty states conforme o contexto.
 4. Reportar apenas falhas REAIS (erro não-filtrado, ausência inesperada).

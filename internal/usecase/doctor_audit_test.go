@@ -69,6 +69,31 @@ func (m *mockFSManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir 
 	return 0, nil
 }
 
+// mockEnvManager implements repository.WindowsEnvManager for testing.
+type mockEnvManager struct {
+	vars map[string]string
+}
+
+func (m *mockEnvManager) GetEnvVar(scope, name string) (string, error) {
+	if v, ok := m.vars[scope+"/"+name]; ok {
+		return v, nil
+	}
+	return "", nil
+}
+func (m *mockEnvManager) SetEnvVar(scope, name, value string) error {
+	if m.vars == nil {
+		m.vars = map[string]string{}
+	}
+	m.vars[scope+"/"+name] = value
+	return nil
+}
+func (m *mockEnvManager) EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error) {
+	return nil, nil
+}
+func (m *mockEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bool, error) {
+	return false, nil
+}
+
 // mockLogger implements repository.Logger for testing.
 type mockLogger struct{}
 
@@ -99,7 +124,7 @@ func TestDoctorAudit_GoogleChromeDetection(t *testing.T) {
 	uc := NewDoctorAuditUseCase(
 		manifestRepo,
 		fsManager,
-		nil,
+		&mockEnvManager{},
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -137,7 +162,7 @@ func TestDoctorAudit_GoogleChromeMissing(t *testing.T) {
 	uc := NewDoctorAuditUseCase(
 		manifestRepo,
 		fsManager,
-		nil,
+		&mockEnvManager{},
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -198,7 +223,7 @@ func TestDoctorAudit_OpenCodeFileRefsMissing(t *testing.T) {
 	uc := NewDoctorAuditUseCase(
 		&mockManifestRepo{},
 		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
-		nil,
+		&mockEnvManager{},
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -242,7 +267,7 @@ func TestDoctorAudit_OpenCodeFileRefsOK(t *testing.T) {
 	uc := NewDoctorAuditUseCase(
 		&mockManifestRepo{},
 		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
-		nil,
+		&mockEnvManager{},
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -273,7 +298,7 @@ func TestDoctorAudit_OpenCodeFileRefsNone(t *testing.T) {
 	uc := NewDoctorAuditUseCase(
 		&mockManifestRepo{},
 		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
-		nil,
+		&mockEnvManager{},
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},

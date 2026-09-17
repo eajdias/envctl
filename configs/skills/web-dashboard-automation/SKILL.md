@@ -14,11 +14,11 @@ Qualquer automação contra SPA/dashboard com sessão autenticada — extração
 ## Escolha da ferramenta
 
 - **Exploratório / interativo / 2FA manual**: MCP `chrome-devtools` (habilite via `/mcp`) — `navigate_page`, `take_snapshot`, `click`, `fill`, `type_text`, `list_network_requests`. O browser abre visível: acompanhe e digite códigos manualmente quando preciso.
-- **Determinístico / repetível / regressão**: Skill `playwright-cli` (`/playwright-cli`) — o runner dela executa fora do shell do agente, sem travar. `--headed` para acompanhar, headless em VPS/sem display. No Linux passe sempre `--browser=chromium` (o default `chrome` procura `/opt/google/chrome/chrome` e falha).
+- **Determinístico / repetível / regressão**: `pw` (wrapper versionado em `~/.local/bin`, provisionado pelo envctl) — mesma CLI por baixo (`open`, `snapshot`, `click e15`, `screenshot`), token-efficient, sem travar o shell do agente. `--headed` para acompanhar, headless em VPS/sem display. No Linux passe sempre `--browser=chromium` (o default `chrome` procura `/opt/google/chrome/chrome` e falha).
 
-## Por que via Skill e não via shell direto
+## Por que `pw` e não `playwright-cli` direto
 
-`playwright-cli open`/`attach` executado direto no shell do agente trava no Windows: o CLI spawna um daemon com `detached:true` (`session.js` → `spawn(process.execPath, args, {detached:true, stdio:["ignore","pipe",err]})`), que herda o Job Object — o shell espera a árvore inteira e nunca retorna, mesmo com output correto (issues microsoft/playwright#41530, opencode#24731, ambas `closed as not planned`). Um wrapper JS que rode o CLI via `node` (mesmo binário, sem timeout) retorna normalmente — verificado empiricamente: `open https://example.com --browser=chromium` via wrapper retornou em ~1s dentro do `opencode run`. A Skill `playwright-cli` usa esse caminho, fora do Job Object do shell — sem hang. Nunca invoque `playwright-cli open`/`attach` cru no shell do agente no Windows.
+`playwright-cli open`/`attach` executado direto no shell do agente trava no Windows: o CLI spawna um daemon com `detached:true` (`session.js` → `spawn(process.execPath, args, {detached:true, stdio:["ignore","pipe",err]})`), que herda o Job Object — o shell espera a árvore inteira e nunca retorna, mesmo com output correto (issues microsoft/playwright#41530, opencode#24731, ambas `closed as not planned`). O `pw` (`~/.local/bin/pw.cjs`, node puro, sem timeout) faz o spawn DETACHED + unref ele mesmo e espera pela sessão via `list` — verificado empiricamente: `open https://example.com --browser=chromium` via `pw` retornou em ~2s dentro do `opencode run`, enquanto o mesmo comando cru trava. Skill `/playwright-cli` usa esse caminho. Nunca invoque `playwright-cli open`/`attach` cru no shell do agente no Windows — use `pw`.
 
 ## Passos
 

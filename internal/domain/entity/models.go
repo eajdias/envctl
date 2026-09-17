@@ -61,6 +61,7 @@ type ConfigFile struct {
 	Category      string `yaml:"category"`
 	OS            string `yaml:"os,omitempty"`              // "windows", "linux" or empty for all
 	SeedIfMissing bool   `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
+	Executable    bool   `yaml:"executable,omitempty"`      // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
 }
 
 // Skill represents an agent skill deployed to OpenCode and CommandCode.

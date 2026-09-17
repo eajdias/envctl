@@ -1,0 +1,13 @@
+#!/bin/sh
+# pw — hang-safe playwright-cli runner (see pw.cjs). Usage: pw [--timeout N] <args...>
+# Resolves node + pw.cjs next to this shim so no PATH dependency exists.
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+if command -v node >/dev/null 2>&1; then
+  NODE_BIN=node
+elif [ -x "$HOME/.volta/bin/node" ]; then
+  NODE_BIN="$HOME/.volta/bin/node"
+else
+  echo "pw: node not found in PATH nor ~/.volta/bin" >&2
+  exit 127
+fi
+exec "$NODE_BIN" "$BIN_DIR/pw.cjs" "$@"

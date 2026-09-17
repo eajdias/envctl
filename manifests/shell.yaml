@@ -161,6 +161,27 @@ config_files:
     strict_acl: false
     category: "runtimes"
 
+  - id: pw_wrapper
+    description: "pw hang-safe playwright-cli runner (node wrapper; detached+unref avoids Windows Job Object hang)"
+    source: "configs/bin/pw.cjs"
+    destination: "~/.local/bin/pw.cjs"
+    strict_acl: false
+
+  - id: pw_wrapper_cmd
+    description: "pw launcher shim for cmd.exe (forwards to node pw.cjs)"
+    source: "configs/bin/pw.cmd"
+    destination: "~/.local/bin/pw.cmd"
+    strict_acl: false
+    os: windows
+
+  - id: pw_wrapper_sh
+    description: "pw launcher shim for POSIX shells (forwards to node pw.cjs)"
+    source: "configs/bin/pw"
+    destination: "~/.local/bin/pw"
+    strict_acl: false
+    os: linux
+    executable: true
+
   - id: windows_terminal_settings
     description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, MesloLGM Nerd Font, Dark+ theme)"
     source: "configs/terminal-settings.json"
@@ -269,6 +290,11 @@ directories:
     os: linux
 
 cleanup:
+  - id: stale_pw_ps1
+    description: "Remove legacy pw.ps1 wrapper (superseded by node pw.cjs — ps1/cmd shells hang on the daemon Job Object)"
+    path: "~/.local/bin/pw.ps1"
+    category: "scripts"
+    os: windows
   - id: stale_opencode_jsonc
     description: "Remove stale opencode.jsonc (standardized on opencode.json)"
     path: "~/.config/opencode/opencode.jsonc"
@@ -303,6 +329,11 @@ cleanup:
     path: "~/.commandcode/memory"
     category: "commandcode"
     recursive: true
+  - id: stale_pw_ps1
+    description: "Remove legacy pw.ps1 wrapper (superseded by node pw.cjs — ps1/cmd shells hang on the daemon Job Object)"
+    path: "~/.local/bin/pw.ps1"
+    category: "scripts"
+    os: windows
   - id: stale_pw_screenshot
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-screenshot"

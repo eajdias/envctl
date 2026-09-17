@@ -57,8 +57,11 @@ type GitManager interface {
 // WindowsEnvManager manages Windows User and Machine environment variables.
 type WindowsEnvManager interface {
 	GetEnvVar(scope, name string) (string, error)
-	SetEnvVar(scope, name, value string) error
+	SetEnvVar(scope, name string, value string) error
 	EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error)
+	// EnsurePathEntry guarantees that dir is present in the user PATH
+	// (Windows User scope, POSIX rc files), prepending it when missing.
+	EnsurePathEntry(ctx context.Context, dir string) (bool, error)
 }
 
 // WindowsTweaksManager manages Windows 11 system registry tweaks, features and fonts.

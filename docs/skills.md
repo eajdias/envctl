@@ -73,7 +73,7 @@ O `envctl` embuta e sincroniza **38 Skills de Agentes Especialistas** projetadas
 
 ## 🌐 Automação de Navegador (chrome-devtools MCP + playwright-cli)
 
-Browser interativo (exploratório, 2FA manual, inspeção ao vivo) via MCP `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`, `enabled: false` — opt-in por sessão via `/mcp`; o agente escolhe quando usar). Automação determinística e token-efficient (regressões, fluxos repetíveis, extrações) via `playwright-cli` no shell (`open`, `snapshot`, `click e15`, `screenshot`; `--headed` para acompanhar, headless em VPS/sem display) — skills `web-dashboard-automation` e `playwright-prod-regression` orientam o uso. Cada browser usa seu próprio build (Chrome do sistema/Chrome for Testing no chrome-devtools, Chromium bundled em `~/.cache/ms-playwright` no CLI) — sem conflito com o navegador do usuário.
+Browser interativo (exploratório, 2FA manual, inspeção ao vivo) via MCP `chrome-devtools` (`bunx chrome-devtools-mcp@1.8.0 --no-usage-statistics`, `enabled: false` — opt-in por sessão via `/mcp`; o agente escolhe quando usar). Automação determinística e token-efficient (regressões, fluxos repetíveis, extrações) via `pw` no shell — wrapper versionado (`~/.local/bin/pw.cjs`, provisionado pelo envctl) sobre o `playwright-cli` (`open`, `snapshot`, `click e15`, `screenshot`; `--headed` para acompanhar, headless em VPS/sem display) que evita o hang do Windows — skills `web-dashboard-automation` e `playwright-prod-regression` orientam o uso. Cada browser usa seu próprio build (Chrome do sistema/Chrome for Testing no chrome-devtools, Chromium bundled em `~/.cache/ms-playwright` no CLI) — sem conflito com o navegador do usuário.
 
 ---
 

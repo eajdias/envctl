@@ -114,6 +114,54 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
+	// 1.5. Audit ~/.local/bin on PATH (provisioned helpers like `pw` live here).
+	if localBin, err := uc.fsManager.ExpandUserPath("~/.local/bin"); err == nil && localBin != "" {
+		onPath := false
+		if runtime.GOOS == "windows" {
+			if pathVal, err := uc.envManager.GetEnvVar("User", "Path"); err == nil {
+				for _, p := range strings.Split(pathVal, ";") {
+					if strings.EqualFold(strings.TrimSpace(p), localBin) {
+						onPath = true
+						break
+					}
+				}
+			} else if p, err := exec.LookPath("pw.cmd"); err == nil && p != "" {
+				onPath = true
+			}
+		} else {
+			for _, rc := range []string{filepath.Join(os.Getenv("HOME"), ".profile"), filepath.Join(os.Getenv("HOME"), ".bashrc")} {
+				if data, err := os.ReadFile(rc); err == nil && strings.Contains(string(data), localBin) {
+					onPath = true
+					break
+				}
+			}
+			if !onPath {
+				for _, seg := range strings.Split(os.Getenv("PATH"), string(os.PathListSeparator)) {
+					if seg == localBin {
+						onPath = true
+						break
+					}
+				}
+			}
+		}
+		if onPath {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Environment",
+				Target:   "PATH (~/.local/bin)",
+				Details:  "~/.local/bin is on PATH (provisioned helpers resolve)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Environment",
+				Target:   "PATH (~/.local/bin)",
+				Details:  "~/.local/bin is not on PATH — provisioned helpers (pw) do not resolve by bare name",
+				FixHint:  "run 'envctl run shell' to prepend ~/.local/bin to the user PATH",
+			})
+		}
+	}
+
 	// 2. Audit Git Global Configurations
 	gitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
 	for _, gc := range gitConfigs {
@@ -402,13 +450,29 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
-	// 9.2 Audit Playwright CLI bundled Chromium: deterministic automation
-	// (`playwright-cli`) runs on the bundled build, so verify at least one
-	// usable binary exists under ~/.cache/ms-playwright.
-	if isLinux {
-		homeDir, _ := uc.fsManager.ExpandUserPath("~")
+	// 9.2 Audit Playwright CLI bundled Chromium + pw wrapper: deterministic
+	// automation (`playwright-cli` via `pw`) runs on the bundled build, so
+	// verify at least one usable binary exists under the playwright cache
+	// (%LOCALAPPDATA%\ms-playwright on Windows, ~/.cache/ms-playwright on
+	// POSIX), plus the provisioned wrapper itself.
+	browserCacheDir := ""
+	pwWrapper := ""
+	if runtime.GOOS == "windows" {
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			browserCacheDir = filepath.Join(localAppData, "ms-playwright")
+		}
+		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
+			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
+		}
+	} else {
+		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
+			browserCacheDir = filepath.Join(homeDir, ".cache", "ms-playwright")
+			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
+		}
+	}
+	if browserCacheDir != "" {
 		found := false
-		if entries, err := os.ReadDir(filepath.Join(homeDir, ".cache", "ms-playwright")); err == nil {
+		if entries, err := os.ReadDir(browserCacheDir); err == nil {
 			for _, e := range entries {
 				n := e.Name()
 				if strings.HasPrefix(n, "chromium-") || strings.HasPrefix(n, "chromium_headless_shell-") {
@@ -422,15 +486,41 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				Category: entity.DiagOK,
 				System:   "Browser",
 				Target:   "Playwright Chromium",
-				Details:  "Bundled Chromium present in ~/.cache/ms-playwright (playwright-cli ready)",
+				Details:  fmt.Sprintf("Bundled Chromium present in %s (playwright-cli ready)", browserCacheDir),
 			})
 		} else {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "Browser",
 				Target:   "Playwright Chromium",
-				Details:  "No bundled Chromium in ~/.cache/ms-playwright — playwright-cli cannot launch a browser",
+				Details:  fmt.Sprintf("No bundled Chromium in %s — playwright-cli cannot launch a browser", browserCacheDir),
 				FixHint:  "run 'bunx @playwright/cli@latest install-browser chromium'",
+			})
+		}
+	}
+
+	// 9.3 Audit pw wrapper: the hang-safe runner must be provisioned, or
+	// agents fall back to raw playwright-cli and hang on Windows.
+	if pwWrapper == "" {
+		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
+			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
+		}
+	}
+	if pwWrapper != "" {
+		if uc.fsManager.Exists(pwWrapper) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Browser",
+				Target:   "pw wrapper",
+				Details:  fmt.Sprintf("Hang-safe runner present at %s", pwWrapper),
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Browser",
+				Target:   "pw wrapper",
+				Details:  "pw wrapper missing — agents have no hang-safe playwright-cli path on Windows",
+				FixHint:  "run 'envctl run shell' to provision ~/.local/bin/pw.cjs",
 			})
 		}
 	}

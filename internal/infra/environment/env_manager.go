@@ -186,3 +186,57 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 
 	return diagnostics, nil
 }
+
+// EnsurePathEntry guarantees that dir is present in the user PATH,
+// prepending it when missing. Windows: User-scope Path registry value.
+// POSIX: export PATH="<dir>:$PATH" line in ~/.profile and ~/.bashrc.
+// Returns changed=true when the PATH was modified.
+func (e *envManager) EnsurePathEntry(ctx context.Context, dir string) (bool, error) {
+	if dir == "" {
+		return false, fmt.Errorf("empty dir provided")
+	}
+	if runtime.GOOS == "windows" {
+		current, err := e.GetEnvVar("User", "Path")
+		if err != nil {
+			return false, err
+		}
+		for _, p := range strings.Split(current, ";") {
+			if strings.EqualFold(strings.TrimSpace(p), dir) {
+				return false, nil
+			}
+		}
+		updated := dir + ";" + current
+		if strings.Trim(current, "; ") == "" {
+			updated = dir
+		}
+		if err := e.SetEnvVar("User", "Path", updated); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	line := fmt.Sprintf(`export PATH="%s:$PATH"`, dir)
+	changed := false
+	for _, rc := range e.posixRCFiles() {
+		if rc == "" {
+			continue
+		}
+		data, err := os.ReadFile(rc)
+		if err != nil && !os.IsNotExist(err) {
+			return changed, fmt.Errorf("failed to read %s: %w", rc, err)
+		}
+		if strings.Contains(string(data), dir) {
+			continue
+		}
+		f, err := os.OpenFile(rc, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			return changed, fmt.Errorf("failed to open %s: %w", rc, err)
+		}
+		if _, err := f.WriteString(line + "\n"); err != nil {
+			f.Close()
+			return changed, fmt.Errorf("failed to write %s: %w", rc, err)
+		}
+		f.Close()
+		changed = true
+	}
+	return changed, nil
+}

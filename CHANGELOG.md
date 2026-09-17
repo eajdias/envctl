@@ -12,8 +12,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### 🌐 Browser em dois trilhos (chrome-devtools MCP + playwright-cli)
 
 - **Removed**: MCP `@playwright/mcp` dos 3 configs (opencode.json, opencode.linux.json, commandcode mcp.json) — duplicava o chrome-devtools no interativo e é token-heavy frente ao CLI nos fluxos repetíveis.
-- **Added**: pacote volta `@playwright/cli` (`playwright-cli --version`); bootstrap Linux instala os browsers via `install-browser chromium`; `doctor` audita o bundle (`Browser/Playwright Chromium` + `LinuxBootstrap/playwright-chromium`) e trata Chrome ausente como Info no Linux (só o chrome-devtools-mcp precisa dele).
-- **Changed**: skills `web-dashboard-automation` e `playwright-prod-regression` orientam a escolha (MCP interativo vs CLI determinístico); AGENTS.md, SKILL-INDEX.md, README, guides, `docs/skills.md` e memória refletem os dois trilhos.
+- **Added**: `pw` — wrapper node versionado (`configs/bin/pw.cjs` + shims `pw.cmd`/`pw`, provisionado em `~/.local/bin` via `shell.yaml`) que elimina o hang do Windows: spawn DETACHED + unref ele mesmo e espera pela sessão via `list` (matriz empírica: direto/execFileSync/attached travam, detached+unref retorna em ~2s, inclusive dentro de `opencode run`); `doctor` audita o wrapper (`Browser/pw wrapper`) e o bundle Chromium em ambos OS (Windows: `%LOCALAPPDATA%\ms-playwright`).
+- **Changed**: skills `web-dashboard-automation` e `playwright-prod-regression` orientam a escolha (MCP interativo vs `pw` determinístico); AGENTS.md, SKILL-INDEX.md, README, guides, `docs/skills.md` e memória refletem os dois trilhos.
 
 ### 🩺 Doctor por-OS + browser headless no Linux
 

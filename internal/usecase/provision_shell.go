@@ -89,6 +89,15 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				uc.logger.LogIdempotency("Environment", d.Target, d.Category == entity.DiagOK, d.Details)
 			}
 		}
+		if localBin, err := uc.fsManager.ExpandUserPath("~/.local/bin"); err == nil {
+			if changed, err := uc.envManager.EnsurePathEntry(ctx, localBin); err != nil {
+				if uc.logger != nil {
+					uc.logger.Warn("Failed to ensure ~/.local/bin on PATH: %v", err)
+				}
+			} else if changed && uc.logger != nil {
+				uc.logger.LogIdempotency("Environment", "PATH", false, "~/.local/bin prepended to user PATH")
+			}
+		}
 	}
 
 	// 2. Git Performance Configurations (machine-level: skipped when a category
@@ -262,6 +271,16 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				if err := uc.fsManager.SetStrictWindowsACL(cf.Destination); err != nil {
 					if uc.logger != nil {
 						uc.logger.Warn("Could not apply strict ACLs to '%s': %v", cf.Destination, err)
+					}
+				}
+			}
+			// Executable scripts (e.g. ~/.local/bin helpers): ensure the
+			// POSIX exec bit survives provisioning (WriteWithBackup writes
+			// 0644; Windows ignores the bit harmlessly).
+			if cf.Executable && runtime.GOOS != "windows" {
+				if expanded, err := uc.fsManager.ExpandUserPath(cf.Destination); err == nil {
+					if err := os.Chmod(expanded, 0755); err != nil && uc.logger != nil {
+						uc.logger.Warn("Could not set executable bit on '%s': %v", cf.Destination, err)
 					}
 				}
 			}

@@ -23,7 +23,7 @@
 
 - **Config:** `~/.commandcode/settings.json` — mude com `cmdc config set`, não à mão. **Regras:** `~/.commandcode/AGENTS.md` (este arquivo), carregado a cada request; os tiers user → projeto (`AGENTS.md` ou `.commandcode/AGENTS.md`) → subdiretório somam.
 - **Agentes:** `~/.commandcode/agents/` (frontmatter: `name`, `description`, `tools`, `model`, `reasoningEffort`, `maxTurns`, `permissionMode`, `background`, `showOutput`). Built-ins `general`/`explore`/`plan`/`review`; nomes reservados são ignorados — o custom aqui é `code-reviewer`.
-- **MCP:** user-scope `~/.commandcode/mcp.json`. Browser interativo via MCP `chrome-devtools` (`enabled: false` — habilite com `/mcp`); automação determinística via `playwright-cli` no shell.
+- **MCP:** user-scope `~/.commandcode/mcp.json`. Browser interativo via MCP `chrome-devtools` (`enabled: false` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`).
 - **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já está no prompt, não há nada a ativar. Para escolher entre elas, veja `~/.commandcode/SKILL-INDEX.md` (tabela situação → skill); não leia por padrão.
 - **Taste:** aprende de sinais accept/reject/edit — projeto `.commandcode/taste/`, global `~/.commandcode/taste/`. Não edite à mão; use a tool `taste`.
 - **Hot reload:** agentes, skills e memória são re-lidos a cada turno; `settings.json` vale no próximo round. Só um update baixado exige `/reload`.
