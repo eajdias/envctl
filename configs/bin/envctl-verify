@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# envctl-verify - run the repository's own quality gates locally.
+#
+# Two callers, one implementation, so the agent loop and git can never
+# disagree about what "verified" means:
+#   envctl-verify --hook      CommandCode Stop hook (JSON payload on stdin)
+#   envctl-verify --git-push  git pre-push hook
+#
+# Exits 2 with the failing output on stderr when a check fails, 0 when
+# everything passes or when the repository has no recognizable stack.
+
+set -uo pipefail
+
+MODE="--git-push"
+case "${1:-}" in
+  --hook | --git-push) MODE="$1" ;;
+esac
+
+log() { printf 'envctl-verify: %s\n' "$*" >&2; }
+
+# Escape hatch for one-off pushes (docs-only, intentionally red tree, ...).
+[ "${ENVCTL_SKIP_VERIFY:-0}" = "1" ] && exit 0
+
+if [ "$MODE" = "--hook" ]; then
+  payload=$(cat)
+  # A retry already carries this hook's own feedback: let the turn end instead
+  # of looping (the engine additionally caps retries at three).
+  case "$payload" in
+    *'"stop_hook_active":true'*) exit 0 ;;
+  esac
+fi
+
+command -v git >/dev/null 2>&1 || exit 0
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$repo_root" || exit 0
+
+timeout_cmd=""
+if command -v timeout >/dev/null 2>&1; then
+  timeout_cmd="timeout ${ENVCTL_VERIFY_TIMEOUT:-420}"
+fi
+
+fail_count=0
+ok_count=0
+failures=""
+
+report() {
+  fail_count=$((fail_count + 1))
+  failures="${failures}
+--- ${1} ---
+$(printf '%s' "${2:-failed}" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
+}
+
+check() {
+  label="$1"
+  shift
+  out=$($timeout_cmd "$@" 2>&1)
+  rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ok_count=$((ok_count + 1))
+    return 0
+  fi
+  case "$rc" in
+    124 | 137) report "$label" "TIMEOUT after ${ENVCTL_VERIFY_TIMEOUT:-420}s" ;;
+    *) report "$label" "${out:-exited ${rc}}" ;;
+  esac
+  return 1
+}
+
+check_go() {
+  if command -v gofmt >/dev/null 2>&1; then
+    unformatted=$(gofmt -l . 2>/dev/null)
+    if [ -n "$unformatted" ]; then
+      report "gofmt -l ." "$unformatted"
+    else
+      ok_count=$((ok_count + 1))
+    fi
+  fi
+
+  check "go build ./..." go build ./...
+  check "go vet ./..." go vet ./...
+  check "go test ./..." go test ./...
+
+  # Windows is a supported target: cross-compiling here catches a
+  # platform-specific break before CI spends a runner on it.
+  check "GOOS=windows go build ./..." env GOOS=windows go build ./...
+  check "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
+
+  # Lint parity with CI, which gates on issues introduced by the change: the
+  # existing debt never blocks a push, new findings always do.
+  if command -v golangci-lint >/dev/null 2>&1; then
+    base=""
+    for ref in origin/main origin/master; do
+      if git rev-parse --verify -q "$ref" >/dev/null 2>&1; then
+        base="$ref"
+        break
+      fi
+    done
+    if [ -n "$base" ]; then
+      check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" --timeout 3m ./...
+    fi
+  fi
+}
+
+# A repository-local verifier wins: a project can define exactly what its
+# definition of done is without touching this script.
+if [ -x .commandcode/verify.sh ]; then
+  check ".commandcode/verify.sh" ./.commandcode/verify.sh
+elif [ -f go.mod ]; then
+  check_go
+fi
+
+total=$((ok_count + fail_count))
+[ "$total" -eq 0 ] && exit 0
+
+if [ "$fail_count" -eq 0 ]; then
+  if [ "$MODE" = "--git-push" ]; then
+    log "all ${ok_count} checks passed in ${repo_root}"
+  fi
+  exit 0
+fi
+
+printf 'envctl-verify: %d of %d checks failed in %s\n%s\n' \
+  "$fail_count" "$total" "$repo_root" "$failures" >&2
+exit 2

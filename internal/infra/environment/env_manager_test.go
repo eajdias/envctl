@@ -121,6 +121,9 @@ func TestEnsureEnvVarsAlignsEveryShell(t *testing.T) {
 }
 
 func TestEnsurePathEntryAddsFishPathOnce(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not fish rc files")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	manager := &envManager{}

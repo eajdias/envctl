@@ -565,6 +565,46 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		})
 	}
 
+	// 10.5 Audit the local verification wiring: the same gates run by the
+	// CommandCode Stop hook and the git pre-push hook. Without them a broken
+	// tree only surfaces after the push, which is what this wiring exists to
+	// prevent.
+	verifierPath, verifierErr := uc.fsManager.ExpandUserPath("~/.local/bin/envctl-verify")
+	prePushPath, prePushErr := uc.fsManager.ExpandUserPath("~/.config/git/hooks/pre-push")
+	if verifierErr != nil || prePushErr != nil {
+		if uc.logger != nil {
+			uc.logger.Warn("Could not resolve the verification paths: %v / %v", verifierErr, prePushErr)
+		}
+	}
+	verifierReady := isExecutableFile(verifierPath)
+	prePushReady := isExecutableFile(prePushPath)
+
+	switch {
+	case verifierReady && prePushReady:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Verify",
+			Target:   "local quality gates",
+			Details:  "envctl-verify deployed and the git pre-push hook is executable",
+		})
+	case verifierReady:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Verify",
+			Target:   "git pre-push hook",
+			Details:  "pre-push hook missing or not executable — pushes are not gated locally",
+			FixHint:  "run 'envctl run shell' to deploy ~/.config/git/hooks/pre-push",
+		})
+	default:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Verify",
+			Target:   "envctl-verify",
+			Details:  "local verifier not deployed — lint/test failures surface only in CI",
+			FixHint:  "run 'envctl run shell' to deploy ~/.local/bin/envctl-verify",
+		})
+	}
+
 	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
 		userHomeDir, homeErr := uc.fsManager.ExpandUserPath("~")

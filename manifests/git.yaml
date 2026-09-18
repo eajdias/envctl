@@ -11,3 +11,8 @@ configs:
       value: input
     - key: init.defaultBranch
       value: main
+    # Global pre-push gate: core.hooksPath overrides .git/hooks for every repo,
+    # so the deployed hook chains any repository-local pre-push before running
+    # the envctl verifier (see configs/git/hooks/pre-push).
+    - key: core.hooksPath
+      value: "~/.config/git/hooks"

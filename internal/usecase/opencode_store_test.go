@@ -84,11 +84,15 @@ func TestOpenCodeStoreExceedsThresholdBoundary(t *testing.T) {
 
 func TestOpenCodeStorePathHonorsXDGDataHome(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", "/custom/data")
-	if got, want := openCodeStorePath("/home/user"), "/custom/data/opencode/opencode.db"; got != want {
-		t.Errorf("openCodeStorePath = %q, want %q", got, want)
+	// Expectations are built with filepath.Join so the assertions hold on hosts
+	// where the separator is not a forward slash.
+	wantData := filepath.Join("/custom/data", "opencode")
+	wantStore := filepath.Join(wantData, "opencode.db")
+	if got := openCodeStorePath("/home/user"); got != wantStore {
+		t.Errorf("openCodeStorePath = %q, want %q", got, wantStore)
 	}
-	if got, want := openCodeDataDir("/home/user"), "/custom/data/opencode"; got != want {
-		t.Errorf("openCodeDataDir = %q, want %q", got, want)
+	if got := openCodeDataDir("/home/user"); got != wantData {
+		t.Errorf("openCodeDataDir = %q, want %q", got, wantData)
 	}
 
 	t.Setenv("XDG_DATA_HOME", "")

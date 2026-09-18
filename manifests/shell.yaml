@@ -183,6 +183,20 @@ config_files:
     os: linux
     executable: true
 
+  - id: envctl_verify
+    description: "Repository quality gates run locally (CommandCode Stop hook + git pre-push) so a broken tree never reaches a push"
+    source: "configs/bin/envctl-verify"
+    destination: "~/.local/bin/envctl-verify"
+    strict_acl: false
+    executable: true
+
+  - id: git_pre_push_hook
+    description: "Global git pre-push hook: chains the repository's own hook, then runs the envctl verifier"
+    source: "configs/git/hooks/pre-push"
+    destination: "~/.config/git/hooks/pre-push"
+    strict_acl: false
+    executable: true
+
   - id: windows_terminal_settings
     description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, Dark+ theme)"
     source: "configs/terminal-settings.json"
@@ -241,6 +255,9 @@ directories:
   - path: "~/.local/bin"
     strict_acl: false
     description: "User local binaries and custom CLI scripts"
+  - path: "~/.config/git/hooks"
+    strict_acl: false
+    description: "Global git hooks directory (core.hooksPath) with the pre-push verifier"
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"
