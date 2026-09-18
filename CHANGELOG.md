@@ -9,6 +9,27 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.144] - 2026-09-18
+
+### 🚀 Fase 0: os provedores prontos antes de tudo
+
+- **Added**: `envctl run providers` — preflight que roda como **passo 0 do `run all`** (ou sozinho, quando for só isso): garante Volta (instala se faltar — instalador oficial no Linux, `Volta.Volta` via winget no Windows), um runtime Node default (usando o **mesmo spec do manifesto**, para os dois não divergirem) e os dois CLIs de agente. O `command-code` é atualizado via Volta quando o npm tem versão nova — Volta resolve o `latest`, então "faltando" e "desatualizado" são o mesmo comando. Validado rebaixando o pacote de propósito: a fase 0 reportou `1.55.1 -> 1.56.0` e, na execução seguinte, `1.56.0 (Volta, current)`.
+- **Fixed**: o bootstrap instalava o opencode **por npm** e só usava o instalador oficial como fallback. O pacote npm `opencode-ai` está na linha **1.18.x** (14/09) enquanto as tags do upstream — `anomalyco/opencode`, ex-`sst/opencode` — já estão em **v2.0.7** (17/09), e é essa linha que o pacote do Arch (`extra`, 2.0.5) empacota: o caminho npm **rebaixaria** a máquina, e a cópia em `~/.local/bin` ainda venceria no PATH o binário mais novo. O bootstrap passou a usar o instalador oficial.
+- **Added**: `opencode` declarado no manifesto nas plataformas em que existe como pacote (`pacman` no Arch/CachyOS, `SST.opencode` no winget). No Debian/Ubuntu segue o instalador oficial. Antes, o Windows não tinha **nenhum** caminho provisionado para o opencode.
+- **Changed**: a fase 0 nunca sombreia binário que não é dela. Se o `opencode` vem de pacote do SO, ela **reporta** versão e origem em vez de instalar uma segunda cópia — mesma lição do `fzf`.
+- **Added**: `paru` declarado no bloco pacman (`[cachyos]`), junto com `base-devel` e `git`. O `run paru` e os pacotes `type: paru` (ex.: `cursor-bin`) dependiam de um AUR helper que o CachyOS **não** traz por padrão; no Arch puro, onde paru não está em repo nenhum, o bootstrap constrói `paru-bin` do AUR.
+- **Tests**: cinco testes em `internal/usecase/provision_providers_test.go` — token de versão, comparação de versões, classificação da origem do binário e um que trava a regressão que deixou o `cmdc` sem atualizar (a origem era `"Volta"` para exibição enquanto o `switch` comparava `"volta"`).
+- **Changed**: `errcheck` não acusa mais `pterm.DefaultSpinner.Start` (`.golangci.yml`, `exclude-functions`): a função só inicia uma goroutine e sempre retorna erro nil, e spinner é cosmético — nenhum subsistema deve falhar por causa dele.
+- **Docs**: `docs/os-and-agent-matrix.md` ganhou a seção da fase 0, as assimetrias **#9** (canais de versão do `opencode`) e **#10** (paru no Arch) e o checklist de "CLI de agente"; manifesto Arch foi de 25 para 29 pacotes e o `doctor` de 124 para 128 checks.
+- **Docs**: `docs/roadmap.md` — os objetivos acordados para depois (Termux/Android como OS, validação de compatibilidade e o que migrar para lá, skills de Tailscale/Cloudflared, verificação profunda de SSH entre os OS, provedor local controlando provedor remoto por SSH, rename do projeto e instalação como serviço de background), cada um com o contexto já levantado para a próxima sessão não recomeçar. `AGENTS.md` e `README.md` apontam para ele.
+
+## [v1.2.142] - 2026-09-18
+
+### 🐛 Cache do verificador não mascarava mais edição em arquivo untracked
+
+- **Fixed**: o cache por estado da árvore (introduzido em v1.2.140) cobria `HEAD`, `git status` e `git diff HEAD` — mas o `status` lista arquivo untracked **só pelo caminho**, então editar um arquivo que ainda não foi adicionado (o estado normal enquanto se escreve algo novo) parecia "nada mudou", e o hook repetia o veredito verde anterior sem rodar nada. O hash agora inclui o **conteúdo** dos untracked, com teto de 1 MiB por arquivo para não pesar.
+- **Added**: `TestVerifyScriptHookModeReRunsAfterUntrackedEdit` — quebra o build num arquivo untracked depois de um run verde e exige que o gate volte a falar (é o guarda contra essa regressão).
+
 ## [v1.2.140] - 2026-09-18
 
 ### 🪝 Todos os hooks encadeados, e o gate endurecido
