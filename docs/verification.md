@@ -10,11 +10,18 @@ no seu terminal, não minutos depois no CI.
 
 | Camada | Onde | Quando dispara | Efeito |
 | :--- | :--- | :--- | :--- |
-| **Hook `Stop` do CommandCode** | `~/.commandcode/settings.json` | Ao fim de cada turno do agente | Falha → `exit 2` e o **stderr com o diagnóstico volta para o modelo**, que corrige no mesmo turno |
-| **Pre-push do git** | `~/.config/git/hooks/pre-push` (`core.hooksPath`) | Antes de qualquer `git push` | Falha → **push abortado**, venha o push do CommandCode, do opencode ou do terminal |
+| **Hook `Stop` do CommandCode** | `~/.commandcode/settings.json` | Ao fim de cada turno do agente | Roda os **checks estáticos** (o que um editor diria ao salvar). Falha → `exit 2` e o **stderr com o diagnóstico volta para o modelo**, que corrige no mesmo turno |
+| **Pre-push do git** | `~/.config/git/hooks/pre-push` (`core.hooksPath`) | Antes de qualquer `git push` | Roda o **gate completo, com a suíte de testes**. Falha → **push abortado**, venha o push do CommandCode, do opencode ou do terminal |
 
 O hook de turno gateia o repositório do **cwd da sessão**: abra o `cmd` dentro do
 projeto para o feedback automático valer ali. O pre-push é global e independe do agente.
+
+**Os outros hooks também são encadeados.** `core.hooksPath` faz o git ignorar o
+`.git/hooks` de *todo* repositório, então o envctl instala um delegator e um shim para
+`pre-commit`, `prepare-commit-msg`, `commit-msg`, `post-commit`, `post-checkout` e
+`pre-rebase`, que devolvem o controle ao hook local do projeto. Repositórios husky não são
+afetados de qualquer forma: eles definem `core.hooksPath` **local**, e a config do
+repositório vence a global.
 
 ---
 
@@ -59,6 +66,26 @@ Para uma stack não coberta — ou para uma definição de "pronto" própria —
 | `ENVCTL_VERIFY_MAX_LINES` | `25` | Linhas de saída por check no relatório (mantém o contexto enxuto) |
 
 Saída enxuta por design: verde é silencioso, vermelho traz só o começo de cada falha.
+
+---
+
+## 🔀 Modos, Cache e Trilha
+
+| Modo | O que roda |
+| :--- | :--- |
+| `--hook` (fim de turno) | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o push, então um turno nunca espera por ela |
+| `--git-push` | **O gate completo**, testes incluídos |
+| `--dry-run` | Não roda nada: imprime as stacks detectadas e os checks que seriam executados. É a forma de auditar a detecção e os skips |
+
+**Cache por estado da árvore (só no modo hook).** Se nada mudou desde a última execução
+verde, o verificador sai em ~20ms em vez de rodar os checks de novo — um turno que apenas
+leu arquivos não paga nada. O carimbo fica em `.git/envctl-verify.stamp`, nunca na árvore de
+trabalho.
+
+**Trilha.** Falhas e skips são registrados em `~/.envctl/verify.log` (uma linha por evento,
+com timestamp, modo, repositório e resultado). Execuções verdes não escrevem nada. É o que
+responde "esse gate já pegou algo?" com evidência em vez de memória — e o que denuncia um
+check que vive sendo pulado.
 
 ---
 

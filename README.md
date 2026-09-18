@@ -99,7 +99,8 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 - 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 41 Skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
 - ©️ [**Atribuição de Skills**](docs/skills-attribution.md) — De onde veio cada skill adotada de terceiros (autor + repositório), o que foi adaptado e como creditar skill nova.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
-- ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks executados e variáveis de controle.
+- ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks por stack e variáveis de controle.
+- 🧭 [**Matriz OS × Agente**](docs/os-and-agent-matrix.md) — o que é provisionado em cada OS (Windows/Ubuntu/Arch) e em cada agente (OpenCode/CommandCode), assimetrias conhecidas e checklist para adições novas.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---

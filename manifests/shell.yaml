@@ -192,6 +192,55 @@ config_files:
     strict_acl: false
     executable: true
 
+  - id: git_hook_delegate
+    description: "Shared delegator that hands any git hook back to the repository's own .git/hooks script (core.hooksPath overrides them otherwise)"
+    source: "configs/git/hooks/_envctl-delegate"
+    destination: "~/.config/git/hooks/_envctl-delegate"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_pre_commit
+    description: "git pre-commit: chains the repository's own hook"
+    source: "configs/git/hooks/pre-commit"
+    destination: "~/.config/git/hooks/pre-commit"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_prepare_commit_msg
+    description: "git prepare-commit-msg: chains the repository's own hook"
+    source: "configs/git/hooks/prepare-commit-msg"
+    destination: "~/.config/git/hooks/prepare-commit-msg"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_commit_msg
+    description: "git commit-msg: chains the repository's own hook"
+    source: "configs/git/hooks/commit-msg"
+    destination: "~/.config/git/hooks/commit-msg"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_post_commit
+    description: "git post-commit: chains the repository's own hook"
+    source: "configs/git/hooks/post-commit"
+    destination: "~/.config/git/hooks/post-commit"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_post_checkout
+    description: "git post-checkout: chains the repository's own hook"
+    source: "configs/git/hooks/post-checkout"
+    destination: "~/.config/git/hooks/post-checkout"
+    strict_acl: false
+    executable: true
+
+  - id: git_hook_pre_rebase
+    description: "git pre-rebase: chains the repository's own hook"
+    source: "configs/git/hooks/pre-rebase"
+    destination: "~/.config/git/hooks/pre-rebase"
+    strict_acl: false
+    executable: true
+
   - id: windows_terminal_settings
     description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, Dark+ theme)"
     source: "configs/terminal-settings.json"

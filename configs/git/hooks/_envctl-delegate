@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+# Shared delegator for the hooks envctl installs through core.hooksPath.
+#
+# Setting core.hooksPath makes git ignore every repository's .git/hooks, so a
+# hook a repository installed itself (plain .git/hooks, pre-commit framework,
+# lefthook, ...) would silently stop running. This hands control back to it.
+# husky-style repositories are unaffected: they set core.hooksPath locally, and
+# repository config wins over the global one.
+#
+# Usage: _envctl-delegate <hook-name> [args...]
+
+set -u
+
+hook_name="$1"
+shift
+
+git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
+repo_hook="${git_dir}/hooks/${hook_name}"
+
+if [ -x "$repo_hook" ]; then
+	exec "$repo_hook" "$@"
+fi
+
+exit 0

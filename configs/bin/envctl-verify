@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # envctl-verify - run the repository's own quality gates locally.
 #
-# Two callers, one implementation, so the agent loop and git can never
-# disagree about what "verified" means:
-#   envctl-verify --hook      CommandCode Stop hook (JSON payload on stdin)
-#   envctl-verify --git-push  git pre-push hook
+# Modes:
+#   envctl-verify --hook      CommandCode Stop hook (JSON payload on stdin).
+#                             Static checks only: what an editor would tell you
+#                             on save. Test suites belong to the push gate.
+#   envctl-verify --git-push  git pre-push hook. The complete gate.
+#   envctl-verify --dry-run   Print the checks this repository would run and
+#                             exit. Use it to audit the detection and the skips.
 #
 # Stacks are detected from the repository itself (go.mod, package.json,
 # pyproject.toml, *.sql, *.sh, Dockerfile, *.ps1) and only the stacks present
 # run. Linters are scoped to the files this change touches — the same rule as
 # golangci-lint's --new-from-rev for Go — while type checks and tests run
 # repo-wide, because that is where their signal lives. Every tool is optional:
-# one that is not installed is skipped silently, never a failure.
+# one that is not installed is skipped silently, and one that cannot run here is
+# named in the summary and recorded in the log trail.
 #
 # Exits 2 with the failing output on stderr when a check fails, 0 when
 # everything passes or when the repository has no recognizable stack.
@@ -24,8 +28,15 @@ set -uo pipefail
 
 MODE="--git-push"
 case "${1:-}" in
---hook | --git-push) MODE="$1" ;;
+--hook | --git-push | --dry-run) MODE="$1" ;;
 esac
+
+# In hook mode only the static half runs, so a turn never waits on a test suite;
+# the pre-push gate remains complete.
+RUN_TESTS=1
+[ "$MODE" = "--hook" ] && RUN_TESTS=0
+DRY_RUN=0
+[ "$MODE" = "--dry-run" ] && DRY_RUN=1
 
 log() { printf 'envctl-verify: %s\n' "$*" >&2; }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -71,6 +82,15 @@ skip_count=0
 skip_notes=""
 failures=""
 
+# --- trail ------------------------------------------------------------------
+# Skips and failures are appended to a log so "this never caught anything" can be
+# answered with evidence instead of memory. Green runs stay silent.
+trail_log="${ENVCTL_VERIFY_LOG:-${HOME}/.envctl/verify.log}"
+trail() {
+	mkdir -p "$(dirname "$trail_log")" 2>/dev/null || return 0
+	printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$MODE" "$repo_root" "$1" >>"$trail_log" 2>/dev/null || true
+}
+
 report() {
 	fail_count=$((fail_count + 1))
 	failures="${failures}
@@ -81,6 +101,10 @@ $(printf '%s' "${2:-failed}" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
 check() {
 	label="$1"
 	shift
+	if [ "$DRY_RUN" = "1" ]; then
+		printf '  %s\n' "$label"
+		return 0
+	fi
 	out=$("$@" 2>&1)
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
@@ -109,6 +133,10 @@ is_tool_unavailable() {
 check_soft() {
 	label="$1"
 	shift
+	if [ "$DRY_RUN" = "1" ]; then
+		printf '  %s\n' "$label"
+		return 0
+	fi
 	out=$("$@" 2>&1)
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
@@ -130,6 +158,10 @@ check_files() {
 	label="$1"
 	list="$2"
 	shift 2
+	[ "$DRY_RUN" = "1" ] && {
+		printf '  %s (%d file(s))\n' "$label" "$(printf '%s\n' "$list" | grep -c .)"
+		return 0
+	}
 	mapfile -t selected <<<"$list"
 	check "$label" "$@" "${selected[@]}"
 }
@@ -139,6 +171,10 @@ check_soft_files() {
 	label="$1"
 	list="$2"
 	shift 2
+	[ "$DRY_RUN" = "1" ] && {
+		printf '  %s (%d file(s))\n' "$label" "$(printf '%s\n' "$list" | grep -c .)"
+		return 0
+	}
 	mapfile -t selected <<<"$list"
 	check_soft "$label" "$@" "${selected[@]}"
 }
@@ -149,6 +185,10 @@ check_ok_codes() {
 	label="$1"
 	codes="$2"
 	shift 2
+	if [ "$DRY_RUN" = "1" ]; then
+		printf '  %s\n' "$label"
+		return 0
+	fi
 	out=$("$@" 2>&1)
 	rc=$?
 	for code in $codes; do
@@ -192,9 +232,30 @@ changed_matching() {
 	done
 }
 
+# --- state cache (hook mode only) -------------------------------------------
+# A turn that changed nothing cannot produce a different verdict, so the previous
+# green result stands. The stamp lives in the git dir, never in the work tree.
+stamp_file="$(git rev-parse --git-dir 2>/dev/null)/envctl-verify.stamp"
+state_hash() {
+	{
+		git rev-parse HEAD 2>/dev/null
+		git status --porcelain 2>/dev/null
+		git diff HEAD 2>/dev/null | git hash-object --stdin 2>/dev/null
+	} | git hash-object --stdin 2>/dev/null
+}
+current_state=""
+if [ "$MODE" = "--hook" ] && [ "$DRY_RUN" = "0" ]; then
+	current_state=$(state_hash)
+	if [ -n "$current_state" ] && [ -f "$stamp_file" ] && [ "$(cat "$stamp_file" 2>/dev/null)" = "$current_state" ]; then
+		exit 0
+	fi
+fi
+
 # --- Go ---------------------------------------------------------------------
 check_go() {
-	if have gofmt; then
+	if [ "$DRY_RUN" = "1" ]; then
+		printf '  %s\n' "gofmt -l ."
+	elif have gofmt; then
 		unformatted=$(gofmt -l . 2>/dev/null)
 		if [ -n "$unformatted" ]; then
 			report "gofmt -l ." "$unformatted"
@@ -205,7 +266,7 @@ check_go() {
 
 	check "go build ./..." go build ./...
 	check "go vet ./..." go vet ./...
-	check "go test ./..." go test ./...
+	[ "$RUN_TESTS" = "1" ] && check "go test ./..." go test ./...
 
 	# Windows is a supported target: cross-compiling here catches a
 	# platform-specific break before CI spends a runner on it.
@@ -282,7 +343,8 @@ check_python() {
 	fi
 
 	# pytest exits 5 when it collects nothing; that is not a failure.
-	if pytest_list=$(python_tool pytest) && { has_any_file tests pytest.ini conftest.py tox.ini || [ -n "$test_files" ]; }; then
+	if [ "$RUN_TESTS" = "1" ] && pytest_list=$(python_tool pytest) &&
+		{ has_any_file tests pytest.ini conftest.py tox.ini || [ -n "$test_files" ]; }; then
 		read -r -a pytest_cmd <<<"$pytest_list"
 		check_ok_codes "pytest -q" "0 5" "${pytest_cmd[@]}" -q
 	fi
@@ -351,13 +413,24 @@ check_powershell() {
 			'Invoke-ScriptAnalyzer -Path (($env:ENVCTL_PS_FILES -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -Severity Error,Warning -EnableExit'
 	fi
 
-	if printf '%s\n' "$ps_files" | grep -qi 'Tests\.ps1$' &&
+	if [ "$RUN_TESTS" = "1" ] && printf '%s\n' "$ps_files" | grep -qi 'Tests\.ps1$' &&
 		pwsh -NoProfile -NonInteractive -Command 'if (Get-Module -ListAvailable Pester) { exit 0 } else { exit 1 }' >/dev/null 2>&1; then
 		check "Invoke-Pester" pwsh -NoProfile -NonInteractive -Command 'Invoke-Pester -CI -Output Minimal'
 	fi
 }
 
 # --- run --------------------------------------------------------------------
+detected=""
+[ -f go.mod ] && detected="${detected} go"
+[ -f package.json ] && detected="${detected} node"
+has_any_file pyproject.toml setup.py setup.cfg requirements.txt && detected="${detected} python"
+
+if [ "$DRY_RUN" = "1" ]; then
+	log "dry run in ${repo_root} (mode: ${MODE}; base: ${base:-none}; changed: $(printf '%s' "$changed" | grep -c .) file(s))"
+	log "stacks detected:${detected:- none}"
+	printf 'checks that would run:\n'
+fi
+
 # A repository-local verifier wins: a project can define exactly what its
 # definition of done is without touching this script.
 if [ -x .commandcode/verify.sh ]; then
@@ -372,10 +445,21 @@ else
 	check_powershell
 fi
 
+if [ "$DRY_RUN" = "1" ]; then
+	log "sql/shell/docker/powershell run when the matching files are part of the change"
+	exit 0
+fi
+
 total=$((ok_count + fail_count))
 [ "$total" -eq 0 ] && exit 0
 
 if [ "$fail_count" -eq 0 ]; then
+	if [ "$skip_count" -gt 0 ]; then
+		trail "ok=${ok_count} skip=${skip_count} skipped:${skip_notes}"
+	fi
+	if [ -n "$current_state" ]; then
+		printf '%s' "$current_state" >"$stamp_file" 2>/dev/null || true
+	fi
 	if [ "$MODE" = "--git-push" ]; then
 		summary="all ${ok_count} checks passed in ${repo_root}"
 		if [ "$skip_count" -gt 0 ]; then
@@ -386,6 +470,7 @@ if [ "$fail_count" -eq 0 ]; then
 	exit 0
 fi
 
+trail "FAILED ${fail_count}/${total} in ${repo_root}"
 printf 'envctl-verify: %d of %d checks failed in %s\n%s\n' \
 	"$fail_count" "$total" "$repo_root" "$failures" >&2
 exit 2
