@@ -22,8 +22,9 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
 | Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
-| Pacotes declarados (aplicáveis) | **54** (29 winget · 15 volta · 10 pip) | **45** (27 apt · 15 volta · 3 uv-pip) | **44** (25 pacman · 15 volta · 3 uv-pip · 1 paru) |
-| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 17 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd, Go, PATH | idem, com **fd via pacman** |
+| Pacotes declarados (aplicáveis) | **55** (30 winget · 15 volta · 10 pip) | **45** (27 apt · 15 volta · 3 uv-pip) | **48** (29 pacman · 15 volta · 3 uv-pip · 1 paru) |
+| **Fase 0: provedores (`run providers`)** | winget (`SST.opencode`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial do opencode + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
+| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 18 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, com **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
 | Variáveis de ambiente | 3 | 2 | 2 |
 | Configs aplicáveis | **21** (7 só-Windows + 14 portáveis) | **19** (5 só-Linux + 14) | **19** (idêntico ao Ubuntu) |
@@ -39,7 +40,26 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 
 **Escopo por subsistema:** `run winget`/`run windows` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
-(Windows usa winget/volta). `run all` despacha por OS e pula o que não é da plataforma.
+(Windows usa winget/volta). `run providers` é portável e roda **antes de tudo** dentro de
+`run all` (fase 0). `run all` despacha por OS e pula o que não é da plataforma.
+
+### Fase 0 — `run providers`
+
+Garante que os CLIs dos agentes existam e estejam atualizados **antes** de qualquer
+provisionamento, para uma máquina nova chegar aos agentes sem passo manual (e para o
+`doctor` de uma máquina recém-instalada não começar com pendências).
+
+| Etapa | O que faz | Detalhe |
+| :--- | :--- | :--- |
+| Volta | instala se faltar | Linux: instalador oficial · Windows: `winget` `Volta.Volta`. Sem `volta self-update`: atualizar = rodar o instalador |
+| Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`volta install node@…`), para os dois não divergirem |
+| `command-code` (`cmdc`) | instala/atualiza via Volta | Compara a versão instalada com o `latest` do npm; Volta resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
+| `opencode` | instala se faltar; **nunca** por npm | Arch: pacote `extra` · Windows: `SST.opencode` (winget) · demais: instalador oficial |
+
+**Regra que a fase 0 respeita:** o envctl só substitui binário que é dele
+(`~/.local/bin`) ou do Volta. Binário de pacote do SO é **reportado**, nunca
+sombreado — uma cópia em `~/.local/bin` venceria no PATH e congelaria a versão ali
+instalada (mesma lição do `fzf`).
 
 **Famílias de distro:** o campo `os:` aceita, além de `windows`/`linux`/`darwin`, as famílias
 `arch`/`cachyos` e `debian`/`ubuntu` (via `entity.MatchOS`). Exemplo real: `cursor-bin` é
@@ -93,6 +113,8 @@ consultado.
 | 6 | `FZF_DEFAULT_COMMAND` só existia no Windows, embora `fzf` seja instalado nos três | **Resolvido** — a variável saiu do manifesto: fzf ≥ 0.47 traz walker nativo (`file,follow,hidden`, skip `.git,node_modules`), e o bootstrap instala a release atual quando a distro traz uma versão antiga (Ubuntu 24.04 traz 0.44.1, sem walker) |
 | 7 | Rigor de auditoria de skills difere: CommandCode validava frontmatter e contagem, OpenCode só a existência do diretório | **Resolvido** — validador compartilhado (`auditSkillTree`) para os dois agentes: presença, frontmatter e contagem vs manifesto, agregados em uma linha por agente (110 checks após a agregação). Uma skill com frontmatter inválido era **ignorada em runtime** com o doctor verde |
 | 8 | `~/.bash_profile`, `.bashrc` e `.profile` referenciavam o shim `~/.local/bin/env` do uv, que nada recriava (o uv só o escreve quando `~/.local/bin` não está no PATH) — todo login shell imprimia erro no stderr | **Resolvido** — `run shell` remove a referência morta; o PATH de `~/.local/bin` é garantido pelo próprio envctl |
+| 9 | O `opencode` tem **dois canais de versão** e o npm não é o mais novo: o pacote npm `opencode-ai` (`latest`) ficou em **1.18.31** (14/09), enquanto as tags do upstream (`anomalyco/opencode`, ex-`sst/opencode`) já estão em **v2.0.7** (17/09) — e é essa linha 2.x que o pacote do Arch (`extra`, 2.0.5) empacota. Instalar por npm/Volta **rebaixaria** a máquina | **Resolvido** — `opencode` é provisionado por pacote do SO (`pacman`/`winget`) ou pelo instalador oficial, nunca por npm; o bootstrap deixou de tentar npm e a fase 0 só reporta binário que não é dela (ver §1) |
+| 10 | `paru` não vinha por padrão no CachyOS e o manifesto Arch não o declarava, embora `run paru` e o `type: paru` (ex.: `cursor-bin`) dependam dele | **Resolvido** — `paru` declarado no bloco pacman (repo `[cachyos]`); no Arch puro, que não tem paru em repo nenhum, o bootstrap constrói do AUR (`base-devel` + `git` também declarados) |
 
 ---
 
@@ -153,6 +175,17 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
 2. Espelhe a entrada no config do opencode **da plataforma correspondente** — declarar um
    LSP no config de um OS que não o instala foi a assimetria #1 deste documento.
+
+**CLI de agente (provedor)** → `manifests/packages.yaml` + `run providers` (fase 0)
+1. Confirme o **canal de versão** antes de escolher o gerenciador: o mesmo produto costuma ter
+   linhas diferentes por canal (pacote do SO ≠ npm ≠ instalador oficial). Foi assim que o
+   `opencode` quase foi rebaixado (assimetria #9).
+2. Se o CLI já existe na máquina mas não é do envctl nem do Volta, **não instale** uma segunda
+   cópia — reporte. Cópia em `~/.local/bin` vence no PATH e congela a versão ali instalada.
+3. Um CLI que o próprio envctl garante entra em `providerCLIs()`
+   (`internal/usecase/provision_providers.go`): com `voltaPkg` ele é atualizável; com
+   `wingetID`/`installer` só é instalado quando falta.
+4. Declare o `check_command` no manifesto para o `doctor` auditar a presença naquela plataforma.
 
 **Sempre**: `gofmt`/`go build`/`go vet`/`go test` + `golangci-lint run --new-from-rev=origin/main`
 antes do push (o `envctl-verify` já cobre os sete automaticamente, no hook e no pre-push).

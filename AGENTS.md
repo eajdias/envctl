@@ -22,6 +22,16 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   (`--hook` static-only, `--git-push` complete, `--dry-run`) and the skips.
 - **`docs/doctor-and-idempotency.md`** — what the audit verifies, `--fix`, the
   atomic backup and log conventions.
+- **Phase 0 — `run providers`** — runs first inside `run all` and guarantees Volta,
+  a default Node runtime and the OpenCode/CommandCode CLIs. It updates what Volta
+  owns and **only reports** anything owned by the OS: installing a second copy
+  under `~/.local/bin` would win on PATH and freeze that version. `opencode` is
+  never installed via npm — the npm channel lags the distro/release line (see
+  asymmetry #9 in the matrix).
+- **`docs/roadmap.md`** — the agreed future work (Termux/Android as an OS, tailscale and
+  cloudflared skills, deep SSH verification between OSes, local provider driving remote
+  providers over SSH, the project rename and running envctl as a background service), each
+  with the context already gathered. Check it before proposing "new" work.
 - **`CHANGELOG.md`** — released work, one section per release. Shipped work never
   stays under `[Unreleased]`.
 

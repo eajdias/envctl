@@ -321,6 +321,24 @@ packages:
   # ============================================================================
   # AI Coding Agents
   # ============================================================================
+  # OpenCode ships per-platform: the Arch family has it in `extra`, Windows has
+  # it in winget, and everywhere else the official installer is used (see the
+  # Linux bootstrap). The npm package is not used — its channel lags upstream
+  # and would shadow a newer distro build.
+  - id: opencode
+    name: OpenCode CLI
+    type: pacman
+    category: ai-agents
+    os: linux
+    check_command: opencode --version
+
+  - id: SST.opencode
+    name: OpenCode CLI
+    type: winget
+    category: ai-agents
+    os: windows
+    check_command: opencode --version
+
   - id: command-code
     name: CommandCode CLI
     type: volta
@@ -583,6 +601,31 @@ packages:
   # ============================================================================
   # Arch Linux / CachyOS (pacman) — skipped automatically where pacman is absent
   # ============================================================================
+  # paru is the AUR helper the `type: paru` entries below rely on. CachyOS ships
+  # it in its own repo (the standard CachyOS install does not include it);
+  # plain Arch has to build it from the AUR, which the Linux bootstrap does when
+  # this entry cannot find it in any repo.
+  - id: paru
+    name: paru (AUR helper)
+    type: pacman
+    os: linux
+    category: system
+    check_command: paru --version
+
+  - id: base-devel
+    name: base-devel (makepkg toolchain)
+    type: pacman
+    os: linux
+    category: toolchain
+    check_command: makepkg --version
+
+  - id: git
+    name: Git
+    type: pacman
+    os: linux
+    category: system
+    check_command: git --version
+
   - id: fish
     name: fish shell
     type: pacman

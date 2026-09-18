@@ -82,6 +82,15 @@ func newRunCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:   "providers",
+		Short: "Phase 0 preflight: ensure Volta, Node and the OpenCode/CommandCode CLIs are present and current",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runProvidersProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "bootstrap",
 		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -175,17 +184,24 @@ func runAllProvisioning() {
 		}
 	}
 
-	total := 6
+	total := 7
 	section := func(n int, text string) string {
 		return fmt.Sprintf("%d/%d %s", n, total, text)
 	}
 
+	// 0. Providers preflight (Volta, Node, OpenCode/CommandCode CLIs). Runs
+	// before everything: the toolchain bootstrap and every Volta-managed package
+	// in the manifests need these to exist, and a current provider CLI is what
+	// makes the agents usable on a fresh machine.
+	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
+	runProvidersProvisioning()
+
 	// 1. Windows 11 Tweaks & Fonts (Windows only)
 	if runtime.GOOS == "windows" {
-		PrintSection(section(1, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
+		PrintSection(section(2, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
 		runWindowsProvisioning()
 	} else {
-		PrintSection(section(1, "Skipping Windows Tweaks (Linux/POSIX environment)"))
+		PrintSection(section(2, "Skipping Windows Tweaks (Linux/POSIX environment)"))
 	}
 
 	// 2. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only.
@@ -194,26 +210,26 @@ func runAllProvisioning() {
 	// toolchain — on a fresh VPS `run all` must bootstrap first, otherwise
 	// every Volta package is skipped as "manager not available".
 	if isLinux {
-		PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
+		PrintSection(section(3, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
 		runBootstrapProvisioning()
 	} else {
-		PrintSection(section(2, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
+		PrintSection(section(3, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
 	}
 
-	// 3. Packages (Winget / APT + Volta + Dotnet + Go)
-	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
+	// 3. Packages (Winget / APT + Volta + Go)
+	PrintSection(section(4, "Provisioning System Packages & Toolchains"))
 	runPackagesProvisioning("")
 
 	// 4. Shell, Env & Configs
-	PrintSection(section(4, "Provisioning Shell, Environment Variables & Config Files"))
+	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
 	runShellProvisioning()
 
 	// 5. Skills
-	PrintSection(section(5, "Provisioning Agent Skills (OpenCode + CommandCode)"))
+	PrintSection(section(6, "Provisioning Agent Skills (OpenCode + CommandCode)"))
 	runSkillsProvisioning()
 
 	// 6. LSPs
-	PrintSection(section(6, "Provisioning Language Server Protocols (LSP)"))
+	PrintSection(section(7, "Provisioning Language Server Protocols (LSP)"))
 	runLSPProvisioning()
 
 	pterm.Println()
@@ -223,6 +239,36 @@ func runAllProvisioning() {
 	)
 
 	PrintSecretGuidance()
+}
+
+func runProvidersProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)...")
+	ctx := context.Background()
+
+	diags, err := appCtx.ProvisionProvidersUC.Execute(ctx)
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed providers preflight: %v", err))
+		return
+	}
+
+	failed := 0
+	for _, d := range diags {
+		if d.Category == entity.DiagOK {
+			pterm.Success.Printf("  • [Providers] %s: %s\n", d.Target, d.Details)
+			continue
+		}
+		failed++
+		pterm.Warning.Printf("  • [Providers] %s: %s\n", d.Target, d.Details)
+		if d.FixHint != "" {
+			pterm.Info.Printf("      fix: %s\n", d.FixHint)
+		}
+	}
+
+	if failed > 0 {
+		spinner.Warning("Providers preflight finished with warnings")
+		return
+	}
+	spinner.Success("Providers ready")
 }
 
 func runBootstrapProvisioning() {

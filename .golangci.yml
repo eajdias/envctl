@@ -20,6 +20,10 @@ linters:
   settings:
     errcheck:
       check-blank: true
+      exclude-functions:
+        # Starts a goroutine and always returns a nil error; the spinner is
+        # cosmetic, so no section should fail on it.
+        - (github.com/pterm/pterm.SpinnerPrinter).Start
     gosec:
       excludes:
         - G104  # unhandled errors on deferred close — too noisy for this codebase

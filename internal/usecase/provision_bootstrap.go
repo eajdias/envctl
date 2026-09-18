@@ -275,13 +275,15 @@ bunx @playwright/cli@latest install-browser chromium`)
 		}
 	}
 
-	// 3. OpenCode CLI - npm global (user prefix) with official script fallback.
+	// 3. OpenCode CLI - official installer into ~/.local/bin.
+	//
+	// Deliberately not through npm: the npm package lags upstream (its channel
+	// sits behind the distro builds) and installing it under ~/.local would win
+	// on PATH, shadowing a newer opencode that pacman/winget already manages.
 	uc.step(ctx, result, "opencode", "OpenCode CLI",
 		`set -e
 export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
-if ! npm install -g --no-audit --no-fund --prefix "$HOME/.local" opencode-ai >/tmp/envctl-opencode-npm.log 2>&1; then
-  curl -fsSL https://opencode.ai/install | bash >/tmp/envctl-opencode-curl.log 2>&1
-fi`)
+curl -fsSL https://opencode.ai/install | bash`)
 
 	// 3.5. CommandCode CLI - npm global (user prefix).
 	uc.step(ctx, result, "cmdc", "CommandCode CLI",
@@ -379,7 +381,39 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		}
 	}
 
-	// 10. python-lsp-server - installed via uv so the `pylsp` binary lands in
+	// 10. paru - the AUR helper the `type: paru` manifest entries need. CachyOS
+	// ships it in its own repo; on plain Arch it is AUR-only, so build it from
+	// source there. Everything here is a no-op off the Arch family.
+	if !uc.hasTool(ctx, "paru") {
+		uc.logger.Info("LinuxBootstrap: provisioning paru (AUR helper)")
+		out, err := uc.runShell(ctx, `set -e
+command -v pacman >/dev/null 2>&1 || exit 0
+if sudo -n pacman -S --needed --noconfirm paru >/dev/null 2>&1; then exit 0; fi
+sudo -n pacman -S --needed --noconfirm base-devel git >/dev/null 2>&1 || true
+BUILD=$(mktemp -d)
+git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$BUILD/paru-bin" >/dev/null 2>&1
+cd "$BUILD/paru-bin" && makepkg -si --noconfirm >/dev/null 2>&1`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: paru provisioning failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "paru (AUR helper)",
+				Details: fmt.Sprintf("paru provisioning failed: %v (%s)", err, out),
+				FixHint: "Install paru from your repo or build it from the AUR, then re-run",
+			})
+		} else if uc.hasTool(ctx, "paru") {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "paru (AUR helper)",
+				Details: "Installed successfully",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "paru (AUR helper)",
+				Details: "Skipped (not an Arch-family host)",
+			})
+		}
+	}
+
+	// 11. python-lsp-server - installed via uv so the `pylsp` binary lands in
 	// ~/.local/bin. Ubuntu 24.04 blocks system pip installs (PEP 668), so pip is
 	// not a viable installer on Linux.
 	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "pylsp") {

@@ -69,6 +69,7 @@ envctl doctor
 envctl doctor --fix
 
 # Provisionamento por subsistema modular
+envctl run providers    # Fase 0: Volta, Node e os CLIs OpenCode/CommandCode prontos e atuais
 envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
@@ -101,6 +102,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks por stack e variáveis de controle.
 - 🧭 [**Matriz OS × Agente**](docs/os-and-agent-matrix.md) — o que é provisionado em cada OS (Windows/Ubuntu/Arch) e em cada agente (OpenCode/CommandCode), assimetrias conhecidas e checklist para adições novas.
+- 🗺️ [**Roadmap**](docs/roadmap.md) — os objetivos acordados para o futuro (Termux/Android, skills de Tailscale/Cloudflared, SSH entre os OS, dispatch remoto, rename do projeto, envctl como serviço de background), cada um com o contexto já levantado.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---
