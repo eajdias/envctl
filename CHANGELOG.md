@@ -9,6 +9,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.138] - 2026-09-18
+
+### 🧪 Verify stack-aware e o tooling das stacks
+
+- **Added**: o `envctl-verify` detecta a stack pelo repositório e roda **só as presentes** — Node/TS (`tsc --noEmit`, `eslint`, `prettier --check`), Python (`ruff check`, `mypy .`, `pytest -q`), SQL (`sqlfluff lint`), shell (`shellcheck`, `shfmt -d`), Docker (`hadolint`) e PowerShell (`Invoke-ScriptAnalyzer`, `Invoke-Pester -CI`) — além da suíte Go que já existia.
+- **Changed**: duas regras de escopo para não virar ruído: **linters só nos arquivos alterados** (mesmo princípio do `--new-from-rev` do CI) e **type checks/testes no repo inteiro**. A ferramenta resolve projeto-primeiro (`node_modules/.bin`, `.venv/bin`, `uv run --no-sync`), e o que não consegue rodar naquele projeto (shim do Volta sem dep local, `uv run` sem virtualenv) vira **skip nomeado**, nunca falha.
+- **Added**: tooling provisionado — `typescript` e `prettier` (volta); `pytest`, `mypy`, `sqlfluff` (uv tool); `shfmt` (apt/pacman/winget); `hadolint` (binário de release no Linux + winget); `PSScriptAnalyzer` e `Pester` como novo tipo de tweak `PSModule` no `windows.yaml` (instalação e verificação idempotentes, escopo CurrentUser).
+- **Fixed**: `PipManager.IsAvailable` também considera o `uv` — o Arch não embarca `python3 -m pip`, então todo o tooling Python era silenciosamente pulado ali.
+- **Fixed**: o check de shell casa por **shebang** além de extensão, porque helpers em `bin/`/`hooks/` não têm extensão — foi assim que o próprio `envctl-verify` passou a ser lintado pelo gate.
+- **Docs**: `docs/verification.md` com a tabela por stack e as regras de escopo; `docs/os-and-agent-matrix.md` (matriz OS × agente, assimetrias resolvidas e checklist de adições).
+- **Nota**: clients de banco (`sqlite3`, `psql`, `mysql`, `redis-cli`) foram **cancelados** por decisão — virão por skills específicas.
+
 ## [v1.2.135] - 2026-09-18
 
 ### 🔎 OpenCode ganha a mesma validação de skills do CommandCode
