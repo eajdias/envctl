@@ -9,6 +9,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.135] - 2026-09-18
+
+### 🔎 OpenCode ganha a mesma validação de skills do CommandCode
+
+- **Fixed**: a auditoria do OpenCode parava em `Exists(skillsDir)` e reportava "Active and deployed" — mas uma skill com frontmatter inválido é **ignorada pelo loader em runtime**, então o doctor dava OK num estado quebrado (falso OK em 40 skills). Os dois agentes agora compartilham `auditSkillTree`: presença, parse e validação de cada `SKILL.md` (o `name` precisa bater com o diretório, `description` não pode ser vazia) e comparação da contagem com o manifesto filtrado por OS.
+- **Changed**: os achados agregam em **uma linha por agente** em vez de uma por skill — a contagem de checks cai de 149 para 110 sem perder sinal (o warning nomeia as skills afetadas e o motivo).
+- **Evidência**: quebrando o `name` de uma skill real → `1 of 40 deployed skills will not load: docker (frontmatter 'name' … does not match directory 'docker')`; restaurando → EXCELLENT novamente.
+
 ## [v1.2.133] - 2026-09-18
 
 ### 🔍 Config escrito pelo agente deixa de ser reportado como drift
