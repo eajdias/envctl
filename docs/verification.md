@@ -20,19 +20,34 @@ projeto para o feedback automático valer ali. O pre-push é global e independe 
 
 ## ✅ O Que o Verificador Roda
 
-`~/.local/bin/envctl-verify` detecta a stack do repositório e executa:
+`~/.local/bin/envctl-verify` detecta a stack pelo conteúdo do repositório e roda **só as
+stacks presentes**. Duas regras de escopo valem para todas elas:
 
-| Check | Por quê |
-| :--- | :--- |
-| `gofmt -l .` | Formatação — barato e sempre cobrado no CI |
-| `go build ./...` | Compilação |
-| `go vet ./...` | Análise estática da stdlib |
-| `go test ./...` | Testes |
-| `GOOS=windows go build/vet ./...` | Windows é alvo suportado: quebra de plataforma aparece aqui, não num runner do CI |
-| `golangci-lint run --new-from-rev=origin/main` | **Mesmo gate do CI**: dívida legada nunca bloqueia um push, finding novo sempre bloqueia |
+- **Linters** rodam apenas nos **arquivos que a mudança toca** (comitted‑não‑pushed + working
+  tree) — o mesmo princípio do `--new-from-rev` do golangci‑lint. Dívida legada não bloqueia
+  um push; o que você acabou de escrever, sim.
+- **Type checks e testes** rodam no repositório inteiro, porque é ali que está o sinal.
 
-Repositórios de outra stack (Python, Node, ...) não são adivinhados: defina um
-`.commandcode/verify.sh` executável no projeto e ele passa a ser o verificador.
+| Stack | Detectada por | Checks |
+| :--- | :--- | :--- |
+| **Go** | `go.mod` | `gofmt -l .` · `go build` · `go vet` · `go test` · `GOOS=windows go build/vet` · `golangci-lint --new-from-rev` |
+| **Node/TS** | `package.json` | `tsc --noEmit` (com `tsconfig.json`) · `eslint` nos arquivos alterados (**só o binário local**, ele resolve os plugins do projeto) · `prettier --check` nos alterados (quando há config) |
+| **Python** | `pyproject.toml`/`setup.py`/`requirements.txt` | `ruff check` nos alterados · `mypy .` (só se o projeto configurou) · `pytest -q` (exit 5 = "nenhum teste" não é falha) |
+| **SQL** | `*.sql` alterados | `sqlfluff lint` (só com `.sqlfluff`/`[tool.sqlfluff]` definindo dialeto) |
+| **Shell** | `*.sh`/`*.bash` **ou shebang** | `shellcheck` · `shfmt -d` |
+| **Docker** | `Dockerfile*` alterado | `hadolint` |
+| **PowerShell** | `*.ps1`/`*.psm1` alterados | `Invoke-ScriptAnalyzer` (Error/Warning) · `Invoke-Pester -CI` quando há `*.Tests.ps1` |
+
+**Ferramenta resolve em cascata:** binário do projeto primeiro (`node_modules/.bin`,
+`.venv/bin`), depois `uv run --no-sync` para Python (nunca instala nada), depois o PATH — a
+versão que o projeto fixou ganha da global.
+
+**Ferramenta ausente não é falha.** Se o binário não existe, o check é pulado em silêncio; se
+ele existe mas não consegue rodar naquele projeto (shim do Volta sem dependência local,
+`uv run` sem virtualenv), o check é **skip** e aparece nomeado no resumo do push.
+
+Para uma stack não coberta — ou para uma definição de "pronto" própria —, um
+`.commandcode/verify.sh` executável no projeto substitui a detecção acima.
 
 ---
 

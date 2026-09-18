@@ -186,6 +186,20 @@ packages:
     category: cli-tools
     check_command: shellcheck --version
 
+  - id: mvdan.shfmt
+    name: shfmt (shell script formatter)
+    type: winget
+    os: windows
+    category: cli-tools
+    check_command: shfmt --version
+
+  - id: hadolint.hadolint
+    name: hadolint (Dockerfile linter)
+    type: winget
+    os: windows
+    category: cli-tools
+    check_command: hadolint --version
+
   - id: GolangCI.golangci-lint
     name: golangci-lint (used by the CI gate and by envctl-verify)
     type: winget
@@ -249,6 +263,18 @@ packages:
     type: volta
     category: volta
     check_command: stylelint --version
+
+  - id: typescript
+    name: TypeScript compiler (tsc) for local type checks
+    type: volta
+    category: volta
+    check_command: tsc --version
+
+  - id: prettier
+    name: Prettier formatter for local format checks
+    type: volta
+    category: volta
+    check_command: prettier --version
 
   - id: sqllens-language-server
     name: SQL Lens Language Server Protocol
@@ -342,6 +368,28 @@ packages:
     type: paru
     os: arch
     category: desktop-apps
+
+  # ============================================================================
+  # Language Tooling (uv-pip, every platform) — the checkers envctl-verify runs
+  # per stack. Installed through `uv tool` when uv is present, pip otherwise.
+  # ============================================================================
+  - id: pytest
+    name: pytest (Python test runner)
+    type: pip
+    category: python-tools
+    check_command: pytest --version
+
+  - id: mypy
+    name: mypy (Python static type checker)
+    type: pip
+    category: python-tools
+    check_command: mypy --version
+
+  - id: sqlfluff
+    name: sqlfluff (SQL linter with dialect support)
+    type: pip
+    category: sql-tools
+    check_command: sqlfluff --version
 
   # ============================================================================
   # Debian / Ubuntu APT Core Packages (Linux VPS & Workstations)
@@ -462,6 +510,13 @@ packages:
     os: linux
     category: cli-tools
     check_command: shellcheck --version
+
+  - id: shfmt
+    name: shfmt (shell script formatter)
+    type: apt
+    os: linux
+    category: cli-tools
+    check_command: shfmt --version
 
   - id: software-properties-common
     name: software-properties-common (PPA/repo management)
@@ -598,6 +653,13 @@ packages:
     os: linux
     category: cli-tools
     check_command: shellcheck --version
+
+  - id: shfmt
+    name: shfmt (shell script formatter)
+    type: pacman
+    os: linux
+    category: cli-tools
+    check_command: shfmt --version
 
   - id: ruff
     name: ruff Python linter

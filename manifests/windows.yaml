@@ -47,3 +47,16 @@ tweaks:
     type: "DWord"
     category: "theme"
 
+  # --- Local verification tooling (PowerShell modules) ---
+  - id: "psmodule-psscriptanalyzer"
+    description: "Install PSScriptAnalyzer so *.ps1 changes can be linted locally by envctl-verify"
+    name: "PSScriptAnalyzer"
+    type: "PSModule"
+    category: "tooling"
+
+  - id: "psmodule-pester"
+    description: "Install Pester, the PowerShell test framework (envctl-verify runs it when *.Tests.ps1 files exist)"
+    name: "Pester"
+    type: "PSModule"
+    category: "tooling"
+

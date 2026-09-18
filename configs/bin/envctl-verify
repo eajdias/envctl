@@ -6,10 +6,17 @@
 #   envctl-verify --hook      CommandCode Stop hook (JSON payload on stdin)
 #   envctl-verify --git-push  git pre-push hook
 #
+# Stacks are detected from the repository itself (go.mod, package.json,
+# pyproject.toml, *.sql, *.sh, Dockerfile, *.ps1) and only the stacks present
+# run. Linters are scoped to the files this change touches — the same rule as
+# golangci-lint's --new-from-rev for Go — while type checks and tests run
+# repo-wide, because that is where their signal lives. Every tool is optional:
+# one that is not installed is skipped silently, never a failure.
+#
 # Exits 2 with the failing output on stderr when a check fails, 0 when
 # everything passes or when the repository has no recognizable stack.
 #
-# Deliberately no timeout: the full suite runs in ~2s on a warm cache, so a
+# Deliberately no timeout: the suite runs in seconds on a warm cache, so a
 # check that hangs is a broken check and should say so instead of being waited
 # out. The Stop hook additionally runs under the engine's own cap.
 
@@ -17,21 +24,41 @@ set -uo pipefail
 
 MODE="--git-push"
 case "${1:-}" in
-  --hook | --git-push) MODE="$1" ;;
+--hook | --git-push) MODE="$1" ;;
 esac
 
 log() { printf 'envctl-verify: %s\n' "$*" >&2; }
+have() { command -v "$1" >/dev/null 2>&1; }
+has_any_file() {
+	for candidate in "$@"; do
+		[ -e "$candidate" ] && return 0
+	done
+	return 1
+}
+
+# resolve_tool prints the project-local binary when one exists — node_modules and
+# a virtualenv pin their own versions, so the local one must win — falling back
+# to PATH. Returns non-zero when the tool is nowhere, so callers skip silently.
+resolve_tool() {
+	for candidate in "node_modules/.bin/$1" ".venv/bin/$1" "venv/bin/$1"; do
+		if [ -x "$candidate" ]; then
+			printf './%s\n' "$candidate"
+			return 0
+		fi
+	done
+	command -v "$1" 2>/dev/null
+}
 
 # Escape hatch for one-off pushes (docs-only, intentionally red tree, ...).
 [ "${ENVCTL_SKIP_VERIFY:-0}" = "1" ] && exit 0
 
 if [ "$MODE" = "--hook" ]; then
-  payload=$(cat)
-  # A retry already carries this hook's own feedback: let the turn end instead
-  # of looping (the engine additionally caps retries at three).
-  case "$payload" in
-    *'"stop_hook_active":true'*) exit 0 ;;
-  esac
+	payload=$(cat)
+	# A retry already carries this hook's own feedback: let the turn end instead
+	# of looping (the engine additionally caps retries at three).
+	case "$payload" in
+	*'"stop_hook_active":true'*) exit 0 ;;
+	esac
 fi
 
 command -v git >/dev/null 2>&1 || exit 0
@@ -40,81 +67,325 @@ cd "$repo_root" || exit 0
 
 fail_count=0
 ok_count=0
+skip_count=0
+skip_notes=""
 failures=""
 
 report() {
-  fail_count=$((fail_count + 1))
-  failures="${failures}
+	fail_count=$((fail_count + 1))
+	failures="${failures}
 --- ${1} ---
 $(printf '%s' "${2:-failed}" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
 }
 
 check() {
-  label="$1"
-  shift
-  out=$("$@" 2>&1)
-  rc=$?
-  if [ "$rc" -eq 0 ]; then
-    ok_count=$((ok_count + 1))
-    return 0
-  fi
-  report "$label" "${out:-exited ${rc}}"
-  return 1
+	label="$1"
+	shift
+	out=$("$@" 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		ok_count=$((ok_count + 1))
+		return 0
+	fi
+	report "$label" "${out:-exited ${rc}}"
+	return 1
 }
 
+# is_tool_unavailable recognises a tool that cannot run in this project at all
+# (a Volta shim with no local dependency, `uv run` without a virtualenv). That is
+# a skip, never a finding.
+is_tool_unavailable() {
+	case "$1" in
+	*"Volta error"* | *"command not found"* | *"not recognized as an internal or external command"* | *"No virtual environment found"*)
+		return 0
+		;;
+	esac
+	return 1
+}
+
+# check_soft runs a tool that may legitimately refuse to work in this project —
+# a Volta shim with no matching local dependency, for instance. That is a skip,
+# not a finding, so it is named in the push summary instead of failing the gate.
+check_soft() {
+	label="$1"
+	shift
+	out=$("$@" 2>&1)
+	rc=$?
+	if [ "$rc" -eq 0 ]; then
+		ok_count=$((ok_count + 1))
+		return 0
+	fi
+	if is_tool_unavailable "$out"; then
+		skip_count=$((skip_count + 1))
+		skip_notes="${skip_notes} ${label};"
+		return 0
+	fi
+	report "$label" "${out:-exited ${rc}}"
+	return 1
+}
+
+# check_files <label> <newline-separated files> <command...> runs a tool on the
+# listed files, passing them as separate arguments so paths with spaces survive.
+check_files() {
+	label="$1"
+	list="$2"
+	shift 2
+	mapfile -t selected <<<"$list"
+	check "$label" "$@" "${selected[@]}"
+}
+
+# check_soft_files is check_files for tools that may skip themselves.
+check_soft_files() {
+	label="$1"
+	list="$2"
+	shift 2
+	mapfile -t selected <<<"$list"
+	check_soft "$label" "$@" "${selected[@]}"
+}
+
+# check_ok_codes runs a command that signals "nothing to do" with its own exit
+# code (pytest returns 5 when it collects no tests, for instance).
+check_ok_codes() {
+	label="$1"
+	codes="$2"
+	shift 2
+	out=$("$@" 2>&1)
+	rc=$?
+	for code in $codes; do
+		if [ "$rc" -eq "$code" ]; then
+			ok_count=$((ok_count + 1))
+			return 0
+		fi
+	done
+	if is_tool_unavailable "$out"; then
+		skip_count=$((skip_count + 1))
+		skip_notes="${skip_notes} ${label};"
+		return 0
+	fi
+	report "$label" "${out:-exited ${rc}}"
+	return 1
+}
+
+# --- files this change touches (committed but unpushed, plus the working tree)
+base=""
+for ref in origin/main origin/master; do
+	if git rev-parse --verify -q "$ref" >/dev/null 2>&1; then
+		base="$ref"
+		break
+	fi
+done
+
+changed=$(
+	{
+		[ -n "$base" ] && git diff --name-only --diff-filter=d "$base" 2>/dev/null
+		git diff --name-only --diff-filter=d HEAD 2>/dev/null
+		git ls-files --others --exclude-standard 2>/dev/null
+	} | sort -u
+)
+
+# changed_matching <extended-regex> prints the changed files that still exist and
+# match the pattern.
+changed_matching() {
+	[ -n "$changed" ] || return 0
+	printf '%s\n' "$changed" | grep -Ei "$1" | while IFS= read -r file; do
+		[ -f "$file" ] && printf '%s\n' "$file"
+	done
+}
+
+# --- Go ---------------------------------------------------------------------
 check_go() {
-  if command -v gofmt >/dev/null 2>&1; then
-    unformatted=$(gofmt -l . 2>/dev/null)
-    if [ -n "$unformatted" ]; then
-      report "gofmt -l ." "$unformatted"
-    else
-      ok_count=$((ok_count + 1))
-    fi
-  fi
+	if have gofmt; then
+		unformatted=$(gofmt -l . 2>/dev/null)
+		if [ -n "$unformatted" ]; then
+			report "gofmt -l ." "$unformatted"
+		else
+			ok_count=$((ok_count + 1))
+		fi
+	fi
 
-  check "go build ./..." go build ./...
-  check "go vet ./..." go vet ./...
-  check "go test ./..." go test ./...
+	check "go build ./..." go build ./...
+	check "go vet ./..." go vet ./...
+	check "go test ./..." go test ./...
 
-  # Windows is a supported target: cross-compiling here catches a
-  # platform-specific break before CI spends a runner on it.
-  check "GOOS=windows go build ./..." env GOOS=windows go build ./...
-  check "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
+	# Windows is a supported target: cross-compiling here catches a
+	# platform-specific break before CI spends a runner on it.
+	check "GOOS=windows go build ./..." env GOOS=windows go build ./...
+	check "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
 
-  # Lint parity with CI, which gates on issues introduced by the change: the
-  # existing debt never blocks a push, new findings always do.
-  if command -v golangci-lint >/dev/null 2>&1; then
-    base=""
-    for ref in origin/main origin/master; do
-      if git rev-parse --verify -q "$ref" >/dev/null 2>&1; then
-        base="$ref"
-        break
-      fi
-    done
-    if [ -n "$base" ]; then
-      check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
-    fi
-  fi
+	# Lint parity with CI, which gates on issues introduced by the change: the
+	# existing debt never blocks a push, new findings always do.
+	if have golangci-lint && [ -n "$base" ]; then
+		check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
+	fi
 }
 
+# --- Node / TypeScript ------------------------------------------------------
+check_node() {
+	code_files=$(changed_matching '\.(js|jsx|mjs|cjs|ts|tsx)$')
+	style_files=$(changed_matching '\.(css|scss|less)$')
+
+	if [ -f tsconfig.json ] && tsc_bin=$(resolve_tool tsc); then
+		check_soft "tsc --noEmit" "$tsc_bin" --noEmit
+	fi
+
+	# ESLint resolves the project's config and plugins from node_modules, so only
+	# the local binary is trustworthy here: a global eslint fails on the project's
+	# own config and would report that as if it were a finding.
+	if [ -x node_modules/.bin/eslint ] &&
+		has_any_file eslint.config.js eslint.config.mjs eslint.config.cjs &&
+		[ -n "$code_files" ]; then
+		check_files "eslint (changed files)" "$code_files" ./node_modules/.bin/eslint
+	fi
+
+	if [ -n "$code_files$style_files" ] && prettier_bin=$(resolve_tool prettier) &&
+		{ has_any_file .prettierrc .prettierrc.json .prettierrc.yml .prettierrc.yaml .prettierrc.js .prettierrc.cjs prettier.config.js prettier.config.cjs .prettierrc.toml ||
+			grep -q '"prettier"' package.json 2>/dev/null; }; then
+		check_soft_files "prettier --check (changed files)" "$code_files
+$style_files" "$prettier_bin" --check
+	fi
+}
+
+# python_tool resolves a Python tool to an argument list: the project's own
+# virtualenv first, then `uv run --no-sync` (which never installs anything), then
+# whatever is on PATH. The venv matters because a Python tool must see the
+# project's dependencies — a bare global pytest cannot import the package.
+python_tool() {
+	for candidate in ".venv/bin/$1" "venv/bin/$1"; do
+		if [ -x "$candidate" ]; then
+			printf './%s\n' "$candidate"
+			return 0
+		fi
+	done
+	if [ -f pyproject.toml ] && have uv; then
+		printf 'uv run --no-sync %s\n' "$1"
+		return 0
+	fi
+	command -v "$1" 2>/dev/null
+}
+
+# --- Python -----------------------------------------------------------------
+check_python() {
+	py_files=$(changed_matching '\.py$')
+	test_files=$(changed_matching '(^|/)test_.*\.py$|_test\.py$')
+
+	if [ -n "$py_files" ] && ruff_list=$(python_tool ruff); then
+		read -r -a ruff_cmd <<<"$ruff_list"
+		check_files "ruff check (changed files)" "$py_files" "${ruff_cmd[@]}" check
+	fi
+
+	# A type checker only runs where the project configured one: without that, its
+	# defaults would report findings the project never agreed to.
+	if mypy_list=$(python_tool mypy) && has_any_file mypy.ini .mypy.ini setup.cfg pyproject.toml &&
+		grep -qs '\[mypy\]\|\[tool\.mypy\]' mypy.ini .mypy.ini setup.cfg pyproject.toml 2>/dev/null; then
+		read -r -a mypy_cmd <<<"$mypy_list"
+		check_soft "mypy ." "${mypy_cmd[@]}" .
+	fi
+
+	# pytest exits 5 when it collects nothing; that is not a failure.
+	if pytest_list=$(python_tool pytest) && { has_any_file tests pytest.ini conftest.py tox.ini || [ -n "$test_files" ]; }; then
+		read -r -a pytest_cmd <<<"$pytest_list"
+		check_ok_codes "pytest -q" "0 5" "${pytest_cmd[@]}" -q
+	fi
+}
+
+# --- SQL --------------------------------------------------------------------
+check_sql() {
+	sql_files=$(changed_matching '\.sql$')
+	[ -n "$sql_files" ] || return 0
+	sqlfluff_bin=$(resolve_tool sqlfluff) || return 0
+	# sqlfluff's defaults are opinionated; lint only where the project chose a
+	# dialect and ruleset.
+	if has_any_file .sqlfluff .sqlfluffignore || grep -qs '\[tool\.sqlfluff\]' pyproject.toml 2>/dev/null; then
+		check_files "sqlfluff lint (changed files)" "$sql_files" "$sqlfluff_bin" lint --disable-progress-bar
+	fi
+}
+
+# --- Shell ------------------------------------------------------------------
+# Shell scripts are matched by extension or by shebang, because helper scripts
+# (bin/, hooks/) usually carry no extension at all.
+changed_shell_files() {
+	[ -n "$changed" ] || return 0
+	while IFS= read -r file; do
+		[ -f "$file" ] || continue
+		case "$file" in
+		*.sh | *.bash) printf '%s\n' "$file" ;;
+		*)
+			if head -n 1 "$file" 2>/dev/null | grep -qE '^#!.*(/?(ba|da|z|k)?sh|env[[:space:]]+(ba|da|z|k)?sh)'; then
+				printf '%s\n' "$file"
+			fi
+			;;
+		esac
+	done <<<"$changed"
+}
+
+check_shell() {
+	sh_files=$(changed_shell_files)
+	[ -n "$sh_files" ] || return 0
+
+	if have shellcheck; then
+		check_files "shellcheck (changed scripts)" "$sh_files" shellcheck
+	fi
+	if have shfmt; then
+		check_files "shfmt -d (changed scripts)" "$sh_files" shfmt -d
+	fi
+}
+
+# --- Docker -----------------------------------------------------------------
+check_docker() {
+	dockerfiles=$(changed_matching '(^|/)(Dockerfile[^/]*|.*\.Dockerfile)$')
+	[ -n "$dockerfiles" ] || return 0
+	if have hadolint; then
+		check_files "hadolint (changed Dockerfiles)" "$dockerfiles" hadolint
+	fi
+}
+
+# --- PowerShell -------------------------------------------------------------
+check_powershell() {
+	ps_files=$(changed_matching '\.(ps1|psm1|psd1)$')
+	[ -n "$ps_files" ] || return 0
+	have pwsh || return 0
+
+	if pwsh -NoProfile -NonInteractive -Command 'if (Get-Module -ListAvailable PSScriptAnalyzer) { exit 0 } else { exit 1 }' >/dev/null 2>&1; then
+		# shellcheck disable=SC2016  # PowerShell must see its own variables, not bash
+		check "Invoke-ScriptAnalyzer (changed files)" env "ENVCTL_PS_FILES=$ps_files" pwsh -NoProfile -NonInteractive -Command \
+			'Invoke-ScriptAnalyzer -Path (($env:ENVCTL_PS_FILES -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -Severity Error,Warning -EnableExit'
+	fi
+
+	if printf '%s\n' "$ps_files" | grep -qi 'Tests\.ps1$' &&
+		pwsh -NoProfile -NonInteractive -Command 'if (Get-Module -ListAvailable Pester) { exit 0 } else { exit 1 }' >/dev/null 2>&1; then
+		check "Invoke-Pester" pwsh -NoProfile -NonInteractive -Command 'Invoke-Pester -CI -Output Minimal'
+	fi
+}
+
+# --- run --------------------------------------------------------------------
 # A repository-local verifier wins: a project can define exactly what its
 # definition of done is without touching this script.
 if [ -x .commandcode/verify.sh ]; then
-  check ".commandcode/verify.sh" ./.commandcode/verify.sh
-elif [ -f go.mod ]; then
-  check_go
+	check ".commandcode/verify.sh" ./.commandcode/verify.sh
+else
+	[ -f go.mod ] && check_go
+	[ -f package.json ] && check_node
+	has_any_file pyproject.toml setup.py setup.cfg requirements.txt && check_python
+	check_sql
+	check_shell
+	check_docker
+	check_powershell
 fi
 
 total=$((ok_count + fail_count))
 [ "$total" -eq 0 ] && exit 0
 
 if [ "$fail_count" -eq 0 ]; then
-  if [ "$MODE" = "--git-push" ]; then
-    log "all ${ok_count} checks passed in ${repo_root}"
-  fi
-  exit 0
+	if [ "$MODE" = "--git-push" ]; then
+		summary="all ${ok_count} checks passed in ${repo_root}"
+		if [ "$skip_count" -gt 0 ]; then
+			summary="${summary} (skipped, tool unavailable here:${skip_notes})"
+		fi
+		log "$summary"
+	fi
+	exit 0
 fi
 
 printf 'envctl-verify: %d of %d checks failed in %s\n%s\n' \
-  "$fail_count" "$total" "$repo_root" "$failures" >&2
+	"$fail_count" "$total" "$repo_root" "$failures" >&2
 exit 2

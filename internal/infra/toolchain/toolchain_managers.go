@@ -179,6 +179,12 @@ func (p *PipManager) Type() entity.PackageType {
 }
 
 func (p *PipManager) IsAvailable(ctx context.Context) bool {
+	// uv is the preferred installer (isolated tool envs, PEP 668-safe) and it
+	// needs no system pip — which Arch does not ship by default, so a
+	// pip-only check would silently skip every Python tool there.
+	if execTool(ctx, "uv", "--version").Run() == nil {
+		return true
+	}
 	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "--version")
 	return cmd.Run() == nil
 }

@@ -450,7 +450,17 @@ if command -v fish >/dev/null 2>&1; then
 fi
 echo "Go PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
 
-	// 15. fzf - a distro build can predate the built-in directory walker
+	// 15. hadolint - Dockerfile linter (no apt/pacman package upstream; same
+	// release-binary pattern as gh/delta/yq). envctl-verify lints changed
+	// Dockerfiles with it.
+	uc.step(ctx, result, "hadolint", "hadolint (Dockerfile linter)",
+		`set -e
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) HAD_ARCH=x86_64;; aarch64|arm64) HAD_ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
+curl -fsSL "https://github.com/hadolint/hadolint/releases/latest/download/hadolint-linux-${HAD_ARCH}" -o "$HOME/.local/bin/hadolint"
+chmod +x "$HOME/.local/bin/hadolint"
+"$HOME/.local/bin/hadolint" --version`)
+
+	// 16. fzf - a distro build can predate the built-in directory walker
 	// (0.47), and without it fzf falls back to `find`: slow and blind to
 	// ignore-files. Install the current release into ~/.local/bin only when
 	// needed, so an up-to-date distro package stays (it also ships the shell

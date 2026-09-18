@@ -44,6 +44,20 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		}
 		return false, "Feature is disabled or not present", nil
 
+	case "psmodule":
+		psScript := fmt.Sprintf(
+			`if (Get-Module -ListAvailable -Name "%s") { Write-Output "INSTALLED" } else { Write-Output "MISSING" }`,
+			tweak.Name)
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return false, "", fmt.Errorf("failed to check PowerShell module %s: %w", tweak.Name, err)
+		}
+		if strings.Contains(string(out), "INSTALLED") {
+			return true, "PowerShell module available", nil
+		}
+		return false, "PowerShell module not installed", nil
+
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
 $path = "%s"
@@ -104,6 +118,29 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 		}
 		if err != nil {
 			return fmt.Errorf("failed to enable feature %s: %s (%w)", tweak.Name, string(out), err)
+		}
+		return nil
+
+	case "psmodule":
+		// CurrentUser scope on purpose: installing for all users needs
+		// elevation, and envctl runs unprivileged.
+		psScript := fmt.Sprintf(`
+if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+}
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+Install-Module -Name "%s" -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop`, tweak.Name)
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
+		out, err := cmd.CombinedOutput()
+		if m.logger != nil {
+			exitCode := 0
+			if cmd.ProcessState != nil {
+				exitCode = cmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to install PowerShell module %s: %s (%w)", tweak.Name, string(out), err)
 		}
 		return nil
 

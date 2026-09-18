@@ -618,6 +618,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},
 			{"go", "Go programming language SDK"},
 			{"fzf", "fzf (built-in directory walker)"},
+			{"hadolint", "hadolint (Dockerfile linter)"},
 		}
 
 		// fzf needs to be new enough to own its directory walker (0.47+):
