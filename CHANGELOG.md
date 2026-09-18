@@ -9,6 +9,41 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### ✅ Quality Gates locais (hook Stop do CommandCode + pre-push do git)
+
+- **Added**: `~/.local/bin/envctl-verify` — verificador único com detecção de stack (Go, ou `.commandcode/verify.sh` do projeto como override): `gofmt -l`, `go build`, `go vet`, `go test`, `GOOS=windows go build/vet` (quebra de plataforma aparece localmente, não num runner) e `golangci-lint --new-from-rev` com o mesmo gate de "somente findings novos" do CI — dívida legada nunca bloqueia, finding novo sempre bloqueia.
+- **Added**: hook `Stop` do CommandCode (`~/.commandcode/settings.json`) rodando o verificador no fim de cada turno: em falha, `exit 2` devolve o stderr com o diagnóstico ao modelo, que corrige no mesmo turno. Anti-loop via `stop_hook_active`; escotilha `ENVCTL_SKIP_VERIFY=1`.
+- **Added**: pre-push global do git (`core.hooksPath` → `~/.config/git/hooks/pre-push`): nenhum push sai sem verificação, de qualquer agente ou do terminal. Como `core.hooksPath` sobrepõe `.git/hooks` de todos os repositórios, o hook deployado **encadeia primeiro o pre-push local do repositório** (husky e afins seguem funcionando).
+- **Added**: auditoria `Verify` no `doctor` (script e hook presentes e executáveis) — drift do wiring vira `WARN`.
+
+### 🧹 Higiene do store do OpenCode (`run cleanup`)
+
+- **Added**: leitura do header SQLite (`page size`/`page count`/`freelist`) em Go puro — sem dependência nova — com `VACUUM` **somente quando há páginas livres**: dado vivo nunca é reescrito por trás do usuário. Store travado por um opencode em execução é reportado, não repetido. O `doctor` reusa o mesmo helper, então threshold, caminho (respeitando `XDG_DATA_HOME`) e medição não divergem.
+- **Fixed**: `opencode.db` de 946 MB → 134 MB no host de referência (811 MB eram páginas livres), com `integrity_check: ok` e as 19 sessões preservadas.
+
+### 🛡️ Config não-destrutivo e poda com quarentena
+
+- **Added**: `merge:` em `ConfigFile` com dois modos — `ssh_hosts` preserva as stanzas `Host` do usuário que o template não define (inseridas **antes** do `Host *`, para manter a precedência do OpenSSH) e `json_deps` faz união de `dependencies`/`devDependencies` mantendo o template autoritativo. Ambos idempotentes; arquivo ilegível é preservado com `WARN` em vez de sobrescrito.
+- **Fixed**: `~/.ssh/config` e `~/package.json` deixam de ser sobrescritos pelo template — o primeiro apagava hosts do usuário silenciosamente.
+- **Changed**: skills obsoletas vão para `<dir do agente>/.envctl-trash/skills/<nome>-<timestamp>` em vez de `os.RemoveAll`, permanecendo recuperáveis.
+- **Fixed**: arquivo recém-criado era rotulado "Already up to date"; agora `Created` / `Updated` / `Already up to date`.
+
+### 🐧 Arch/CachyOS (distro-aware) e fish
+
+- **Added**: detecção de distribuição via `/etc/os-release` (`entity.DetectedDistro`, cacheada com `sync.Once`) e `entity.MatchOS`, que resolve tanto os nomes de plataforma (`windows`, `linux`, `darwin`) quanto as famílias de distro (`arch`, `cachyos`, `debian`, `ubuntu`, incluindo listas `arch,cachyos`). Todos os filtros `os:` passam a usá-lo (`provision_packages`, `provision_lsp`, `provision_shell`, `provision_skills`, `doctor_audit`, `snapshot_sync`), então `os: arch` deixa de ser ignorado em silêncio.
+- **Added**: fish como alvo de primeira classe na persistência de ambiente (`set -gx` em `~/.config/fish/config.fish`, além de `~/.profile` e `~/.bashrc`) — em hosts cujo shell de login é fish (CachyOS, Arch) as variáveis (`ENVCTL_TEMP`, PATH) não chegavam ao shell interativo. `EnsureEnvVars` agora exige a declaração em **todos** os arquivos de shell, não em um só, e `withinHome` impede escrita fora do HOME.
+- **Fixed**: 8 entradas do bloco `pacman` apontavam para pacotes inexistentes (`fd-pacman`, `fzf-pacman`, `bat-pacman`, `ripgrep-pacman`, `tree-pacman`, `shellcheck-pacman`, `python-requests-pacman`, `python-openpyxl-pacman`), fazendo `pacman -S` falhar em qualquer host sem a ferramenta; nomes reais confirmados com `pacman -Si`.
+- **Fixed**: `npm install -g` fixa o prefixo em `~/.local` (o npm da distro escreveria em `/usr/lib/node_modules`, exigindo root), o pip prefere `uv tool install` e só usa `--break-system-packages` quando o interpretador se declara PEP 668 "externally managed", e o fallback do `fd` usa pacman ou apt conforme a distro.
+
+### 🗑️ Ferramentas fora do stack
+
+- **Removed**: rustup/cargo/rust-analyzer, intelephense (PHP LSP) e Oh-My-Posh saíram de ponta a ponta (bootstrap, `RustupManager`, PATH do cargo, `lsp.yaml`, winget, tema e `~/.poshthemes`, init do perfil PowerShell e o tweak de Nerd Font que passava por `oh-my-posh font install`). Máquinas que já rodaram o bootstrap antigo convergem via novas entradas de `cleanup`. LSPs: 18 → 16.
+- **Changed**: Windows Terminal aponta para `Cascadia Mono`, fonte que acompanha o Windows Terminal.
+
+### 🔧 Lint do gate de CI
+
+- **Fixed**: 7 findings introduzidos pelas mudanças acima (errcheck, G301, G703, G204) — erro de `ExpandUserPath` tratado, diretórios criados com 0750 e supressões inline justificadas nos dois `exec` cujo argv nunca passa por shell.
+
 ### 🧪 3 skills novas: TDD, docs-sync, variant-analysis (38 → 41)
 
 - **Added**: **`test-driven-development`** — ciclo red-green-refactor em TS/Node (vitest), Python (pytest) e Go (`go test`): teste falhando primeiro, código mínimo depois. Ideia de obra/superpowers (MIT), ciclo e exemplos escritos do zero para as 3 linguagens, com wiring para `universal-test-runner` (execução/cobertura) + `verification-before-completion` (gate final). Uma skill única, não três especializadas: o núcleo (lei de ferro, racionalizações, red flags, checklist) é idêntico e só os comandos de ciclo mudam.

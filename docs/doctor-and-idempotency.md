@@ -29,6 +29,8 @@ envctl doctor
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de 41 Skills de Agentes**:
    - Existência e conformidade de todas as 41 Skills em `~/.config/opencode/skills/`.
+7. **Verificação Local (`Verify`)**:
+   - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 
 ---
 

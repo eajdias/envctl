@@ -34,6 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Ecossistema OpenCode & CommandCode com 41 Skills**: `opencode.json`, `dcp.jsonc`, plugins e **41 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via volta) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
+- **Quality Gates Locais**: Verificador único conectado ao hook `Stop` do CommandCode (diagnóstico de volta ao modelo no mesmo turno) e a um pre-push global do git (push bloqueado se `gofmt`, build, vet, testes, cross-compile Windows ou lint — com o mesmo gate de "somente findings novos" do CI — falharem). Veja [docs/verification.md](docs/verification.md).
 - **Orquestração de Subagentes Remotos**: Skill `vps-agent-dispatch` para delegar tarefas autônomas para servidores VPS via SSH.
 
 ---
@@ -98,6 +99,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 - 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 41 Skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
 - ©️ [**Atribuição de Skills**](docs/skills-attribution.md) — De onde veio cada skill adotada de terceiros (autor + repositório), o que foi adaptado e como creditar skill nova.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
+- ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks executados e variáveis de controle.
 - 📐 [**Princípios & Decisões Arquiteturais (ADRs)**](docs/principles.md) — Diretrizes de idempotência, isolamento e contratos de repositório.
 
 ---
