@@ -604,7 +604,7 @@ packages:
     category: cli-tools
     check_command: hyperfine --version
 
-  - id: shellcheck-pacman
+  - id: shellcheck
     name: shellcheck (bash script linting)
     type: pacman
     os: linux
@@ -618,35 +618,35 @@ packages:
     category: cli-tools
     check_command: ruff --version
 
-  - id: tree-pacman
+  - id: tree
     name: tree directory visualizer
     type: pacman
     os: linux
     category: cli-tools
     check_command: tree --version
 
-  - id: fzf-pacman
+  - id: fzf
     name: fzf fuzzy finder
     type: pacman
     os: linux
     category: cli-tools
     check_command: fzf --version
 
-  - id: bat-pacman
+  - id: bat
     name: bat cat clone
     type: pacman
     os: linux
     category: cli-tools
     check_command: bat --version
 
-  - id: fd-pacman
+  - id: fd
     name: fd file search
     type: pacman
     os: linux
     category: cli-tools
     check_command: fd --version
 
-  - id: ripgrep-pacman
+  - id: ripgrep
     name: ripgrep (rg)
     type: pacman
     os: linux
@@ -674,14 +674,14 @@ packages:
     category: cli-tools
     check_command: python3 -c "import yaml"
 
-  - id: python-requests-pacman
+  - id: python-requests
     name: requests (HTTP client for python agent scripts)
     type: pacman
     os: linux
     category: cli-tools
     check_command: python3 -c "import requests"
 
-  - id: python-openpyxl-pacman
+  - id: python-openpyxl
     name: openpyxl (Excel xlsx read/write for python agent scripts)
     type: pacman
     os: linux
