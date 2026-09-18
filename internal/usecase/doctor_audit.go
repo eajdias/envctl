@@ -212,6 +212,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				// template (ssh host stanzas, extra dependencies); a byte
 				// comparison would always diverge.
 				details = "Present on disk (merged with user content)"
+			case cf.RuntimeManaged:
+				// The agent writes to this file while it runs (CommandCode
+				// appends approved commands to its permission list).
+				// Provisioning realigns it to the template, so a byte
+				// comparison between runs would always report drift.
+				details = "Present on disk (runtime-managed by the agent; provisioning realigns it)"
 			default:
 				if src, err := uc.fsManager.ReadFile(cf.Source); err == nil {
 					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {

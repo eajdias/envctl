@@ -110,6 +110,7 @@ config_files:
     destination: "~/.commandcode/settings.json"
     strict_acl: false
     category: "commandcode"
+    runtime_managed: true
 
   - id: commandcode_agents_manifest
     description: "CommandCode global rules manifesto for Windows workstations (auto-loaded from ~/.commandcode/AGENTS.md)"

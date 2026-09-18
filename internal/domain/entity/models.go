@@ -79,7 +79,12 @@ type ConfigFile struct {
 	OS            string    `yaml:"os,omitempty"`              // "windows", "linux", "darwin", distro family ("arch"/"debian") or empty for all
 	SeedIfMissing bool      `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
 	Merge         MergeMode `yaml:"merge,omitempty"`           // non-destructive merge with the existing user content
-	Executable    bool      `yaml:"executable,omitempty"`      // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
+	// RuntimeManaged marks a file the agent itself writes to while it runs
+	// (CommandCode appends approved commands to settings.json). Provisioning
+	// still realigns it to the template — that is the cleanup — but the audit
+	// must not report the runtime's own writes as drift.
+	RuntimeManaged bool `yaml:"runtime_managed,omitempty"`
+	Executable     bool `yaml:"executable,omitempty"` // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
 }
 
 // Skill represents an agent skill deployed to OpenCode and CommandCode.
