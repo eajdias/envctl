@@ -217,13 +217,6 @@ packages:
     category: runtimes
     check_command: dotnet --version
 
-  - id: Rustlang.Rustup
-    name: Rustup Rust Toolchain
-    type: winget
-    os: windows
-    category: runtimes
-    check_command: rustup --version
-
   # ============================================================================
   # Volta Node.js & Global Ecosystem
   # ============================================================================
@@ -323,13 +316,6 @@ packages:
     type: winget
     os: windows
     category: desktop-apps
-
-  - id: JanDeDobbeleer.OhMyPosh
-    name: Oh My Posh Prompt Engine
-    type: winget
-    os: windows
-    category: desktop-apps
-    check_command: oh-my-posh --version
 
   - id: Termius.Termius
     name: Termius SSH Client

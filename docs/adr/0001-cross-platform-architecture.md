@@ -14,7 +14,7 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 
 ### 1. Clean Architecture em Go
 - **Domínio Puro**: Entidades `Package`, `ConfigFile`, `Skill`, `LSP`, `Diagnostic` e interfaces de repositório isoladas de detalhes de sistema operacional.
-- **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Volta`, `Go`, `Rustup`, `Dotnet Tool`, e `UV/Pip`.
+- **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Pacman`, `Paru`, `Volta`, `Go`, `Dotnet Tool`, e `UV/Pip`.
 - **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`, `darwin`).
 
 ### 2. Standalone Self-Contained Binary (`//go:embed`)

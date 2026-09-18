@@ -34,13 +34,12 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 3. **Configuração de Shell e Ambiente:**
    - Variáveis de ambiente (`NODE_PATH`, `ENVCTL_TEMP`).
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).
-   - Terminal: Implantação de `.bashrc`, `.bash_profile`, Oh-My-Posh e `settings.json` do terminal com backup atômico.
+   - Terminal: Implantação de `.bashrc`, `.bash_profile` e `settings.json` do terminal com backup atômico.
 4. **Toolchains & Language Servers (LSPs):**
    - Volta: Node.js e pacotes LSP globais (`typescript`, `pyright`, `bash-ls`, `dockerfile-ls`, `yaml-ls`, `sqllens`, etc.).
    - Python: `uv`, `ruff`.
    - Go: `gopls`.
    - .NET: `csharp-ls`.
-   - Rust: `rustup component add rust-analyzer`.
 5. **Ecossistema OpenCode & CommandCode com 41 skills:**
    - Implantação de `opencode.json`, `dcp.jsonc`, `package.json` e `AGENTS.md`.
    - Extração das 41 Skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.

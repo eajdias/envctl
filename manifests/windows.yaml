@@ -47,8 +47,3 @@ tweaks:
     type: "DWord"
     category: "theme"
 
-  - id: "meslo-nerd-font"
-    description: "Install MesloLGM Nerd Font for Terminal & Editor icons"
-    name: "Meslo"
-    type: "Font"
-    category: "font"

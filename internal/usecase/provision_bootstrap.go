@@ -16,7 +16,7 @@ import (
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
 // the global OpenCode and CommandCode environments on Ubuntu servers: Volta +
 // Node, the OpenCode CLI, the CommandCode CLI, and the user-local CLI tools
-// (gh, delta, yq, uv, ruff, oh-my-posh, fd).
+// (gh, delta, yq, uv, ruff, pylsp, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    repository.FileSystemManager
@@ -48,15 +48,13 @@ func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
 }
 
 // linuxToolchainEnv builds an environment that resolves Volta shims,
-// user-local binaries, Go, and Rustup/Cargo, shared by the bootstrap and
-// doctor use cases.
+// user-local binaries and Go, shared by the bootstrap and doctor use cases.
 func linuxToolchainEnv(home string) []string {
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
-	cargoBin := filepath.Join(home, ".cargo", "bin")
 	goBin := "/usr/local/go/bin"
 	userGoBin := filepath.Join(home, "go", "bin")
-	path := strings.Join([]string{localBin, voltaBin, cargoBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
+	path := strings.Join([]string{localBin, voltaBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
 	env := []string{
 		"PATH=" + path,
 		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
@@ -88,8 +86,8 @@ func toolAvailable(ctx context.Context, name string) bool {
 }
 
 // ensureProcessToolchainPath mutates the process environment so that Volta
-// shims, user-local binaries, Go, and Rustup/Cargo are resolvable by
-// subsequent provisioning steps running in the same process.
+// shims, user-local binaries and Go are resolvable by subsequent provisioning
+// steps running in the same process.
 func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	home := uc.userHome()
 	if home == "" {
@@ -97,12 +95,11 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	}
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
-	cargoBin := filepath.Join(home, ".cargo", "bin")
 	goBin := "/usr/local/go/bin"
 	userGoBin := filepath.Join(home, "go", "bin")
 	cur := os.Getenv("PATH")
-	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) || !strings.Contains(cur, cargoBin) {
-		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, cargoBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
+	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
+		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
 	}
 	if os.Getenv("VOLTA_HOME") == "" {
 		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
@@ -317,12 +314,7 @@ chmod +x "$HOME/.local/bin/yq"`)
 		`set -e
 curl -LsSf https://astral.sh/uv/install.sh | sh`)
 
-	// 8. oh-my-posh - official installer (installs to ~/.local/bin).
-	uc.step(ctx, result, "oh-my-posh", "Oh-My-Posh prompt engine",
-		`set -e
-curl -s https://ohmyposh.dev/install.sh | bash -s`)
-
-	// 9. ruff - installed via uv (user-local tool).
+	// 8. ruff - installed via uv (user-local tool).
 	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "ruff") {
 		uc.logger.Info("LinuxBootstrap: installing ruff via uv")
 		out, err := uc.runShell(ctx, `"$HOME/.local/bin/uv" tool install ruff`)
@@ -341,7 +333,7 @@ curl -s https://ohmyposh.dev/install.sh | bash -s`)
 		}
 	}
 
-	// 10. fd - Debian exposes it as `fdfind`, Arch ships plain `fd`. Bootstrap
+	// 9. fd - Debian exposes it as `fdfind`, Arch ships plain `fd`. Bootstrap
 	// runs before the packages step, so install it here as a best-effort
 	// fallback through whichever package manager the host actually has.
 	if !uc.hasTool(ctx, "fd") {
@@ -377,7 +369,7 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		}
 	}
 
-	// 11. python-lsp-server - installed via uv so the `pylsp` binary lands in
+	// 10. python-lsp-server - installed via uv so the `pylsp` binary lands in
 	// ~/.local/bin. Ubuntu 24.04 blocks system pip installs (PEP 668), so pip is
 	// not a viable installer on Linux.
 	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "pylsp") {
@@ -398,11 +390,11 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 		}
 	}
 
-	// 12. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
+	// 11. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
 		"volta install stylelint")
 
-	// 13. Go SDK - official tarball into /usr/local/go (requires sudo).
+	// 12. Go SDK - official tarball into /usr/local/go (requires sudo).
 	// The prior install must be removed first: extracting over an old SDK
 	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
 	uc.step(ctx, result, "go", "Go programming language SDK",
@@ -415,29 +407,17 @@ sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
 rm -f /tmp/envctl-go.tar.gz
 echo "Installed ${GO_VER}"`)
 
-	// 14. Rustup - official non-interactive installer (installs to ~/.cargo).
-	uc.step(ctx, result, "rustup", "Rustup Rust toolchain manager",
-		`set -e
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
-rustup default stable
-rustup component add rust-analyzer`)
-
-	// 15. Persist Go and Cargo PATH in shell profiles so future login shells
-	// find go, gopls, rustc, cargo, rust-analyzer, etc. Fish needs its own
-	// syntax — writing bash exports into config.fish would be a syntax error.
-	uc.step(ctx, result, "shell-path", "Persist Go/Cargo/Rust PATH in shell profiles",
+	// 13. Persist the Go PATH in shell profiles so future login shells find go
+	// and gopls. Fish needs its own syntax — writing bash exports into
+	// config.fish would be a syntax error.
+	uc.step(ctx, result, "shell-path", "Persist Go PATH in shell profiles",
 		`set -e
 POSIX_LINES='
 # Go SDK (via envctl bootstrap)
-export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
-# Rust/Cargo (via envctl bootstrap)
-export PATH="$HOME/.cargo/bin:$PATH"'
+export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"'
 FISH_LINES='
 # Go SDK (via envctl bootstrap)
-set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH
-# Rust/Cargo (via envctl bootstrap)
-set -gx PATH $HOME/.cargo/bin $PATH'
+set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH'
 for f in "$HOME/.bashrc" "$HOME/.profile"; do
   if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
     printf '%s\n' "$POSIX_LINES" >> "$f"
@@ -450,7 +430,7 @@ if command -v fish >/dev/null 2>&1; then
     printf '%s\n' "$FISH_LINES" >> "$FISH_RC"
   fi
 fi
-echo "Go and Cargo PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
+echo "Go PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
 
 	return result, nil
 }

@@ -50,10 +50,6 @@
       "command": ["docker-langserver", "--stdio"],
       "extensions": ["Dockerfile", ".dockerfile"]
     },
-    "rust": {
-      "command": ["rust-analyzer"],
-      "extensions": [".rs"]
-    },
     "csharp": {
       "command": ["csharp-ls"],
       "extensions": [".cs"]
@@ -65,10 +61,6 @@
     "toml": {
       "command": ["taplo", "lsp", "stdio"],
       "extensions": [".toml"]
-    },
-    "php": {
-      "command": ["intelephense", "--stdio"],
-      "extensions": [".php"]
     }
   },
   "skills": {

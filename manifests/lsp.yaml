@@ -120,15 +120,6 @@ lsps:
     check_binary: "pwsh"
     os: windows
 
-  - id: rust
-    language: rust
-    server_name: "Rust Analyzer"
-    command: "rust-analyzer"
-    args: []
-    install_type: rustup
-    install_target: "rust-analyzer"
-    check_binary: "rust-analyzer"
-
   - id: csharp
     language: csharp
     server_name: "C# Language Server"
@@ -147,15 +138,6 @@ lsps:
     install_type: volta
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-eslint-language-server"
-
-  - id: php
-    language: php
-    server_name: "Intelephense Language Server"
-    command: "intelephense"
-    args: ["--stdio"]
-    install_type: npm
-    install_target: "intelephense"
-    check_binary: "intelephense"
 
   - id: toml
     language: toml

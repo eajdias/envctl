@@ -91,8 +91,9 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected exactly %d embedded skill directories, got %d", expectedSkills, len(shipped))
 	}
 
-	if len(lsps) != 18 {
-		t.Errorf("expected exactly 18 LSPs in manifest, got %d", len(lsps))
+	const expectedLSPs = 16
+	if len(lsps) != expectedLSPs {
+		t.Errorf("expected exactly %d LSPs in manifest, got %d", expectedLSPs, len(lsps))
 	}
 
 	// Verify Google Chrome is present and Brave Nightly is absent

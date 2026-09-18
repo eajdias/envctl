@@ -29,24 +29,6 @@ func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTwea
 	}
 
 	switch strings.ToLower(tweak.Type) {
-	case "font":
-		// Check font files or oh-my-posh
-		psScript := fmt.Sprintf(`
-$fontPath1 = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
-$fontPath2 = "C:\Windows\Fonts"
-$found = (Get-ChildItem -Path $fontPath1, $fontPath2 -Filter "*%s*" -ErrorAction SilentlyContinue | Measure-Object).Count
-if ($found -gt 0) { Write-Output "INSTALLED" } else { Write-Output "MISSING" }
-`, tweak.Name)
-		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return false, "", fmt.Errorf("failed to check font %s: %w", tweak.Name, err)
-		}
-		if strings.Contains(string(out), "INSTALLED") {
-			return true, "Font installed in Windows font directory", nil
-		}
-		return false, "Font not found", nil
-
 	case "feature":
 		psScript := fmt.Sprintf(`
 $f = Get-WindowsOptionalFeature -Online -FeatureName "%s" -ErrorAction SilentlyContinue
@@ -109,22 +91,6 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 	}
 
 	switch strings.ToLower(tweak.Type) {
-	case "font":
-		psScript := fmt.Sprintf(`oh-my-posh font install %s`, tweak.Name)
-		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
-		out, err := cmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if cmd.ProcessState != nil {
-				exitCode = cmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
-		}
-		if err != nil {
-			return fmt.Errorf("failed to install font %s: %s (%w)", tweak.Name, string(out), err)
-		}
-		return nil
-
 	case "feature":
 		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName "%s" -NoRestart -ErrorAction Stop`, tweak.Name)
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)

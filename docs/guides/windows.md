@@ -88,7 +88,7 @@ envctl run winget
 # Apenas runtime Node.js LTS e ferramentas globais via Volta
 envctl run volta
 
-# Apenas ajustes de Registro, Modo Desenvolvedor, Modo Escuro e Nerd Font
+# Apenas ajustes de Registro, Modo Desenvolvedor e Modo Escuro
 envctl run windows
 
 # Apenas variáveis de ambiente (NODE_PATH, ENVCTL_TEMP) e arquivos de shell
@@ -97,7 +97,7 @@ envctl run shell
 # Apenas catálogo de 41 skills do OpenCode/CommandCode
 envctl run skills
 
-# Apenas servidores de linguagem (18 LSPs)
+# Apenas servidores de linguagem (16 LSPs)
 envctl run lsp
 
 # Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)

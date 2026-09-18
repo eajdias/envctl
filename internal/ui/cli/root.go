@@ -99,7 +99,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 		entity.PackageTypeNpm:        toolchain.NewNpmManager(),
 		entity.PackageTypePip:        toolchain.NewPipManager(),
 		entity.PackageTypeGo:         toolchain.NewGoManager(),
-		entity.PackageTypeRustup:     toolchain.NewRustupManager(),
 	}
 
 	appCtx = &AppContext{

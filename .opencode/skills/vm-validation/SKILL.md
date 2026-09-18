@@ -25,7 +25,7 @@ license: MIT
 4. **Idempotência**: rodar `bash -lc '/tmp/envctl run all'` pela 2ª vez → grep por `WARNING|ERROR|FAIL` deve ser **0** e sem linhas `Installing` (nada re-instala).
 5. **Smoke test LSPs** (sempre via `bash -lc` — PATH do volta só existe no login shell):
    ```bash
-   for b in gopls rust-analyzer typescript-language-server pylsp intelephense taplo; do "$b" --version; done
+   for b in gopls typescript-language-server pylsp taplo docker-langserver; do "$b" --version; done
    ```
 6. **Permissões**: `stat -c "%a %n" ~/.ssh ~/.ssh-manager ~/Documents/SSH-keys` → `700`.
 

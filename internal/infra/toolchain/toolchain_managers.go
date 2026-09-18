@@ -14,7 +14,7 @@ import (
 	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-// execTool builds an exec.Cmd resolved against the Volta/user-local/Go/Cargo
+// execTool builds an exec.Cmd resolved against the Volta/user-local/Go
 // toolchain PATH on Linux. envctl often runs from non-login shells (ssh,
 // systemd) where those shims are absent from the default PATH — without this,
 // every toolchain check would falsely report packages as missing.
@@ -24,7 +24,6 @@ func execTool(ctx context.Context, name string, args ...string) *exec.Cmd {
 			toolchainPath := strings.Join([]string{
 				filepath.Join(home, ".volta", "bin"),
 				filepath.Join(home, ".local", "bin"),
-				filepath.Join(home, ".cargo", "bin"),
 				"/usr/local/go/bin",
 				filepath.Join(home, "go", "bin"),
 				os.Getenv("PATH"),
@@ -375,72 +374,4 @@ func (g *GoManager) Install(ctx context.Context, pkg entity.Package) error {
 
 func (g *GoManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
 	return []entity.Package{{ID: "go-tools", Name: "go-tools", Status: entity.StatusInstalled}}, nil
-}
-
-// RustupManager handles Rust toolchains and components via `rustup`.
-type RustupManager struct{}
-
-func NewRustupManager() repository.PackageManager {
-	return &RustupManager{}
-}
-
-func (r *RustupManager) Type() entity.PackageType {
-	return entity.PackageTypeRustup
-}
-
-func (r *RustupManager) IsAvailable(ctx context.Context) bool {
-	cmd := execTool(ctx, "rustup", "--version")
-	return cmd.Run() == nil
-}
-
-func (r *RustupManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		cmd := execTool(ctx, parts[0], parts[1:]...)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return true, strings.TrimSpace(string(out)), nil
-		}
-	}
-	cmd := execTool(ctx, "rustup", "component", "list", "--installed")
-	out, err := cmd.CombinedOutput()
-	if err == nil && strings.Contains(string(out), pkg.ID) {
-		return true, "installed via rustup component", nil
-	}
-	return false, "", nil
-}
-
-func (r *RustupManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := execTool(ctx, "rustup", "component", "add", pkg.ID)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		// Try toolchain install if component add failed
-		cmdFallback := execTool(ctx, "rustup", "toolchain", "install", pkg.ID)
-		outFallback, errFallback := cmdFallback.CombinedOutput()
-		if errFallback != nil {
-			return fmt.Errorf("rustup add/install %s failed: %s | fallback: %s (%w)", pkg.ID, string(out), string(outFallback), err)
-		}
-	}
-	return nil
-}
-
-func (r *RustupManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := execTool(ctx, "rustup", "component", "list", "--installed")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(out), "\n")
-	var pkgs []entity.Package
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			pkgs = append(pkgs, entity.Package{
-				ID:     trimmed,
-				Name:   trimmed,
-				Type:   entity.PackageTypeRustup,
-				Status: entity.StatusInstalled,
-			})
-		}
-	}
-	return pkgs, nil
 }

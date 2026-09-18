@@ -89,7 +89,7 @@ envctl run shell
 # Apenas extração e validação das 41 Skills de Agentes
 envctl run skills
 
-# Apenas instalação dos servidores de linguagem (18 LSPs)
+# Apenas instalação dos servidores de linguagem (16 LSPs)
 envctl run lsp
 
 # Auditoria completa do ambiente

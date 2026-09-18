@@ -60,12 +60,6 @@ packages:
     type: go
     test_binary: gopls
     description: "Language Server oficial para Go"
-
-  # Componentes Rust via Rustup
-  - name: rust-analyzer
-    type: rustup
-    test_binary: rust-analyzer
-    description: "Language Server oficial para Rust"
 ```
 
 ### Tipos de Gerenciadores Suportados (`type`):
@@ -76,7 +70,6 @@ packages:
 | `volta` | Volta Toolchain Manager | `volta install <name>` |
 | `dotnet-tool`| .NET CLI Global Tools | `dotnet tool install --global <name>` |
 | `go` | Go Toolchain | `go install <name>` |
-| `rustup` | Rustup Component Manager | `rustup component add <name>` |
 | `pip` | Python PIP / UV | `pip install <name>` |
 
 ---
@@ -159,10 +152,6 @@ lsps:
     package_type: go
     command: gopls
     languages: [go]
-  - name: rust-analyzer
-    package_type: rustup
-    command: rust-analyzer
-    languages: [rust]
   - name: csharp-ls
     package_type: dotnet-tool
     command: csharp-ls
@@ -201,9 +190,4 @@ tweaks:
     type: "DWord"
     value: 0
     description: "Exibe sempre as extensões de arquivo no Explorer"
-
-  - name: "MesloLGM Nerd Font"
-    type: "Font"
-    name: "Meslo"
-    description: "Instala fonte com suporte completo a glifos e ícones no terminal"
 ```

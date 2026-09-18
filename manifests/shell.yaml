@@ -192,7 +192,7 @@ config_files:
     os: windows
 
   - id: powershell_profile
-    description: "PowerShell Profile with Oh-My-Posh & GitHub CLI autocompletions"
+    description: "PowerShell Profile with GitHub CLI autocompletions"
     source: "configs/Microsoft.PowerShell_profile.ps1"
     destination: "~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1"
     strict_acl: false
@@ -206,13 +206,6 @@ config_files:
     strict_acl: false
     category: "editor"
     os: windows
-
-  - id: ohmyposh_theme
-    description: "Oh-My-Posh JandeDobbeleer prompt theme"
-    source: "configs/jandedobbeleer.omp.json"
-    destination: "~/.poshthemes/jandedobbeleer.omp.json"
-    strict_acl: false
-    category: "terminal"
 
   - id: ssh_config
     description: "OpenSSH client configuration with connection caching and resilient defaults (user Host stanzas are preserved)"
@@ -272,9 +265,6 @@ directories:
     strict_acl: false
     description: "CommandCode agent definitions directory"
     category: "commandcode"
-  - path: "~/.poshthemes"
-    strict_acl: false
-    description: "Oh-My-Posh themes directory"
   - path: "C:/projetos/git-privado"
     strict_acl: false
     description: "Directory for private git projects"
@@ -365,3 +355,13 @@ cleanup:
     path: "~/.commandcode"
     category: "commandcode"
     keep_newest: 1
+  - id: stale_ohmyposh_theme
+    description: "Remove the Oh-My-Posh theme directory (prompt engine dropped from the stack)"
+    path: "~/.poshthemes"
+    category: "terminal"
+    recursive: true
+  - id: stale_ohmyposh_binary
+    description: "Remove the Oh-My-Posh binary left by the Linux bootstrap (prompt engine dropped from the stack)"
+    path: "~/.local/bin/oh-my-posh"
+    category: "scripts"
+    os: linux
