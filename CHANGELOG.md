@@ -9,6 +9,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.140] - 2026-09-18
+
+### 🪝 Todos os hooks encadeados, e o gate endurecido
+
+- **Fixed**: `core.hooksPath` faz o git ignorar o `.git/hooks` de **todo** repositório, e até aqui só o `pre-push` era encadeado — ou seja, repositórios com `pre-commit`/`commit-msg` próprios (hook local, framework pre-commit, lefthook) tinham esses hooks **silenciosamente desativados**. Um delegator compartilhado + um shim por hook (`pre-commit`, `prepare-commit-msg`, `commit-msg`, `post-commit`, `post-checkout`, `pre-rebase`) devolvem o controle ao hook do projeto, resolvido ao lado do próprio shim para não apontar para caminho inexistente. Repositórios husky nunca foram afetados: definem `core.hooksPath` **local**, que vence o global.
+- **Added**: o verificador tem testes próprios (`internal/usecase/verify_script_test.go`) que constroem repositórios descartáveis e rodam o script real — sem stack, fora de repositório, com override do projeto, escape hatch, retry do hook, dry-run, teste Go quebrado no push e o mesmo fixture no modo hook. `go test ./...` (logo, o CI) passa a cobrir o gate que bloqueia pushes.
+- **Changed**: escopo por modo — `--hook` roda **só os checks estáticos** (o passe de editor) e a suíte de testes fica no gate de push, então um turno nunca espera por ela.
+- **Added**: **cache por estado da árvore** no modo hook: um turno que não mudou nada sai em ~20ms em vez de repetir checks cujo veredito não mudaria (carimbo em `.git/envctl-verify.stamp`).
+- **Added**: `--dry-run` imprime as stacks detectadas e os checks que seriam executados; e falhas/skips são registrados em `~/.envctl/verify.log`, o que responde "esse gate já pegou algo?" e denuncia check que vive sendo pulado.
+- **Docs**: `AGENTS.md` e `README.md` passam a apontar para a matriz OS × agente e para a doc da verificação, para uma sessão nova começar pelo estado do projeto em vez de redescobri-lo.
+
 ## [v1.2.138] - 2026-09-18
 
 ### 🧪 Verify stack-aware e o tooling das stacks
