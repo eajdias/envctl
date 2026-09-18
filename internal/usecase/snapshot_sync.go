@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -48,7 +47,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 	// 1. Sync Config files from system to configs/ (only when content differs)
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
-		if cf.OS != "" && cf.OS != runtime.GOOS {
+		if !entity.MatchesOS(cf.OS) {
 			continue
 		}
 		// Never reverse-sync sensitive or per-machine local files into the repo:

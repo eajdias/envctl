@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"runtime"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -68,7 +67,7 @@ func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs [
 	var results []entity.Package
 
 	for _, pkg := range allPkgs {
-		if pkg.OS != "" && pkg.OS != runtime.GOOS {
+		if !entity.MatchesOS(pkg.OS) {
 			continue
 		}
 

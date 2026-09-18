@@ -51,17 +51,38 @@ func (p Package) String() string {
 	return fmt.Sprintf("[%s] %s", p.Type, p.ID)
 }
 
+// MergeMode defines how a managed config file combines the template with the
+// user-owned content already on disk. The zero value replaces the file (with
+// the usual timestamped backup), which is only safe for files envctl fully
+// owns. Files the user is expected to edit must declare a merge mode so
+// provisioning never silently discards their entries.
+type MergeMode string
+
+const (
+	// MergeOverwrite replaces the destination with the template (default).
+	MergeOverwrite MergeMode = ""
+	// MergeSSHHosts keeps every `Host` block found in the destination that the
+	// template does not define, inserting them before the first template
+	// `Host` entry so specific hosts keep precedence over `Host *`.
+	MergeSSHHosts MergeMode = "ssh_hosts"
+	// MergeJSONDeps merges the destination's JSON object keys over the
+	// template, unioning `dependencies`/`devDependencies` so user-added
+	// entries survive while template entries stay current.
+	MergeJSONDeps MergeMode = "json_deps"
+)
+
 // ConfigFile represents a system or user configuration file.
 type ConfigFile struct {
-	ID            string `yaml:"id"`
-	Description   string `yaml:"description"`
-	Source        string `yaml:"source"`      // path in embedded FS or template
-	Destination   string `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
-	StrictACL     bool   `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
-	Category      string `yaml:"category"`
-	OS            string `yaml:"os,omitempty"`              // "windows", "linux" or empty for all
-	SeedIfMissing bool   `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
-	Executable    bool   `yaml:"executable,omitempty"`      // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
+	ID            string    `yaml:"id"`
+	Description   string    `yaml:"description"`
+	Source        string    `yaml:"source"`      // path in embedded FS or template
+	Destination   string    `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
+	StrictACL     bool      `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
+	Category      string    `yaml:"category"`
+	OS            string    `yaml:"os,omitempty"`              // "windows", "linux", "darwin", distro family ("arch"/"debian") or empty for all
+	SeedIfMissing bool      `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
+	Merge         MergeMode `yaml:"merge,omitempty"`           // non-destructive merge with the existing user content
+	Executable    bool      `yaml:"executable,omitempty"`      // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
 }
 
 // Skill represents an agent skill deployed to OpenCode and CommandCode.
@@ -77,9 +98,13 @@ type Skill struct {
 
 // AppliesToOS reports whether the skill belongs on goos. An empty OS means the
 // skill is portable and is deployed everywhere; a scoped skill is skipped (and
-// pruned) on every other platform, so it never pollutes that machine's catalog.
+// pruned) on every other platform, so it never pollutes that machine's
+// catalog. Distro families ("arch", "debian") are honored through MatchOS.
 func (s Skill) AppliesToOS(goos string) bool {
-	return s.OS == "" || s.OS == goos
+	if s.OS == "" || s.OS == goos {
+		return true
+	}
+	return MatchOS(s.OS, goos, DetectedDistro())
 }
 
 // LSP represents a Language Server Protocol configuration.

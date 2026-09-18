@@ -166,6 +166,12 @@ func (n *NpmManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 
 func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 	args := []string{"install", "-g"}
+	// Pin the global prefix to ~/.local: distro npm packages (Arch, Debian)
+	// resolve the global prefix to a root-owned system directory, so an
+	// unpinned `npm install -g` fails or needs sudo.
+	if prefix, err := userLocalPrefix(); err == nil {
+		args = append(args, "--prefix", prefix)
+	}
 	args = append(args, strings.Fields(pkg.ID)...)
 	cmd := execTool(ctx, "npm", args...)
 	out, err := cmd.CombinedOutput()
@@ -173,6 +179,21 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 		return fmt.Errorf("npm install -g %s failed: %s (%w)", pkg.ID, string(out), err)
 	}
 	return nil
+}
+
+// userLocalPrefix returns ~/.local, creating it when missing, so global
+// toolchain installs land in a user-writable prefix instead of a root-owned
+// system directory.
+func userLocalPrefix() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return "", fmt.Errorf("cannot resolve user home directory")
+	}
+	prefix := filepath.Join(home, ".local")
+	if err := os.MkdirAll(prefix, 0755); err != nil {
+		return "", err
+	}
+	return prefix, nil
 }
 
 func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
@@ -243,12 +264,36 @@ func (p *PipManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 }
 
 func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "install", "--upgrade", pkg.ID)
+	// uv installs into an isolated tool environment, which is the supported
+	// path on PEP 668 "externally managed" hosts (Arch/CachyOS, Ubuntu 24.04+).
+	// Prefer it and fall back to pip where uv is unavailable.
+	if execTool(ctx, "uv", "--version").Run() == nil {
+		cmd := execTool(ctx, "uv", "tool", "install", "--upgrade", pkg.ID)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("uv tool install %s failed: %s (%w)", pkg.ID, string(out), err)
+		}
+		return nil
+	}
+	args := []string{"-m", "pip", "install", "--upgrade"}
+	if pythonExternallyManaged(ctx) {
+		args = append(args, "--break-system-packages")
+	}
+	args = append(args, pkg.ID)
+	cmd := exec.CommandContext(ctx, pipPythonBin(), args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("pip install %s failed: %s (%w)", pkg.ID, string(out), err)
 	}
 	return nil
+}
+
+// pythonExternallyManaged reports whether the system Python declares itself
+// externally managed (PEP 668), in which case pip refuses installs outside a
+// virtualenv unless --break-system-packages is passed.
+func pythonExternallyManaged(ctx context.Context) bool {
+	script := `import os, sysconfig; print(os.path.exists(os.path.join(sysconfig.get_paths()["stdlib"], "EXTERNALLY-MANAGED")))`
+	out, err := exec.CommandContext(ctx, pipPythonBin(), "-c", script).Output()
+	return err == nil && strings.TrimSpace(string(out)) == "True"
 }
 
 func (p *PipManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {

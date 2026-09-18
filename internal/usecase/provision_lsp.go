@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"fmt"
-	"runtime"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -50,7 +49,7 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 	var results []LSPResult
 
 	for _, lsp := range lsps {
-		if lsp.OS != "" && lsp.OS != runtime.GOOS {
+		if !entity.MatchesOS(lsp.OS) {
 			continue
 		}
 		// Check if binary is already in PATH

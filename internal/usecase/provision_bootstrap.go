@@ -341,23 +341,27 @@ curl -s https://ohmyposh.dev/install.sh | bash -s`)
 		}
 	}
 
-	// 10. fd symlink - the apt fd-find package exposes `fdfind`; expose it as `fd`.
-	// Bootstrap runs before the apt packages step, so on fresh VPSs fdfind may
-	// not exist yet: install fd-find here as a best-effort fallback.
+	// 10. fd - Debian exposes it as `fdfind`, Arch ships plain `fd`. Bootstrap
+	// runs before the packages step, so install it here as a best-effort
+	// fallback through whichever package manager the host actually has.
 	if !uc.hasTool(ctx, "fd") {
-		uc.logger.Info("LinuxBootstrap: linking fdfind as fd")
-		out, err := uc.runShell(ctx, `FDFIND=$(command -v fdfind || true)
+		uc.logger.Info("LinuxBootstrap: provisioning fd")
+		out, err := uc.runShell(ctx, `FDFIND=$(command -v fdfind || command -v fd || true)
 if [ -z "$FDFIND" ]; then
-  sudo -n apt-get update >/dev/null 2>&1 || true
-  sudo -n apt-get install -y --no-install-recommends fd-find >/dev/null 2>&1 || true
-  FDFIND=$(command -v fdfind || true)
+  if command -v pacman >/dev/null 2>&1; then
+    sudo -n pacman -S --noconfirm --needed fd >/dev/null 2>&1 || true
+  elif command -v apt-get >/dev/null 2>&1; then
+    sudo -n apt-get update >/dev/null 2>&1 || true
+    sudo -n apt-get install -y --no-install-recommends fd-find >/dev/null 2>&1 || true
+  fi
+  FDFIND=$(command -v fdfind || command -v fd || true)
 fi
 if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$HOME/.local/bin/fd"; fi`)
 		if err != nil {
-			uc.logger.Error("LinuxBootstrap: fd symlink failed: %s (%s)", out, err)
+			uc.logger.Error("LinuxBootstrap: fd provisioning failed: %s (%s)", out, err)
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
 				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
-				Details: fmt.Sprintf("fd symlink failed: %v (%s)", err, out),
+				Details: fmt.Sprintf("fd provisioning failed: %v (%s)", err, out),
 			})
 		} else if uc.hasTool(ctx, "fd") {
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
@@ -365,10 +369,10 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 				Details: "Linked fdfind as fd",
 			})
 		} else {
-			uc.logger.Warn("LinuxBootstrap: fdfind not available, fd symlink skipped")
+			uc.logger.Warn("LinuxBootstrap: fd not available, symlink skipped")
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
 				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
-				Details: "Skipped (fdfind not found; install via 'apt install fd-find')",
+				Details: "Skipped (no fd package found; install it with the distro package manager)",
 			})
 		}
 	}
@@ -420,20 +424,33 @@ rustup default stable
 rustup component add rust-analyzer`)
 
 	// 15. Persist Go and Cargo PATH in shell profiles so future login shells
-	// find go, gopls, rustc, cargo, rust-analyzer, etc.
+	// find go, gopls, rustc, cargo, rust-analyzer, etc. Fish needs its own
+	// syntax — writing bash exports into config.fish would be a syntax error.
 	uc.step(ctx, result, "shell-path", "Persist Go/Cargo/Rust PATH in shell profiles",
 		`set -e
-PATH_LINES='
+POSIX_LINES='
 # Go SDK (via envctl bootstrap)
 export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
 # Rust/Cargo (via envctl bootstrap)
 export PATH="$HOME/.cargo/bin:$PATH"'
+FISH_LINES='
+# Go SDK (via envctl bootstrap)
+set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH
+# Rust/Cargo (via envctl bootstrap)
+set -gx PATH $HOME/.cargo/bin $PATH'
 for f in "$HOME/.bashrc" "$HOME/.profile"; do
   if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
-    printf '%s\n' "$PATH_LINES" >> "$f"
+    printf '%s\n' "$POSIX_LINES" >> "$f"
   fi
 done
-echo "Go and Cargo PATH persisted to ~/.bashrc and ~/.profile"`)
+if command -v fish >/dev/null 2>&1; then
+  FISH_RC="$HOME/.config/fish/config.fish"
+  mkdir -p "$(dirname "$FISH_RC")"
+  if [ ! -f "$FISH_RC" ] || ! grep -q "/usr/local/go/bin" "$FISH_RC"; then
+    printf '%s\n' "$FISH_LINES" >> "$FISH_RC"
+  fi
+fi
+echo "Go and Cargo PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
 
 	return result, nil
 }

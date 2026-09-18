@@ -92,7 +92,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 1. Audit Environment Variables
 	envVars, _ := uc.manifestRepo.LoadEnvVars()
 	for _, ev := range envVars {
-		if ev.OS != "" && ev.OS != runtime.GOOS {
+		if !entity.MatchesOS(ev.OS) {
 			continue
 		}
 		val, err := uc.envManager.GetEnvVar(ev.Scope, ev.Name)
@@ -165,7 +165,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 2. Audit Git Global Configurations
 	gitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
 	for _, gc := range gitConfigs {
-		if gc.OS != "" && gc.OS != runtime.GOOS {
+		if !entity.MatchesOS(gc.OS) {
 			continue
 		}
 		val, err := uc.gitManager.GetGlobalConfig(ctx, gc.Key)
@@ -190,7 +190,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 3. Audit Config Files
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
-		if cf.OS != "" && cf.OS != runtime.GOOS {
+		if !entity.MatchesOS(cf.OS) {
 			continue
 		}
 		if !uc.fsManager.Exists(cf.Destination) {
@@ -259,7 +259,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
-		if pkg.OS != "" && pkg.OS != runtime.GOOS {
+		if !entity.MatchesOS(pkg.OS) {
 			continue
 		}
 
@@ -323,7 +323,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 7. Audit LSPs
 	lsps, _ := uc.manifestRepo.LoadLSPs()
 	for _, lsp := range lsps {
-		if lsp.OS != "" && lsp.OS != runtime.GOOS {
+		if !entity.MatchesOS(lsp.OS) {
 			continue
 		}
 		if lsp.CheckBinary != "" {
