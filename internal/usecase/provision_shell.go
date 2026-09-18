@@ -106,7 +106,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	if err == nil && len(gitConfigs) > 0 && len(categories) == 0 {
 		var applicable []entity.GitConfig
 		for _, gc := range gitConfigs {
-			if gc.OS != "" && gc.OS != runtime.GOOS {
+			if !entity.MatchesOS(gc.OS) {
 				continue
 			}
 			applicable = append(applicable, gc)
@@ -138,7 +138,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	}
 
 	for _, dir := range dirs {
-		if dir.OS != "" && dir.OS != runtime.GOOS {
+		if !entity.MatchesOS(dir.OS) {
 			continue
 		}
 		if !categoryAllowed(dir.Category, categories) {
@@ -201,7 +201,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	}
 
 	for _, cf := range configFiles {
-		if cf.OS != "" && cf.OS != runtime.GOOS {
+		if !entity.MatchesOS(cf.OS) {
 			continue
 		}
 		if !categoryAllowed(cf.Category, categories) {
@@ -255,6 +255,37 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			continue
 		}
 
+		// Merge modes combine the template with whatever is already on disk
+		// instead of replacing it, so user-owned entries (ssh host stanzas,
+		// extra npm dependencies) are never silently discarded.
+		existedBefore := uc.fsManager.Exists(cf.Destination)
+		if cf.Merge != entity.MergeOverwrite && existedBefore {
+			existingContent, readErr := uc.fsManager.ReadFile(cf.Destination)
+			if readErr == nil {
+				switch cf.Merge {
+				case entity.MergeSSHHosts:
+					content = mergeSSHHosts(content, existingContent)
+				case entity.MergeJSONDeps:
+					mergedContent, mergeErr := mergeJSONDeps(content, existingContent)
+					if mergeErr != nil {
+						// Never replace an unparseable user file with the template.
+						if uc.logger != nil {
+							uc.logger.Warn("Keeping '%s' untouched: %v", cf.Destination, mergeErr)
+						}
+						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
+							Category: entity.DiagWarning,
+							System:   "ConfigFile",
+							Target:   cf.Destination,
+							Details:  fmt.Sprintf("Preserved user content (not mergeable: %v)", mergeErr),
+							FixHint:  "Fix the JSON syntax so provisioning can merge the managed baseline",
+						})
+						continue
+					}
+					content = mergedContent
+				}
+			}
+		}
+
 		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, perm)
 		if writeErr != nil {
 			if uc.logger != nil {
@@ -285,14 +316,23 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				}
 			}
 
+			// Report what actually happened: a newly created file and an
+			// already-identical one both skip the backup, but only the latter
+			// is "up to date".
 			detail := "Config written successfully"
-			if backupPath != "" {
+			switch {
+			case backupPath != "":
 				result.CreatedBackups[cf.Destination] = backupPath
 				detail = fmt.Sprintf("Updated (Backup saved to %s)", filepath.Base(backupPath))
 				if uc.logger != nil {
 					uc.logger.LogIdempotency("ConfigFile", cf.Destination, false, fmt.Sprintf("content updated, backup created at %s", backupPath))
 				}
-			} else {
+			case !existedBefore:
+				detail = "Created"
+				if uc.logger != nil {
+					uc.logger.LogIdempotency("ConfigFile", cf.Destination, false, "file created")
+				}
+			default:
 				detail = "Already up to date"
 				if uc.logger != nil {
 					uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "content byte-for-byte identical, skipped backup/write")
@@ -313,7 +353,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	cleanupItems, cleanupErr := uc.manifestRepo.LoadCleanupItems()
 	if cleanupErr == nil {
 		for _, item := range cleanupItems {
-			if item.OS != "" && item.OS != runtime.GOOS {
+			if !entity.MatchesOS(item.OS) {
 				continue
 			}
 			if !categoryAllowed(item.Category, categories) {

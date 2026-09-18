@@ -160,6 +160,7 @@ config_files:
     destination: "~/package.json"
     strict_acl: false
     category: "runtimes"
+    merge: json_deps
 
   - id: pw_wrapper
     description: "pw hang-safe playwright-cli runner (node wrapper; detached+unref avoids Windows Job Object hang)"
@@ -214,20 +215,22 @@ config_files:
     category: "terminal"
 
   - id: ssh_config
-    description: "OpenSSH client configuration with connection caching and resilient defaults"
+    description: "OpenSSH client configuration with connection caching and resilient defaults (user Host stanzas are preserved)"
     source: "configs/ssh-config"
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
     os: windows
+    merge: ssh_hosts
 
   - id: ssh_config_linux
-    description: "OpenSSH client configuration for Linux (no Windows-only key paths)"
+    description: "OpenSSH client configuration for Linux (no Windows-only key paths; user Host stanzas are preserved)"
     source: "configs/ssh-config.linux"
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
     os: linux
+    merge: ssh_hosts
 
 directories:
   - path: "~/Documents/SSH-keys"
