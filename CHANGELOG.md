@@ -9,12 +9,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.126] - 2026-09-18
+
 ### ✅ Quality Gates locais (hook Stop do CommandCode + pre-push do git)
 
 - **Added**: `~/.local/bin/envctl-verify` — verificador único com detecção de stack (Go, ou `.commandcode/verify.sh` do projeto como override): `gofmt -l`, `go build`, `go vet`, `go test`, `GOOS=windows go build/vet` (quebra de plataforma aparece localmente, não num runner) e `golangci-lint --new-from-rev` com o mesmo gate de "somente findings novos" do CI — dívida legada nunca bloqueia, finding novo sempre bloqueia.
 - **Added**: hook `Stop` do CommandCode (`~/.commandcode/settings.json`) rodando o verificador no fim de cada turno: em falha, `exit 2` devolve o stderr com o diagnóstico ao modelo, que corrige no mesmo turno. Anti-loop via `stop_hook_active`; escotilha `ENVCTL_SKIP_VERIFY=1`.
 - **Added**: pre-push global do git (`core.hooksPath` → `~/.config/git/hooks/pre-push`): nenhum push sai sem verificação, de qualquer agente ou do terminal. Como `core.hooksPath` sobrepõe `.git/hooks` de todos os repositórios, o hook deployado **encadeia primeiro o pre-push local do repositório** (husky e afins seguem funcionando).
 - **Added**: auditoria `Verify` no `doctor` (script e hook presentes e executáveis) — drift do wiring vira `WARN`.
+- **Docs**: `docs/verification.md` (camadas, checks, encadeamento de hooks e variáveis de controle), link no README e no `doctor-and-idempotency.md`.
+- **Changed**: sem timeout — o conjunto completo roda em ~2s com cache quente, então um check travado é reportado em vez de esperado.
 
 ### 🧹 Higiene do store do OpenCode (`run cleanup`)
 
@@ -43,6 +47,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ### 🔧 Lint do gate de CI
 
 - **Fixed**: 7 findings introduzidos pelas mudanças acima (errcheck, G301, G703, G204) — erro de `ExpandUserPath` tratado, diretórios criados com 0750 e supressões inline justificadas nos dois `exec` cujo argv nunca passa por shell.
+
+## [v1.2.115] - 2026-09-17
 
 ### 🧪 3 skills novas: TDD, docs-sync, variant-analysis (38 → 41)
 

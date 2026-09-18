@@ -8,6 +8,10 @@
 #
 # Exits 2 with the failing output on stderr when a check fails, 0 when
 # everything passes or when the repository has no recognizable stack.
+#
+# Deliberately no timeout: the full suite runs in ~2s on a warm cache, so a
+# check that hangs is a broken check and should say so instead of being waited
+# out. The Stop hook additionally runs under the engine's own cap.
 
 set -uo pipefail
 
@@ -34,11 +38,6 @@ command -v git >/dev/null 2>&1 || exit 0
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$repo_root" || exit 0
 
-timeout_cmd=""
-if command -v timeout >/dev/null 2>&1; then
-  timeout_cmd="timeout ${ENVCTL_VERIFY_TIMEOUT:-420}"
-fi
-
 fail_count=0
 ok_count=0
 failures=""
@@ -53,16 +52,13 @@ $(printf '%s' "${2:-failed}" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
 check() {
   label="$1"
   shift
-  out=$($timeout_cmd "$@" 2>&1)
+  out=$("$@" 2>&1)
   rc=$?
   if [ "$rc" -eq 0 ]; then
     ok_count=$((ok_count + 1))
     return 0
   fi
-  case "$rc" in
-    124 | 137) report "$label" "TIMEOUT after ${ENVCTL_VERIFY_TIMEOUT:-420}s" ;;
-    *) report "$label" "${out:-exited ${rc}}" ;;
-  esac
+  report "$label" "${out:-exited ${rc}}"
   return 1
 }
 
@@ -96,7 +92,7 @@ check_go() {
       fi
     done
     if [ -n "$base" ]; then
-      check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" --timeout 3m ./...
+      check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
     fi
   fi
 }

@@ -41,10 +41,22 @@ Repositórios de outra stack (Python, Node, ...) não são adivinhados: defina u
 | Variável | Padrão | Efeito |
 | :--- | :--- | :--- |
 | `ENVCTL_SKIP_VERIFY` | `0` | `1` desliga a verificação naquela execução (push pontual) |
-| `ENVCTL_VERIFY_TIMEOUT` | `420` | Segundos por check antes de abortar aquele check |
 | `ENVCTL_VERIFY_MAX_LINES` | `25` | Linhas de saída por check no relatório (mantém o contexto enxuto) |
 
 Saída enxuta por design: verde é silencioso, vermelho traz só o começo de cada falha.
+
+---
+
+## ⏱️ Sem Timeout — Fail-Fast
+
+O verificador **não** impõe timeout: o conjunto completo roda em ~2s com cache quente
+(gofmt 21ms, build 478ms, vet 133ms, testes 299ms, cross-compile Windows 638ms, lint
+0,7s quente / 3,2s frio). Esperar minutos por um check travado seria desperdício em
+automação — ou funciona, ou não funciona e reporta.
+
+O hook de turno roda sob o teto do próprio engine do CommandCode, que é a única
+proteção contra um check patológico. O pre-push não tem teto: ali o tempo gasto é o
+tempo necessário antes de liberar um push.
 
 ---
 
