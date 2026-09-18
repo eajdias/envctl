@@ -320,8 +320,8 @@ func runShellProvisioning(categories ...string) {
 }
 
 // runSkillsForTarget deploys the manifest skills to one target directory and
-// returns how many were deployed and how many stale ones were pruned.
-func runSkillsForTarget(label, targetBaseDir string) (deployed int, pruned int) {
+// returns how many were deployed and how many stale ones were quarantined.
+func runSkillsForTarget(label, targetBaseDir string) (deployed int, quarantined int) {
 	ctx := context.Background()
 
 	results, prunedNames, err := appCtx.ProvisionSkillsUC.Execute(ctx, targetBaseDir)
@@ -338,7 +338,7 @@ func runSkillsForTarget(label, targetBaseDir string) (deployed int, pruned int) 
 		}
 	}
 	for _, name := range prunedNames {
-		pterm.Info.Printf("  • [%s] pruned stale skill: %s\n", label, name)
+		pterm.Info.Printf("  • [%s] quarantined stale skill: %s\n", label, name)
 	}
 	return deployed, len(prunedNames)
 }
@@ -349,7 +349,7 @@ func runSkillsProvisioning() {
 	deployedOC, prunedOC := runSkillsForTarget("OpenCode", "")
 	deployedCC, prunedCC := runSkillsForTarget("CommandCode", "~/.commandcode/skills")
 
-	pterm.Success.Printf("Deployed %d skills to OpenCode, %d to CommandCode (pruned %d/%d stale)\n", deployedOC, deployedCC, prunedOC, prunedCC)
+	pterm.Success.Printf("Deployed %d skills to OpenCode, %d to CommandCode (quarantined %d/%d stale)\n", deployedOC, deployedCC, prunedOC, prunedCC)
 }
 
 // runAgentProvisioning provisions a single agent end to end — its config files,

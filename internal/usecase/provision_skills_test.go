@@ -3,10 +3,11 @@ package usecase
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestPruneStaleSkillsRemovesOnlyUnlistedDirs(t *testing.T) {
+func TestPruneStaleSkillsQuarantinesOnlyUnlistedDirs(t *testing.T) {
 	base := t.TempDir()
 
 	for _, name := range []string{"keep-a", "keep-b", "stale-x", ".hidden"} {
@@ -14,24 +15,44 @@ func TestPruneStaleSkillsRemovesOnlyUnlistedDirs(t *testing.T) {
 			t.Fatalf("setup mkdir %s: %v", name, err)
 		}
 	}
+	if err := os.WriteFile(filepath.Join(base, "stale-x", "SKILL.md"), []byte("stale content"), 0o644); err != nil {
+		t.Fatalf("setup skill file: %v", err)
+	}
 	// A stray regular file must be left untouched.
 	if err := os.WriteFile(filepath.Join(base, "afile"), []byte("x"), 0o644); err != nil {
 		t.Fatalf("setup file: %v", err)
 	}
 
 	wanted := map[string]bool{"keep-a": true, "keep-b": true}
-	removed := pruneStaleSkills(base, wanted, nil)
+	quarantined := pruneStaleSkills(base, wanted, nil)
 
-	if len(removed) != 1 || removed[0] != "stale-x" {
-		t.Fatalf("expected exactly [stale-x] removed, got %v", removed)
+	if len(quarantined) != 1 || quarantined[0] != "stale-x" {
+		t.Fatalf("expected exactly [stale-x] quarantined, got %v", quarantined)
 	}
 	if _, err := os.Stat(filepath.Join(base, "stale-x")); !os.IsNotExist(err) {
-		t.Errorf("stale-x should have been removed, stat err=%v", err)
+		t.Errorf("stale-x should have left the skills dir, stat err=%v", err)
 	}
 	for _, name := range []string{"keep-a", "keep-b", ".hidden", "afile"} {
 		if _, err := os.Stat(filepath.Join(base, name)); err != nil {
 			t.Errorf("%s should have been preserved: %v", name, err)
 		}
+	}
+
+	// The skill must be recoverable from the sibling trash tree, never deleted.
+	trash := filepath.Join(filepath.Dir(base), ".envctl-trash", "skills")
+	entries, err := os.ReadDir(trash)
+	if err != nil {
+		t.Fatalf("quarantine directory not created: %v", err)
+	}
+	if len(entries) != 1 || !strings.HasPrefix(entries[0].Name(), "stale-x-") {
+		t.Fatalf("expected one quarantined entry named stale-x-<timestamp>, got %v", entries)
+	}
+	content, err := os.ReadFile(filepath.Join(trash, entries[0].Name(), "SKILL.md"))
+	if err != nil {
+		t.Fatalf("quarantined skill content is not recoverable: %v", err)
+	}
+	if string(content) != "stale content" {
+		t.Errorf("quarantined content = %q, want %q", content, "stale content")
 	}
 }
 

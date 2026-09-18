@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -123,9 +124,11 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 }
 
 // pruneStaleSkills removes directories directly under baseDir whose names are
-// not in wanted, keeping the deployed skills mirroring the manifest. It is a
-// no-op when wanted is empty (safety against an empty/failed manifest) and
-// skips dot-directories. Removed names are returned.
+// not in wanted, keeping the deployed skills mirroring the manifest. Stale
+// directories are quarantined rather than destroyed, so a skill installed by
+// hand or by another tool stays recoverable. It is a no-op when wanted is empty
+// (safety against an empty/failed manifest) and skips dot-directories.
+// Quarantined names are returned.
 func pruneStaleSkills(baseDir string, wanted map[string]bool, logger repository.Logger) []string {
 	if baseDir == "" || len(wanted) == 0 {
 		return nil
@@ -136,23 +139,35 @@ func pruneStaleSkills(baseDir string, wanted map[string]bool, logger repository.
 		return nil
 	}
 
-	var removed []string
+	var quarantined []string
 	for _, entry := range entries {
 		name := entry.Name()
 		if !entry.IsDir() || strings.HasPrefix(name, ".") || wanted[name] {
 			continue
 		}
-		path := filepath.Join(baseDir, name)
-		if err := os.RemoveAll(path); err != nil {
+		dest, err := quarantineSkill(baseDir, name)
+		if err != nil {
 			if logger != nil {
-				logger.Warn("Failed to prune stale skill '%s' (%s): %v", name, path, err)
+				logger.Warn("Failed to quarantine stale skill '%s': %v", name, err)
 			}
 			continue
 		}
-		removed = append(removed, name)
+		quarantined = append(quarantined, name)
 		if logger != nil {
-			logger.Info("[SKILLS-PRUNE] removed stale skill '%s' from '%s'", name, baseDir)
+			logger.Info("[SKILLS-PRUNE] quarantined stale skill '%s' to '%s'", name, dest)
 		}
 	}
-	return removed
+	return quarantined
+}
+
+// quarantineSkill moves a stale skill directory out of the deployment tree.
+// The trash tree is a sibling of the skills directory, never inside it, so
+// quarantined skills are not rescanned, re-pruned, or counted by the doctor.
+func quarantineSkill(baseDir, name string) (string, error) {
+	dest := filepath.Join(filepath.Dir(baseDir), ".envctl-trash", "skills",
+		fmt.Sprintf("%s-%s", name, time.Now().Format("20060102-150405")))
+	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+		return "", err
+	}
+	return dest, os.Rename(filepath.Join(baseDir, name), dest)
 }
