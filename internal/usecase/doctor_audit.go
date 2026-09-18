@@ -302,33 +302,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
-	// 6. Audit Skills (only the ones that belong on this OS and are enabled)
-	skills, _ := uc.manifestRepo.LoadSkills()
-	for _, s := range skills {
-		if !s.Enabled || !s.AppliesToOS(runtime.GOOS) {
-			continue
-		}
-		targetDir := s.TargetDir
-		if targetDir == "" {
-			targetDir = filepath.Join("~/.config/opencode/skills", s.Name)
-		}
-
-		if !uc.fsManager.Exists(targetDir) {
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Skills",
-				Target:   s.Name,
-				Details:  fmt.Sprintf("Skill directory missing (%s)", targetDir),
-				FixHint:  "run 'envctl run skills'",
-			})
-		} else {
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Skills",
-				Target:   s.Name,
-				Details:  "Active and deployed",
-			})
-		}
+	// 6. Audit Skills (only the ones that belong on this OS and are enabled).
+	// Both agents share the validator: a skill whose frontmatter the loader
+	// rejects is silently ignored at runtime, so an existence-only check would
+	// report a healthy tree while the agent sees nothing.
+	if skillsDir, expandErr := uc.fsManager.ExpandUserPath("~/.config/opencode/skills"); expandErr == nil {
+		uc.auditSkillTree("Skills", skillsDir, addDiag)
 	}
 
 	// 7. Audit LSPs
@@ -1028,88 +1007,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 			uc.auditCommandCodeAgents(ccConfigDir, addDiag)
 
-			skillsDir := filepath.Join(ccConfigDir, "skills")
-			if uc.fsManager.Exists(skillsDir) {
-				entries, _ := os.ReadDir(skillsDir)
-				deployed := 0
-				var rejected []string
-				for _, entry := range entries {
-					if !entry.IsDir() {
-						continue
-					}
-					name := entry.Name()
-					content, readErr := os.ReadFile(filepath.Join(skillsDir, name, "SKILL.md"))
-					if readErr != nil {
-						rejected = append(rejected, name+" (SKILL.md missing)")
-						continue
-					}
-					fm, ok := parseSkillFrontmatter(content)
-					if !ok {
-						rejected = append(rejected, name+" (frontmatter missing or invalid YAML)")
-						continue
-					}
-					if vErr := validateSkillFrontmatter(name, fm); vErr != nil {
-						rejected = append(rejected, fmt.Sprintf("%s (%v)", name, vErr))
-						continue
-					}
-					deployed++
-				}
-
-				total := deployed + len(rejected)
-				switch {
-				case len(rejected) > 0:
-					addDiag(entity.Diagnostic{
-						Category: entity.DiagWarning,
-						System:   "CommandCode",
-						Target:   "Skills",
-						Details:  fmt.Sprintf("%d of %d deployed skills will not load: %s", len(rejected), total, strings.Join(rejected, "; ")),
-						FixHint:  "Fix the SKILL.md frontmatter (name must match the directory, description must be non-empty), then run 'envctl run skills'",
-					})
-				case deployed > 0:
-					addDiag(entity.Diagnostic{
-						Category: entity.DiagOK,
-						System:   "CommandCode",
-						Target:   "Skills",
-						Details:  fmt.Sprintf("%d skills deployed, frontmatter valid", deployed),
-					})
-				default:
-					addDiag(entity.Diagnostic{
-						Category: entity.DiagWarning,
-						System:   "CommandCode",
-						Target:   "Skills",
-						Details:  "Skills directory exists but holds no skill",
-						FixHint:  "Run 'envctl run skills' to deploy the manifest skills",
-					})
-				}
-
-				if total > 0 {
-					if manifestSkills, err := uc.manifestRepo.LoadSkills(); err == nil {
-						expected := 0
-						for _, s := range manifestSkills {
-							if s.Enabled && s.AppliesToOS(runtime.GOOS) {
-								expected++
-							}
-						}
-						if expected > 0 && total != expected {
-							addDiag(entity.Diagnostic{
-								Category: entity.DiagWarning,
-								System:   "CommandCode",
-								Target:   "Skills",
-								Details:  fmt.Sprintf("%d skills deployed but the manifest declares %d", total, expected),
-								FixHint:  "Run 'envctl run skills' to re-sync the deployed skills with the manifest",
-							})
-						}
-					}
-				}
-			} else {
-				addDiag(entity.Diagnostic{
-					Category: entity.DiagWarning,
-					System:   "CommandCode",
-					Target:   "Skills",
-					Details:  "Skills directory not found",
-					FixHint:  "Run 'envctl run skills' to deploy skills",
-				})
-			}
+			uc.auditSkillTree("CommandCode", filepath.Join(ccConfigDir, "skills"), addDiag)
 		} else {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagInfo,
@@ -1235,4 +1133,110 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 		Target:   "Agents",
 		Details:  fmt.Sprintf("%d custom agent definition(s) valid", valid),
 	})
+}
+
+// auditSkillTree validates one agent's deployed skills: presence first, then the
+// frontmatter its loader reads. Both agents share this implementation because a
+// skill whose frontmatter is rejected is silently ignored at runtime — an
+// existence-only check would call that tree healthy.
+func (uc *DoctorAuditUseCase) auditSkillTree(system, skillsDir string, addDiag func(entity.Diagnostic)) {
+	if skillsDir == "" {
+		return
+	}
+	if !uc.fsManager.Exists(skillsDir) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   system,
+			Target:   "Skills",
+			Details:  "Skills directory not found",
+			FixHint:  "Run 'envctl run skills' to deploy skills",
+		})
+		return
+	}
+
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   system,
+			Target:   "Skills",
+			Details:  fmt.Sprintf("Skills directory unreadable: %v", err),
+			FixHint:  "Check the directory permissions, then run 'envctl run skills'",
+		})
+		return
+	}
+
+	deployed := 0
+	var rejected []string
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") {
+			continue
+		}
+		name := entry.Name()
+		content, readErr := os.ReadFile(filepath.Join(skillsDir, name, "SKILL.md"))
+		if readErr != nil {
+			rejected = append(rejected, name+" (SKILL.md missing)")
+			continue
+		}
+		fm, ok := parseSkillFrontmatter(content)
+		if !ok {
+			rejected = append(rejected, name+" (frontmatter missing or invalid YAML)")
+			continue
+		}
+		if vErr := validateSkillFrontmatter(name, fm); vErr != nil {
+			rejected = append(rejected, fmt.Sprintf("%s (%v)", name, vErr))
+			continue
+		}
+		deployed++
+	}
+
+	total := deployed + len(rejected)
+	switch {
+	case len(rejected) > 0:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   system,
+			Target:   "Skills",
+			Details:  fmt.Sprintf("%d of %d deployed skills will not load: %s", len(rejected), total, strings.Join(rejected, "; ")),
+			FixHint:  "Fix the SKILL.md frontmatter (name must match the directory, description must be non-empty), then run 'envctl run skills'",
+		})
+	case deployed > 0:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   system,
+			Target:   "Skills",
+			Details:  fmt.Sprintf("%d skills deployed, frontmatter valid", deployed),
+		})
+	default:
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   system,
+			Target:   "Skills",
+			Details:  "Skills directory exists but holds no skill",
+			FixHint:  "Run 'envctl run skills' to deploy the manifest skills",
+		})
+	}
+
+	if total == 0 {
+		return
+	}
+	manifestSkills, err := uc.manifestRepo.LoadSkills()
+	if err != nil {
+		return
+	}
+	expected := 0
+	for _, s := range manifestSkills {
+		if s.Enabled && s.AppliesToOS(runtime.GOOS) {
+			expected++
+		}
+	}
+	if expected > 0 && total != expected {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   system,
+			Target:   "Skills",
+			Details:  fmt.Sprintf("%d skills deployed but the manifest declares %d", total, expected),
+			FixHint:  "Run 'envctl run skills' to re-sync the deployed skills with the manifest",
+		})
+	}
 }

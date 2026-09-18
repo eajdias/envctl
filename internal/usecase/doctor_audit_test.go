@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -310,5 +311,114 @@ func TestDoctorAudit_OpenCodeFileRefsNone(t *testing.T) {
 
 	if len(diags) != 0 {
 		t.Errorf("expected no diagnostic when opencode.json has no file refs, got %d", len(diags))
+	}
+}
+
+// writeSkill materialises <base>/<name>/SKILL.md for the skill-tree audit tests.
+func writeSkill(t *testing.T, base, name, content string) {
+	t.Helper()
+	dir := filepath.Join(base, name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("setup skill %s: %v", name, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0o644); err != nil {
+		t.Fatalf("setup SKILL.md for %s: %v", name, err)
+	}
+}
+
+func skillTreeUseCase(skillsDir string, skills []entity.Skill) *DoctorAuditUseCase {
+	return NewDoctorAuditUseCase(
+		&mockManifestRepo{skills: skills},
+		&mockFSManager{existingPaths: map[string]bool{skillsDir: true}, fileContents: map[string][]byte{}},
+		&mockEnvManager{},
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+}
+
+func TestAuditSkillTreeRejectsUnloadableSkills(t *testing.T) {
+	base := t.TempDir()
+	writeSkill(t, base, "boa", "---\nname: boa\ndescription: Skill valida\n---\n\n# boa\n")
+	// Name does not match the directory: the loader rejects it.
+	writeSkill(t, base, "quebrada", "---\nname: outro-nome\ndescription: Nome difere do diretorio\n---\n")
+	// No frontmatter at all.
+	writeSkill(t, base, "sem-fm", "# sem frontmatter\n")
+
+	uc := skillTreeUseCase(base, []entity.Skill{
+		{Name: "boa", Enabled: true},
+		{Name: "quebrada", Enabled: true},
+		{Name: "sem-fm", Enabled: true},
+	})
+
+	var diags []entity.Diagnostic
+	uc.auditSkillTree("Skills", base, func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected a single aggregated warning, got %d: %v", len(diags), diags)
+	}
+	if diags[0].Category != entity.DiagWarning {
+		t.Errorf("expected WARNING, got %v", diags[0].Category)
+	}
+	for _, want := range []string{"quebrada", "sem-fm", "2 of 3"} {
+		if !strings.Contains(diags[0].Details, want) {
+			t.Errorf("details %q must mention %q", diags[0].Details, want)
+		}
+	}
+}
+
+func TestAuditSkillTreeAcceptsAValidTree(t *testing.T) {
+	base := t.TempDir()
+	writeSkill(t, base, "uma", "---\nname: uma\ndescription: Primeira skill\n---\n")
+	writeSkill(t, base, "duas", "---\nname: duas\ndescription: Segunda skill\n---\n")
+
+	uc := skillTreeUseCase(base, []entity.Skill{{Name: "uma", Enabled: true}, {Name: "duas", Enabled: true}})
+
+	var diags []entity.Diagnostic
+	uc.auditSkillTree("Skills", base, func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 || diags[0].Category != entity.DiagOK {
+		t.Fatalf("expected a single OK diagnostic, got %v", diags)
+	}
+	if !strings.Contains(diags[0].Details, "2 skills deployed") {
+		t.Errorf("details %q must report the deployed count", diags[0].Details)
+	}
+}
+
+func TestAuditSkillTreeFlagsCountDrift(t *testing.T) {
+	base := t.TempDir()
+	writeSkill(t, base, "uma", "---\nname: uma\ndescription: Primeira skill\n---\n")
+
+	uc := skillTreeUseCase(base, []entity.Skill{
+		{Name: "uma", Enabled: true},
+		{Name: "duas", Enabled: true},
+		{Name: "tres", Enabled: true},
+	})
+
+	var diags []entity.Diagnostic
+	uc.auditSkillTree("Skills", base, func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 2 {
+		t.Fatalf("expected OK + count drift, got %v", diags)
+	}
+	drift := diags[1]
+	if drift.Category != entity.DiagWarning || !strings.Contains(drift.Details, "manifest declares 3") {
+		t.Errorf("unexpected drift diagnostic: %+v", drift)
+	}
+}
+
+func TestAuditSkillTreeReportsMissingDirectory(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "nao-existe")
+	uc := &DoctorAuditUseCase{fsManager: &mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, logger: &mockLogger{}}
+
+	var diags []entity.Diagnostic
+	uc.auditSkillTree("CommandCode", base, func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 || diags[0].Category != entity.DiagWarning {
+		t.Fatalf("expected a single WARNING for a missing directory, got %v", diags)
+	}
+	if !strings.Contains(diags[0].Details, "not found") {
+		t.Errorf("unexpected details: %q", diags[0].Details)
 	}
 }
