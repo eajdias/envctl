@@ -215,3 +215,40 @@ func TestVerifyScriptHookModeSkipsTestsAndCachesGreenState(t *testing.T) {
 		t.Errorf("an unchanged tree must stay silent and green, got exit %d:\n%s", code, out)
 	}
 }
+
+// The cache must not swallow an edit to a file that is still untracked: while a
+// new file is being written it appears in `git status` by path only, so a hash
+// that ignored its content would keep reporting the previous green verdict.
+func TestVerifyScriptHookModeReRunsAfterUntrackedEdit(t *testing.T) {
+	dir := goFixture(t)
+	payload := `{"hook_event_name":"Stop","stop_hook_active":false}`
+
+	runHook := func() (int, string) {
+		cmd := exec.Command("bash", verifyScriptPath(t), "--hook")
+		cmd.Dir = dir
+		cmd.Stdin = strings.NewReader(payload)
+		out, err := cmd.CombinedOutput()
+		code := 0
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			code = exitErr.ExitCode()
+		} else if err != nil {
+			t.Fatalf("hook mode: %v", err)
+		}
+		return code, string(out)
+	}
+
+	if code, out := runHook(); code != 0 {
+		t.Fatalf("fixture must start green: exit %d\n%s", code, out)
+	}
+
+	// Break a static check (the build) in a file that is still untracked.
+	writeTestFile(t, dir, "broken.go", "package main\n\nfunc Quebrado( {\n")
+
+	code, out := runHook()
+	if code == 0 {
+		t.Errorf("an edit to an untracked file must re-run the checks, got exit 0 (cache hit)")
+	}
+	if !strings.Contains(out, "go build") {
+		t.Errorf("the report must name the broken check, got:\n%s", out)
+	}
+}

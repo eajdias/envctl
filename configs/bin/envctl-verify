@@ -235,12 +235,24 @@ changed_matching() {
 # --- state cache (hook mode only) -------------------------------------------
 # A turn that changed nothing cannot produce a different verdict, so the previous
 # green result stands. The stamp lives in the git dir, never in the work tree.
+#
+# Untracked files are hashed by content too: their path alone appears in
+# `git status`, so without this an edit to a file that is still untracked (the
+# normal state while writing something new) would look like no change at all.
+# Files above the size cap are skipped to bound the cost.
 stamp_file="$(git rev-parse --git-dir 2>/dev/null)/envctl-verify.stamp"
 state_hash() {
 	{
 		git rev-parse HEAD 2>/dev/null
 		git status --porcelain 2>/dev/null
 		git diff HEAD 2>/dev/null | git hash-object --stdin 2>/dev/null
+		git ls-files --others --exclude-standard -z 2>/dev/null | while IFS= read -r -d '' file; do
+			[ -f "$file" ] || continue
+			size=$(wc -c <"$file" 2>/dev/null || echo 0)
+			[ "${size:-0}" -gt 1048576 ] && continue
+			printf '%s:' "$file"
+			cat "$file" 2>/dev/null
+		done | git hash-object --stdin 2>/dev/null
 	} | git hash-object --stdin 2>/dev/null
 }
 current_state=""
