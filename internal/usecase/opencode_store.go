@@ -41,9 +41,16 @@ func (s OpenCodeStore) ExceedsThreshold() bool {
 }
 
 // openCodeDataDir returns the OpenCode data directory, honoring XDG_DATA_HOME.
+// An empty homeDir falls back to the process home so a caller that could not
+// resolve it still audits the real location.
 func openCodeDataDir(homeDir string) string {
 	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
 		return filepath.Join(xdg, "opencode")
+	}
+	if homeDir == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			homeDir = home
+		}
 	}
 	return filepath.Join(homeDir, ".local", "share", "opencode")
 }

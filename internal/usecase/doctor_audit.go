@@ -743,7 +743,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 12. Audit OpenCode storage accumulation & standardized temp folder
-	homeDir, _ := uc.fsManager.ExpandUserPath("~")
+	homeDir, homeErr := uc.fsManager.ExpandUserPath("~")
+	if homeErr != nil && uc.logger != nil {
+		uc.logger.Warn("Could not resolve the user home for the OpenCode store audit: %v", homeErr)
+	}
 	opencodeDataDir := openCodeDataDir(homeDir)
 
 	dbPath := openCodeStorePath(homeDir)

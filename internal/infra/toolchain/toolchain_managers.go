@@ -189,7 +189,7 @@ func userLocalPrefix() (string, error) {
 		return "", fmt.Errorf("cannot resolve user home directory")
 	}
 	prefix := filepath.Join(home, ".local")
-	if err := os.MkdirAll(prefix, 0755); err != nil {
+	if err := os.MkdirAll(prefix, 0o750); err != nil {
 		return "", err
 	}
 	return prefix, nil
@@ -278,6 +278,8 @@ func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
 		args = append(args, "--break-system-packages")
 	}
 	args = append(args, pkg.ID)
+	// #nosec G204 -- argv elements handed to pip directly (no shell); the id
+	// comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, pipPythonBin(), args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -291,6 +293,7 @@ func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
 // virtualenv unless --break-system-packages is passed.
 func pythonExternallyManaged(ctx context.Context) bool {
 	script := `import os, sysconfig; print(os.path.exists(os.path.join(sysconfig.get_paths()["stdlib"], "EXTERNALLY-MANAGED")))`
+	// #nosec G204 -- fixed inline script, no interpolation and no shell.
 	out, err := exec.CommandContext(ctx, pipPythonBin(), "-c", script).Output()
 	return err == nil && strings.TrimSpace(string(out)) == "True"
 }

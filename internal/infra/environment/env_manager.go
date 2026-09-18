@@ -76,13 +76,8 @@ type shellRC struct {
 // installs) ~/.profile and ~/.bashrc are never read, so variables written only
 // there would silently never reach an interactive session.
 func (e *envManager) rcFiles() []shellRC {
-	home := os.Getenv("HOME")
-	if home == "" {
-		if h, err := os.UserHomeDir(); err == nil {
-			home = h
-		}
-	}
-	if home == "" {
+	home, err := resolveHome()
+	if err != nil || home == "" {
 		return nil
 	}
 	return []shellRC{
@@ -90,6 +85,29 @@ func (e *envManager) rcFiles() []shellRC {
 		{path: filepath.Join(home, ".bashrc")},
 		{path: filepath.Join(home, ".config", "fish", "config.fish"), fish: true},
 	}
+}
+
+// resolveHome returns the user's home directory, the base directory every shell
+// startup file must stay inside.
+func resolveHome() (string, error) {
+	if home := os.Getenv("HOME"); home != "" {
+		return home, nil
+	}
+	return os.UserHomeDir()
+}
+
+// withinHome reports whether path resolves inside the user's home directory, so
+// a malformed HOME can never make provisioning write outside it.
+func withinHome(path string) bool {
+	home, err := resolveHome()
+	if err != nil || home == "" {
+		return false
+	}
+	rel, err := filepath.Rel(home, filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
 // exportLine renders the declaration for this shell's syntax.
@@ -112,7 +130,7 @@ func (rc shellRC) declarationPrefix(name string) string {
 // replacing any existing declaration so the variable survives shell restarts.
 func (e *envManager) persistEnvVar(name, value string) error {
 	for _, rc := range e.rcFiles() {
-		if rc.path == "" {
+		if rc.path == "" || !withinHome(rc.path) {
 			continue
 		}
 		data, err := os.ReadFile(rc.path)
@@ -142,9 +160,11 @@ func (e *envManager) persistEnvVar(name, value string) error {
 			out = append(out, exportLine)
 		}
 		content := strings.Join(out, "\n") + "\n"
-		if err := os.MkdirAll(filepath.Dir(rc.path), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(rc.path), 0o750); err != nil {
 			return err
 		}
+		// #nosec G703 -- target is HOME plus a fixed file name and is rejected by
+		// withinHome when it would escape the home directory.
 		if err := os.WriteFile(rc.path, []byte(content), 0600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", rc.path, err)
 		}
@@ -270,7 +290,7 @@ func (e *envManager) EnsurePathEntry(ctx context.Context, dir string) (bool, err
 	}
 	changed := false
 	for _, rc := range e.rcFiles() {
-		if rc.path == "" {
+		if rc.path == "" || !withinHome(rc.path) {
 			continue
 		}
 		line := fmt.Sprintf(`export PATH="%s:$PATH"`, dir)
@@ -284,7 +304,7 @@ func (e *envManager) EnsurePathEntry(ctx context.Context, dir string) (bool, err
 		if strings.Contains(string(data), dir) {
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(rc.path), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(rc.path), 0o750); err != nil {
 			return changed, err
 		}
 		f, err := os.OpenFile(rc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
