@@ -9,6 +9,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.131] - 2026-09-18
+
+### 🧭 fzf com walker nativo e remoção de shims mortos
+
+- **Changed**: `FZF_DEFAULT_COMMAND` saiu do manifesto. O fzf 0.47 substituiu o fallback `find` por um walker embutido (`file,follow,hidden`, pulando `.git,node_modules`) — o mesmo motor que o comando `fd` usava —, então a variável só criava diferença de comportamento entre as máquinas.
+- **Added**: o bootstrap instala a release atual do fzf **somente quando** a versão instalada é anterior ao walker (o Ubuntu 24.04 traz 0.44.1; Arch e Windows já vêm com versões novas, e o pacote da distro permanece, pois é ele que fornece os bindings de shell). O `doctor` passa a auditar a **versão**, não só a presença.
+- **Fixed**: os probes de versão leem apenas stdout — o `runShell` mescla stderr, e o ruído de um profile quebrado entrava no valor parseado, o que fazia o gate de versão falhar e instalar um fzf sobre outro já adequado.
+- **Fixed**: linhas de rc que carregavam o shim `~/.local/bin/env` do uv — que o uv só escreve quando `~/.local/bin` **não** está no PATH, e o envctl garante esse PATH — deixavam **todo login shell** imprimindo erro no stderr. O `run shell` remove a referência morta, inclusive em `~/.bash_profile`, mas apenas quando ele já existe (criá-lo faria o bash parar de ler `~/.profile`).
+
 ## [v1.2.129] - 2026-09-18
 
 ### 🧭 Stack enxuta: Cursor padronizado, .NET/VS Code/clientes GUI fora
