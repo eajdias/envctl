@@ -9,6 +9,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.127] - 2026-09-18
+
+### ⏱️ Verificação sem timeout (fail-fast)
+
+- **Changed**: o verificador não impõe mais timeout por check. O conjunto completo roda em ~2,3s com cache quente (gofmt 21ms, build 478ms, vet 133ms, testes 299ms, cross-compile Windows 638ms, lint 0,7s quente / 3,2s frio); esperar minutos por um check travado é desperdício em automação — ou funciona, ou não funciona e reporta. O hook de turno fica apenas com o teto do próprio engine e o pre-push roda sem teto.
+- **Docs**: `docs/verification.md` ganha a seção "Sem Timeout — Fail-Fast" com a medição por check.
+- **Changed**: notas já lançadas saem de `[Unreleased]` — esta leva em `v1.2.126`, a anterior em `v1.2.115`.
+
 ## [v1.2.126] - 2026-09-18
 
 ### ✅ Quality Gates locais (hook Stop do CommandCode + pre-push do git)
@@ -18,7 +26,6 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Added**: pre-push global do git (`core.hooksPath` → `~/.config/git/hooks/pre-push`): nenhum push sai sem verificação, de qualquer agente ou do terminal. Como `core.hooksPath` sobrepõe `.git/hooks` de todos os repositórios, o hook deployado **encadeia primeiro o pre-push local do repositório** (husky e afins seguem funcionando).
 - **Added**: auditoria `Verify` no `doctor` (script e hook presentes e executáveis) — drift do wiring vira `WARN`.
 - **Docs**: `docs/verification.md` (camadas, checks, encadeamento de hooks e variáveis de controle), link no README e no `doctor-and-idempotency.md`.
-- **Changed**: sem timeout — o conjunto completo roda em ~2s com cache quente, então um check travado é reportado em vez de esperado.
 
 ### 🧹 Higiene do store do OpenCode (`run cleanup`)
 
