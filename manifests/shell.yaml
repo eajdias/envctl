@@ -2,12 +2,6 @@
 version: "1.0"
 
 environment_variables:
-  - name: FZF_DEFAULT_COMMAND
-    value: "fd --type f --hidden --exclude .git"
-    scope: User
-    target: "Windows User Environment"
-    os: windows
-
   - name: NODE_PATH
     value: "%USERPROFILE%\\node_modules"
     scope: User

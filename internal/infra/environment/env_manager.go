@@ -172,6 +172,83 @@ func (e *envManager) persistEnvVar(name, value string) error {
 	return nil
 }
 
+// cleanupStaleShimReferences drops sourcing lines for tool shims that no longer
+// exist, and returns how many lines were removed. It runs on every provisioning
+// pass (not only when a variable changes) so an already-converged machine still
+// loses the broken line.
+func (e *envManager) cleanupStaleShimReferences() int {
+	home, err := resolveHome()
+	if err != nil || home == "" {
+		return 0
+	}
+
+	paths := make([]string, 0, 4)
+	for _, rc := range e.rcFiles() {
+		paths = append(paths, rc.path)
+	}
+	// ~/.bash_profile is inspected only when it already exists: creating it
+	// would make bash stop reading ~/.profile, where the user's own setup may
+	// live.
+	bashProfile := filepath.Join(home, ".bash_profile")
+	if _, statErr := os.Stat(bashProfile); statErr == nil {
+		paths = append(paths, bashProfile)
+	}
+
+	removed := 0
+	for _, path := range paths {
+		if path == "" || !withinHome(path) {
+			continue
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			continue
+		}
+		lines := strings.Split(string(data), "\n")
+		out := make([]string, 0, len(lines))
+		fileRemoved := 0
+		for _, line := range lines {
+			if isStaleToolShimReference(line) {
+				fileRemoved++
+				continue
+			}
+			out = append(out, line)
+		}
+		if fileRemoved == 0 {
+			continue
+		}
+		// #nosec G703 -- path is HOME plus a fixed startup-file name and is
+		// rejected by withinHome when it would escape the home directory.
+		if writeErr := os.WriteFile(path, []byte(strings.Join(out, "\n")), 0600); writeErr != nil {
+			continue
+		}
+		removed += fileRemoved
+	}
+	return removed
+}
+
+// isStaleToolShimReference reports whether a shell line sources a tool shim
+// that no longer exists — currently only uv's ~/.local/bin/env. uv writes that
+// shim exclusively when ~/.local/bin is not already on PATH, and envctl
+// guarantees the PATH entry, so an older install leaves a line pointing at a
+// file nothing recreates: every login shell then prints "No such file or
+// directory" on stderr, which also corrupts callers that merge stderr into
+// stdout. The line is redundant on a managed PATH, so it is dropped.
+func isStaleToolShimReference(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if !strings.Contains(trimmed, ".local/bin/env") {
+		return false
+	}
+	if !strings.HasPrefix(trimmed, ".") && !strings.HasPrefix(trimmed, "source ") {
+		return false
+	}
+	home, err := resolveHome()
+	if err != nil || home == "" {
+		return false
+	}
+	_, statErr := os.Stat(filepath.Join(home, ".local", "bin", "env"))
+	return os.IsNotExist(statErr)
+}
+
 // getEnvVarFromRC reads the current value of a variable from the shell rc files.
 func (e *envManager) getEnvVarFromRC(name string) (string, error) {
 	for _, rc := range e.rcFiles() {
@@ -255,6 +332,15 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 				Details:  fmt.Sprintf("Already set %s=%s (Scope: %s)", v.Name, v.Value, v.Scope),
 			})
 		}
+	}
+
+	if removed := e.cleanupStaleShimReferences(); removed > 0 {
+		diagnostics = append(diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "ShellProfile",
+			Target:   "stale shim references",
+			Details:  fmt.Sprintf("Removed %d sourcing line(s) pointing at shims that no longer exist", removed),
+		})
 	}
 
 	return diagnostics, nil

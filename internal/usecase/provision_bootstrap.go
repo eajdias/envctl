@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -114,6 +115,15 @@ func (uc *ProvisionBootstrapUseCase) runShell(ctx context.Context, script string
 	cmd := exec.CommandContext(ctx, "bash", "-lc", script)
 	cmd.Env = uc.shellEnv()
 	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
+// runShellStdout runs a script and captures stdout only: shell-profile noise on
+// stderr (a broken rc line, a missing shim) must not corrupt a parsed value.
+func (uc *ProvisionBootstrapUseCase) runShellStdout(ctx context.Context, script string) (string, error) {
+	cmd := exec.CommandContext(ctx, "bash", "-lc", script)
+	cmd.Env = uc.shellEnv()
+	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -440,5 +450,67 @@ if command -v fish >/dev/null 2>&1; then
 fi
 echo "Go PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
 
+	// 15. fzf - a distro build can predate the built-in directory walker
+	// (0.47), and without it fzf falls back to `find`: slow and blind to
+	// ignore-files. Install the current release into ~/.local/bin only when
+	// needed, so an up-to-date distro package stays (it also ships the shell
+	// bindings under /usr/share/fzf).
+	if uc.fzfSupportsWalker(ctx) {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
+			Details: "Installed fzf is new enough to use its built-in walker",
+		})
+	} else {
+		uc.logger.Info("LinuxBootstrap: installing a current fzf (built-in directory walker)")
+		out, err := uc.runShell(ctx, `set -e
+ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) FZF_ARCH=amd64;; aarch64|arm64) FZF_ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
+VER=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')
+TVER=${VER#v}
+curl -fsSL "https://github.com/junegunn/fzf/releases/download/${VER}/fzf-${TVER}-linux-${FZF_ARCH}.tar.gz" -o /tmp/envctl-fzf.tgz 2>/dev/null || curl -fsSL "https://github.com/junegunn/fzf/releases/download/${VER}/fzf-${TVER}-linux_${FZF_ARCH}.tar.gz" -o /tmp/envctl-fzf.tgz
+tar -xzf /tmp/envctl-fzf.tgz -C /tmp
+install -m 0755 /tmp/fzf "$HOME/.local/bin/fzf"
+rm -f /tmp/envctl-fzf.tgz /tmp/fzf
+"$HOME/.local/bin/fzf" --version`)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: fzf install failed: %s (%s)", out, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
+				Details: fmt.Sprintf("fzf install failed: %v (%s)", err, out),
+				FixHint: "install a fzf >= 0.47 manually (it replaced the `find` fallback with a built-in walker)",
+			})
+		} else {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
+				Details: "Installed current fzf via release tarball",
+			})
+		}
+	}
+
 	return result, nil
+}
+
+// fzfSupportsWalker reports whether the installed fzf provides the built-in
+// directory walker (0.47+).
+func (uc *ProvisionBootstrapUseCase) fzfSupportsWalker(ctx context.Context) bool {
+	out, err := uc.runShellStdout(ctx, `command -v fzf >/dev/null 2>&1 && fzf --version 2>/dev/null | awk '{print $1}'`)
+	if err != nil {
+		return false
+	}
+	return fzfHasWalker(out)
+}
+
+// fzfHasWalker reports whether a "MAJOR.MINOR[.PATCH]" version string is at
+// least 0.47, the release that replaced the `find` fallback with fzf's own
+// directory walker.
+func fzfHasWalker(version string) bool {
+	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
+	if len(parts) < 2 {
+		return false
+	}
+	major, majorErr := strconv.Atoi(parts[0])
+	minor, minorErr := strconv.Atoi(parts[1])
+	if majorErr != nil || minorErr != nil {
+		return false
+	}
+	return major > 0 || minor >= 47
 }

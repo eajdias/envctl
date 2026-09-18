@@ -632,10 +632,25 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},
 			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},
 			{"go", "Go programming language SDK"},
+			{"fzf", "fzf (built-in directory walker)"},
+		}
+
+		// fzf needs to be new enough to own its directory walker (0.47+):
+		// older distro builds fall back to `find`, which is slow and blind to
+		// ignore-files. Read the version once and reuse it in both branches.
+		fzfVersion := ""
+		if out, err := func() ([]byte, error) {
+			c := exec.CommandContext(ctx, "bash", "-lc", "fzf --version 2>/dev/null | awk '{print $1}'")
+			c.Env = env
+			return c.Output()
+		}(); err == nil {
+			fzfVersion = strings.TrimSpace(string(out))
 		}
 		for _, t := range bootstrapTools {
 			found := false
-			if t.name == "playwright-chromium" {
+			if t.name == "fzf" {
+				found = fzfHasWalker(fzfVersion)
+			} else if t.name == "playwright-chromium" {
 				// Not a PATH binary: the bundled build lives under
 				// ~/.cache/ms-playwright (see the Browser/Playwright
 				// Chromium check). Mirror that logic here so both
@@ -661,6 +676,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				if t.name == "playwright-chromium" {
 					details = "Bundled Chromium present in ~/.cache/ms-playwright"
 				}
+				if t.name == "fzf" {
+					details = "fzf " + fzfVersion + " (built-in directory walker)"
+				}
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagOK,
 					System:   "LinuxBootstrap",
@@ -671,6 +689,13 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				details := "Tool not found on PATH (" + t.name + ")"
 				if t.name == "playwright-chromium" {
 					details = "No bundled Chromium in ~/.cache/ms-playwright"
+				}
+				if t.name == "fzf" {
+					if fzfVersion == "" {
+						details = "fzf not found on PATH"
+					} else {
+						details = "fzf " + fzfVersion + " is older than 0.47 — no built-in directory walker (falls back to `find`)"
+					}
 				}
 				addDiag(entity.Diagnostic{
 					Category: entity.DiagWarning,

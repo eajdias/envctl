@@ -120,6 +120,42 @@ func TestEnsureEnvVarsAlignsEveryShell(t *testing.T) {
 	}
 }
 
+func TestIsStaleToolShimReference(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	line := `. "$HOME/.local/bin/env"`
+	if !isStaleToolShimReference(line) {
+		t.Errorf("a sourcing line for a missing shim must be dropped")
+	}
+
+	// Once the shim exists the line is legitimate again.
+	binDir := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(binDir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(binDir, "env"), []byte("#!/bin/sh\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if isStaleToolShimReference(line) {
+		t.Errorf("an existing shim must keep its sourcing line")
+	}
+
+	if err := os.Remove(filepath.Join(binDir, "env")); err != nil {
+		t.Fatal(err)
+	}
+	for _, keep := range []string{
+		`export PATH="$HOME/.local/bin:$PATH"`,
+		`source ~/.bashrc`,
+		`# . "$HOME/.local/bin/env" (disabled)`,
+		`fzf --version`,
+	} {
+		if isStaleToolShimReference(keep) {
+			t.Errorf("unrelated line %q must be preserved", keep)
+		}
+	}
+}
+
 func TestEnsurePathEntryAddsFishPathOnce(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PATH persistence on Windows writes the registry value, not fish rc files")
