@@ -1,4 +1,4 @@
-# Fix encoding: console must use UTF-8 for Unicode glyphs (emojis, Nerd Font icons, checkmarks)
+# Fix encoding: console must use UTF-8 for Unicode glyphs (emojis, box drawing, checkmarks)
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null

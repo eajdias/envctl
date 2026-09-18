@@ -184,7 +184,7 @@ config_files:
     executable: true
 
   - id: windows_terminal_settings
-    description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, MesloLGM Nerd Font, Dark+ theme)"
+    description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, Dark+ theme)"
     source: "configs/terminal-settings.json"
     destination: "%LOCALAPPDATA%/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json"
     strict_acl: false
