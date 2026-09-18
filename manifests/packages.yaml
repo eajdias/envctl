@@ -186,6 +186,13 @@ packages:
     category: cli-tools
     check_command: shellcheck --version
 
+  - id: GolangCI.golangci-lint
+    name: golangci-lint (used by the CI gate and by envctl-verify)
+    type: winget
+    os: windows
+    category: cli-tools
+    check_command: golangci-lint --version
+
   # ============================================================================
   # Language SDKs & Toolchains (Winget)
   # ============================================================================
@@ -209,13 +216,6 @@ packages:
     os: windows
     category: runtimes
     check_command: python --version
-
-  - id: Microsoft.DotNet.SDK.8
-    name: .NET 8 SDK
-    type: winget
-    os: windows
-    category: runtimes
-    check_command: dotnet --version
 
   # ============================================================================
   # Volta Node.js & Global Ecosystem
@@ -304,27 +304,14 @@ packages:
   # ============================================================================
   # Desktop Applications & Productivity Tools (Winget)
   # ============================================================================
-  - id: Microsoft.VisualStudioCode
-    name: Visual Studio Code
-    type: winget
-    os: windows
-    category: desktop-apps
-    check_command: code --version
-
   - id: Microsoft.WindowsTerminal
     name: Windows Terminal
     type: winget
     os: windows
     category: desktop-apps
 
-  - id: Termius.Termius
-    name: Termius SSH Client
-    type: winget
-    os: windows
-    category: desktop-apps
-
-  - id: WinSCP.WinSCP
-    name: WinSCP SFTP/FTP Client
+  - id: Anysphere.Cursor
+    name: Cursor IDE (standardized editor with CommandCode IDE integration)
     type: winget
     os: windows
     category: desktop-apps
@@ -347,21 +334,14 @@ packages:
     os: windows
     category: desktop-apps
 
-  - id: GitHub.GitHubDesktop
-    name: GitHub Desktop
-    type: winget
-    os: windows
+  # ============================================================================
+  # Arch Linux / CachyOS — AUR (opt-in via paru, scoped with os: arch)
+  # ============================================================================
+  - id: cursor-bin
+    name: Cursor IDE (AUR; available through the CachyOS Chaotic-AUR mirror)
+    type: paru
+    os: arch
     category: desktop-apps
-
-  # ============================================================================
-  # Global Dotnet Tools
-  # ============================================================================
-  - id: csharp-ls
-    name: C# Language Server Protocol
-    type: dotnet-tool
-    os: windows
-    category: lsp
-    check_command: csharp-ls --version
 
   # ============================================================================
   # Debian / Ubuntu APT Core Packages (Linux VPS & Workstations)
@@ -590,6 +570,28 @@ packages:
     category: cli-tools
     check_command: hyperfine --version
 
+  # Container runtime — Ubuntu gets docker.io from apt; Arch had none until now.
+  - id: docker
+    name: Docker Engine
+    type: pacman
+    os: linux
+    category: system
+    check_command: docker --version
+
+  - id: docker-compose
+    name: Docker Compose plugin
+    type: pacman
+    os: linux
+    category: system
+    check_command: docker compose version
+
+  - id: docker-buildx
+    name: Docker Buildx plugin
+    type: pacman
+    os: linux
+    category: system
+    check_command: docker buildx version
+
   - id: shellcheck
     name: shellcheck (bash script linting)
     type: pacman
@@ -645,13 +647,6 @@ packages:
     os: linux
     category: cli-tools
     check_command: taplo --version
-
-  - id: python-pipx
-    name: pipx (isolated Python CLIs)
-    type: pacman
-    os: linux
-    category: toolchain
-    check_command: pipx --version
 
   - id: python-yaml
     name: pyyaml (YAML for python agent scripts)

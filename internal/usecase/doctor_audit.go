@@ -628,6 +628,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"fd", "fd (fdfind symlink)"},
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
+			{"golangci-lint", "golangci-lint (CI lint gate, used by envctl-verify)"},
 			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},
 			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},
 			{"go", "Go programming language SDK"},

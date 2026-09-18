@@ -68,69 +68,6 @@ func lookPathWithEnv(name, path string) (string, error) {
 	return "", fmt.Errorf("executable %q not found in toolchain PATH", name)
 }
 
-// DotnetToolManager handles .NET global tools.
-type DotnetToolManager struct{}
-
-func NewDotnetToolManager() repository.PackageManager {
-	return &DotnetToolManager{}
-}
-
-func (d *DotnetToolManager) Type() entity.PackageType {
-	return entity.PackageTypeDotnetTool
-}
-
-func (d *DotnetToolManager) IsAvailable(ctx context.Context) bool {
-	cmd := execTool(ctx, "dotnet", "--version")
-	return cmd.Run() == nil
-}
-
-func (d *DotnetToolManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	cmd := execTool(ctx, "dotnet", "tool", "list", "-g")
-	out, err := cmd.CombinedOutput()
-	if err == nil && strings.Contains(strings.ToLower(string(out)), strings.ToLower(pkg.ID)) {
-		return true, "installed globally via dotnet tool", nil
-	}
-	return false, "", nil
-}
-
-func (d *DotnetToolManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := execTool(ctx, "dotnet", "tool", "install", "-g", pkg.ID)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		if strings.Contains(string(out), "is already installed") {
-			return nil
-		}
-		return fmt.Errorf("dotnet tool install %s failed: %s (%w)", pkg.ID, string(out), err)
-	}
-	return nil
-}
-
-func (d *DotnetToolManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := execTool(ctx, "dotnet", "tool", "list", "-g")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	lines := strings.Split(string(out), "\n")
-	var pkgs []entity.Package
-	for i, line := range lines {
-		if i < 2 || strings.TrimSpace(line) == "" {
-			continue
-		}
-		fields := strings.Fields(line)
-		if len(fields) >= 2 {
-			pkgs = append(pkgs, entity.Package{
-				ID:      fields[0],
-				Name:    fields[0],
-				Version: fields[1],
-				Type:    entity.PackageTypeDotnetTool,
-				Status:  entity.StatusInstalled,
-			})
-		}
-	}
-	return pkgs, nil
-}
-
 // NpmManager handles global npm packages.
 type NpmManager struct{}
 

@@ -16,7 +16,7 @@ import (
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
 // the global OpenCode and CommandCode environments on Ubuntu servers: Volta +
 // Node, the OpenCode CLI, the CommandCode CLI, and the user-local CLI tools
-// (gh, delta, yq, uv, ruff, pylsp, fd).
+// (gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    repository.FileSystemManager
@@ -394,7 +394,15 @@ if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$H
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
 		"volta install stylelint")
 
-	// 12. Go SDK - official tarball into /usr/local/go (requires sudo).
+	// 12. golangci-lint - the Go lint gate used by CI and by envctl-verify.
+	// Without it here, the verifier's lint check silently skips on a fresh
+	// machine and lint findings only surface in the pipeline.
+	uc.step(ctx, result, "golangci-lint", "golangci-lint (CI lint gate)",
+		`set -e
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$HOME/.local/bin" >/dev/null
+"$HOME/.local/bin/golangci-lint" --version`)
+
+	// 13. Go SDK - official tarball into /usr/local/go (requires sudo).
 	// The prior install must be removed first: extracting over an old SDK
 	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
 	uc.step(ctx, result, "go", "Go programming language SDK",
@@ -407,7 +415,7 @@ sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
 rm -f /tmp/envctl-go.tar.gz
 echo "Installed ${GO_VER}"`)
 
-	// 13. Persist the Go PATH in shell profiles so future login shells find go
+	// 14. Persist the Go PATH in shell profiles so future login shells find go
 	// and gopls. Fish needs its own syntax — writing bash exports into
 	// config.fish would be a syntax error.
 	uc.step(ctx, result, "shell-path", "Persist Go PATH in shell profiles",

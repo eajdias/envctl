@@ -97,7 +97,7 @@ envctl run shell
 # Apenas catálogo de 41 skills do OpenCode/CommandCode
 envctl run skills
 
-# Apenas servidores de linguagem (16 LSPs)
+# Apenas servidores de linguagem (15 LSPs)
 envctl run lsp
 
 # Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)

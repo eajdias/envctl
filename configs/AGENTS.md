@@ -4,7 +4,7 @@
 
 - **OS:** Windows 11 Pro 25H2 (amd64) · workstation `<hostname>` · usuário `<user>`
 - **Shell:** PowerShell 7 (`pwsh.exe`) é o shell do OpenCode — use sintaxe nativa (`Get-ChildItem`, `Test-Path`, `$env:NOME`), não bash. Script POSIX legado: `wsl -e bash -lc "..."` (nunca o contrário).
-- **CLIs no PATH:** `rg`, `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `git`, `docker`, `node`, `npm`, `bun`/`bunx` (substitui `npx`), `dust`, `hyperfine`, `shellcheck`, `csharp-ls`.
+- **CLIs no PATH:** `rg`, `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `git`, `docker`, `node`, `npm`, `bun`/`bunx` (substitui `npx`), `dust`, `hyperfine`, `shellcheck`, `golangci-lint`.
 - **Libs globais (sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` (`axios`, `cheerio`, `papaparse`); Python global (`pyyaml`, `requests`, `openpyxl`, `beautifulsoup4`, `pypdf`, `python-docx`, `lxml`, `sqlite3` stdlib).
 - **Scratch:** `C:\temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
 - **Git:** `fscache`, `preloadindex`, `longpaths`, `autocrlf=input`, pager `delta`.

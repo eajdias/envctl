@@ -18,14 +18,14 @@ envctl doctor
    - Detecção de SO, arquitetura, privilégios de execução.
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
 2. **Gerenciadores de Pacotes & Toolchains**:
-   - Winget, APT, Pacman, Paru, Volta, Go, Dotnet CLI, Python UV/Pip.
+   - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
    - Presença de todos os 50+ binários essenciais no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
-4. **Language Servers (16 LSPs)**:
-   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 16 servidores de linguagem registrados.
+4. **Language Servers (15 LSPs)**:
+   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 15 servidores de linguagem registrados.
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de 41 Skills de Agentes**:
    - Existência e conformidade de todas as 41 Skills em `~/.config/opencode/skills/`.
@@ -67,7 +67,7 @@ Antes de tocar em qualquer arquivo no disco:
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.
-- **Volta / Go / Dotnet**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
+- **Volta / Go**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
 
 ---
 

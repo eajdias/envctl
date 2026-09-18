@@ -23,8 +23,7 @@
       "Shell(bun:*)",
       "Shell(bunx:*)",
       "Shell(pytest:*)",
-      "Shell(cargo test:*)",
-      "Shell(dotnet test:*)",
+      "Shell(golangci-lint:*)",
       "Shell(docker:*)"
     ],
     "ask": [

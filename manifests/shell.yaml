@@ -213,14 +213,6 @@ config_files:
     category: "terminal"
     os: windows
 
-  - id: vscode_settings
-    description: "Visual Studio Code global user preferences"
-    source: "configs/vscode-settings.json"
-    destination: "%APPDATA%/Code/User/settings.json"
-    strict_acl: false
-    category: "editor"
-    os: windows
-
   - id: ssh_config
     description: "OpenSSH client configuration with connection caching and resilient defaults (user Host stanzas are preserved)"
     source: "configs/ssh-config"
@@ -339,11 +331,6 @@ cleanup:
     path: "~/.commandcode/memory"
     category: "commandcode"
     recursive: true
-  - id: stale_pw_ps1
-    description: "Remove legacy pw.ps1 wrapper (superseded by node pw.cjs — ps1/cmd shells hang on the daemon Job Object)"
-    path: "~/.local/bin/pw.ps1"
-    category: "scripts"
-    os: windows
   - id: stale_pw_screenshot
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-screenshot"

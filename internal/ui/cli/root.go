@@ -90,15 +90,14 @@ func InitApp(embeddedFS fs.FS, version string) {
 	windowsTweaksMgr := windows.NewWindowsTweaksManager(fileLogger)
 
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
-		entity.PackageTypeWinget:     winget.NewWingetManager(),
-		entity.PackageTypeApt:        apt.NewAptManager(),
-		entity.PackageTypePacman:     pacman.NewPacmanManager(),
-		entity.PackageTypeParu:       paru.NewParuManager(),
-		entity.PackageTypeVolta:      toolchain.NewVoltaManager(),
-		entity.PackageTypeDotnetTool: toolchain.NewDotnetToolManager(),
-		entity.PackageTypeNpm:        toolchain.NewNpmManager(),
-		entity.PackageTypePip:        toolchain.NewPipManager(),
-		entity.PackageTypeGo:         toolchain.NewGoManager(),
+		entity.PackageTypeWinget: winget.NewWingetManager(),
+		entity.PackageTypeApt:    apt.NewAptManager(),
+		entity.PackageTypePacman: pacman.NewPacmanManager(),
+		entity.PackageTypeParu:   paru.NewParuManager(),
+		entity.PackageTypeVolta:  toolchain.NewVoltaManager(),
+		entity.PackageTypeNpm:    toolchain.NewNpmManager(),
+		entity.PackageTypePip:    toolchain.NewPipManager(),
+		entity.PackageTypeGo:     toolchain.NewGoManager(),
 	}
 
 	appCtx = &AppContext{

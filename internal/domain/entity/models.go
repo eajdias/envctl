@@ -6,15 +6,14 @@ import "fmt"
 type PackageType string
 
 const (
-	PackageTypeWinget     PackageType = "winget"
-	PackageTypeVolta      PackageType = "volta"
-	PackageTypeNpm        PackageType = "npm"
-	PackageTypePip        PackageType = "pip"
-	PackageTypeDotnetTool PackageType = "dotnet-tool"
-	PackageTypeGo         PackageType = "go"
-	PackageTypeApt        PackageType = "apt"
-	PackageTypePacman     PackageType = "pacman"
-	PackageTypeParu       PackageType = "paru"
+	PackageTypeWinget PackageType = "winget"
+	PackageTypeVolta  PackageType = "volta"
+	PackageTypeNpm    PackageType = "npm"
+	PackageTypePip    PackageType = "pip"
+	PackageTypeGo     PackageType = "go"
+	PackageTypeApt    PackageType = "apt"
+	PackageTypePacman PackageType = "pacman"
+	PackageTypeParu   PackageType = "paru"
 )
 
 // PackageStatus indicates the installation status of a package.

@@ -18,14 +18,14 @@ envctl/
 │   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
 │   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
 │   │   ├── provision_skills.go  # Extração e atualização das 41 Skills
-│   │   ├── provision_lsp.go     # Instalação e validação dos 16 LSPs
+│   │   ├── provision_lsp.go     # Instalação e validação dos 15 LSPs
 │   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
 │   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
 │   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
 │   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
 │   │   ├── winget/              # Adaptador para Windows Package Manager
 │   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
-│   │   ├── toolchain/           # Adaptadores para Volta, Go, Dotnet, UV/Pip
+│   │   ├── toolchain/           # Adaptadores para Volta, Go, UV/Pip
 │   │   ├── windows/             # Adaptador de Registro e Fontes Windows
 │   │   ├── git/                 # Adaptador Git e GitHub CLI
 │   │   ├── filesystem/          # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
@@ -44,7 +44,7 @@ envctl/
 
 ### 1. Camada de Domínio (`internal/domain`)
 - **Entidades (`entity/models.go`)**: Modelos puros sem dependências externas.
-  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `volta`, `dotnet-tool`, `go`, `pip`), binário esperado e filtro de OS.
+  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `volta`, `go`, `pip`), binário esperado e filtro de OS.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
   - `LSP`: Servidor de linguagem (Language Server Protocol), gerenciador de pacote nativo e linguagens suportadas.
@@ -74,7 +74,6 @@ Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
   - `WingetManager`: `winget.exe install --exact --id ... --silent --accept-package-agreements`
   - `AptManager`: `apt-get install -y --no-install-recommends ...`
   - `VoltaManager`: `volta install ...`
-  - `DotnetToolManager`: `dotnet tool install --global ...`
   - `GoManager`: `go install ...@latest`
   - `PipManager`: `pip install ...` / `uv pip install ...`
 - **Filesystem Atômico**: Cria backups com formato `.bak.YYYYMMDD-HHMMSS` antes de modificar qualquer arquivo existente em disco caso o hash SHA-256 do conteúdo tenha divergido.

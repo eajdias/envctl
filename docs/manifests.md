@@ -49,12 +49,6 @@ packages:
     test_binary: pnpm
     description: "Gerenciador de pacotes Node.js gerenciado pelo Volta"
 
-  # Ferramentas .NET
-  - name: csharp-ls
-    type: dotnet-tool
-    test_binary: csharp-ls
-    description: "Language Server para C# / .NET"
-
   # Ferramentas Go
   - name: golang.org/x/tools/gopls@latest
     type: go
@@ -68,7 +62,6 @@ packages:
 | `winget` | Windows Package Manager | `winget install --exact --id <name> --silent` |
 | `apt` | Advanced Package Tool (Debian/Ubuntu) | `apt-get install -y --no-install-recommends <name>` |
 | `volta` | Volta Toolchain Manager | `volta install <name>` |
-| `dotnet-tool`| .NET CLI Global Tools | `dotnet tool install --global <name>` |
 | `go` | Go Toolchain | `go install <name>` |
 | `pip` | Python PIP / UV | `pip install <name>` |
 
@@ -152,10 +145,6 @@ lsps:
     package_type: go
     command: gopls
     languages: [go]
-  - name: csharp-ls
-    package_type: dotnet-tool
-    command: csharp-ls
-    languages: [csharp]
   - name: marksman
     package_type: winget
     command: marksman server

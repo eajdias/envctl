@@ -120,16 +120,6 @@ lsps:
     check_binary: "pwsh"
     os: windows
 
-  - id: csharp
-    language: csharp
-    server_name: "C# Language Server"
-    command: "csharp-ls"
-    args: []
-    install_type: dotnet-tool
-    install_target: "csharp-ls"
-    check_binary: "csharp-ls"
-    os: windows
-
   - id: eslint
     language: javascript
     server_name: "ESLint Language Server"
