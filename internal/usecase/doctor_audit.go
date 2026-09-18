@@ -203,18 +203,23 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			})
 		} else {
 			details := "Present on disk"
-			if !cf.SeedIfMissing {
-				// Content drift check: seed templates are intentionally local
-				// (per-machine additions), all other config files must match
-				// the provisioned source.
+			switch {
+			case cf.SeedIfMissing:
+				// Seed templates are intentionally local (per-machine additions),
+				// so there is nothing to compare against.
+			case cf.Merge != entity.MergeOverwrite:
+				// Merge-mode files legitimately carry user content on top of the
+				// template (ssh host stanzas, extra dependencies); a byte
+				// comparison would always diverge.
+				details = "Present on disk (merged with user content)"
+			default:
 				if src, err := uc.fsManager.ReadFile(cf.Source); err == nil {
 					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {
-						details = "Content diverges from provisioned source"
 						addDiag(entity.Diagnostic{
 							Category: entity.DiagWarning,
 							System:   "ConfigFile",
 							Target:   cf.Destination,
-							Details:  details,
+							Details:  "Content diverges from provisioned source",
 							FixHint:  "run 'envctl run shell' to restore the provisioned content",
 						})
 						continue
@@ -580,16 +585,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"yq", "yq YAML/JSON processor"},
 			{"uv", "uv Python package manager"},
 			{"ruff", "ruff linter (via uv)"},
-			{"oh-my-posh", "Oh-My-Posh prompt engine"},
 			{"fd", "fd (fdfind symlink)"},
 			{"pylsp", "python-lsp-server (via uv)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
 			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},
 			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},
 			{"go", "Go programming language SDK"},
-			{"rustup", "Rustup Rust toolchain manager"},
-			{"cargo", "Cargo build tool (via Rustup)"},
-			{"rust-analyzer", "Rust Analyzer language server"},
 		}
 		for _, t := range bootstrapTools {
 			found := false
@@ -742,25 +743,29 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 12. Audit OpenCode storage accumulation & standardized temp folder
-	opencodeDataDir, _ := uc.fsManager.ExpandUserPath("~/.local/share/opencode")
+	homeDir, _ := uc.fsManager.ExpandUserPath("~")
+	opencodeDataDir := openCodeDataDir(homeDir)
 
-	dbPath := filepath.Join(opencodeDataDir, "opencode.db")
-	if dbInfo, err := os.Stat(dbPath); err == nil && dbInfo.Size() > 500*1024*1024 {
+	dbPath := openCodeStorePath(homeDir)
+	store, storeErr := InspectOpenCodeStore(dbPath)
+	switch {
+	case storeErr == nil && store.ExceedsThreshold():
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "OpenCode",
 			Target:   "Database",
-			Details:  fmt.Sprintf("opencode.db is %.1f MB (threshold: 500 MB) — accumulated session history", float64(dbInfo.Size())/(1024*1024)),
-			FixHint:  "close OpenCode and prune old sessions (opencode sessions); VACUUM only helps if the DB has free pages",
+			Details: fmt.Sprintf("opencode.db is %.1f MB (threshold: %d MB); %.1f MB reclaimable by VACUUM — the rest is live session history",
+				float64(store.SizeBytes)/(1024*1024), openCodeStoreWarnBytes/(1024*1024), float64(store.ReclaimableBytes)/(1024*1024)),
+			FixHint: "run 'envctl run cleanup' to reclaim free pages; shrinking further means pruning sessions in OpenCode",
 		})
-	} else if err == nil {
+	case storeErr == nil:
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "OpenCode",
 			Target:   "Database",
-			Details:  fmt.Sprintf("Database OK (%.1f MB)", float64(dbInfo.Size())/(1024*1024)),
+			Details:  fmt.Sprintf("Database OK (%.1f MB)", float64(store.SizeBytes)/(1024*1024)),
 		})
-	} else {
+	default:
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "OpenCode",

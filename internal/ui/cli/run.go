@@ -83,7 +83,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "bootstrap",
-		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, oh-my-posh, fd)",
+		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runBootstrapProvisioning()
@@ -137,7 +137,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "windows",
-		Short: "Provision Windows 11 registry tweaks (LongPaths, DevMode, Explorer, Themes) and Nerd Fonts",
+		Short: "Provision Windows 11 registry tweaks (LongPaths, DevMode, Explorer, Themes)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runWindowsProvisioning()
@@ -200,7 +200,7 @@ func runAllProvisioning() {
 		PrintSection(section(2, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
 	}
 
-	// 3. Packages (Winget / APT + Volta + Dotnet + Go + Rustup)
+	// 3. Packages (Winget / APT + Volta + Dotnet + Go)
 	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
 	runPackagesProvisioning("")
 
@@ -400,6 +400,10 @@ func runCleanup() {
 
 	removed := res.RemovedFiles
 	freed := res.FreedBytes
+
+	if res.StoreNote != "" {
+		pterm.Info.Printf("  • OpenCode session store: %s\n", res.StoreNote)
+	}
 
 	if appCtx.TempHygieneUC != nil {
 		tempReport, tempErr := appCtx.TempHygieneUC.Cleanup(ctx)

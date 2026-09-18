@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,6 +40,10 @@ func NewCleanupOpenCodeUseCase(
 type CleanupResult struct {
 	RemovedFiles []string
 	FreedBytes   int64
+	// Store reports the OpenCode session store when it exceeded the audit
+	// threshold, with StoreNote describing what was (or could not be) reclaimed.
+	Store     *OpenCodeStore
+	StoreNote string
 }
 
 func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, error) {
@@ -78,6 +83,37 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 				if uc.logger != nil {
 					uc.logger.Info("[CLEANUP] removed oversized tool-output %s (%.1f MB)", fPath, float64(info.Size())/(1024*1024))
 				}
+			}
+		}
+	}
+
+	// 3. OpenCode session store: reclaim free pages when there are any. Live
+	// rows are never rewritten behind the user's back, so a store that grew
+	// from real session history is reported rather than compacted.
+	dbPath := openCodeStorePath(homeDir)
+	if store, storeErr := InspectOpenCodeStore(dbPath); storeErr == nil && store.ExceedsThreshold() {
+		result.Store = &store
+		if store.ReclaimableBytes > 0 {
+			freed, vacuumErr := vacuumOpenCodeStore(ctx, dbPath)
+			if vacuumErr != nil {
+				result.StoreNote = fmt.Sprintf("%.1f MB, %.1f MB reclaimable but VACUUM could not run: %v",
+					float64(store.SizeBytes)/(1024*1024), float64(store.ReclaimableBytes)/(1024*1024), vacuumErr)
+				if uc.logger != nil {
+					uc.logger.Warn("[CLEANUP] opencode.db VACUUM skipped: %v", vacuumErr)
+				}
+			} else {
+				result.FreedBytes += freed
+				result.StoreNote = fmt.Sprintf("%.1f MB, reclaimed %.1f MB (VACUUM)",
+					float64(store.SizeBytes)/(1024*1024), float64(freed)/(1024*1024))
+				if uc.logger != nil {
+					uc.logger.Info("[CLEANUP] opencode.db: reclaimed %.1f MB", float64(freed)/(1024*1024))
+				}
+			}
+		} else {
+			result.StoreNote = fmt.Sprintf("%.1f MB of live session data (0 MB reclaimable — prune sessions to shrink it)",
+				float64(store.SizeBytes)/(1024*1024))
+			if uc.logger != nil {
+				uc.logger.Info("[CLEANUP] opencode.db holds %.1f MB of live data; nothing to reclaim", float64(store.SizeBytes)/(1024*1024))
 			}
 		}
 	}
