@@ -9,6 +9,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.133] - 2026-09-18
+
+### 🔍 Config escrito pelo agente deixa de ser reportado como drift
+
+- **Fixed**: `~/.commandcode/settings.json` divergia da fonte em **toda** execução, porque o runtime do CommandCode anexa uma entrada de permissão a cada comando aprovado (gravando linhas de comando inteiras). O warning permanente escondia achados reais e sugeria defeito onde não havia. Agora o arquivo declara `runtime_managed: true`: o provisioning continua realinhando ao template (esse é o cleanup, com backup timestamped) e a auditoria reporta OK **explicando** que o agente escreve nele em runtime. A comparação byte-a-byte permanece para todo arquivo de que o envctl é autor único — unir as entradas ao template foi descartado justamente porque o runtime grava comandos inteiros, o que só faria o arquivo crescer com lixo.
+- **Nota**: `doctor` volta a **149/149 (EXCELLENT)** com zero warnings.
+
 ## [v1.2.131] - 2026-09-18
 
 ### 🧭 fzf com walker nativo e remoção de shims mortos
