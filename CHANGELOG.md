@@ -9,6 +9,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.2.129] - 2026-09-18
+
+### 🧭 Stack enxuta: Cursor padronizado, .NET/VS Code/clientes GUI fora
+
+- **Added**: **Cursor** como editor padronizado — `Anysphere.Cursor` (winget, Windows) e `cursor-bin` (paru, `os: arch`): primeira entrada AUR fora do `gaming` e primeiro uso real do filtro por família de distro. É o que habilita `/ide` + `get_diagnostics` nas máquinas com GUI; Ubuntu Server segue sem editor.
+- **Removed**: `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`, entradas nos configs do opencode e o `DotnetToolManager`), Visual Studio Code (+ o template `vscode_settings`), Termius, WinSCP e GitHub Desktop — nada disso está nas stacks usadas. Junto: `"dotnet*"`/`"cargo test*"` saíram das permissões dos agentes do opencode e `Shell(cargo test:*)`/`Shell(dotnet test:*)` do `settings.json` do CommandCode.
+- **Fixed**: `docker` não existia no bloco pacman (o Ubuntu já tinha `docker.io`) — agora entram `docker`, `docker-compose` e `docker-buildx`.
+- **Fixed**: `golangci-lint` não era provisionado, mas é exigido pelo `envctl-verify` e pelo CI — sem ele o check de lint era pulado em silêncio numa máquina nova. Entra no bootstrap Linux (install.sh) e no winget (`GolangCI.golangci-lint`), com auditoria no `doctor`.
+- **Fixed**: `csharp` era declarado no `configs/opencode.linux.json` para um LSP que só existe no Windows; `stale_pw_ps1` estava duplicado no `cleanup`.
+- **Changed**: `python-pipx` sai do bloco pacman — CLIs isoladas têm um único dono (`uv tool install`).
+- Contagem de LSPs: 16 → 15.
+
 ## [v1.2.127] - 2026-09-18
 
 ### ⏱️ Verificação sem timeout (fail-fast)
