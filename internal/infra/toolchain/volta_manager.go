@@ -42,19 +42,36 @@ func (v *VoltaManager) IsInstalled(ctx context.Context, pkg entity.Package) (boo
 		return false, "", err
 	}
 
-	cleanPkgID := strings.ToLower(strings.Split(pkg.ID, "@")[0]) // strip version if specified (e.g. node@24 -> node)
-	for _, line := range strings.Split(string(out), "\n") {
+	found, info := voltaListContains(string(out), pkg.ID)
+	return found, info, nil
+}
+
+// voltaListContains reports whether the `volta list` output references the
+// given package ID. Version qualifiers are ignored, but scoped IDs keep
+// their scope: "@playwright/cli" must not match "playwright" and, critically,
+// must never match an empty string (strings.Split(id, "@")[0] is "" for
+// scoped IDs, and a project-pinned `volta list` contains a standalone "@"
+// token in "(current @ /path/package.json)" that would false-positive).
+func voltaListContains(listOut, pkgID string) (bool, string) {
+	cleanPkgID := strings.ToLower(pkgID)
+	if i := strings.LastIndex(cleanPkgID, "@"); i > 0 {
+		cleanPkgID = cleanPkgID[:i] // strip version (node@24 -> node); leading scope @ is kept
+	}
+	if cleanPkgID == "" || cleanPkgID == "@" {
+		return false, ""
+	}
+	for _, line := range strings.Split(listOut, "\n") {
 		trimmed := strings.TrimSpace(line)
 		for _, token := range strings.Fields(trimmed) {
 			t := strings.ToLower(token)
 			// Match the exact package name (or a version-qualified token like "node@24")
 			if t == cleanPkgID || strings.HasPrefix(t, cleanPkgID+"@") {
-				return true, trimmed, nil
+				return true, trimmed
 			}
 		}
 	}
 
-	return false, "", nil
+	return false, ""
 }
 
 func (v *VoltaManager) Install(ctx context.Context, pkg entity.Package) error {
