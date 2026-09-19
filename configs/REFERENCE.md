@@ -2,11 +2,10 @@
 
 **Consulte sob demanda.** Aqui fica o detalhe que **não** precisa estar no prompt a cada turno. Abra este arquivo quando for mexer em plugin, DCP, agentes, memória, VPS, ou quando precisar dos snippets operacionais.
 
-## Plugins (3)
+## Plugins (1)
 
-- `@tarquinen/opencode-dcp@latest` — poda de contexto (ver DCP abaixo).
-- `@dietrichgebert/ponytail` — anti over-engineering; comandos `/ponytail lite|full|ultra|off`.
 - `@prevalentware/opencode-goal-plugin` — modo goal: tools `get_goal`/`set_goal`/`update_goal` + slash `/goal`. Não cria toggle no Tab.
+- REMOVED (2026-09-19, opencode v2): `@tarquinen/opencode-dcp@latest` and `@dietrichgebert/ponytail` fail to load (`PluginModule.LoadError: Expected object at ["default"]` — both export a V1 async function instead of `Plugin.define({id, setup})`; only the goal-plugin exports the V2 object shape). Re-add after upstream migrates per https://opencode.ai/v2/docs/build/plugins/migrate-v1. `dcp.jsonc` stays provisioned so the config is already in place on return.
 - O array `plugin` vive **somente** em `opencode.json` (arrays não mesclam entre arquivos de config).
 - Ao sugerir plugin novo: valide com `npm view <pkg>` antes de gravar (a maioria não é oficial/maduro) e só mantenha com evidência de funcionamento.
 

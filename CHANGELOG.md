@@ -9,6 +9,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🐛 Plugins quebrados no opencode v2 removidos do config
+
+- **Removed**: `@tarquinen/opencode-dcp@latest` e `@dietrichgebert/ponytail` de `configs/opencode.json` + `configs/opencode.linux.json` (resta só `@prevalentware/opencode-goal-plugin`) — ambos falham em todo boot no opencode v2.0.8 com `PluginModule.LoadError: Plugin must export a default definition with an id and an effect or setup function (cause: SchemaError(Expected object at ["default"]))` (export V1 `async (ctx) => {...}` em vez de `Plugin.define({id, setup})`; latest já é o quebrado: dcp 3.1.15, ponytail 4.10.0). `dcp.jsonc` segue provisionado para o retorno; re-adicionar após migração upstream (`https://opencode.ai/v2/docs/build/plugins/migrate-v1`).
+- **Docs**: `configs/REFERENCE.md`, `configs/AGENTS.md`, `configs/AGENTS.linux.md` e seed `configs/memory/patterns.md` sincronizados (manifest vence doc).
+
 ## [v1.2.144] - 2026-09-18
 
 ### 🚀 Fase 0: os provedores prontos antes de tudo

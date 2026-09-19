@@ -196,8 +196,6 @@
     "https://raw.githubusercontent.com/JRedeker/opencode-shell-strategy/trunk/shell_strategy.md"
   ],
   "plugin": [
-    "@tarquinen/opencode-dcp@latest",
-    "@dietrichgebert/ponytail",
     "@prevalentware/opencode-goal-plugin"
   ]
 }
