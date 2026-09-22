@@ -284,6 +284,24 @@ config_files:
     os: arch,cachyos,debian,ubuntu
     merge: ssh_hosts
 
+  - id: gaming_env
+    description: "Gaming environment baseline for Arch/CachyOS (Mesa shader cache + RADV perftest; seed only)"
+    source: "configs/gaming.conf"
+    destination: "~/.config/environment.d/gaming.conf"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: mangohud_preset
+    description: "MangoHud overlay preset for Arch/CachyOS (fps + frametime + CPU/GPU/VRAM; seed only)"
+    source: "configs/MangoHud.conf"
+    destination: "~/.config/MangoHud/MangoHud.conf"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true

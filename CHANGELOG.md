@@ -9,6 +9,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🎮 Gaming stack absorb (cachyos-init)
+
+- **Added**: 14 pacotes ao `manifests/gaming.yaml` (19 → 33): `proton-cachyos-slr`, `umu-launcher`, `wine-cachyos-opt`, `scx-tools` + `scx-scheds`, `ananicy-cpp`, `power-profiles-daemon`, `goverlay`, `amdgpu_top`, `vulkan-tools`, `exfatprogs` e o trio X11 (`plasma-x11-session` + `xorg-server` + `xf86-input-libinput` — o primeiro não puxa o segundo). `game-performance` ficou de fora (vem do `cachyos-settings`, documentado na skill).
+- **Added**: presets user-level via `run shell` (`os: arch,cachyos`, `seed_if_missing`): `configs/gaming.conf` → `~/.config/environment.d/gaming.conf` (`MESA_SHADER_CACHE_MAX_SIZE=12G` + `RADV_PERFTEST=gpl`) e `configs/MangoHud.conf` → `~/.config/MangoHud/MangoHud.conf` (fps + 1% low + CPU/GPU/VRAM, Shift+F12).
+- **Added**: `doctor` seção Gaming (opt-in: silenciosa sem Steam): pacotes do `gaming.yaml` + 4 serviços + `sched_ext` + cmdline (`preempt`, `split_lock`, `zswap`) + RADV + preset shader + `/usr/bin/X` + multilib — tudo warn-only, nunca `--fix` (fontes privilegiadas/reboot). `mitigations=off` fora de propósito (decisão manual de segurança).
+- **Changed**: skill `cachyos-gaming-setup` expandida (tabela Vulkan/upscale por emulador, layouts de BIOS, bloqueadores PCSX2/Azahar, fan curve LACT de exemplo, cmdline sem mitigations, política de updates) — 5 testes novos em `doctor_audit_test.go`.
+- **Docs**: matriz §1/§4 (cobertura gaming) sincronizada.
+
 ### 🔧 LSP follow-up + Windows CI fixes
 
 - **Fixed**: skill `lsp-smoke-test` ainda dizia que "no OpenCode o registro é o bloco `lsp` do `opencode.json`" — reescrito: OpenCode v2 sem registro (bloco removido 2026-09-22; diagnósticos via lint/typecheck), smoke test valida só o binário provisionado.

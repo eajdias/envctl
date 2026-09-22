@@ -305,6 +305,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
+	// 5.5. Audit Gaming stack (Arch/CachyOS only, opt-in: silent unless Steam
+	// is installed, so a non-gaming Arch box stays at zero warnings).
+	uc.auditGamingStack(ctx, addDiag)
+
 	// 6. Audit Skills (only the ones that belong on this OS and are enabled).
 	// Both agents share the validator: a skill whose frontmatter the loader
 	// rejects is silently ignored at runtime, so an existence-only check would
@@ -1027,6 +1031,239 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	return report, nil
+}
+
+// gamingKernelParams are the performance kernel parameters the gaming stack
+// expects on /proc/cmdline. mitigations=off is deliberately NOT managed here:
+// it is a Spectre/Meltdown trade-off that stays a manual, approved decision.
+var gamingKernelParams = []string{"preempt=full", "split_lock_detect=off", "zswap.enabled=0"}
+
+// gamingServices are the daemons the gaming stack needs active.
+var gamingServices = []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon"}
+
+// missingCmdlineParams returns the wanted kernel parameters absent from cmdline.
+func missingCmdlineParams(cmdline string, wanted []string) []string {
+	var missing []string
+	for _, w := range wanted {
+		if !strings.Contains(cmdline, w) {
+			missing = append(missing, w)
+		}
+	}
+	return missing
+}
+
+// multilibEnabled reports whether the [multilib] repo is active in pacman.conf
+// (Steam and lib32-* packages require it).
+func multilibEnabled(pacmanConf string) bool {
+	for _, line := range strings.Split(pacmanConf, "\n") {
+		if strings.TrimSpace(line) == "[multilib]" {
+			return true
+		}
+	}
+	return false
+}
+
+// auditGamingStack audits the opt-in gaming manifest (gaming.yaml) plus the
+// tuning state the manifests cannot express (services, kernel cmdline,
+// scheduler, GPU driver, provisioned presets). Everything tuning-related is
+// warn-only: privileged files (/etc, the cmdline source) are never auto-fixed.
+func (uc *DoctorAuditUseCase) auditGamingStack(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		return
+	}
+	pkgs, err := uc.manifestRepo.LoadGamingPackages()
+	if err != nil || len(pkgs) == 0 {
+		return
+	}
+	// Presence gate: Steam installed means the owner opted into the stack.
+	// Without it (or without a usable package manager) stay silent.
+	steamOptedIn := false
+	for _, pkg := range pkgs {
+		if pkg.ID != "steam" || !entity.MatchesOS(pkg.OS) {
+			continue
+		}
+		mgr, ok := uc.managers[pkg.Type]
+		if !ok || !mgr.IsAvailable(ctx) {
+			return
+		}
+		installed, _, gateErr := mgr.IsInstalled(ctx, pkg)
+		if gateErr != nil || !installed {
+			return
+		}
+		steamOptedIn = true
+		break
+	}
+	if !steamOptedIn {
+		return
+	}
+	for _, pkg := range pkgs {
+		if !entity.MatchesOS(pkg.OS) {
+			continue
+		}
+		mgr, ok := uc.managers[pkg.Type]
+		if !ok || !mgr.IsAvailable(ctx) {
+			continue
+		}
+		installed, info, checkErr := mgr.IsInstalled(ctx, pkg)
+		switch {
+		case checkErr != nil:
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   pkg.ID,
+				Details:  fmt.Sprintf("Check failed: %v", checkErr),
+				FixHint:  "run 'envctl run gaming' to install the missing gaming packages",
+			})
+		case !installed:
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   pkg.ID,
+				Details:  "Not installed (gaming stack opted in via Steam)",
+				FixHint:  "run 'envctl run gaming' to install the missing gaming packages",
+			})
+		default:
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   pkg.ID,
+				Details:  fmt.Sprintf("Installed (%s)", info),
+			})
+		}
+	}
+	uc.auditGamingTuning(ctx, addDiag)
+}
+
+// auditGamingTuning checks the read-only tuning state behind the gaming stack.
+// Every finding is warn-only with a manual fix hint: the sources live in
+// privileged files or need a reboot, so `doctor --fix` must never touch them.
+func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if systemctl, err := exec.LookPath("systemctl"); err == nil {
+		for _, svc := range gamingServices {
+			if err := exec.CommandContext(ctx, systemctl, "is-active", svc).Run(); err != nil {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "Gaming",
+					Target:   "service " + svc,
+					Details:  "Service is not active",
+					FixHint:  fmt.Sprintf("run 'systemctl enable --now %s' in your own terminal (password required)", svc),
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "Gaming",
+					Target:   "service " + svc,
+					Details:  "Service is active",
+				})
+			}
+		}
+	}
+	if data, err := os.ReadFile("/sys/kernel/sched_ext/state"); err == nil {
+		if state := strings.TrimSpace(string(data)); state != "enabled" {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "sched_ext",
+				Details:  fmt.Sprintf("sched_ext state is '%s', scx schedulers are inert", state),
+				FixHint:  "run 'systemctl enable --now scx_loader' in your own terminal (password required)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "sched_ext",
+				Details:  "sched_ext enabled (scx scheduler running)",
+			})
+		}
+	}
+	if data, err := os.ReadFile("/proc/cmdline"); err == nil {
+		if missing := missingCmdlineParams(string(data), gamingKernelParams); len(missing) > 0 {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "kernel cmdline",
+				Details:  fmt.Sprintf("Missing performance parameters: %s", strings.Join(missing, ", ")),
+				FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (see skill cachyos-gaming-setup; password required)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "kernel cmdline",
+				Details:  "Performance parameters present (preempt, split_lock, zswap)",
+			})
+		}
+	}
+	if vulkaninfo, err := exec.LookPath("vulkaninfo"); err == nil {
+		if out, err := exec.CommandContext(ctx, vulkaninfo).Output(); err != nil || !strings.Contains(string(out), "RADV") {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "Vulkan driver",
+				Details:  "RADV not reported by vulkaninfo (Polaris must stay on RADV, never AMDVLK)",
+				FixHint:  "check 'vulkaninfo | grep RADV' (see skill cachyos-gaming-setup)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "Vulkan driver",
+				Details:  "RADV active",
+			})
+		}
+	}
+	if gamingConf, err := uc.fsManager.ExpandUserPath("~/.config/environment.d/gaming.conf"); err == nil && gamingConf != "" {
+		if data, err := uc.fsManager.ReadFile(gamingConf); err != nil || !strings.Contains(string(data), "MESA_SHADER_CACHE_MAX_SIZE=") {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "shader cache preset",
+				Details:  "~/.config/environment.d/gaming.conf misses MESA_SHADER_CACHE_MAX_SIZE",
+				FixHint:  "run 'envctl run shell' to seed the gaming environment preset, then relog",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "shader cache preset",
+				Details:  "gaming.conf shader cache configured",
+			})
+		}
+	}
+	if !uc.fsManager.Exists("/usr/bin/X") {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Gaming",
+			Target:   "X11 session",
+			Details:  "/usr/bin/X missing (plasma-x11-session cannot start without xorg-server)",
+			FixHint:  "run 'envctl run gaming' to install xorg-server",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "X11 session",
+			Details:  "/usr/bin/X present",
+		})
+	}
+	if data, err := os.ReadFile("/etc/pacman.conf"); err == nil {
+		if !multilibEnabled(string(data)) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "multilib repo",
+				Details:  "[multilib] not enabled in /etc/pacman.conf (Steam and lib32-* require it)",
+				FixHint:  "uncomment [multilib] in /etc/pacman.conf in your own terminal (password required)",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "multilib repo",
+				Details:  "[multilib] enabled",
+			})
+		}
+	}
 }
 
 // openCodeFileRefPattern matches opencode `{file:...}` variable references

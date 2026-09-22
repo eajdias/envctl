@@ -123,3 +123,92 @@ packages:
     type: paru
     os: arch,cachyos
     category: gaming
+
+  # Proton / Wine runtime (CachyOS optimized builds)
+  - id: proton-cachyos-slr
+    name: Proton CachyOS SLR (per-game, x86-64 build — never _v3 without AVX2)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: umu-launcher
+    name: ULWGL unified launcher (Proton outside Steam)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: wine-cachyos-opt
+    name: Wine CachyOS optimized build
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  # CPU / scheduler / power tuning
+  - id: scx-tools
+    name: sched_ext loader (scx_loader service)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: scx-scheds
+    name: sched_ext schedulers (scx_bpfland)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: ananicy-cpp
+    name: ananicy-cpp auto-nice daemon (never combine with gamemode)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: power-profiles-daemon
+    name: power-profiles-daemon (game-performance wrapper switches to performance in-game)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  # GPU tools & validation
+  - id: goverlay
+    name: GOverlay MangoHud configurator
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: amdgpu_top
+    name: amdgpu_top AMD GPU monitor
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: vulkan-tools
+    name: Vulkan tools (vulkaninfo RADV validation)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  # Filesystem helpers for game libraries on external disks
+  - id: exfatprogs
+    name: exFAT userspace tools (external SSD game libraries)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  # X11 session trio (plasma-x11-session does NOT pull xorg-server — install together)
+  - id: plasma-x11-session
+    name: KDE Plasma X11 session (lower stutter on Polaris + Proton)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: xorg-server
+    name: X.Org server (required by plasma-x11-session, not pulled automatically)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: xf86-input-libinput
+    name: libinput X.Org input driver
+    type: pacman
+    os: arch,cachyos
+    category: gaming

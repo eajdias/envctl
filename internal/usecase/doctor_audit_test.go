@@ -17,6 +17,7 @@ import (
 // mockManifestRepo implements repository.ManifestRepository for testing.
 type mockManifestRepo struct {
 	pkgs         []entity.Package
+	gamingPkgs   []entity.Package
 	configFiles  []entity.ConfigFile
 	skills       []entity.Skill
 	lsps         []entity.LSP
@@ -27,8 +28,10 @@ type mockManifestRepo struct {
 	tweaks       []entity.WindowsTweak
 }
 
-func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error)       { return m.pkgs, nil }
-func (m *mockManifestRepo) LoadGamingPackages() ([]entity.Package, error) { return nil, nil }
+func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error) { return m.pkgs, nil }
+func (m *mockManifestRepo) LoadGamingPackages() ([]entity.Package, error) {
+	return m.gamingPkgs, nil
+}
 func (m *mockManifestRepo) LoadConfigFiles() ([]entity.ConfigFile, error) { return m.configFiles, nil }
 func (m *mockManifestRepo) LoadSkills() ([]entity.Skill, error)           { return m.skills, nil }
 func (m *mockManifestRepo) LoadLSPs() ([]entity.LSP, error)               { return m.lsps, nil }
@@ -591,5 +594,151 @@ func TestDoctorAudit_LSPHandshakeSkipsMissingBinary(t *testing.T) {
 
 	if len(diags) != 0 {
 		t.Errorf("expected no handshake diagnostic when the binary is missing (presence check owns it), got %d", len(diags))
+	}
+}
+
+func TestMissingCmdlineParams(t *testing.T) {
+	full := "quiet rw preempt=full split_lock_detect=off amdgpu.ppfeaturemask=0xffffffff zswap.enabled=0 mitigations=off"
+	if missing := missingCmdlineParams(full, gamingKernelParams); len(missing) != 0 {
+		t.Errorf("expected no missing params, got %v", missing)
+	}
+	// mitigations=off must never be required: absent is fine.
+	withoutMitigations := "quiet rw preempt=full split_lock_detect=off zswap.enabled=0"
+	if missing := missingCmdlineParams(withoutMitigations, gamingKernelParams); len(missing) != 0 {
+		t.Errorf("expected no missing params without mitigations, got %v", missing)
+	}
+	partial := "quiet rw preempt=full"
+	missing := missingCmdlineParams(partial, gamingKernelParams)
+	if len(missing) != 2 || missing[0] != "split_lock_detect=off" || missing[1] != "zswap.enabled=0" {
+		t.Errorf("expected [split_lock_detect=off zswap.enabled=0], got %v", missing)
+	}
+}
+
+func TestMultilibEnabled(t *testing.T) {
+	active := "[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n"
+	if !multilibEnabled(active) {
+		t.Errorf("expected active [multilib] to be detected")
+	}
+	commented := "#[multilib]\n#Include = /etc/pacman.d/mirrorlist\n"
+	if multilibEnabled(commented) {
+		t.Errorf("expected commented #[multilib] to be reported as disabled")
+	}
+	if multilibEnabled("[core]\nInclude = /etc/pacman.d/mirrorlist\n") {
+		t.Errorf("expected missing [multilib] to be reported as disabled")
+	}
+}
+
+// mockGamingPackageManager is a minimal repository.PackageManager for the
+// gaming audit tests.
+type mockGamingPackageManager struct {
+	available bool
+	installed map[string]string
+}
+
+func (m *mockGamingPackageManager) Type() entity.PackageType { return entity.PackageTypePacman }
+func (m *mockGamingPackageManager) IsAvailable(ctx context.Context) bool {
+	return m.available
+}
+func (m *mockGamingPackageManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
+	if v, ok := m.installed[pkg.ID]; ok {
+		return true, v, nil
+	}
+	return false, "", nil
+}
+func (m *mockGamingPackageManager) Install(ctx context.Context, pkg entity.Package) error {
+	return nil
+}
+func (m *mockGamingPackageManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	return nil, nil
+}
+
+func gamingStackUseCase(gamingPkgs []entity.Package, managers map[entity.PackageType]repository.PackageManager) *DoctorAuditUseCase {
+	return NewDoctorAuditUseCase(
+		&mockManifestRepo{gamingPkgs: gamingPkgs},
+		&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}},
+		&mockEnvManager{},
+		nil,
+		nil,
+		managers,
+		&mockLogger{},
+	)
+}
+
+func TestDoctorAudit_GamingStackSkippedWithoutManager(t *testing.T) {
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	uc := gamingStackUseCase(pkgs, map[entity.PackageType]repository.PackageManager{})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	for _, d := range diags {
+		if d.System == "Gaming" {
+			t.Errorf("expected no Gaming diagnostics without a package manager, got %+v", d)
+		}
+	}
+}
+
+func TestDoctorAudit_GamingStackSilentWhenSteamAbsent(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "lact", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	uc := gamingStackUseCase(pkgs, map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{available: true, installed: map[string]string{}},
+	})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	for _, d := range diags {
+		if d.System == "Gaming" {
+			t.Errorf("expected silence when Steam is absent (not opted in), got %+v", d)
+		}
+	}
+}
+
+func TestDoctorAudit_GamingStackAuditsPackagesWhenOptedIn(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "definitely-not-installed-xyz", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	uc := gamingStackUseCase(pkgs, map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	var steamOK, missingWarn bool
+	for _, d := range diags {
+		if d.System != "Gaming" {
+			continue
+		}
+		if d.Target == "steam" && d.Category == entity.DiagOK {
+			steamOK = true
+		}
+		if d.Target == "definitely-not-installed-xyz" && d.Category == entity.DiagWarning {
+			missingWarn = true
+			if d.FixHint == "" {
+				t.Errorf("expected non-empty FixHint for missing gaming package")
+			}
+		}
+	}
+	if !steamOK {
+		t.Errorf("expected OK diagnostic for installed steam")
+	}
+	if !missingWarn {
+		t.Errorf("expected WARNING diagnostic for missing gaming package")
 	}
 }

@@ -34,7 +34,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Skills por agente | **38** (37 + 1 só-Windows) | **38** (37 + `headless-gui-probe`) | **40** (37 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) | — | — |
-| Gaming (`run gaming`) | — | — | pacman + paru (Steam, gamescope, MangoHud, emuladores, lact) |
+| Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
 | Quality gates (`envctl-verify` + pre-push) | ✓ | ✓ | ✓ |
 
@@ -148,7 +148,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Cursor IDE | Windows (winget) · Arch (paru) | — (é o editor padronizado; habilita `/ide` + `get_diagnostics`) |
 | RAG / automações | libs de agente (`requests`, `bs4`, `pypdf`, `openpyxl`, `lxml`, `docx`, `yaml`) | libs de RAG pertencem ao venv do projeto (`uv`) |
 | N8N | — | npm-based: pertence ao projeto (`bunx`/`npx`) |
-| Gaming / debloat | `run gaming` (Steam, gamescope, MangoHud, emuladores, `lact`) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) | avaliar `cachyos-gaming-meta`, telemetria/Game Bar no Windows |
+| Gaming / debloat | `run gaming` (33 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) | telemetria/Game Bar no Windows |
 
 **Fora da stack (removidos):** `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`), Visual Studio Code
 (+ `vscode_settings`), Termius, WinSCP, GitHub Desktop, Rust/Oh-My-Posh (remoção anterior).
