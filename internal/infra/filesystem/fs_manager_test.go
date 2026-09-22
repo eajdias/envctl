@@ -3,6 +3,7 @@ package filesystem
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -205,6 +206,9 @@ func TestCopyEmbeddedTreeBacksUpUserEdits(t *testing.T) {
 }
 
 func TestCopyEmbeddedTreePreservesExecBit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX exec bits do not exist on Windows")
+	}
 	mgr := NewFileSystemManager()
 
 	tempDir, err := os.MkdirTemp("", "fsmanager-test")

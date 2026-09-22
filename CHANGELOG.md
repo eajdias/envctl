@@ -9,6 +9,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🔧 LSP follow-up + Windows CI fixes
+
+- **Fixed**: skill `lsp-smoke-test` ainda dizia que "no OpenCode o registro é o bloco `lsp` do `opencode.json`" — reescrito: OpenCode v2 sem registro (bloco removido 2026-09-22; diagnósticos via lint/typecheck), smoke test valida só o binário provisionado.
+- **Added**: monitoramento do retorno do runtime LSP (assimetria #17 + lesson): `pacman -Si opencode` + changelog upstream mensais; sem plugin V2 antes da API sair de beta (plugin beta = dívida por release).
+- **Fixed**: 3 testes que falhavam só no `windows-latest` (`TestCopyEmbeddedTreePreservesExecBit` — exec bit não existe no FS Windows; `TestDoctorAudit_AgentsIdentityCoverage{Gap,Matched}` — fixtures assumem host linux) com `t.Skip` condicional por `GOOS`.
+- **Changed**: descrição `opencode_package_json` no `shell.yaml` anota o pin V1 (`@opencode-ai/plugin 1.18.18`, deps de plugins locais) — plugin V2 futuro exige SDK casado ao release (`npm view` antes).
+
 ## [v1.3.0] - 2026-09-22
 
 ### 🧹 OpenCode configs em formato nativo V2 + plan built-in (sem `lsp`, sem `dcp.jsonc`)
@@ -46,7 +53,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Removed**: `@tarquinen/opencode-dcp@latest` e `@dietrichgebert/ponytail` de `configs/opencode.json` + `configs/opencode.linux.json` (resta só `@prevalentware/opencode-goal-plugin`) — ambos falham em todo boot no opencode v2.0.8 com `PluginModule.LoadError: Plugin must export a default definition with an id and an effect or setup function (cause: SchemaError(Expected object at ["default"]))` (export V1 `async (ctx) => {...}` em vez de `Plugin.define({id, setup})`; latest já é o quebrado: dcp 3.1.15, ponytail 4.10.0). `dcp.jsonc` segue provisionado para o retorno; re-adicionar após migração upstream (`https://opencode.ai/v2/docs/build/plugins/migrate-v1`).
 - **Docs**: `configs/REFERENCE.md`, `configs/AGENTS.md`, `configs/AGENTS.linux.md` e seed `configs/memory/patterns.md` sincronizados (manifest vence doc).
 - **Fixed**: `VoltaManager.IsInstalled` false-positive para pacotes scoped (`@playwright/cli`): `strings.Split(id, "@")[0]` é `""` para scoped, e qualquer linha do `volta list` com token isolado `"@"` (aparece quando há `~/package.json` com pin — `(current @ /path/package.json)`) casava via `HasPrefix(t, "@")`, então o `run volta` pulava a instalação enquanto o doctor acusava ausente. Matcher extraído para `voltaListContains` (escopo preservado, versão ignorada, guarda contra vazio) + `TestVoltaListContains` (7 casos).
-- **Note**: pós-`v1.2.144`, este release `v1.3.0` consolida 4 commits da branch (`5f17887` usability CachyOS, `9a10a1a` spec, `8f332ef` distro-strict, `da5ab9d` docs sync) + o trabalho não-commitado de migração V2 acima — o workflow gera a tag automaticamente no merge (`v1.2.<commit-count>`); a seção `v1.3.0` é o registro humano da versão pretendida.
+- **Note**: pós-`v1.2.144`, este release `v1.3.0` consolida 4 commits da branch (`5f17887` usability CachyOS, `9a10a1a` spec, `8f332ef` distro-strict, `da5ab9d` docs sync) + o trabalho não-commitado de migração V2 acima — o workflow gera a tag automaticamente no merge (`v1.2.<commit-count>`, publicado como `v1.2.148`); `v1.3.0` é o número semântico pretendido (minor: remoção de comportamento `lsp`/`dcp` + plan built-in) — criar a tag manual no commit do merge se desejado.
 
 ## [v1.2.144] - 2026-09-18
 

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -486,6 +487,9 @@ func TestDoctorAudit_RemovedMCPEntriesClean(t *testing.T) {
 }
 
 func TestDoctorAudit_AgentsIdentityCoverageGap(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixtures assume a linux host (windows/darwin must not match)")
+	}
 	uc := staleMCPUseCase(t.TempDir())
 	files := []entity.ConfigFile{
 		{Destination: "~/.config/opencode/AGENTS.md", OS: "windows"},
@@ -504,6 +508,9 @@ func TestDoctorAudit_AgentsIdentityCoverageGap(t *testing.T) {
 }
 
 func TestDoctorAudit_AgentsIdentityCoverageMatched(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fixtures assume a linux host (bare linux must match)")
+	}
 	uc := staleMCPUseCase(t.TempDir())
 	files := []entity.ConfigFile{
 		{Destination: "~/.config/opencode/AGENTS.md", OS: "linux"},

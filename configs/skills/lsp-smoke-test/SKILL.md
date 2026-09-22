@@ -9,7 +9,7 @@ license: MIT
 
 ## Quando usar
 
-Validar um LSP recém-instalado antes de registrá-lo na config do agente/editor ou diagnosticar um que não responde. No OpenCode o registro é o bloco `lsp` do `opencode.json`; no CommandCode **não há registro** — ele usa o LSP do IDE conectado (`/ide` + tool `get_diagnostics`), então aqui o smoke test serve só para validar o binário.
+Validar um LSP recém-instalado antes de registrá-lo na config do editor ou diagnosticar um que não responde. Registro por runtime: VS Code/Cursor via extensão; OpenCode v2 **sem registro** — o bloco `lsp` foi removido do `opencode.json` em 2026-09-22 (runtime aceita e ignora; diagnósticos do agente via lint/typecheck) — então aqui o smoke test serve só para validar o binário provisionado (`run lsp` + `doctor`). Template per-project guardado em `patterns.md` para quando o runtime voltar. No CommandCode **não há registro** — ele usa o LSP do IDE conectado (`/ide` + tool `get_diagnostics`), então aqui o smoke test serve só para validar o binário.
 
 ## Passos
 
