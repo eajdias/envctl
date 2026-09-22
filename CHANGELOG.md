@@ -9,6 +9,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.3.0] - 2026-09-22
+
+### 🧹 OpenCode configs em formato nativo V2 + plan built-in (sem `lsp`, sem `dcp.jsonc`)
+
+- **Removed**: bloco `lsp` de `configs/opencode.json` + `configs/opencode.linux.json` — o runtime do opencode v2 aceita e ignora (nenhum servidor inicia; sidebar nunca lista). Binários seguem provisionados (`manifests/lsp.yaml`, `run lsp`, bootstrap) para shell/IDE (`/ide` + `get_diagnostics`, modelo do CommandCode) e o `doctor` continua auditando presença + handshake stdio como toolchain.
+- **Added**: `experimental.subagent_depth: 2` nos dois configs — o subagent tool lê `experimental.subagent_depth` (`??1`, erro orienta aumentar; verificado por strings no binário v2.0.8). Profundidade 2 cobre a topologia real (`primary → review/plan → explore/general`, folhas terminais); default 1 desabilitaria o dispatch aninhado.
+- **Added**: `instructions` (URL `shell_strategy.md`) de volta nos dois configs — `Config.Instructions` ("Additional instruction files or patterns to include") é campo suportado no binário v2.0.8 (o guia oficial lista `instructions` como "require no migration"); o "nunca carregado" anterior era leitura de log de terceiro, nunca confirmada no `debug config` desta máquina.
+- **Removed**: `configs/dcp.jsonc` + entrada `opencode_dcp` do `manifests/shell.yaml` (YAGNI: plugin V1 quebra o boot do v2 desde 2026-09-19, config sem consumidor) + cleanup `stale_opencode_dcp` que remove o órfão `~/.config/opencode/dcp.jsonc` nas máquinas.
+- **Changed**: os dois configs reescritos no formato nativo V2 (`agents` com `system`, `permissions[]` com `shell`/`subagent`, `request.body.temperature`; `skills[]`; `mcp.servers` com `disabled` + `timeout:{catalog,execution}`; `plugins`) — `review` (custom novo) com `mode: primary` explícito; `plan` SEM `mode` (preserva o built-in — customs nunca sobrescrevem IDs pre-existentes; efetivo `primary` por merge). `opencode debug config` carrega com zero diagnostics.
+- **Docs**: matriz §1–§2 (configs 27 Win / 25 Ubuntu / 25 Arch; LSP/binários + pruning nativo; assimetria #16), checklist LSP (só `lsp.yaml`, sem espelho no JSON), `skills.md`, `principles.md`, `manifests.md`, `README.md`, `SKILL-INDEX.md`, `REFERENCE.md` (seção `cli.json`/sidebar fora do envctl), seeds `configs/memory/` e linha `agent/LSP` do `envctl opencode --help` sincronizados.
+- **Changed**: `agents.plan` reduzido à exceção mínima (`permissions: [{edit spec-agent/** allow}]`) nos dois configs — `description`/`request`/`steps`/`system` (~170 linhas) deletados, built-in `opencode.plan` cobre mode/questions/read-only por merge; `debug agents` prova: mode `primary`, 45 perms, `* deny` + `~/.opencode/plan/* allow` + `spec-agent/** allow`. Shell allowlist mantida no nível do agente (top-level `permissions` com `shell * ask` represaria o `build` — verify-then-global decidiu NÃO mover). Ensino de convenções movido p/ seção `## Planejamento` nos 3 `AGENTS.md`.
+
 ### 🛠️ OpenCode usability no CachyOS (ssh MCP, sem zscan, LSP com handshake, memória obrigatória, identidade arch)
 
 - **Added**: MCP `ssh-manager` no `configs/opencode.linux.json` (espelho do Windows + `timeout: 30000`, `enabled: false` — liga por sessão via `/mcp`).
@@ -34,6 +46,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Removed**: `@tarquinen/opencode-dcp@latest` e `@dietrichgebert/ponytail` de `configs/opencode.json` + `configs/opencode.linux.json` (resta só `@prevalentware/opencode-goal-plugin`) — ambos falham em todo boot no opencode v2.0.8 com `PluginModule.LoadError: Plugin must export a default definition with an id and an effect or setup function (cause: SchemaError(Expected object at ["default"]))` (export V1 `async (ctx) => {...}` em vez de `Plugin.define({id, setup})`; latest já é o quebrado: dcp 3.1.15, ponytail 4.10.0). `dcp.jsonc` segue provisionado para o retorno; re-adicionar após migração upstream (`https://opencode.ai/v2/docs/build/plugins/migrate-v1`).
 - **Docs**: `configs/REFERENCE.md`, `configs/AGENTS.md`, `configs/AGENTS.linux.md` e seed `configs/memory/patterns.md` sincronizados (manifest vence doc).
 - **Fixed**: `VoltaManager.IsInstalled` false-positive para pacotes scoped (`@playwright/cli`): `strings.Split(id, "@")[0]` é `""` para scoped, e qualquer linha do `volta list` com token isolado `"@"` (aparece quando há `~/package.json` com pin — `(current @ /path/package.json)`) casava via `HasPrefix(t, "@")`, então o `run volta` pulava a instalação enquanto o doctor acusava ausente. Matcher extraído para `voltaListContains` (escopo preservado, versão ignorada, guarda contra vazio) + `TestVoltaListContains` (7 casos).
+- **Note**: pós-`v1.2.144`, este release `v1.3.0` consolida 4 commits da branch (`5f17887` usability CachyOS, `9a10a1a` spec, `8f332ef` distro-strict, `da5ab9d` docs sync) + o trabalho não-commitado de migração V2 acima — o workflow gera a tag automaticamente no merge (`v1.2.<commit-count>`); a seção `v1.3.0` é o registro humano da versão pretendida.
 
 ## [v1.2.144] - 2026-09-18
 

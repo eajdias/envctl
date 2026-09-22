@@ -40,7 +40,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Python: `uv`, `ruff`.
    - Go: `gopls`.
 5. **Ecossistema OpenCode & CommandCode com 41 skills:**
-   - Implantação de `opencode.json`, `dcp.jsonc`, `package.json` e `AGENTS.md`.
+   - Implantação de `opencode.json`, `package.json` e `AGENTS.md`.
    - Extração das 41 Skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.
 6. **Verificação, Diagnóstico e Relatório:**
    - Auditoria completa via `envctl doctor` com checagens diagnósticas de todo o ecossistema e opção de auto-remediação (`--fix`).

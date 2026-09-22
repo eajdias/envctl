@@ -81,7 +81,7 @@ envctl run shell
 # Extrair e sincronizar as 41 Skills do OpenCode/CommandCode
 envctl run skills
 
-# Provisionar os 15 servidores de linguagem (LSP)
+# Provisionar os 15 binários de linguagem p/ shell/IDE (LSP; sem efeito no runtime opencode v2)
 envctl run lsp
 
 # Executar diagnóstico de saúde
