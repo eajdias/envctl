@@ -9,6 +9,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### 🛠️ OpenCode usability no CachyOS (ssh MCP, sem zscan, LSP com handshake, memória obrigatória, identidade arch)
+
+- **Added**: MCP `ssh-manager` no `configs/opencode.linux.json` (espelho do Windows + `timeout: 30000`, `enabled: false` — liga por sessão via `/mcp`).
+- **Removed**: blocos `zscan` (`@eajdias/zscan-run`) de `configs/opencode.json` + `configs/commandcode/mcp.json`; descrições sincronizadas (`shell.yaml`, matriz §2).
+- **Added**: `doctor` acusa `Removed MCP entries` (warning nomeando o servidor) em `opencode.json`/`mcp.json` deployados e `AGENTS.md (identity coverage)` quando nenhuma variante de AGENTS casa com o host — 7 testes novos em `internal/usecase/doctor_audit_test.go`.
+- **Added**: `doctor` valida handshake stdio de cada LSP provisionado (stdin fechado + ausência de erro de conexão, padrão da skill `lsp-smoke-test`; exit code mente — node servers saem 1 com EOF saudável, calibrado nos 14 ao vivo).
+- **Fixed**: chave `yaml` → `yaml-ls` nos dois configs do opencode (+ `id: yaml-ls` no `lsp.yaml`) — a chave custom disparava um SEGUNDO servidor junto do builtin em `.yaml/.yml` (merge upstream + ids provados no binário `/usr/bin/opencode`).
+- **Added**: `configs/AGENTS.arch.md` + `configs/commandcode/AGENTS.arch.md` (`os: arch,cachyos`: fish, paru, gaming, Cursor, sem usuário hardcoded); `AGENTS.linux.md` volta a ser só `debian,ubuntu`; contagem LSP corrigida (14, não 17).
+- **Changed**: bullet de memória obrigatório nos 6 AGENTS (LOAD 1x projeto→global, SAVE ao errar/aprender via `memory-promotion`, REFLECT ao fechar).
+- **Removed**: `pylsp` do `lsp` dos dois configs do opencode (13 entradas no Linux / 14 no Windows) — consenso 2026: servidor de tipos (`pyright`, Pylance backend, rápido e mantido) + `ruff` p/ lint/format; `pylsp` (comunitário, lento, era plugin) duplicava diagnósticos em `.py`. Binário segue provisionado (`lsp.yaml`, doctor, bootstrap) p/ IDE/shell.
+- **Added**: regra `Nunca deduza, nunca insista` nos 6 AGENTS (todos os OS, dois agentes) — relato do usuário sobre estado local observável é evidência de primeira classe: re-testar na hora, hipótese como hipótese, sem repetir prescrição sem evidência nova.
+
 ### 🐛 Plugins quebrados no opencode v2 removidos do config
 
 - **Removed**: `@tarquinen/opencode-dcp@latest` e `@dietrichgebert/ponytail` de `configs/opencode.json` + `configs/opencode.linux.json` (resta só `@prevalentware/opencode-goal-plugin`) — ambos falham em todo boot no opencode v2.0.8 com `PluginModule.LoadError: Plugin must export a default definition with an id and an effect or setup function (cause: SchemaError(Expected object at ["default"]))` (export V1 `async (ctx) => {...}` em vez de `Plugin.define({id, setup})`; latest já é o quebrado: dcp 3.1.15, ponytail 4.10.0). `dcp.jsonc` segue provisionado para o retorno; re-adicionar após migração upstream (`https://opencode.ai/v2/docs/build/plugins/migrate-v1`).

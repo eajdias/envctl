@@ -13,10 +13,6 @@
     "pyright": {
       "command": ["pyright-langserver", "--stdio"]
     },
-    "pylsp": {
-      "command": ["pylsp"],
-      "extensions": [".py", ".pyi"]
-    },
     "gopls": {
       "command": ["gopls"]
     },
@@ -35,7 +31,7 @@
       "command": ["vscode-json-language-server", "--stdio"],
       "extensions": [".json", ".jsonc"]
     },
-    "yaml": {
+    "yaml-ls": {
       "command": ["yaml-language-server", "--stdio"],
       "extensions": [".yaml", ".yml"]
     },
@@ -173,15 +169,7 @@
     "ssh-manager": {
       "type": "local",
       "command": ["mcp-ssh-manager"],
-      "enabled": false
-    },
-    "zscan": {
-      "type": "local",
-      "command": ["npx", "-y", "@eajdias/zscan-run", "assist"],
-      "environment": {
-        "ZSCAN_LAUNCHER_COMMAND": "npx",
-        "ZSCAN_PRODUCT_ID": "assist"
-      },
+      "timeout": 30000,
       "enabled": false
     },
     "chrome-devtools": {

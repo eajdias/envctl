@@ -15,16 +15,6 @@
       "command": "mcp-ssh-manager",
       "type": "stdio",
       "enabled": false
-    },
-    "zscan": {
-      "command": "npx",
-      "args": ["-y", "@eajdias/zscan-run", "assist"],
-      "env": {
-        "ZSCAN_LAUNCHER_COMMAND": "npx",
-        "ZSCAN_PRODUCT_ID": "assist"
-      },
-      "type": "stdio",
-      "enabled": false
     }
   }
 }

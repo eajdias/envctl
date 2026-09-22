@@ -422,3 +422,167 @@ func TestAuditSkillTreeReportsMissingDirectory(t *testing.T) {
 		t.Errorf("unexpected details: %q", diags[0].Details)
 	}
 }
+
+func staleMCPUseCase(home string) *DoctorAuditUseCase {
+	return NewDoctorAuditUseCase(
+		&mockManifestRepo{},
+		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, home: home},
+		&mockEnvManager{},
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+}
+
+func TestDoctorAudit_RemovedMCPEntriesFlagged(t *testing.T) {
+	home := t.TempDir()
+	deployedDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(deployedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"mcp":{"context7":{},"zscan":{"command":["npx"]}}}`
+	if err := os.WriteFile(filepath.Join(deployedDir, "opencode.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	uc := staleMCPUseCase(home)
+
+	var diags []entity.Diagnostic
+	uc.auditRemovedMCPEntries(func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 stale-MCP diagnostic, got %d", len(diags))
+	}
+	d := diags[0]
+	if d.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for removed MCP entry, got %v: %s", d.Category, d.Details)
+	}
+	if !strings.Contains(d.Details, "zscan") {
+		t.Errorf("expected diagnostic to name the stale entry, got %q", d.Details)
+	}
+	if d.FixHint == "" {
+		t.Errorf("expected non-empty FixHint for stale MCP entry")
+	}
+}
+
+func TestDoctorAudit_RemovedMCPEntriesClean(t *testing.T) {
+	home := t.TempDir()
+	deployedDir := filepath.Join(home, ".config", "opencode")
+	if err := os.MkdirAll(deployedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"mcp":{"context7":{},"ssh-manager":{"command":["mcp-ssh-manager"]}}}`
+	if err := os.WriteFile(filepath.Join(deployedDir, "opencode.json"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	uc := staleMCPUseCase(home)
+
+	var diags []entity.Diagnostic
+	uc.auditRemovedMCPEntries(func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic for a clean config, got %d", len(diags))
+	}
+}
+
+func TestDoctorAudit_AgentsIdentityCoverageGap(t *testing.T) {
+	uc := staleMCPUseCase(t.TempDir())
+	files := []entity.ConfigFile{
+		{Destination: "~/.config/opencode/AGENTS.md", OS: "windows"},
+		{Destination: "~/.config/opencode/AGENTS.md", OS: "darwin"},
+	}
+
+	var diags []entity.Diagnostic
+	uc.auditAgentsIdentityCoverage(func(d entity.Diagnostic) { diags = append(diags, d) }, files)
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 identity-coverage diagnostic on linux, got %d", len(diags))
+	}
+	if diags[0].Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for identity gap, got %v: %s", diags[0].Category, diags[0].Details)
+	}
+}
+
+func TestDoctorAudit_AgentsIdentityCoverageMatched(t *testing.T) {
+	uc := staleMCPUseCase(t.TempDir())
+	files := []entity.ConfigFile{
+		{Destination: "~/.config/opencode/AGENTS.md", OS: "linux"},
+	}
+
+	var diags []entity.Diagnostic
+	uc.auditAgentsIdentityCoverage(func(d entity.Diagnostic) { diags = append(diags, d) }, files)
+
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic when a variant matches, got %d", len(diags))
+	}
+}
+
+func handshakeUseCase(lsps []entity.LSP) *DoctorAuditUseCase {
+	return NewDoctorAuditUseCase(
+		&mockManifestRepo{lsps: lsps},
+		&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}},
+		&mockEnvManager{},
+		nil,
+		nil,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+}
+
+func TestDoctorAudit_LSPHandshakeFlagsConnectionError(t *testing.T) {
+	uc := handshakeUseCase([]entity.LSP{{
+		ServerName:  "Broken Test Server",
+		Command:     "sh",
+		Args:        []string{"-c", "echo 'Connection input stream is not set' >&2; exit 1"},
+		CheckBinary: "sh",
+	}})
+
+	var diags []entity.Diagnostic
+	uc.auditLSPHandshake(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 handshake diagnostic, got %d", len(diags))
+	}
+	d := diags[0]
+	if d.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for connection error, got %v: %s", d.Category, d.Details)
+	}
+	if !strings.Contains(d.Details, "sh -c") {
+		t.Errorf("expected diagnostic to carry the repro command, got %q", d.Details)
+	}
+	if d.FixHint == "" {
+		t.Errorf("expected non-empty FixHint for handshake failure")
+	}
+}
+
+func TestDoctorAudit_LSPHandshakeQuietExitPasses(t *testing.T) {
+	uc := handshakeUseCase([]entity.LSP{{
+		ServerName:  "Quiet Test Server",
+		Command:     "sh",
+		Args:        []string{"-c", "exit 1"},
+		CheckBinary: "sh",
+	}})
+
+	var diags []entity.Diagnostic
+	uc.auditLSPHandshake(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic for quiet EOF exit (healthy shape), got %d", len(diags))
+	}
+}
+
+func TestDoctorAudit_LSPHandshakeSkipsMissingBinary(t *testing.T) {
+	uc := handshakeUseCase([]entity.LSP{{
+		ServerName:  "Missing Test Server",
+		Command:     "definitely-not-a-real-binary-xyz",
+		Args:        []string{"--stdio"},
+		CheckBinary: "definitely-not-a-real-binary-xyz",
+	}})
+
+	var diags []entity.Diagnostic
+	uc.auditLSPHandshake(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 0 {
+		t.Errorf("expected no handshake diagnostic when the binary is missing (presence check owns it), got %d", len(diags))
+	}
+}

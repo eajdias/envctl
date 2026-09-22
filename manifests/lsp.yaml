@@ -74,7 +74,7 @@ lsps:
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-json-language-server"
 
-  - id: yaml
+  - id: yaml-ls
     language: yaml
     server_name: "YAML Language Server"
     command: "yaml-language-server"
