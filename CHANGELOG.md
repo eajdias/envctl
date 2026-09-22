@@ -9,11 +9,44 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [v1.3.0] - 2026-09-22
+
+### 🧹 OpenCode configs em formato nativo V2 + plan built-in (sem `lsp`, sem `dcp.jsonc`)
+
+- **Removed**: bloco `lsp` de `configs/opencode.json` + `configs/opencode.linux.json` — o runtime do opencode v2 aceita e ignora (nenhum servidor inicia; sidebar nunca lista). Binários seguem provisionados (`manifests/lsp.yaml`, `run lsp`, bootstrap) para shell/IDE (`/ide` + `get_diagnostics`, modelo do CommandCode) e o `doctor` continua auditando presença + handshake stdio como toolchain.
+- **Added**: `experimental.subagent_depth: 2` nos dois configs — o subagent tool lê `experimental.subagent_depth` (`??1`, erro orienta aumentar; verificado por strings no binário v2.0.8). Profundidade 2 cobre a topologia real (`primary → review/plan → explore/general`, folhas terminais); default 1 desabilitaria o dispatch aninhado.
+- **Added**: `instructions` (URL `shell_strategy.md`) de volta nos dois configs — `Config.Instructions` ("Additional instruction files or patterns to include") é campo suportado no binário v2.0.8 (o guia oficial lista `instructions` como "require no migration"); o "nunca carregado" anterior era leitura de log de terceiro, nunca confirmada no `debug config` desta máquina.
+- **Removed**: `configs/dcp.jsonc` + entrada `opencode_dcp` do `manifests/shell.yaml` (YAGNI: plugin V1 quebra o boot do v2 desde 2026-09-19, config sem consumidor) + cleanup `stale_opencode_dcp` que remove o órfão `~/.config/opencode/dcp.jsonc` nas máquinas.
+- **Changed**: os dois configs reescritos no formato nativo V2 (`agents` com `system`, `permissions[]` com `shell`/`subagent`, `request.body.temperature`; `skills[]`; `mcp.servers` com `disabled` + `timeout:{catalog,execution}`; `plugins`) — `review` (custom novo) com `mode: primary` explícito; `plan` SEM `mode` (preserva o built-in — customs nunca sobrescrevem IDs pre-existentes; efetivo `primary` por merge). `opencode debug config` carrega com zero diagnostics.
+- **Docs**: matriz §1–§2 (configs 27 Win / 25 Ubuntu / 25 Arch; LSP/binários + pruning nativo; assimetria #16), checklist LSP (só `lsp.yaml`, sem espelho no JSON), `skills.md`, `principles.md`, `manifests.md`, `README.md`, `SKILL-INDEX.md`, `REFERENCE.md` (seção `cli.json`/sidebar fora do envctl), seeds `configs/memory/` e linha `agent/LSP` do `envctl opencode --help` sincronizados.
+- **Changed**: `agents.plan` reduzido à exceção mínima (`permissions: [{edit spec-agent/** allow}]`) nos dois configs — `description`/`request`/`steps`/`system` (~170 linhas) deletados, built-in `opencode.plan` cobre mode/questions/read-only por merge; `debug agents` prova: mode `primary`, 45 perms, `* deny` + `~/.opencode/plan/* allow` + `spec-agent/** allow`. Shell allowlist mantida no nível do agente (top-level `permissions` com `shell * ask` represaria o `build` — verify-then-global decidiu NÃO mover). Ensino de convenções movido p/ seção `## Planejamento` nos 3 `AGENTS.md`.
+
+### 🛠️ OpenCode usability no CachyOS (ssh MCP, sem zscan, LSP com handshake, memória obrigatória, identidade arch)
+
+- **Added**: MCP `ssh-manager` no `configs/opencode.linux.json` (espelho do Windows + `timeout: 30000`, `enabled: false` — liga por sessão via `/mcp`).
+- **Removed**: blocos `zscan` (`@eajdias/zscan-run`) de `configs/opencode.json` + `configs/commandcode/mcp.json`; descrições sincronizadas (`shell.yaml`, matriz §2).
+- **Added**: `doctor` acusa `Removed MCP entries` (warning nomeando o servidor) em `opencode.json`/`mcp.json` deployados e `AGENTS.md (identity coverage)` quando nenhuma variante de AGENTS casa com o host — 7 testes novos em `internal/usecase/doctor_audit_test.go`.
+- **Added**: `doctor` valida handshake stdio de cada LSP provisionado (stdin fechado + ausência de erro de conexão, padrão da skill `lsp-smoke-test`; exit code mente — node servers saem 1 com EOF saudável, calibrado nos 14 ao vivo).
+- **Fixed**: chave `yaml` → `yaml-ls` nos dois configs do opencode (+ `id: yaml-ls` no `lsp.yaml`) — a chave custom disparava um SEGUNDO servidor junto do builtin em `.yaml/.yml` (merge upstream + ids provados no binário `/usr/bin/opencode`).
+- **Added**: `configs/AGENTS.arch.md` + `configs/commandcode/AGENTS.arch.md` (`os: arch,cachyos`: fish, paru, gaming, Cursor, sem usuário hardcoded); `AGENTS.linux.md` volta a ser só `debian,ubuntu`; contagem LSP corrigida (14, não 17).
+- **Changed**: bullet de memória obrigatório nos 6 AGENTS (LOAD 1x projeto→global, SAVE ao errar/aprender via `memory-promotion`, REFLECT ao fechar).
+- **Removed**: `pylsp` do `lsp` dos dois configs do opencode (13 entradas no Linux / 14 no Windows) — consenso 2026: servidor de tipos (`pyright`, Pylance backend, rápido e mantido) + `ruff` p/ lint/format; `pylsp` (comunitário, lento, era plugin) duplicava diagnósticos em `.py`. Binário segue provisionado (`lsp.yaml`, doctor, bootstrap) p/ IDE/shell.
+- **Added**: regra `Nunca deduza, nunca insista` nos 6 AGENTS (todos os OS, dois agentes) — relato do usuário sobre estado local observável é evidência de primeira classe: re-testar na hora, hipótese como hipótese, sem repetir prescrição sem evidência nova.
+
+### 🔒 Distro-strict OS scope + phase-0 and safety fixes (review 2026-09-22)
+
+- **Changed**: bare `os: linux` banned from manifests — explicit `arch,cachyos` (CachyOS desktop) · `debian,ubuntu` (Ubuntu Server VPS) · shared-POSIX 4-list `arch,cachyos,debian,ubuntu` · portable omits `os:`; lint test `TestManifestOSLint` fails on bare-`linux`/quoted-`check_command`/unknown tokens (Policy 0).
+- **Fixed**: phase 0 probes resolve on the toolchain PATH (`resolveOnToolchainPath`; `installedVersion` executes the resolved absolute path since `cmd.Env` never affects `LookPath` — non-login shells no longer reinstall Volta/Node/CLIs every run); `installStandaloneProvider` prefers pacman `extra` on Arch (no more curl shadow); `vps-agent-dispatch` drops the `npm install -g opencode-ai` fallback (per-distro channels).
+- **Fixed**: `gaming.yaml` is Arch-only (19 entries `arch,cachyos`) + runtime refusal off-Arch; apt↔pacman cross-distro warning spam gone; AUR/gaming skills no longer deploy to Ubuntu (38 Win / 38 Ubuntu / 40 CachyOS); 11 quoted `check_command`s removed (ID fallback owns those checks).
+- **Fixed**: Windows tweaks PS-quote `Name/Path` + typed `Value` (`psQuote`/`psValue`); `WriteWithBackup` tmp+rename with unique same-second suffixes; `CopyEmbeddedTree` diff-gated with `.bak` + exec-bit preservation.
+- **Docs**: matrix/README/doctor-doc numbers recounted from manifests (configs 28 Win / 26 Ubuntu / 26 Arch via `MatchesOS`; skills 38/38/40; git 6/4/4; env 2/2/2; LSP 15 manifesto); Ubuntu row clarified (no Cursor/IDE, agent LSPs apply headless); `taplo` dual-channel documented as intentional exception (#15).
+
 ### 🐛 Plugins quebrados no opencode v2 removidos do config
 
 - **Removed**: `@tarquinen/opencode-dcp@latest` e `@dietrichgebert/ponytail` de `configs/opencode.json` + `configs/opencode.linux.json` (resta só `@prevalentware/opencode-goal-plugin`) — ambos falham em todo boot no opencode v2.0.8 com `PluginModule.LoadError: Plugin must export a default definition with an id and an effect or setup function (cause: SchemaError(Expected object at ["default"]))` (export V1 `async (ctx) => {...}` em vez de `Plugin.define({id, setup})`; latest já é o quebrado: dcp 3.1.15, ponytail 4.10.0). `dcp.jsonc` segue provisionado para o retorno; re-adicionar após migração upstream (`https://opencode.ai/v2/docs/build/plugins/migrate-v1`).
 - **Docs**: `configs/REFERENCE.md`, `configs/AGENTS.md`, `configs/AGENTS.linux.md` e seed `configs/memory/patterns.md` sincronizados (manifest vence doc).
 - **Fixed**: `VoltaManager.IsInstalled` false-positive para pacotes scoped (`@playwright/cli`): `strings.Split(id, "@")[0]` é `""` para scoped, e qualquer linha do `volta list` com token isolado `"@"` (aparece quando há `~/package.json` com pin — `(current @ /path/package.json)`) casava via `HasPrefix(t, "@")`, então o `run volta` pulava a instalação enquanto o doctor acusava ausente. Matcher extraído para `voltaListContains` (escopo preservado, versão ignorada, guarda contra vazio) + `TestVoltaListContains` (7 casos).
+- **Note**: pós-`v1.2.144`, este release `v1.3.0` consolida 4 commits da branch (`5f17887` usability CachyOS, `9a10a1a` spec, `8f332ef` distro-strict, `da5ab9d` docs sync) + o trabalho não-commitado de migração V2 acima — o workflow gera a tag automaticamente no merge (`v1.2.<commit-count>`); a seção `v1.3.0` é o registro humano da versão pretendida.
 
 ## [v1.2.144] - 2026-09-18
 

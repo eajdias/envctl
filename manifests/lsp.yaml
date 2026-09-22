@@ -1,4 +1,7 @@
 # lsp.yaml - Language Server Protocol Registry & Provisioning
+# NOTE (opencode v2): entries below install/check binaries for shell/IDE use
+# (`run lsp` + `doctor`). The `lsp` block was REMOVED from configs/opencode*.json
+# on 2026-09-22 — the v2 runtime accepts but ignores it (no servers started).
 version: "1.0"
 
 lsps:
@@ -74,7 +77,7 @@ lsps:
     install_target: "vscode-langservers-extracted"
     check_binary: "vscode-json-language-server"
 
-  - id: yaml
+  - id: yaml-ls
     language: yaml
     server_name: "YAML Language Server"
     command: "yaml-language-server"

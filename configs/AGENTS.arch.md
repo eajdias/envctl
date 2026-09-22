@@ -1,13 +1,14 @@
-# OpenCode Environment Manifest
+# OpenCode Environment Manifest (Arch Desktop)
 
 ## Ambiente
 
-- **OS:** Windows 11 Pro 25H2 (amd64) · workstation `<hostname>` · usuário `<user>`
-- **Shell:** PowerShell 7 (`pwsh.exe`) é o shell do OpenCode — use sintaxe nativa (`Get-ChildItem`, `Test-Path`, `$env:NOME`), não bash. Script POSIX legado: `wsl -e bash -lc "..."` (nunca o contrário).
-- **CLIs no PATH:** `rg`, `fd`, `fzf`, `bat`, `delta`, `yq`, `jq`, `ruff`, `gh`, `git`, `docker`, `node`, `npm`, `bun`/`bunx` (substitui `npx`), `dust`, `hyperfine`, `shellcheck`, `golangci-lint`.
-- **Libs globais (sem venv/node_modules por projeto):** Node via `NODE_PATH=%USERPROFILE%\node_modules` (`axios`, `cheerio`, `papaparse`); Python global (`pyyaml`, `requests`, `openpyxl`, `beautifulsoup4`, `pypdf`, `python-docx`, `lxml`, `sqlite3` stdlib).
-- **Scratch:** `C:\temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
-- **Git:** `fscache`, `preloadindex`, `longpaths`, `autocrlf=input`, pager `delta`.
+- **OS:** Arch/CachyOS Linux (x86-64, desktop com GUI), provisionada pelo envctl · usuário não-root (sudo; sem senha só onde o envctl liberou via drop-in)
+- **Shell:** fish é o shell interativo do usuário; o shell do OpenCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
+- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode` · gerenciadores: `pacman` · `paru` (AUR) · `volta` (Node).
+- **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
+- **Scratch:** `/temp` (`ENVCTL_TEMP`, criado pelo envctl na raiz do disco). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
+- **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).
+- **Gaming:** stack `gaming` do envctl (Steam, gamescope, MangoHud, emuladores, lact) — ver skill `cachyos-gaming-setup`.
 
 ## Regras
 
@@ -18,7 +19,7 @@
 - **Evidência antes de afirmação:** exiba a saída real de build/test/lint; sem comando rodado, a verificação não conta.
 - **Nunca deduza:** não afirme estado, causa ou diagnóstico sem comprovação executada nesta sessão; diante de relato do usuário sobre estado local observável, re-teste na hora e trate a hipótese como hipótese — a contraprova do usuário é evidência de primeira classe, e repetir prescrição sem evidência nova é erro.
 - **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
-- Nunca hardcode segredos. ACLs restritas em `~/Documents/SSH-keys`, `~/.ssh-manager`, `~/.ssh`.
+- Nunca hardcode segredos. ACLs restritas em `~/.ssh`.
 - Delegue o trabalho barulhento (varredura ampla, output volumoso) para preservar o contexto: `subagent-routing` decide *quem*, `dispatching-parallel-agents` dá a *mecânica*.
 - **Ambiguidade alta** (o alvo, o escopo ou o critério de pronto não estão claros)? **Pergunte antes de agir** — a skill `grill-me` mede isso de 0 a 100. Melhor perguntar a mais do que executar errado e ter que desfazer.
 
@@ -28,6 +29,7 @@
 - **Agentes:** `review` (primary explícito) e `plan` (herda primary do built-in) — ambos read-only — use `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
 - **Plugins:** `opencode-goal-plugin` (dcp + ponytail removidos em 2026-09-19: quebram no opencode v2, ver REFERENCE.md). Detalhe em REFERENCE.md.
 - **MCP:** `context7` (docs); `ssh-manager` + `chrome-devtools` (`disabled: true` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`, skills `web-dashboard-automation`, `playwright-prod-regression`). VPS via CLI `ssh-manager` + skills `ssh-vps`/`vps-provisioning`/`vps-agent-dispatch`.
+- **LSP:** binários LSP provisionados p/ shell/IDE (`run lsp`); sem bloco `lsp` no JSON (runtime v2 ignora LSP — diagnósticos do agente via lint/typecheck).
 - **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>`. Para escolher entre elas, veja `~/.config/opencode/SKILL-INDEX.md`; não leia por padrão.
 - **Memória:** no início de toda tarefa carregue `agent-memory` e leia projeto → global (1x por invocação); ao errar, ser corrigido ou descobrir padrão reutilizável, grave lição/pattern na hora (passe `memory-promotion` a cada escrita); ao fechar, revise e pode duplicados. Mecânica (paths, promoção a skill) em REFERENCE.md.
 
@@ -37,6 +39,12 @@
 - Specs em `spec-agent/YYYY-MM-DD-<feature>.md` na raiz do projeto; carregue `writing-plans` + `agent-memory` primeiro.
 - Tarefas bite-sized TDD com comandos reais de teste; verifique antes de declarar pronto.
 
+## Serviços
+
+- **systemd:** `systemctl status <svc>`, `journalctl -u <svc> --no-pager -n 50`, `sudo systemctl restart <svc>`
+- **Docker:** `docker ps -a`, `docker logs --tail 50 <ctr>`, `docker restart <ctr>`
+- **PM2:** `pm2 list`, `pm2 logs <id> --lines 50`, `pm2 restart <id>`
+
 ## Referências (leia só se precisar)
 
 - **Qual skill para qual situação:** `~/.config/opencode/SKILL-INDEX.md`
@@ -44,4 +52,5 @@
 - **Skills instaladas:** `~/.config/opencode/skills/<nome>/SKILL.md`
 - **Servidores SSH / chaves:** `~/.config/opencode/extras/ssh_servers.md` e `~/.ssh-manager/.env` (inventário local por máquina — NUNCA versionar)
 - **Fonte da verdade:** repo `https://github.com/eajdias/envctl` (`configs/` + `manifests/`). As cópias locais são gerenciadas — edite no repo e rode `envctl opencode` (só OpenCode), `envctl commandcode` (só CommandCode) ou `envctl run shell` (ambos).
-- **Comandos:** `envctl opencode` · `envctl commandcode` · `envctl run all|shell|skills|lsp|cleanup` · `envctl doctor [--fix]` · `envctl snapshot` (sync REVERSO máquina→repo — nunca em VPS remota)
+- **Comandos:** `envctl opencode` · `envctl commandcode` · `envctl run all|shell|skills|lsp|cleanup` · `envctl doctor [--fix]` · `envctl snapshot` (sync REVERSO máquina→repo — nunca aqui)
+- **Binário:** `envctl` em `~/.local/bin`; atualizar = baixar o release `envctl-linux-amd64`

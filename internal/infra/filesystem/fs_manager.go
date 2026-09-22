@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -115,6 +116,50 @@ func (f *fsManager) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(expanded)
 }
 
+// backupPathFor returns a unique timestamped backup path for a live file.
+// Same-second second writes get -1, -2, … suffixes so no backup is destroyed.
+func backupPathFor(livePath string) string {
+	stamp := time.Now().Format("20060102-150405")
+	candidate := fmt.Sprintf("%s.bak.%s", livePath, stamp)
+	for i := 1; ; i++ {
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate
+		}
+		candidate = fmt.Sprintf("%s.bak.%s-%d", livePath, stamp, i)
+	}
+}
+
+// writeAtomic writes content to destPath via tmp+rename in the same directory,
+// so a mid-write kill never leaves a truncated live file. os.Rename is atomic
+// on POSIX same-dir and on Windows for this size class.
+func writeAtomic(destPath string, content []byte, perm os.FileMode) error {
+	dir := filepath.Dir(destPath)
+	tmp, err := os.CreateTemp(dir, ".envctl-tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(content); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Chmod(perm); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := os.Rename(tmpName, destPath); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("failed to rename temp file to %s: %w", destPath, err)
+	}
+	return nil
+}
+
 // WriteWithBackup writes content to target file. If destination exists and differs,
 // an atomic timestamped backup (.bak.YYYYMMDD-HHMMSS) is created first.
 func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.FileMode) (string, error) {
@@ -133,21 +178,20 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 		existingData, err := os.ReadFile(expanded)
 		if err == nil {
 			// If content is already identical, no-op
-			if string(existingData) == string(content) {
+			if bytes.Equal(existingData, content) {
 				return "", nil
 			}
 
 			// Content changed: create timestamped backup (same permission as target file)
-			timestamp := time.Now().Format("20060102-150405")
-			backupPath = fmt.Sprintf("%s.bak.%s", expanded, timestamp)
+			backupPath = backupPathFor(expanded)
 			if err := os.WriteFile(backupPath, existingData, perm); err != nil {
 				return "", fmt.Errorf("failed to create backup file %s: %w", backupPath, err)
 			}
 		}
 	}
 
-	// Write the new content
-	if err := os.WriteFile(expanded, content, perm); err != nil {
+	// Write the new content atomically
+	if err := writeAtomic(expanded, content, perm); err != nil {
 		return "", fmt.Errorf("failed to write file %s: %w", expanded, err)
 	}
 
@@ -228,8 +272,38 @@ func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir stri
 			return err
 		}
 
-		// Write to disk
-		if err := os.WriteFile(targetPath, data, 0644); err != nil {
+		mode := execModeForEmbedded(path, data, targetPath, d)
+
+		// Diff-gate: identical content is a no-op (not counted), so
+		// user-customized files that match the template cost nothing and
+		// differing ones always leave a timestamped backup first.
+		if existing, err := os.ReadFile(targetPath); err == nil {
+			if bytes.Equal(existing, data) {
+				// Refresh the mode when the content matches but the exec
+				// bit drifted (e.g. template gained a shebang).
+				if fi, statErr := os.Stat(targetPath); statErr == nil {
+					if fi.Mode().Perm() != mode.Perm() {
+						if chmodErr := os.Chmod(targetPath, mode); chmodErr != nil {
+							return fmt.Errorf("failed to set mode on %s: %w", targetPath, chmodErr)
+						}
+					}
+				}
+				return nil
+			}
+			// Backup preserves the live file's own mode (fallback 0600).
+			backupMode := os.FileMode(0600)
+			if fi, statErr := os.Stat(targetPath); statErr == nil {
+				backupMode = fi.Mode().Perm()
+			}
+			backupPath := backupPathFor(targetPath)
+			//nolint:gosec // G703: target derives from the manifest-controlled embedded tree + ExpandUserPath, not from raw user input.
+			if err := os.WriteFile(backupPath, existing, backupMode); err != nil {
+				return fmt.Errorf("failed to back up %s: %w", targetPath, err)
+			}
+		}
+
+		// Write to disk atomically
+		if err := writeAtomic(targetPath, data, mode); err != nil {
 			return fmt.Errorf("failed to write %s: %w", targetPath, err)
 		}
 
@@ -238,4 +312,30 @@ func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir stri
 	})
 
 	return count, err
+}
+
+// execModeForEmbedded decides the file mode for a deployed embedded file.
+// The existing target's exec bit is the source of truth when present (never
+// drop +x a user made executable); otherwise scripts ship executable:
+// anything under configs/bin/, *.sh, or an extensionless file with a shebang
+// gets 0755, everything else 0644.
+func execModeForEmbedded(sourcePath string, data []byte, targetPath string, d fs.DirEntry) os.FileMode {
+	if fi, err := os.Stat(targetPath); err == nil && !fi.IsDir() {
+		if fi.Mode()&0111 != 0 {
+			return os.FileMode(0755)
+		}
+	}
+	if info, err := d.Info(); err == nil {
+		if info.Mode()&0111 != 0 {
+			return os.FileMode(0755)
+		}
+	}
+	normalized := filepath.ToSlash(sourcePath)
+	if strings.HasPrefix(normalized, "configs/bin/") || strings.HasSuffix(normalized, ".sh") {
+		return os.FileMode(0755)
+	}
+	if filepath.Ext(filepath.Base(normalized)) == "" && bytes.HasPrefix(data, []byte("#!")) {
+		return os.FileMode(0755)
+	}
+	return os.FileMode(0644)
 }

@@ -72,7 +72,7 @@ Quando você (agente local) for instruído a despachar uma tarefa para um VPS:
 
 2. **Verificar Pré-requisitos no VPS**:
    - Verifique se o OpenCode está instalado: `ssh <servidor> "which opencode || command -v opencode"`.
-   - Se ausente, sugira provisionar via `envctl run all` (padrão) ou `npm install -g opencode-ai` / script oficial de instalação.
+   - Se ausente, provisione pelo canal da distro (NUNCA por npm — o pacote `opencode-ai` rebaixa a linha 2.x para 1.18.x, assimetria #9): preferido `envctl run all` (ou `envctl run providers` só para os CLIs); fallback por OS — Ubuntu/Debian: `curl -fsSL https://opencode.ai/install | bash` · Arch/CachyOS: `sudo pacman -S opencode` (repo `extra`) · Windows: `winget install SST.opencode`.
 
 3. **Montar o Prompt do Subagente Remoto**:
    - O prompt enviado deve ser **autocontido, explícito e com critérios claros de sucesso**.

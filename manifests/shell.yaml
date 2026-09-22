@@ -12,7 +12,7 @@ environment_variables:
     value: "$HOME/node_modules"
     scope: User
     target: "Linux user profile"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
   - name: ENVCTL_TEMP
     value: "C:\\temp"
@@ -24,7 +24,7 @@ environment_variables:
     value: "/temp"
     scope: User
     target: "Linux user profile"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
 config_files:
   - id: opencode_config
@@ -41,7 +41,7 @@ config_files:
     destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
   - id: agents_manifest
     description: "OpenCode global rules manifesto (auto-loaded from ~/.config/opencode/AGENTS.md)"
@@ -52,12 +52,20 @@ config_files:
     os: windows
 
   - id: agents_manifest_linux
-    description: "OpenCode global rules manifesto for Linux VPS servers"
+    description: "OpenCode global rules manifesto for Ubuntu/Debian servers"
     source: "configs/AGENTS.linux.md"
     destination: "~/.config/opencode/AGENTS.md"
     strict_acl: false
     category: "opencode"
-    os: linux
+    os: debian,ubuntu
+
+  - id: agents_manifest_arch
+    description: "OpenCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
+    source: "configs/AGENTS.arch.md"
+    destination: "~/.config/opencode/AGENTS.md"
+    strict_acl: false
+    category: "opencode"
+    os: arch,cachyos
 
   - id: opencode_skill_index
     description: "OpenCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
@@ -70,13 +78,6 @@ config_files:
     description: "OpenCode operational reference (plugins, DCP, agents, memory, VPS, snippets); consulted on demand, NOT auto-loaded"
     source: "configs/REFERENCE.md"
     destination: "~/.config/opencode/REFERENCE.md"
-    strict_acl: false
-    category: "opencode"
-
-  - id: opencode_dcp
-    description: "OpenCode Dynamic Context Pruning configuration"
-    source: "configs/dcp.jsonc"
-    destination: "~/.config/opencode/dcp.jsonc"
     strict_acl: false
     category: "opencode"
 
@@ -121,12 +122,20 @@ config_files:
     os: windows
 
   - id: commandcode_agents_manifest_linux
-    description: "CommandCode global rules manifesto for Linux VPS servers (no PowerShell/Windows paths)"
+    description: "CommandCode global rules manifesto for Ubuntu/Debian servers (no PowerShell/Windows paths)"
     source: "configs/commandcode/AGENTS.linux.md"
     destination: "~/.commandcode/AGENTS.md"
     strict_acl: false
     category: "commandcode"
-    os: linux
+    os: debian,ubuntu
+
+  - id: commandcode_agents_manifest_arch
+    description: "CommandCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
+    source: "configs/commandcode/AGENTS.arch.md"
+    destination: "~/.commandcode/AGENTS.md"
+    strict_acl: false
+    category: "commandcode"
+    os: arch,cachyos
 
   - id: commandcode_skill_index
     description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
@@ -136,7 +145,7 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_mcp
-    description: "CommandCode user-scope MCP servers (context7; chrome-devtools, ssh-manager, zscan disabled by default)"
+    description: "CommandCode user-scope MCP servers (context7; chrome-devtools, ssh-manager disabled by default)"
     source: "configs/commandcode/mcp.json"
     destination: "~/.commandcode/mcp.json"
     strict_acl: false
@@ -175,7 +184,7 @@ config_files:
     source: "configs/bin/pw"
     destination: "~/.local/bin/pw"
     strict_acl: false
-    os: linux
+    os: arch,cachyos,debian,ubuntu
     executable: true
 
   - id: envctl_verify
@@ -272,7 +281,7 @@ config_files:
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
     merge: ssh_hosts
 
 directories:
@@ -333,7 +342,7 @@ directories:
   - path: "/temp"
     strict_acl: false
     description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
 cleanup:
   - id: stale_pw_ps1
@@ -344,6 +353,10 @@ cleanup:
   - id: stale_opencode_jsonc
     description: "Remove stale opencode.jsonc (standardized on opencode.json)"
     path: "~/.config/opencode/opencode.jsonc"
+    category: "opencode"
+  - id: stale_opencode_dcp
+    description: "Remove orphan DCP context-pruning config (plugin removed: V1-only export, breaks opencode v2 boot)"
+    path: "~/.config/opencode/dcp.jsonc"
     category: "opencode"
   - id: stale_tui_json
     description: "Remove non-functional TUI plugin config (tui.json)"
@@ -412,4 +425,4 @@ cleanup:
     description: "Remove the Oh-My-Posh binary left by the Linux bootstrap (prompt engine dropped from the stack)"
     path: "~/.local/bin/oh-my-posh"
     category: "scripts"
-    os: linux
+    os: arch,cachyos,debian,ubuntu

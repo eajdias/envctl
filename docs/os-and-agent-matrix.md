@@ -12,7 +12,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | :--- | :--- | :--- |
 | **Windows 11** (workstations/notebooks) | Trabalho — apps de cliente exigem o OS | WSL é usado para containers Docker; PowerShell 7 como shell |
 | **Arch / CachyOS** (desktops/notebooks) | Pessoal | fish como shell; jogos (stack `gaming`); Cursor como IDE |
-| **Ubuntu Server** (VPS/VM) | Administração, sem GUI | Sem IDE — o LSP/editor não se aplica; alvo do `vps-agent-dispatch` |
+| **Ubuntu Server** (VPS/VM) | Administração, sem GUI | Sem Cursor/IDE (servidor, sem GUI) — binários LSP seguem instalados (shell/IDE), mas o bloco `lsp` do `opencode.json` foi removido: o runtime do opencode v2 ignora LSP; alvo do `vps-agent-dispatch` |
 | **Termux (Android)** | Celulares | Ainda **não padronizado** no repo; planejado controle via SSH |
 
 ---
@@ -26,12 +26,12 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | **Fase 0: provedores (`run providers`)** | winget (`SST.opencode`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial do opencode + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
 | Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 18 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, com **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
-| Variáveis de ambiente | 3 | 2 | 2 |
-| Configs aplicáveis | **21** (7 só-Windows + 14 portáveis) | **19** (5 só-Linux + 14) | **19** (idêntico ao Ubuntu) |
+| Variáveis de ambiente | 2 | 2 | 2 |
+| Configs aplicáveis | **27** (contados em `shell.yaml` via `MatchesOS` por distro) | **25** | **25** |
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
-| Git global | 5 (3 + `core.fscache`/`core.longpaths`) | 3 | 3 |
-| LSPs instaláveis | **15** (14 + `pwsh`) | **14** | **14** |
-| Skills por agente | **38** (37 + 1 só-Windows) | **40** (37 + 3 só-Linux) | **40** |
+| Git global | 6 (4 + 2 win-only) | 4 | 4 |
+| LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
+| Skills por agente | **38** (37 + 1 só-Windows) | **38** (37 + `headless-gui-probe`) | **40** (37 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, gamescope, MangoHud, emuladores, lact) |
@@ -73,14 +73,14 @@ consultado.
 | Dimensão | OpenCode | CommandCode |
 | :--- | :--- | :--- |
 | Diretório | `~/.config/opencode` | `~/.commandcode` |
-| Arquivos declarados | **10** | **6** |
+| Arquivos declarados | **11** | **7** |
 | Config principal | `opencode.json` (variante win/linux) | `settings.json` (permissões + hooks) |
 | Regras globais | `AGENTS.md` (win/linux) | `AGENTS.md` (win/linux) |
 | Índice de consulta | `SKILL-INDEX.md` + `REFERENCE.md` | `SKILL-INDEX.md` |
-| MCP | seção `mcp` no `opencode.json` (context7, chrome-devtools) | `mcp.json` (context7, chrome-devtools, ssh-manager, zscan) |
-| LSP | 14 entradas no config Linux / 15 no Windows | **nenhuma** — `get_diagnostics` é IDE-only |
-| Plugins | 3 + deps npm (`package.json`) | — |
-| Contexto / pruning | `dcp.jsonc` | — |
+| MCP | seção `mcp` no `opencode.json` (context7; ssh-manager + chrome-devtools disabled) | `mcp.json` (context7; chrome-devtools + ssh-manager disabled) |
+| LSP | sem bloco `lsp` (removido 2026-09-22 — inerte no runtime v2; binários seguem provisionados p/ shell/IDE e `doctor` checa presença+handshake como toolchain) | **nenhuma** — `get_diagnostics` é IDE-only |
+| Plugins | 1 (goal-plugin only; `dcp.jsonc` removido do provisioning em 2026-09-22 — YAGNI) | — |
+| Contexto / pruning | nativo (`compaction` do v2; DCP removido) | — |
 | Memória | seeds `lessons.md` + `patterns.md`, dir `memory` | — (memória vive no `AGENTS.md`; dir `memory` é limpo) |
 | Agentes custom | `review`, `plan` (no JSON) | `agents/code-reviewer.md` |
 | Permissões | no `opencode.json` | `settings.json`: 12 allow · 6 ask · 4 deny |
@@ -89,7 +89,7 @@ consultado.
 | Validação de skill no doctor | **frontmatter + contagem vs manifesto** | **frontmatter + contagem vs manifesto** |
 | Diretórios criados | 4 (skills, memory, secrets 0700, extras) | 2 (skills, agents) |
 | Cleanup dedicado | 4 entradas | 6 entradas |
-| IDE integration | — (usa os LSPs do config) | VS Code / Cursor / Windsurf via `/ide` |
+| IDE integration | — (diagnósticos via lint/typecheck no v2; sem runtime LSP) | VS Code / Cursor / Windsurf via `/ide` |
 
 ### Checks do `doctor` por provedor
 
@@ -115,6 +115,12 @@ consultado.
 | 8 | `~/.bash_profile`, `.bashrc` e `.profile` referenciavam o shim `~/.local/bin/env` do uv, que nada recriava (o uv só o escreve quando `~/.local/bin` não está no PATH) — todo login shell imprimia erro no stderr | **Resolvido** — `run shell` remove a referência morta; o PATH de `~/.local/bin` é garantido pelo próprio envctl |
 | 9 | O `opencode` tem **dois canais de versão** e o npm não é o mais novo: o pacote npm `opencode-ai` (`latest`) ficou em **1.18.31** (14/09), enquanto as tags do upstream (`anomalyco/opencode`, ex-`sst/opencode`) já estão em **v2.0.7** (17/09) — e é essa linha 2.x que o pacote do Arch (`extra`, 2.0.5) empacota. Instalar por npm/Volta **rebaixaria** a máquina | **Resolvido** — `opencode` é provisionado por pacote do SO (`pacman`/`winget`) ou pelo instalador oficial, nunca por npm; o bootstrap deixou de tentar npm e a fase 0 só reporta binário que não é dela (ver §1) |
 | 10 | `paru` não vinha por padrão no CachyOS e o manifesto Arch não o declarava, embora `run paru` e o `type: paru` (ex.: `cursor-bin`) dependam dele | **Resolvido** — `paru` declarado no bloco pacman (repo `[cachyos]`); no Arch puro, que não tem paru em repo nenhum, o bootstrap constrói do AUR (`base-devel` + `git` também declarados) |
+| 11 | `ssh-manager` MCP existia no `configs/opencode.json` (Windows) mas nunca no `configs/opencode.linux.json` — no CachyOS o agente só alcançava VPS via CLI | **Resolvido** — entrada espelhada no linux (`command: [mcp-ssh-manager]`, `timeout: 30000`, `enabled: false`); timeout pina os 30s do `chrome-devtools` (default 5s estoura no handshake) |
+| 12 | `zscan` (`@eajdias/zscan-run`) vinha desde o squash inicial em `configs/opencode.json` + `configs/commandcode/mcp.json`, sem dono nem uso | **Resolvido** — blocos deletados nos dois configs; `doctor` acusa `Removed MCP entries` (warning nomeando o servidor) quando o deployado ainda declara; CHANGELOG/lessons e o prefixo `zscan-` do `temp_hygiene` (limpeza, não instala nada) ficam |
+| 13 | `configs/AGENTS.linux.md` dizia "Ubuntu Server, usuário `ubuntu`" até no desktop CachyOS (`os: linux` cobria tudo) | **Resolvido** — split `configs/AGENTS.arch.md` (`os: arch,cachyos`: fish, paru, gaming, Cursor) vs linux (`os: debian,ubuntu`); `doctor` avisa `AGENTS.md (identity coverage)` quando nenhuma variante casa com o host (ex.: distro desconhecida) |
+| 14 | Chave `yaml` no `lsp` do opencode duplicava o builtin `yaml-ls` (ids provados no binário: merge `item.extensions ?? existing?.extensions` dispara os dois em `.yaml/.yml`); `pylsp` + `pyright` disparavam duplo em `.py` | **Resolvido** — `yaml` renomeado para `yaml-ls` nos dois configs (+ `id: yaml-ls` no `lsp.yaml`); `pylsp` removido dos dois configs (pesquisa 2026: consenso é servidor de tipos `pyright`/`ty` + `ruff` p/ lint — `pylsp` legado, mais lento; binário segue provisionado p/ IDE/shell). Requisitos de spawn (typescript/pyright/eslint exigem dep no projeto, gopls exige `go`) documentados como causa esperada de "não ativa" |
+| 15 | `taplo` tem dois canais (`taplo-cli` via pacman + `@taplo/cli` via npm) e o `run lsp` prefere o npm mesmo no Arch | **Exceção intencional** — mesmo dono nos dois canais, sem sombreamento entre gerenciadores. Revisitar só com skew de versão observado |
+| 16 | opencode v2 ignora runtime LSP (`lsp` aceito mas inerte), `subagent_depth` top-level (WARN `omitted unsupported legacy setting`) e `instructions` (aceito, não carregado) | **Resolvido 2026-09-22** — bloco `lsp`, `subagent_depth` e `instructions` removidos dos dois configs (formato nativo V2: `agents`/`permissions[]`/`plugins`/`skills[]`/`mcp.servers`); `review` com `mode: primary` explícito, `plan` sem `mode` (preserva o built-in — customs só com IDs novos); binários LSP seguem provisionados p/ shell/IDE e o `doctor` os audita como toolchain |
 
 ---
 
@@ -152,8 +158,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 
 **Pacote de sistema** → `manifests/packages.yaml`
 1. Um item por gerenciador (`winget`/`apt`/`pacman`/`paru`).
-2. `os:` correto — `windows`/`linux`, ou a família de distro (`os: arch`) quando o pacote só
-   existe lá (AUR via `type: paru`).
+2. `os:` explícito por distro, NUNCA bare `linux` — `windows` · `arch,cachyos` (desktop CachyOS) · `debian,ubuntu` (VPS Ubuntu Server) · conteúdo POSIX idêntico nas duas distros usa a lista `arch,cachyos,debian,ubuntu` · portável de verdade omite `os:`. Conjunto fechado: nova distro só com pedido explícito do dono (o lint `manifest_os_lint_test.go` falha em `os: linux` e em tokens desconhecidos).
 3. `check_command` **sem aspas** — o parse é por `strings.Fields` (aspas quebram o comando).
 4. Id igual ao nome real do pacote em cada gerenciador (nada de sufixos como `-pacman`).
 
@@ -171,10 +176,13 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 2. O diretório embutido e o manifesto precisam bater (o teste
    `TestLoadManifestsFromDiskOrEmbed` falha se divergirem).
 
-**LSP** → `manifests/lsp.yaml` + o `lsp` do `configs/opencode*.json`
+**Agente custom** → `agents` no `configs/opencode*.json`
+1. SEMPRE ID novo — nunca sobrescrever built-ins (`build`/`plan`/`general`/`explore`): única exceção documentada é o `plan` do envctl, reduzido a 1 regra (`edit spec-agent/** allow`) que estende o built-in por merge (efetivo `primary`).
+2. `mode: primary` explícito no custom novo, `system` (nunca `prompt`), `permissions[]` nativas (`shell`/`subagent`, nunca `bash`/`task`).
+
+**LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
-2. Espelhe a entrada no config do opencode **da plataforma correspondente** — declarar um
-   LSP no config de um OS que não o instala foi a assimetria #1 deste documento.
+2. NÃO espelhe entrada no `opencode.json`: o runtime v2 ignora o bloco `lsp` (assimetria #16) — foi removido dos dois configs em 2026-09-22.
 
 **CLI de agente (provedor)** → `manifests/packages.yaml` + `run providers` (fase 0)
 1. Confirme o **canal de versão** antes de escolher o gerenciador: o mesmo produto costuma ter

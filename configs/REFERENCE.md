@@ -5,27 +5,20 @@
 ## Plugins (1)
 
 - `@prevalentware/opencode-goal-plugin` — modo goal: tools `get_goal`/`set_goal`/`update_goal` + slash `/goal`. Não cria toggle no Tab.
-- REMOVED (2026-09-19, opencode v2): `@tarquinen/opencode-dcp@latest` and `@dietrichgebert/ponytail` fail to load (`PluginModule.LoadError: Expected object at ["default"]` — both export a V1 async function instead of `Plugin.define({id, setup})`; only the goal-plugin exports the V2 object shape). Re-add after upstream migrates per https://opencode.ai/v2/docs/build/plugins/migrate-v1. `dcp.jsonc` stays provisioned so the config is already in place on return.
-- O array `plugin` vive **somente** em `opencode.json` (arrays não mesclam entre arquivos de config).
+- REMOVED (2026-09-19, opencode v2): `@tarquinen/opencode-dcp@latest` and `@dietrichgebert/ponytail` fail to load (`PluginModule.LoadError: Expected object at ["default"]` — both export a V1 async function instead of `Plugin.define({id, setup})`; only the goal-plugin exports the V2 object shape). Re-add after upstream migrates per https://opencode.ai/v2/docs/build/plugins/migrate-v1. `dcp.jsonc` REMOVED from provisioning on 2026-09-22 (YAGNI: no consumer left — re-add config + plugin together on return).
+- O array `plugins` vive **somente** em `opencode.json` (arrays não mesclam entre arquivos de config).
 - Ao sugerir plugin novo: valide com `npm view <pkg>` antes de gravar (a maioria não é oficial/maduro) e só mantenha com evidência de funcionamento.
 
-## DCP (context pruning)
+## Context pruning (nativo)
 
-Config: `~/.config/opencode/dcp.jsonc`.
-
-- Banda automática **90% / 80%** (`maxContextLimit`/`minContextLimit`) — limiar alto = menos compressões, priorizando **cache-hit** (cada compressão invalida o prefixo do prompt).
-- `allowSubAgents: true` → roda também em subagentes.
-- `nudgeFrequency: 10`, `iterationNudgeThreshold: 30`, `nudgeForce: soft`.
-- `manualMode.enabled: false` — **não ligar**: isso desativaria a compressão autônoma. A compressão manual continua permitida pela tool `compress` (`permission: allow`).
-- Protegidos: `task`, `skill`, `todowrite`, `todoread` (`compress.protectedTools`).
-- Chame `compress` proativamente ao trocar de assunto bruscamente ou ao concluir uma sub-tarefa cujo contexto verbatim não será mais usado.
+DCP removido em 2026-09-22 (plugin V1 quebra o boot do v2; `dcp.jsonc` era config sem consumidor — YAGNI). Pruning agora é o compaction nativo (`compaction.keep.tokens` + checkpoints); CommandCode usa `/compact` nativo. Chame `compress` proativamente ao trocar de assunto bruscamente ou ao concluir uma sub-tarefa cujo contexto verbatim não será mais usado.
 
 ## Agentes customizados
 
 Definidos no `opencode.json` — **não** existe mais `~/.config/opencode/agents/` (o provisioning remove o diretório; um `.md` lá sobrescreveria o JSON silenciosamente).
 
-- **`review`** (primary): revisão read-only — bash granular read-only para evidências, `edit` negado, `task: allow` + `subagent_depth: 2`. Severidades BLOCKER/MAJOR/MINOR/NIT (nit só se pedido), evidência obrigatória `file:line`, YAGNI check contra callers reais, veredito APPROVE/REQUEST-CHANGES.
-- **`plan`** (primary, default built-in — **não** dispatchável via task tool): planejamento read-only; escrita apenas em `spec-agent/` na raiz do projeto (convenção do envctl — nada de pastas da skill upstream); carrega `writing-plans`, `agent-memory` e context7.
+- **`review`** (primary): revisão read-only — bash granular read-only para evidências, `edit` negado, `subagent: allow`. Severidades BLOCKER/MAJOR/MINOR/NIT (nit só se pedido), evidência obrigatória `file:line`, YAGNI check contra callers reais, veredito APPROVE/REQUEST-CHANGES.
+- **`plan`** (built-in + 1 regra: `edit spec-agent/** allow` por merge — efetivo primary; **não** dispatchável via task tool): planejamento read-only; escrita apenas em `spec-agent/` na raiz do projeto (convenção do envctl — nada de pastas da skill upstream); carrega `writing-plans`, `agent-memory` e context7.
 - O agente `goal` foi removido (o `build` cobre o fluxo); `/goal` continua funcionando pelo plugin.
 
 ## Memória do agente
@@ -54,6 +47,10 @@ Skill `agent-memory`:
 - **Privilegiado (Linux, non-root com sudo sem senha):** `sudo -n apt-get update`, `sudo -n systemctl restart nginx`.
 - **SSH em outra VPS:** `ssh <host> "uptime && df -h /"`; fallback por CLI: `ssh-manager exec <server> "..."`.
 - **Docker:** `docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"` e `docker exec -it <container> /bin/sh`. No Windows roda nativamente do PowerShell, sem workaround de conversão de caminho.
+
+## TUI (cli.json — fora do envctl)
+
+`~/.config/opencode/cli.json` é preferência de terminal do usuário (tema, tabs, sidebar) — o envctl **não** gerencia: `session.sidebar: "auto"` esconde a sidebar sozinha em terminal estreito (alargue a janela ou `Ctrl+P > Open settings`). Não versinar nem sobrescrever via provisioning.
 
 ## Higiene de scratch
 

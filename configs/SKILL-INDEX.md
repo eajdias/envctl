@@ -46,7 +46,7 @@
 | Descobrir/criar skill a partir de uso repetido | `skill-miner` |
 | Ajustar skill recém-baixada ao ambiente do usuário | `skill-personalizer` |
 | Publicar/compartilhar skill (remover dados privados) | `skill-generalizer` |
-| Editar `opencode.json` / `dcp.jsonc` / agentes | `customize-opencode` |
+| Editar `opencode.json` / agentes | `customize-opencode` |
 | Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
 | Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |
 | Validar app GUI (Qt/SDL) sem display | `headless-gui-probe` `[linux]` |

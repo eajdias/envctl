@@ -329,7 +329,7 @@ packages:
     name: OpenCode CLI
     type: pacman
     category: ai-agents
-    os: linux
+    os: arch,cachyos
     check_command: opencode --version
 
   - id: SST.opencode
@@ -415,155 +415,155 @@ packages:
   - id: git
     name: Git SCM
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: git --version
 
   - id: curl
     name: cURL HTTP Client
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: curl --version
 
   - id: wget
     name: Wget Downloader
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: wget --version
 
   - id: ripgrep
     name: ripgrep (rg)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: rg --version
 
   - id: fd-find
     name: fd file search
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: fdfind --version
 
   - id: fzf
     name: fzf fuzzy finder
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: fzf --version
 
   - id: bat
     name: bat cat clone
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: batcat --version
 
   - id: tree
     name: tree directory visualizer
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: tree --version
 
   - id: jq
     name: jq JSON processor
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: jq --version
 
   - id: unzip
     name: unzip extraction utility
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: unzip -v
 
   - id: zip
     name: zip compression utility
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: zip -v
 
   - id: rsync
     name: rsync remote file copy
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: rsync --version
 
   - id: build-essential
     name: GNU C/C++ Build Essentials
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: toolchain
 
   - id: python3-pip
     name: Python 3 Pip
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: toolchain
     check_command: pip3 --version
 
   - id: python3-venv
     name: Python 3 Virtual Environments
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: toolchain
 
   - id: sshpass
     name: SSH Password Authentication Utility
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: toolchain
     check_command: sshpass -V
 
   - id: shellcheck
     name: shellcheck (bash script linting)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: shellcheck --version
 
   - id: shfmt
     name: shfmt (shell script formatter)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
     check_command: shfmt --version
 
   - id: software-properties-common
     name: software-properties-common (PPA/repo management)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
 
   - id: apt-transport-https
     name: apt-transport-https (HTTPS repository support)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
 
   - id: ca-certificates
     name: ca-certificates (TLS certificate authority)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
 
   - id: gnupg
     name: gnupg (GnuPG signing keys)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
 
   - id: docker.io
     name: Docker Engine
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: system
     check_command: docker --version
 
@@ -573,30 +573,26 @@ packages:
   - id: python3-yaml
     name: PyYAML (YAML parsing for python agent scripts)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
-    check_command: python3 -c "import yaml"
 
   - id: python3-requests
     name: requests (HTTP client for python agent scripts)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
-    check_command: python3 -c "import requests"
 
   - id: python3-openpyxl
     name: openpyxl (Excel xlsx read/write for python agent scripts)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
-    check_command: python3 -c "import openpyxl"
 
   - id: python3-bs4
     name: beautifulsoup4 (HTML parsing for python agent scripts)
     type: apt
-    os: linux
+    os: debian,ubuntu
     category: cli-tools
-    check_command: python3 -c "import bs4"
 
   # ============================================================================
   # Arch Linux / CachyOS (pacman) — skipped automatically where pacman is absent
@@ -608,63 +604,63 @@ packages:
   - id: paru
     name: paru (AUR helper)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: paru --version
 
   - id: base-devel
     name: base-devel (makepkg toolchain)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: toolchain
     check_command: makepkg --version
 
   - id: git
     name: Git
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: git --version
 
   - id: fish
     name: fish shell
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: fish --version
 
   - id: go
     name: Go toolchain
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: toolchain
     check_command: go version
 
   - id: git-delta
     name: delta (syntax-highlighting pager for git diff)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: delta --version
 
   - id: yq
     name: yq YAML processor
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: yq --version
 
   - id: dust
     name: dust (du alternative)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: dust --version
 
   - id: hyperfine
     name: hyperfine command-line benchmarking
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: hyperfine --version
 
@@ -672,132 +668,125 @@ packages:
   - id: docker
     name: Docker Engine
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: docker --version
 
   - id: docker-compose
     name: Docker Compose plugin
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: docker compose version
 
   - id: docker-buildx
     name: Docker Buildx plugin
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: system
     check_command: docker buildx version
 
   - id: shellcheck
     name: shellcheck (bash script linting)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: shellcheck --version
 
   - id: shfmt
     name: shfmt (shell script formatter)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: shfmt --version
 
   - id: ruff
     name: ruff Python linter
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: ruff --version
 
   - id: tree
     name: tree directory visualizer
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: tree --version
 
   - id: fzf
     name: fzf fuzzy finder
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: fzf --version
 
   - id: bat
     name: bat cat clone
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: bat --version
 
   - id: fd
     name: fd file search
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: fd --version
 
   - id: ripgrep
     name: ripgrep (rg)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: rg --version
 
   - id: taplo-cli
     name: Taplo TOML Language Server
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
     check_command: taplo --version
 
   - id: python-yaml
     name: pyyaml (YAML for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import yaml"
 
   - id: python-requests
     name: requests (HTTP client for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import requests"
 
   - id: python-openpyxl
     name: openpyxl (Excel xlsx read/write for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import openpyxl"
 
   - id: python-beautifulsoup4
     name: beautifulsoup4 (HTML parsing for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import bs4"
 
   - id: python-pypdf
     name: pypdf (PDF for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import pypdf"
 
   - id: python-docx
     name: python-docx (Word for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import docx"
 
   - id: python-lxml
     name: lxml (HTML/XML for python agent scripts)
     type: pacman
-    os: linux
+    os: arch,cachyos
     category: cli-tools
-    check_command: python3 -c "import lxml"

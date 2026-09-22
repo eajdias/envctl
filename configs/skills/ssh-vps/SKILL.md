@@ -15,8 +15,11 @@ O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e W
 - `rsync`, `jq`, `sshpass` — ferramentas auxiliares.
 - Chaves SSH: `~/Documents/SSH-keys/<VPS>/<VPS>.pem` (+ .txt com dados de conexão).
 
-## MCP `ssh-manager` — DESATIVADO por padrão
-O MCP está registrado com `"enabled": false` para não carregar ~43k tokens de contexto desnecessariamente — user-scope em `~/.commandcode/mcp.json` (CommandCode, provisionado pelo envctl) e no bloco `mcp.ssh-manager` de `~/.config/opencode/opencode.json` (OpenCode).
+## MCP `ssh-manager` — DESATIVADO por padrão (regra permanente)
+
+O MCP está registrado com `"enabled": false` para não carregar ~43k tokens de contexto desnecessariamente — user-scope em `~/.commandcode/mcp.json` (CommandCode, provisionado pelo envctl) e no bloco `mcp.ssh-manager` de `~/.config/opencode/opencode.json` (OpenCode). **O default é SEMPRE `false`; ativação é SEMPRE manual em runtime, conforme a necessidade.**
+
+**Caminho padrão = CLI (Opção A), não o MCP.** O processo MCP resolve o `.env` UMA vez no boot e pinna a assinatura do estado inicial — VPS cadastrada DEPOIS exige restart real do processo (toggle OFF→ON). O CLI lê `~/.ssh-manager/.env` a cada chamada: nunca precisa restart. Por isso opere via CLI por padrão e só suba o MCP quando as tools exclusivas dele pagarem o custo.
 
 **Regra — o AGENT NUNCA edita o config por conta própria.**
 
@@ -30,6 +33,8 @@ O MCP está registrado com `"enabled": false` para não carregar ~43k tokens de 
 1. Abra o gerenciador de MCP do agente — `/mcp` (CommandCode ou OpenCode; no OpenCode também `Ctrl+P` → busque "mcp")
 2. Habilite/conecte o `ssh-manager` (no OpenCode é hot-reload, não precisa reiniciar; no CommandCode a sessão adota na próxima rodada)
 3. Avise quando estiver ativo para eu prosseguir com as ferramentas `ssh_*`
+
+**Após ativar, valide antes de usar:** rode `ssh_list_servers` e confira se os servidores esperados aparecem. Se retornar vazio (`Available servers: none`) com servidores cadastrados, o processo MCP subiu ANTES do cadastro — peça ao usuário um toggle OFF→ON no `/mcp` (restart real; nunca mate o processo node — as tools somem sem reconexão).
 
 **Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
 
@@ -66,7 +71,7 @@ SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
 - Windows: `~/Documents/SSH-keys/<VPS>/<VPS>.pem`
 - Linux/macOS: `~/.ssh/<VPS>.pem` (padrão `ssh-config.linux`)
 
-**3. Testar e atualizar inventário local** — `ssh_manager_ssh_execute` com `echo "OK - $(hostname)"`; depois ADICIONE/ATUALIZE o servidor em `~/.config/opencode/extras/ssh_servers.md` (nome, host, usuário, OS, chave, observação). NUNCA adicione a tabela neste SKILL.md.
+**3. Testar e atualizar inventário local** — teste pela CLI (`ssh-manager server test <nome>`, lê o `.env` na hora, sem restart); depois ADICIONE/ATUALIZE o servidor em `~/.config/opencode/extras/ssh_servers.md` (nome, host, usuário, OS, chave, observação). NUNCA adicione a tabela neste SKILL.md. Se o MCP estiver ativo na sessão, valide com `ssh_list_servers` — vazio aqui com CLI OK significa processo MCP anterior ao cadastro: toggle OFF→ON no `/mcp`.
 
 **4. Provisionar com envctl (VPS vira agente OpenCode)** — após cadastro validado, NUNCA deixar a VPS crua: rode o bootstrap do envctl na VPS (1 linha) e provisione:
 ```

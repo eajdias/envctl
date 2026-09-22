@@ -1,12 +1,14 @@
-# CommandCode Environment Manifest (Linux Server)
+# CommandCode Environment Manifest (Arch Desktop)
 
 ## Ambiente
 
-- **OS:** Ubuntu Server (LTS) (amd64), provisionada pelo envctl · usuário `ubuntu` (não-root, sudo sem senha)
-- **Shell:** Bash (`/bin/bash`) é o shell do CommandCode — use sintaxe POSIX, não PowerShell.
-- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc`.
+- **OS:** Arch/CachyOS Linux (x86-64, desktop com GUI), provisionada pelo envctl · usuário não-root (sudo; sem senha só onde o envctl liberou via drop-in)
+- **Shell:** fish é o shell interativo do usuário; o shell do CommandCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
+- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc` · gerenciadores: `pacman` · `paru` (AUR) · `volta` (Node).
+- **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
 - **Scratch:** `/temp` (`ENVCTL_TEMP`, na raiz do disco, criado pelo envctl). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.commandcode/` nem no projeto.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).
+- **Gaming:** stack `gaming` do envctl (Steam, gamescope, MangoHud, emuladores, lact) — ver skill `cachyos-gaming-setup`.
 
 ## Regras
 
@@ -26,7 +28,6 @@
 - **Agentes:** `~/.commandcode/agents/` (frontmatter: `name`, `description`, `tools`, `model`, `reasoningEffort`, `maxTurns`, `permissionMode`, `background`, `showOutput`). Built-ins `general`/`explore`/`plan`/`review`; nomes reservados são ignorados — o custom aqui é `code-reviewer`.
 - **MCP:** user-scope `~/.commandcode/mcp.json`. Browser interativo via MCP `chrome-devtools` (`enabled: false` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`).
 - **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já está no prompt, não há nada a ativar. Para escolher entre elas, veja `~/.commandcode/SKILL-INDEX.md` (tabela situação → skill); não leia por padrão.
-- **LSP:** o CommandCode não tem configuração de LSP — ele usa o do IDE conectado (`/ide` + tool `get_diagnostics`). Os binários instalados servem ao OpenCode e ao shell.
 - **Memória:** no início de toda tarefa carregue `/agent-memory` e leia os tiers user → projeto (1x por sessão); ao errar, ser corrigido ou descobrir padrão reutilizável, grave lição/pattern na hora (passe `memory-promotion` a cada escrita); ao fechar, revise e pode duplicados. A memória vive nos arquivos `AGENTS.md` dos tiers (o CommandCode não tem memory-dir).
 - **Taste:** aprende de sinais accept/reject/edit — projeto `.commandcode/taste/`, global `~/.commandcode/taste/`. Não edite à mão; use a tool `taste`.
 - **Hot reload:** agentes, skills e memória são re-lidos a cada turno; `settings.json` vale no próximo round. Só um update baixado exige `/reload`.
@@ -44,4 +45,3 @@
 - **Servidores SSH / chaves:** `~/.config/opencode/extras/ssh_servers.md` e `~/.ssh-manager/.env` (inventário local por máquina — NUNCA versionar)
 - **Fonte da verdade desta configuração:** repo `https://github.com/eajdias/envctl` (`configs/` + `manifests/`). As cópias locais são gerenciadas — edite no repo e rode `envctl commandcode` (só CommandCode), `envctl opencode` (só OpenCode) ou `envctl run shell` (ambos).
 - **Comandos:** `envctl commandcode` · `envctl opencode` · `envctl run all|shell|skills|lsp|cleanup` · `envctl doctor [--fix]` · `envctl snapshot` (sync REVERSO máquina→repo — nunca aqui)
-- **Binário:** `envctl` em `~/.local/bin`; atualizar = baixar o release `envctl-linux-amd64`

@@ -6,7 +6,7 @@ O `envctl` embuta e sincroniza **41 Skills de Agentes Especialistas** projetadas
 
 > **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
 
-> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` no manifesto (`windows`/`linux`) e são **podadas** nas demais plataformas. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
+> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` distro-strict no manifesto (`windows` · `arch,cachyos` · `debian,ubuntu`) e são **podadas** nas demais plataformas — 41 no manifesto, 38 deployadas no Windows, 38 no Ubuntu Server, 40 no CachyOS. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
 
 > **Créditos.** Boa parte destas skills foi adotada de projetos de terceiros (obra/superpowers, mattpocock/skills, hqhq1025/skill-optimizer, Hardik Pandya) — o autor e o repositório de origem estão no `metadata` de cada `SKILL.md`. Tabela completa, o que foi adaptado e o checklist para adotar skill nova: [**Atribuição de Skills**](skills-attribution.md).
 
@@ -105,6 +105,6 @@ O conjunto base de skills é o mesmo, mas cada agente tem seu próprio **command
 |---|---|---|
 | Skills | `~/.config/opencode/skills/` | `~/.commandcode/skills/` |
 | Memória (lessons/patterns) | `~/.config/opencode/memory/` (seed enviado por `envctl`) | Não existe memory-dir — a memória é o `AGENTS.md` (tiers user/project) |
-| LSP | Bloco `lsp` do `opencode.json` (18 servidores) | Sem configuração própria — usa o LSP do IDE conectado (`/ide` + `get_diagnostics`) |
-| Context pruning | Plugin DCP (`dcp.jsonc`, banda 90%/80%) | Nativo (`/compact`, setting `compact-mode`) |
+| LSP | Sem bloco `lsp` (removido 2026-09-22 — inerte no runtime v2; binários seguem provisionados p/ shell/IDE) | Sem configuração própria — usa o LSP do IDE conectado (`/ide` + `get_diagnostics`) |
+| Context pruning | Nativo do v2 (`compaction`; DCP removido por YAGNI em 2026-09-22) | Nativo (`/compact`, setting `compact-mode`) |
 | Regras globais | `~/.config/opencode/AGENTS.md` (variantes Windows/Linux) | `~/.commandcode/AGENTS.md` (variantes Windows/Linux) |

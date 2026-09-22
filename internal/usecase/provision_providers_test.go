@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"context"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -82,6 +84,35 @@ func TestSourceLabelIsDisplayOnly(t *testing.T) {
 		if label := sourceLabel(source); label == "" {
 			t.Errorf("sourceLabel(%q) is empty", source)
 		}
+	}
+}
+
+// Phase 0 probes must resolve on the toolchain PATH, not the process PATH:
+// under ssh/systemd/agent non-login shells ~/.volta/bin is absent from the
+// process PATH, and the old exec.LookPath probe reported Volta tools as
+// missing (reinstalling on every run).
+func TestInstalledVersionResolvesVoltaShim(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("volta shim layout under $HOME/.volta is POSIX-only")
+	}
+	tmp := t.TempDir()
+	voltaBin := filepath.Join(tmp, ".volta", "bin")
+	if err := os.MkdirAll(voltaBin, 0755); err != nil {
+		t.Fatalf("MkdirAll volta bin failed: %v", err)
+	}
+	shim := filepath.Join(voltaBin, "fakecli")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\necho 'fakecli v9.9.9'\n"), 0755); err != nil {
+		t.Fatalf("WriteFile shim failed: %v", err)
+	}
+	t.Setenv("HOME", tmp)
+	t.Setenv("PATH", "/usr/bin:/bin")
+
+	uc := &ProvisionProvidersUseCase{}
+	if got := uc.installedVersion(context.Background(), "fakecli"); got != "9.9.9" {
+		t.Errorf("installedVersion(fakecli) = %q, want %q (shim invisible on process PATH, visible on toolchain PATH)", got, "9.9.9")
+	}
+	if got := installSource("fakecli"); got != sourceVolta {
+		t.Errorf("installSource(fakecli) = %q, want %q", got, sourceVolta)
 	}
 }
 

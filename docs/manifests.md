@@ -35,7 +35,7 @@ packages:
   - name: ripgrep
     type: apt
     test_binary: rg
-    os: linux
+    os: debian,ubuntu
     description: "Ripgrep nativo para Ubuntu/Debian"
 
   # Toolchain Node.js via Volta
@@ -88,7 +88,7 @@ env_vars:
 config_files:
   - source: configs/opencode.json
     destination: ~/.config/opencode/opencode.json
-    description: "Configuração central do OpenCode com LSPs, plugins e MCPs (padrão único JSON)"
+    description: "Configuração central do OpenCode com agentes, plugins e MCPs (padrão único JSON, formato nativo V2)"
 
 restricted_dirs:
   - path: ~/Documents/SSH-keys
@@ -129,7 +129,7 @@ git_configs:
 
 ## 📄 4. `manifests/lsp.yaml`
 
-Registra os 18 servidores de linguagem utilizados por agentes de IA e IDEs, associando cada um ao seu gerenciador nativo:
+Registra os 15 servidores de linguagem utilizados por agentes de IA e IDEs (14 aplicáveis no Linux — `pwsh` é windows-only), associando cada um ao seu gerenciador nativo:
 
 ```yaml
 lsps:

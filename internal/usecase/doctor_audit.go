@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -266,6 +267,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// "present on disk" opencode.json is not enough — every referenced
 	// file must exist too.
 	uc.auditOpenCodeFileRefs(addDiag)
+	uc.auditRemovedMCPEntries(addDiag)
+	uc.auditAgentsIdentityCoverage(addDiag, configFiles)
 
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
@@ -335,6 +338,10 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			}
 		}
 	}
+
+	// 7.5. Audit LSP stdio handshakes (presence in PATH is not proof the
+	// server speaks LSP — see skill lsp-smoke-test).
+	uc.auditLSPHandshake(ctx, addDiag)
 
 	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
 	if runtime.GOOS == "windows" && uc.tweaksManager != nil {
@@ -1078,6 +1085,161 @@ func (uc *DoctorAuditUseCase) auditOpenCodeFileRefs(addDiag func(entity.Diagnost
 		Target:   "Config file references",
 		Details:  fmt.Sprintf("%d {file:...} reference(s) resolve on disk", len(seen)),
 	})
+}
+
+// removedMCPEntries lists MCP servers that envctl no longer provisions. A
+// deployed config that still declares one is stale (user-edited or predating
+// the removal) — flag it by name instead of hiding behind a generic drift diff.
+var removedMCPEntries = []string{"zscan"}
+
+// auditRemovedMCPEntries reports deployed agent configs that still declare
+// MCP servers envctl removed (see removedMCPEntries). The generic ConfigFile
+// drift check would only say "content diverges"; naming the stale entry tells
+// the user exactly what to delete.
+func (uc *DoctorAuditUseCase) auditRemovedMCPEntries(addDiag func(entity.Diagnostic)) {
+	targets := []struct {
+		path    string
+		section string
+		system  string
+	}{
+		{"~/.config/opencode/opencode.json", "mcp", "OpenCode"},
+		{"~/.commandcode/mcp.json", "mcpServers", "CommandCode"},
+	}
+	for _, tgt := range targets {
+		expanded, err := uc.fsManager.ExpandUserPath(tgt.path)
+		if err != nil {
+			continue
+		}
+		data, err := os.ReadFile(expanded)
+		if err != nil {
+			continue
+		}
+		var root map[string]json.RawMessage
+		if err := json.Unmarshal(data, &root); err != nil {
+			continue
+		}
+		var servers map[string]json.RawMessage
+		if err := json.Unmarshal(root[tgt.section], &servers); err != nil {
+			continue
+		}
+		var stale []string
+		for _, name := range removedMCPEntries {
+			if _, ok := servers[name]; ok {
+				stale = append(stale, name)
+			}
+		}
+		if len(stale) > 0 {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   tgt.system,
+				Target:   "Removed MCP entries",
+				Details:  fmt.Sprintf("%s still declares removed MCP server(s): %s — envctl no longer provisions them", tgt.path, strings.Join(stale, ", ")),
+				FixHint:  "run 'envctl run shell' to re-provision, or delete the stale block(s) by hand",
+			})
+		}
+	}
+}
+
+// auditAgentsIdentityCoverage warns when no AGENTS.md manifest variant matches
+// this host (e.g. an unmatched distro after the debian/ubuntu + arch/cachyos
+// split): provisioning would silently skip the global rules file and doctor
+// would otherwise stay green.
+func (uc *DoctorAuditUseCase) auditAgentsIdentityCoverage(addDiag func(entity.Diagnostic), configFiles []entity.ConfigFile) {
+	matched := false
+	for _, cf := range configFiles {
+		if !strings.HasSuffix(cf.Destination, "AGENTS.md") {
+			continue
+		}
+		if entity.MatchesOS(cf.OS) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "OpenCode",
+			Target:   "AGENTS.md (identity coverage)",
+			Details:  "no AGENTS.md manifest variant matches this OS/distro — global rules would not be provisioned",
+			FixHint:  "add a matching manifest variant or report the distro gap",
+		})
+	}
+}
+
+// lspConnectionMarkers identifies a server that failed to bind its stdio
+// transport (skill lsp-smoke-test: exit codes lie — node servers exit 1 on
+// EOF when healthy; only the absence of a connection error proves health).
+var lspConnectionMarkers = []string{
+	"input stream is not set",
+	"connection input stream",
+	"no stdin",
+	"stdin is not",
+	"failed to bind",
+}
+
+// auditLSPHandshake runs every provisioned LSP with closed stdin and reports
+// the ones that cannot bind their stdio transport. A server that starts and
+// waits (killed by timeout) or exits quietly on EOF is healthy; only
+// connection-error output fails the check.
+func (uc *DoctorAuditUseCase) auditLSPHandshake(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	lsps, err := uc.manifestRepo.LoadLSPs()
+	if err != nil {
+		return
+	}
+	for _, lsp := range lsps {
+		if !entity.MatchesOS(lsp.OS) || lsp.CheckBinary == "" {
+			continue
+		}
+		if !toolAvailable(ctx, lsp.CheckBinary) {
+			continue // missing binary already reported by the LSP presence check
+		}
+		timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		//nolint:gosec // G204: command/args come from the local manifests (same trust level as package installs), not from user input.
+		cmd := exec.CommandContext(timeoutCtx, lsp.Command, lsp.Args...)
+		devNull, err := os.Open(os.DevNull)
+		if err != nil {
+			cancel()
+			continue
+		}
+		cmd.Stdin = devNull
+		out, cmdErr := cmd.CombinedOutput()
+		devNull.Close()
+		cancel()
+		if cmdErr != nil && len(out) == 0 {
+			// Process died before producing output. Quiet exit is the
+			// HEALTHY shape for stdio servers (node servers exit 1 on
+			// healthy EOF — calibrated live across the 14 Linux LSPs), and
+			// it is indistinguishable from a spawn crash at this layer, so
+			// silence is the safe default: a warning here would flag every
+			// healthy quiet server and break the 0 WARN/0 ERRO contract.
+			// (SPEC Task 11.3a proposed a warning; rejected on this
+			// evidence — see TestDoctorAudit_LSPHandshakeQuietExitPasses.)
+			continue
+		}
+		lowered := strings.ToLower(string(out))
+		for _, marker := range lspConnectionMarkers {
+			if !strings.Contains(lowered, marker) {
+				continue
+			}
+			snippet := strings.TrimSpace(string(out))
+			if len(snippet) > 200 {
+				snippet = snippet[:200] + "…"
+			}
+			nullDev := "/dev/null"
+			if runtime.GOOS == "windows" {
+				nullDev = "NUL"
+			}
+			repro := strings.TrimSpace(lsp.Command + " " + strings.Join(lsp.Args, " ") + " < " + nullDev)
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "LSP",
+				Target:   lsp.ServerName,
+				Details:  fmt.Sprintf("stdio handshake failed (%s): %s", snippet, repro),
+				FixHint:  fmt.Sprintf("run '%s' by hand; reinstall via 'envctl run lsp' (%s)", repro, lsp.InstallTarget),
+			})
+			break
+		}
+	}
 }
 
 // auditCommandCodeAgents validates every custom agent definition under

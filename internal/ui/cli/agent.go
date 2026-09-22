@@ -37,11 +37,10 @@ func newOpenCodeCmd() *cobra.Command {
 		Short: "Provision only the OpenCode agent (configs, plugins, memory seeds, skills)",
 		Long: `Provisions everything OpenCode consumes, and nothing else:
 
-  ~/.config/opencode/opencode.json   agent/LSP/MCP/plugin config
+  ~/.config/opencode/opencode.json   agent/MCP/plugin config (native V2)
   ~/.config/opencode/AGENTS.md       global rules (auto-loaded every turn)
   ~/.config/opencode/SKILL-INDEX.md  skill index, consulted on demand
   ~/.config/opencode/REFERENCE.md    operating detail, consulted on demand
-  ~/.config/opencode/dcp.jsonc       context pruning (DCP plugin)
   ~/.config/opencode/package.json    plugin dependency declaration
   ~/.config/opencode/memory/         lessons/patterns seeds
   ~/.config/opencode/skills/         skill tree
