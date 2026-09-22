@@ -12,7 +12,7 @@ environment_variables:
     value: "$HOME/node_modules"
     scope: User
     target: "Linux user profile"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
   - name: ENVCTL_TEMP
     value: "C:\\temp"
@@ -24,7 +24,7 @@ environment_variables:
     value: "/temp"
     scope: User
     target: "Linux user profile"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
 config_files:
   - id: opencode_config
@@ -41,7 +41,7 @@ config_files:
     destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
   - id: agents_manifest
     description: "OpenCode global rules manifesto (auto-loaded from ~/.config/opencode/AGENTS.md)"
@@ -191,7 +191,7 @@ config_files:
     source: "configs/bin/pw"
     destination: "~/.local/bin/pw"
     strict_acl: false
-    os: linux
+    os: arch,cachyos,debian,ubuntu
     executable: true
 
   - id: envctl_verify
@@ -288,7 +288,7 @@ config_files:
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
     merge: ssh_hosts
 
 directories:
@@ -349,7 +349,7 @@ directories:
   - path: "/temp"
     strict_acl: false
     description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
-    os: linux
+    os: arch,cachyos,debian,ubuntu
 
 cleanup:
   - id: stale_pw_ps1
@@ -428,4 +428,4 @@ cleanup:
     description: "Remove the Oh-My-Posh binary left by the Linux bootstrap (prompt engine dropped from the stack)"
     path: "~/.local/bin/oh-my-posh"
     category: "scripts"
-    os: linux
+    os: arch,cachyos,debian,ubuntu

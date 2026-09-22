@@ -19,16 +19,16 @@ envctl doctor
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
 2. **Gerenciadores de Pacotes & Toolchains**:
    - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
-   - Presença de todos os 50+ binários essenciais no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
+   - Presença de 45–55 binários conforme o OS (45 Ubuntu / 48 Arch / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
-4. **Language Servers (15 LSPs)**:
-   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos 15 servidores de linguagem registrados.
+4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
+   - Verificação de binários e capacidade de resposta via `--version` ou `--stdio` para cada um dos servidores de linguagem registrados.
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de 41 Skills de Agentes**:
-   - Existência e conformidade de todas as 41 Skills em `~/.config/opencode/skills/`.
+6. **Catálogo de Skills por OS (38 Win / 38 Ubuntu / 40 CachyOS, + espelho CommandCode)**:
+   - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
 7. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 

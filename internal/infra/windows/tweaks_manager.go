@@ -23,6 +23,29 @@ func NewWindowsTweaksManager(logger repository.Logger) repository.WindowsTweaksM
 	}
 }
 
+// psQuote mirrors environment.psQuote (single-quote escape for PowerShell
+// string literals); duplicated to avoid an infra→infra import for 3 lines.
+func psQuote(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
+}
+
+// psValue renders a tweak value as a PowerShell literal: strings are
+// single-quoted (inert to expansion), bools become $true/$false, and
+// ints/floats stay bare (DWord-compatible).
+func psValue(v any) string {
+	switch t := v.(type) {
+	case string:
+		return "'" + psQuote(t) + "'"
+	case bool:
+		if t {
+			return "$true"
+		}
+		return "$false"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error) {
 	if runtime.GOOS != "windows" {
 		return true, "Skipped on non-Windows platform", nil
@@ -31,9 +54,9 @@ func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTwea
 	switch strings.ToLower(tweak.Type) {
 	case "feature":
 		psScript := fmt.Sprintf(`
-$f = Get-WindowsOptionalFeature -Online -FeatureName "%s" -ErrorAction SilentlyContinue
+$f = Get-WindowsOptionalFeature -Online -FeatureName '%s' -ErrorAction SilentlyContinue
 if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Output "DISABLED" }
-`, tweak.Name)
+`, psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -46,8 +69,8 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 
 	case "psmodule":
 		psScript := fmt.Sprintf(
-			`if (Get-Module -ListAvailable -Name "%s") { Write-Output "INSTALLED" } else { Write-Output "MISSING" }`,
-			tweak.Name)
+			`if (Get-Module -ListAvailable -Name '%s') { Write-Output "INSTALLED" } else { Write-Output "MISSING" }`,
+			psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -60,8 +83,8 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
-$path = "%s"
-$name = "%s"
+$path = '%s'
+$name = '%s'
 if (Test-Path $path) {
     $val = Get-ItemPropertyValue -Path $path -Name $name -ErrorAction SilentlyContinue
     if ($val -ne $null) {
@@ -72,7 +95,7 @@ if (Test-Path $path) {
 } else {
     Write-Output "PATH_NOT_FOUND"
 }
-`, tweak.Path, tweak.Name)
+`, psQuote(tweak.Path), psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -106,7 +129,7 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 
 	switch strings.ToLower(tweak.Type) {
 	case "feature":
-		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName "%s" -NoRestart -ErrorAction Stop`, tweak.Name)
+		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName '%s' -NoRestart -ErrorAction Stop`, psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {
@@ -129,7 +152,7 @@ if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
 }
 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-Install-Module -Name "%s" -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop`, tweak.Name)
+Install-Module -Name '%s' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop`, psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {
@@ -150,15 +173,15 @@ Install-Module -Name "%s" -Scope CurrentUser -Force -AllowClobber -ErrorAction S
 			valType = "DWord"
 		}
 		psScript := fmt.Sprintf(`
-$path = "%s"
-$name = "%s"
-$val = %v
-$type = "%s"
+$path = '%s'
+$name = '%s'
+$val = %s
+$type = '%s'
 if (-not (Test-Path $path)) {
     New-Item -Path $path -Force | Out-Null
 }
 Set-ItemProperty -Path $path -Name $name -Value $val -Type $type -Force | Out-Null
-`, tweak.Path, tweak.Name, tweak.Value, valType)
+`, psQuote(tweak.Path), psQuote(tweak.Name), psValue(tweak.Value), psQuote(valType))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {

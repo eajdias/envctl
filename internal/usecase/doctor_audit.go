@@ -1206,8 +1206,14 @@ func (uc *DoctorAuditUseCase) auditLSPHandshake(ctx context.Context, addDiag fun
 		devNull.Close()
 		cancel()
 		if cmdErr != nil && len(out) == 0 {
-			// Process died before producing output (e.g. binary vanished
-			// between the presence check and the spawn) — nothing to classify.
+			// Process died before producing output. Quiet exit is the
+			// HEALTHY shape for stdio servers (node servers exit 1 on
+			// healthy EOF — calibrated live across the 14 Linux LSPs), and
+			// it is indistinguishable from a spawn crash at this layer, so
+			// silence is the safe default: a warning here would flag every
+			// healthy quiet server and break the 0 WARN/0 ERRO contract.
+			// (SPEC Task 11.3a proposed a warning; rejected on this
+			// evidence — see TestDoctorAudit_LSPHandshakeQuietExitPasses.)
 			continue
 		}
 		lowered := strings.ToLower(string(out))
@@ -1219,7 +1225,11 @@ func (uc *DoctorAuditUseCase) auditLSPHandshake(ctx context.Context, addDiag fun
 			if len(snippet) > 200 {
 				snippet = snippet[:200] + "…"
 			}
-			repro := strings.TrimSpace(lsp.Command + " " + strings.Join(lsp.Args, " ") + " < /dev/null")
+			nullDev := "/dev/null"
+			if runtime.GOOS == "windows" {
+				nullDev = "NUL"
+			}
+			repro := strings.TrimSpace(lsp.Command + " " + strings.Join(lsp.Args, " ") + " < " + nullDev)
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "LSP",

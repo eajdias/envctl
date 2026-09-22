@@ -75,7 +75,7 @@ envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das 41 Skills
-envctl run lsp          # 18 Servidores de Linguagem (LSP)
+envctl run lsp          # 15 Servidores de Linguagem (LSP)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 

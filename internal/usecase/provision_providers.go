@@ -70,6 +70,37 @@ func runWithToolchain(ctx context.Context, name string, args ...string) (string,
 	return strings.TrimSpace(string(out)), err
 }
 
+// resolveOnToolchainPath mirrors toolchain.lookPathWithEnv against the PATH
+// built by toolchainEnv(), so probes see what execution sees (non-login
+// shells have a minimal process PATH; the toolchain PATH prepends
+// ~/.local/bin, ~/.volta/bin, /usr/local/go/bin, ~/go/bin).
+func resolveOnToolchainPath(name string) (string, error) {
+	env := toolchainEnv()
+	path := ""
+	for _, kv := range env {
+		if v, ok := strings.CutPrefix(kv, "PATH="); ok {
+			path = v
+			break
+		}
+	}
+	if path == "" {
+		return exec.LookPath(name)
+	}
+	if filepath.IsAbs(name) {
+		return name, nil
+	}
+	for _, dir := range filepath.SplitList(path) {
+		if dir == "" {
+			dir = "."
+		}
+		candidate := filepath.Join(dir, name)
+		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() && fi.Mode()&0111 != 0 {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("executable %q not found on toolchain PATH", name)
+}
+
 // providerCLI is one agent-facing CLI phase 0 is responsible for.
 type providerCLI struct {
 	name      string // human name for diagnostics
@@ -253,6 +284,19 @@ func (uc *ProvisionProvidersUseCase) installStandaloneProvider(ctx context.Conte
 		return
 	}
 
+	// Arch/CachyOS owns opencode via the `extra` repo (manifests/packages.yaml):
+	// prefer the distro channel over the curl installer so phase 0 never
+	// shadows a system package with a ~/.local/bin copy.
+	if mgr, ok := uc.managers[entity.PackageTypePacman]; ok && mgr.IsAvailable(ctx) {
+		if err := mgr.Install(ctx, entity.Package{ID: "opencode", Type: entity.PackageTypePacman}); err == nil {
+			add(entity.DiagOK, tool.name, "Installed via pacman (extra)", "")
+			return
+		}
+		add(entity.DiagWarning, tool.name, "pacman could not install opencode",
+			"Run 'envctl run pacman' to install opencode")
+		return
+	}
+
 	if tool.installer == "" {
 		add(entity.DiagWarning, tool.name, "Not installed and no installer is known for this platform",
 			"Install "+tool.name+" manually")
@@ -272,10 +316,13 @@ func (uc *ProvisionProvidersUseCase) installStandaloneProvider(ctx context.Conte
 // installedVersion runs `<binary> --version` and reduces the output to the first
 // version-looking token (tools report "opencode v2.0.5", "1.55.1", ...).
 func (uc *ProvisionProvidersUseCase) installedVersion(ctx context.Context, binary string) string {
-	if _, err := exec.LookPath(binary); err != nil {
+	resolved, err := resolveOnToolchainPath(binary)
+	if err != nil {
 		return ""
 	}
-	out, err := runWithToolchain(ctx, binary, "--version")
+	// exec.Cmd.Env does not affect binary resolution (LookPath uses the
+	// process PATH), so execute the resolved absolute path.
+	out, err := runWithToolchain(ctx, resolved, "--version")
 	if err != nil {
 		return ""
 	}
@@ -285,7 +332,7 @@ func (uc *ProvisionProvidersUseCase) installedVersion(ctx context.Context, binar
 // installSource classifies where a binary comes from, which decides whether
 // envctl may touch it.
 func installSource(binary string) string {
-	path, err := exec.LookPath(binary)
+	path, err := resolveOnToolchainPath(binary)
 	if err != nil {
 		return sourceAbsent
 	}

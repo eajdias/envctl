@@ -39,7 +39,8 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	logFilePath := filepath.Join(logDir, fmt.Sprintf("envctl-%s.log", timestamp))
 
-	f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	//nolint:gosec // G703: log path is built from the fixed ~/.envctl/logs dir + a timestamp, never from user input.
+	f, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file %s: %w", logFilePath, err)
 	}

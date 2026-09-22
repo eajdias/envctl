@@ -54,7 +54,7 @@ skills:
       source: configs/skills/aur-headless-install
       target_dir: ""
       enabled: true
-      os: linux
+      os: arch,cachyos
     - name: api-contract-design
       description: Design, validação e governança de contratos de API (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking changes)
       source: configs/skills/api-contract-design
@@ -75,7 +75,7 @@ skills:
       source: configs/skills/cachyos-gaming-setup
       target_dir: ""
       enabled: true
-      os: linux
+      os: arch,cachyos
     - name: database-ops
       description: Operações multi-banco (PostgreSQL, MySQL, Firebird, MongoDB, SQLite), migrations e DBs em Docker
       source: configs/skills/database-ops
@@ -106,7 +106,7 @@ skills:
       source: configs/skills/headless-gui-probe
       target_dir: ""
       enabled: true
-      os: linux
+      os: arch,cachyos,debian,ubuntu
     - name: memory-promotion
       description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
       source: configs/skills/memory-promotion

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -57,6 +58,10 @@ func (uc *ProvisionPackagesUseCase) ExecuteGaming(ctx context.Context, onProgres
 
 	if uc.logger != nil {
 		uc.logger.Info("Starting gaming provisioning (Total: %d manifests)", len(gamingPkgs))
+	}
+
+	if entity.DetectedDistro() != entity.DistroArch && runtime.GOOS == "linux" {
+		return nil, fmt.Errorf("gaming stack is Arch/CachyOS-only (this host: %q); refusing to install Steam/GUI packages on a server", entity.DetectedDistro())
 	}
 
 	return uc.provisionList(ctx, gamingPkgs, "", onProgress)
