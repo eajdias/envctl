@@ -1,30 +1,27 @@
 name: Release Pipeline
 
+# Builds multi-OS binaries and attaches them to the GitHub Release.
+# Releases are created by release-please (conventional commits); this workflow
+# only builds. It never creates tags — that was the source of the 74-tag pollution.
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version tag (e.g. v1.0.0)'
-        required: false
-        default: ''
+        description: 'Existing release tag to (re)build assets for (e.g. v1.4.0)'
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   build-release:
-    name: Build & Publish Multi-OS Release
+    name: Build & Attach Multi-OS Binaries
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -38,16 +35,17 @@ jobs:
       - name: Determine Version
         id: get_version
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF#refs/tags/}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
           else
-            COMMIT_COUNT=$(git rev-list --count HEAD)
-            VERSION="v1.2.${COMMIT_COUNT}"
+            VERSION="${{ github.event.inputs.version }}"
           fi
+          # Fail fast on manual rebuilds of a non-existent release.
+          gh release view "$VERSION" >/dev/null
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building Release version: ${VERSION}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build All Targets
         env:
@@ -98,28 +96,24 @@ jobs:
             envctl-darwin-amd64.tar.gz envctl-darwin-arm64.tar.gz \
             bootstrap.ps1 bootstrap.sh > SHA256SUMS.txt
 
-      - name: Create or Update GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          name: Release ${{ steps.get_version.outputs.VERSION }}
-          draft: false
-          prerelease: false
-          make_latest: true
-          files: |
-            dist/envctl-windows-amd64.exe
-            dist/envctl-windows-arm64.exe
-            dist/envctl-windows-amd64.zip
-            dist/envctl-windows-arm64.zip
-            dist/envctl-linux-amd64
-            dist/envctl-linux-arm64
-            dist/envctl-linux-amd64.tar.gz
-            dist/envctl-linux-arm64.tar.gz
-            dist/envctl-darwin-amd64
-            dist/envctl-darwin-arm64
-            dist/envctl-darwin-amd64.tar.gz
-            dist/envctl-darwin-arm64.tar.gz
-            dist/SHA256SUMS.txt
-            bootstrap.ps1
+      - name: Attach Assets to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          gh release upload "$VERSION" --clobber \
+            dist/envctl-windows-amd64.exe \
+            dist/envctl-windows-arm64.exe \
+            dist/envctl-windows-amd64.zip \
+            dist/envctl-windows-arm64.zip \
+            dist/envctl-linux-amd64 \
+            dist/envctl-linux-arm64 \
+            dist/envctl-linux-amd64.tar.gz \
+            dist/envctl-linux-arm64.tar.gz \
+            dist/envctl-darwin-amd64 \
+            dist/envctl-darwin-arm64 \
+            dist/envctl-darwin-amd64.tar.gz \
+            dist/envctl-darwin-arm64.tar.gz \
+            dist/SHA256SUMS.txt \
+            bootstrap.ps1 \
             bootstrap.sh
-          generate_release_notes: true
