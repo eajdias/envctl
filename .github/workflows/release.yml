@@ -11,6 +11,14 @@ on:
       version:
         description: 'Existing release tag to (re)build assets for (e.g. v1.4.0)'
         required: true
+  # Called by release-please.yml after it creates a release: releases opened
+  # with GITHUB_TOKEN do not fire the `release: published` trigger above.
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release tag to build assets for (e.g. v1.4.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -35,10 +43,12 @@ jobs:
       - name: Determine Version
         id: get_version
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${{ github.event_name }}" = "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
           else
-            VERSION="${{ github.event.inputs.version }}"
+            echo "no version provided" >&2; exit 1
           fi
           # Fail fast on manual rebuilds of a non-existent release.
           gh release view "$VERSION" >/dev/null
