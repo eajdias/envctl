@@ -7,6 +7,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.5.0](https://github.com/eajdias/envctl/compare/v1.4.0...v1.5.0) (2026-09-24)
+
+
+### Features
+
+* **opencode:** install v2 on Windows via official installer ([1b628e1](https://github.com/eajdias/envctl/commit/1b628e1a4856642c248eb735caa5350aa26ccfe6))
+
 ## [1.4.0](https://github.com/eajdias/envctl/compare/v1.3.0...v1.4.0) (2026-09-24)
 
 
