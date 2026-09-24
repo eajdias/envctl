@@ -31,9 +31,9 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
 | LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
-| Skills por agente | **40** (39 + 1 só-Windows) | **40** (39 + `headless-gui-probe`) | **42** (39 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
+| Skills por agente | **41** (39 + 2 só-Windows) | **40** (39 + `headless-gui-probe`) | **42** (39 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
-| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) | — | — |
+| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat opt-in **`run debloat`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
 | Quality gates (`envctl-verify` + pre-push) | ✓ | ✓ | ✓ |
@@ -148,7 +148,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Cursor IDE | Windows (winget) · Arch (paru) | — (é o editor padronizado; habilita `/ide` + `get_diagnostics`) |
 | RAG / automações | libs de agente (`requests`, `bs4`, `pypdf`, `openpyxl`, `lxml`, `docx`, `yaml`) | libs de RAG pertencem ao venv do projeto (`uv`) |
 | N8N | — | npm-based: pertence ao projeto (`bunx`/`npx`) |
-| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) | telemetria/Game Bar no Windows |
+| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) + `run debloat` opt-in (76 tweaks Windows: telemetria/privacidade/gaming/Appx/serviços; `doctor` agrega por categoria em `INFO`, nunca `--fix`) · skill `windows-debloat` (Tier 3: OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) | — |
 
 **Fora da stack (removidos):** `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`), Visual Studio Code
 (+ `vscode_settings`), Termius, WinSCP, GitHub Desktop, Rust/Oh-My-Posh (remoção anterior).
@@ -184,6 +184,12 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 **LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
 2. NÃO espelhe entrada no `opencode.json`: o runtime v2 ignora o bloco `lsp` (assimetria #16) — foi removido dos dois configs em 2026-09-22.
+
+**Debloat (opt-in, Windows)** → `manifests/debloat.yaml` (`run debloat` + `doctor` seção Debloat)
+1. Reusa o schema de `windows.yaml` (`id`, `description`, `path`/`name`/`value`/`type`, `category`); tipos novos: `Appx` (conforme = ausente, `path` vazio) e `Service` (`value` = `Disabled`/`Manual`, conforme = `StartType`).
+2. Categorias fechadas: `telemetry`, `privacy`, `gaming`, `apps`, `services` (o `doctor` agrega 1 linha por categoria, `INFO` em drift — nunca `WARN`, nunca `--fix`).
+3. Listas curadas e conservadoras: Xbox/Teams/Outlook, serviços de máquina (`Dell*`, `AnyDesk`, `Firebird*`, `Tailscale`, `sshd`), `Spooler`/`WSearch`/`SysMain`/`NgcSvc` e tudo do Tier 3 (OneDrive, hibernação, power plan, Teredo, `Binary`, `.wslconfig`) ficam FORA — Tier 3 vive na skill `windows-debloat` (`os: windows`).
+4. `KeyboardDelay` e cia: conferir o tipo REG_* real no registro — o upstream declarava `DWord` para valor `REG_SZ` (o teste de manifesto trava `String`).
 
 **CLI de agente (provedor)** → `manifests/packages.yaml` + `run providers` (fase 0)
 1. Confirme o **canal de versão** antes de escolher o gerenciador: o mesmo produto costuma ter

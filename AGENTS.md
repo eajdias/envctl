@@ -2,7 +2,7 @@
 
 Go CLI (Clean Architecture) that provisions and audits dev environments on
 Windows 11, Ubuntu/Debian and Arch/CachyOS: system packages, shell/env/configs,
-43 agent skills (OpenCode + CommandCode), 15 LSPs, Windows tweaks, and a local
+44 agent skills (OpenCode + CommandCode), 15 LSPs, Windows tweaks, and a local
 verification gate wired both to the agent and to git.
 
 Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,

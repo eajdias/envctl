@@ -36,7 +36,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Added**: `gaming.yaml` 33→38 pkgs — `heroic-games-launcher`, `lutris`, `sunshine`
   (pacman) + `skyscraper-git`, `hactool` (paru/AUR).
 - **Added**: skills portáteis `tailscale` (roadmap item 3, parcial) e `syncthing-ops`
-  (via REST API, nunca `config.xml` na mão) — catálogo 41→43 (Win 40, Ubuntu 40, CachyOS 42).
+  (via REST API, nunca `config.xml` na mão) — com `windows-debloat` (main), catálogo 41→44
+  (Win 41, Ubuntu 40, CachyOS 42).
+- **Added**: debloat opt-in do Windows 11 absorvido do `windows11-clean` — `envctl run debloat`
+  (76 tweaks em `manifests/debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win +
+  31 Appx + 9 serviços safe-only; tipos novos `Appx`/`Service` no TweaksManager com check
+  idempotente; Xbox/Teams/Outlook, serviços de máquina e `Spooler`/`WSearch`/`NgcSvc`
+  excluídos) + `doctor` com 5 linhas agregadas por categoria (`INFO` em drift, nunca
+  `--fix`) + skill `windows-debloat` (`os: windows`; Tier 3 manual: OneDrive, hibernação,
+  power plan, Teredo, `.wslconfig`, Copilot/Recall). Checks em batch (`CheckBatch`:
+  1 spawn PowerShell por família em vez de 1 por tweak). `run all`/`run windows` intocados.
 
 ## [v1.3.0] - 2026-09-22
 

@@ -89,6 +89,48 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		}
 		return false, "PowerShell module not importable by powershell.exe", nil
 
+	case "appx":
+		// Conforming = absent: the package was removed (or never installed).
+		appxScript := fmt.Sprintf(
+			`if (Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue) { Write-Output "INSTALLED" } else { Write-Output "ABSENT" }`,
+			psQuote(tweak.Name))
+		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
+		appxOut, appErr := appxCmd.CombinedOutput()
+		if appErr != nil {
+			return false, "", fmt.Errorf("failed to check Appx package %s: %w", tweak.Name, appErr)
+		}
+		if strings.Contains(string(appxOut), "INSTALLED") {
+			return false, "Appx package installed (will be removed on apply)", nil
+		}
+		return true, "Appx package not installed", nil
+
+	case "service":
+		// Conforming = StartType matches the declared state (default
+		// Disabled). A service missing from the machine is conforming too:
+		// there is nothing to disable.
+		expectedState := "Disabled"
+		if s, ok := tweak.Value.(string); ok && s != "" {
+			expectedState = s
+		}
+		svcScript := fmt.Sprintf(`
+$s = Get-Service -Name '%s' -ErrorAction SilentlyContinue
+if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.StartType.ToString()) }
+`, psQuote(tweak.Name))
+		svcCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", svcScript)
+		svcOut, svcErr := svcCmd.CombinedOutput()
+		if svcErr != nil {
+			return false, "", fmt.Errorf("failed to check service %s: %w", tweak.Name, svcErr)
+		}
+		svcStr := strings.TrimSpace(string(svcOut))
+		if svcStr == "NOT_PRESENT" {
+			return true, "Service not present on system", nil
+		}
+		actualState := strings.TrimPrefix(svcStr, "STATE:")
+		if strings.EqualFold(actualState, expectedState) {
+			return true, fmt.Sprintf("Service startup type is %s", actualState), nil
+		}
+		return false, fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState), nil
+
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
 $path = '%s'
@@ -112,21 +154,214 @@ if (Test-Path $path) {
 		outStr := strings.TrimSpace(string(out))
 		expectedStr := fmt.Sprintf("%v", tweak.Value)
 		if strings.HasPrefix(outStr, "VALUE:") {
-			actualVal := strings.TrimPrefix(outStr, "VALUE:")
-			// Normalize numeric values (YAML int/float vs registry DWORD int32)
-			// so 1 == 1 and 1.0 == 1 regardless of the parsed YAML type.
-			if av, errA := strconv.ParseInt(actualVal, 10, 64); errA == nil {
-				if ev, errE := strconv.ParseInt(expectedStr, 10, 64); errE == nil {
-					actualVal = strconv.FormatInt(av, 10)
-					expectedStr = strconv.FormatInt(ev, 10)
-				}
-			}
-			if actualVal == expectedStr {
-				return true, fmt.Sprintf("Registry value matches (%s)", actualVal), nil
-			}
-			return false, fmt.Sprintf("Registry value mismatch (actual: %s, expected: %s)", actualVal, expectedStr), nil
+			ok, details := matchRegistryValue(strings.TrimPrefix(outStr, "VALUE:"), expectedStr)
+			return ok, details, nil
 		}
 		return false, outStr, nil
+	}
+}
+
+// matchRegistryValue compares a raw registry readout against the manifest
+// expectation. Numeric values normalize (YAML int/float vs registry DWORD
+// int32) so 1 == 1 and 1.0 == 1 regardless of the parsed YAML type.
+func matchRegistryValue(actualVal, expectedStr string) (bool, string) {
+	if av, errA := strconv.ParseInt(actualVal, 10, 64); errA == nil {
+		if ev, errE := strconv.ParseInt(expectedStr, 10, 64); errE == nil {
+			actualVal = strconv.FormatInt(av, 10)
+			expectedStr = strconv.FormatInt(ev, 10)
+		}
+	}
+	if actualVal == expectedStr {
+		return true, fmt.Sprintf("Registry value matches (%s)", actualVal)
+	}
+	return false, fmt.Sprintf("Registry value mismatch (actual: %s, expected: %s)", actualVal, expectedStr)
+}
+
+// CheckBatch checks many tweaks with one PowerShell spawn per family
+// (registry, Appx, services) instead of one per tweak. Feature/PSModule
+// tweaks keep the single-check path. Results are order-preserving.
+func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult {
+	results := make([]entity.TweakCheckResult, len(tweaks))
+	for i, tw := range tweaks {
+		results[i].Tweak = tw
+	}
+	if runtime.GOOS != "windows" {
+		for i := range results {
+			results[i].OK = true
+			results[i].Details = "Skipped on non-Windows platform"
+		}
+		return results
+	}
+
+	var regIdx, appxIdx, svcIdx, singleIdx []int
+	for i, tw := range tweaks {
+		switch strings.ToLower(tw.Type) {
+		case "appx":
+			appxIdx = append(appxIdx, i)
+		case "service":
+			svcIdx = append(svcIdx, i)
+		case "feature", "psmodule":
+			singleIdx = append(singleIdx, i)
+		default: // registry DWord, String, QWord, Binary
+			regIdx = append(regIdx, i)
+		}
+	}
+
+	m.checkRegistryBatch(ctx, tweaks, regIdx, results)
+	m.checkAppxBatch(ctx, tweaks, appxIdx, results)
+	m.checkServiceBatch(ctx, tweaks, svcIdx, results)
+	for _, i := range singleIdx {
+		ok, details, err := m.CheckTweak(ctx, tweaks[i])
+		results[i].OK = ok
+		results[i].Details = details
+		results[i].Err = err
+	}
+	return results
+}
+
+// checkRegistryBatch reads every registry tweak in one PowerShell spawn.
+// Lines look like `DEBLOAT|||<id>|||VALUE:<val>` (or VALUE_NOT_SET /
+// PATH_NOT_FOUND); ids come from the embedded manifest, quoted defensively.
+func (m *TweaksManager) checkRegistryBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
+	if len(idx) == 0 {
+		return
+	}
+	var entryLines []string
+	for _, i := range idx {
+		entryLines = append(entryLines, fmt.Sprintf("  @{ Id = '%s'; Path = '%s'; Name = '%s' }",
+			psQuote(tweaks[i].ID), psQuote(tweaks[i].Path), psQuote(tweaks[i].Name)))
+	}
+	// No trailing comma: `@( @{...}, )` is a parse error in powershell 5.1.
+	script := fmt.Sprintf(`
+$entries = @(
+%s)
+foreach ($e in $entries) {
+  if (Test-Path $e.Path) {
+    $val = Get-ItemPropertyValue -Path $e.Path -Name $e.Name -ErrorAction SilentlyContinue
+    if ($val -ne $null) { Write-Output ("DEBLOAT|||" + $e.Id + "|||VALUE:" + $val) }
+    else { Write-Output ("DEBLOAT|||" + $e.Id + "|||VALUE_NOT_SET") }
+  } else {
+    Write-Output ("DEBLOAT|||" + $e.Id + "|||PATH_NOT_FOUND")
+  }
+}
+`, strings.Join(entryLines, ",\n"))
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		for _, i := range idx {
+			results[i].Err = fmt.Errorf("batch registry check failed: %w", err)
+		}
+		return
+	}
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(out), "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), "|||", 3)
+		if len(parts) != 3 || parts[0] != "DEBLOAT" {
+			continue
+		}
+		seen[parts[1]] = true
+		for _, i := range idx {
+			if tweaks[i].ID != parts[1] {
+				continue
+			}
+			outcome := parts[2]
+			if strings.HasPrefix(outcome, "VALUE:") {
+				ok, details := matchRegistryValue(strings.TrimPrefix(outcome, "VALUE:"), fmt.Sprintf("%v", tweaks[i].Value))
+				results[i].OK = ok
+				results[i].Details = details
+			} else {
+				results[i].Details = outcome
+			}
+		}
+	}
+	for _, i := range idx {
+		if !seen[tweaks[i].ID] {
+			results[i].Err = fmt.Errorf("batch registry check returned no row for %q", tweaks[i].ID)
+		}
+	}
+}
+
+// checkAppxBatch lists installed Appx packages once and answers every Appx
+// tweak from that set (conforming = absent).
+func (m *TweaksManager) checkAppxBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
+	if len(idx) == 0 {
+		return
+	}
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+		`Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | ForEach-Object { Write-Output ("DEBLOATAPPX|||" + $_.Name) }`)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		for _, i := range idx {
+			results[i].Err = fmt.Errorf("batch Appx check failed: %w", err)
+		}
+		return
+	}
+	installed := map[string]bool{}
+	for _, line := range strings.Split(string(out), "\n") {
+		if name, ok := strings.CutPrefix(strings.TrimSpace(line), "DEBLOATAPPX|||"); ok && name != "" {
+			installed[strings.ToLower(name)] = true
+		}
+	}
+	for _, i := range idx {
+		if installed[strings.ToLower(tweaks[i].Name)] {
+			results[i].Details = "Appx package installed (will be removed on apply)"
+		} else {
+			results[i].OK = true
+			results[i].Details = "Appx package not installed"
+		}
+	}
+}
+
+// checkServiceBatch queries the wanted services in one spawn. Services
+// missing from the output are not present on the machine (conforming).
+func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
+	if len(idx) == 0 {
+		return
+	}
+	quoted := make([]string, 0, len(idx))
+	for _, i := range idx {
+		quoted = append(quoted, "'"+psQuote(tweaks[i].Name)+"'")
+	}
+	// Per-name loop: a single Get-Service -Name a,b,c exits 1 when ANY name
+	// is missing (SilentlyContinue only hides the message), which would fail
+	// the whole batch. Missing services report NOT_PRESENT explicitly.
+	script := fmt.Sprintf(`foreach ($n in @(%s)) {
+  $s = Get-Service -Name $n -ErrorAction SilentlyContinue
+  if ($s) { Write-Output ("DEBLOATSVC|||" + $s.Name + "|||" + $s.StartType.ToString()) }
+  else { Write-Output ("DEBLOATSVC|||" + $n + "|||NOT_PRESENT") }
+}`, strings.Join(quoted, ","))
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		for _, i := range idx {
+			results[i].Err = fmt.Errorf("batch service check failed: %w", err)
+		}
+		return
+	}
+	states := map[string]string{}
+	for _, line := range strings.Split(string(out), "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), "|||", 3)
+		if len(parts) != 3 || parts[0] != "DEBLOATSVC" {
+			continue
+		}
+		states[strings.ToLower(parts[1])] = parts[2]
+	}
+	for _, i := range idx {
+		expectedState := "Disabled"
+		if s, ok := tweaks[i].Value.(string); ok && s != "" {
+			expectedState = s
+		}
+		actualState, present := states[strings.ToLower(tweaks[i].Name)]
+		switch {
+		case !present || actualState == "NOT_PRESENT":
+			results[i].OK = true
+			results[i].Details = "Service not present on system"
+		case strings.EqualFold(actualState, expectedState):
+			results[i].OK = true
+			results[i].Details = fmt.Sprintf("Service startup type is %s", actualState)
+		default:
+			results[i].Details = fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState)
+		}
 	}
 }
 
@@ -187,6 +422,54 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		}
 		if err != nil {
 			return fmt.Errorf("failed to install PowerShell module %s: %s (%w)", tweak.Name, string(out), err)
+		}
+		return nil
+
+	case "appx":
+		// -AllUsers needs elevation; without it the error surfaces with the
+		// admin hint added by the caller.
+		appxScript := fmt.Sprintf(`Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction Stop`, psQuote(tweak.Name))
+		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
+		appxOut, appErr := appxCmd.CombinedOutput()
+		if m.logger != nil {
+			exitCode := 0
+			if appxCmd.ProcessState != nil {
+				exitCode = appxCmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", appxScript}, exitCode, string(appxOut), appErr)
+		}
+		if appErr != nil {
+			return fmt.Errorf("failed to remove Appx package %s: %s (%w)", tweak.Name, string(appxOut), appErr)
+		}
+		return nil
+
+	case "service":
+		// Stop is best-effort (already stopped is fine); the startup-type
+		// change is strict so elevation problems surface.
+		expectedState := "Disabled"
+		if s, ok := tweak.Value.(string); ok && s != "" {
+			expectedState = s
+		}
+		var svcScript string
+		switch strings.ToLower(expectedState) {
+		case "disabled":
+			svcScript = fmt.Sprintf(`Stop-Service -Name '%s' -Force -ErrorAction SilentlyContinue; Set-Service -Name '%s' -StartupType Disabled -ErrorAction Stop`, psQuote(tweak.Name), psQuote(tweak.Name))
+		case "manual":
+			svcScript = fmt.Sprintf(`Set-Service -Name '%s' -StartupType Manual -ErrorAction Stop`, psQuote(tweak.Name))
+		default:
+			return fmt.Errorf("unsupported service state %q for %s (want Disabled or Manual)", expectedState, tweak.Name)
+		}
+		svcCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", svcScript)
+		svcOut, svcErr := svcCmd.CombinedOutput()
+		if m.logger != nil {
+			exitCode := 0
+			if svcCmd.ProcessState != nil {
+				exitCode = svcCmd.ProcessState.ExitCode()
+			}
+			m.logger.LogCommand("powershell.exe", []string{"-Command", svcScript}, exitCode, string(svcOut), svcErr)
+		}
+		if svcErr != nil {
+			return fmt.Errorf("failed to set service %s to %s: %s (%w)", tweak.Name, expectedState, string(svcOut), svcErr)
 		}
 		return nil
 

@@ -17,6 +17,9 @@ envctl doctor
 1. **Ambiente & Sistema Operacional**:
    - Detecção de SO, arquitetura, privilégios de execução.
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
+   - Debloat opt-in (`debloat.yaml`): 5 linhas agregadas por categoria (`Debloat / category <nome>`),
+     `OK` quando aplicada, `INFO` quando há drift com `run 'envctl run debloat'` — nunca `WARN`/`ERROR`,
+     nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:
    - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
    - Presença de 45–55 binários conforme o OS (45 Ubuntu / 48 Arch / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).

@@ -1,0 +1,564 @@
+# debloat.yaml - Opt-in Windows 11 debloat absorbed from windows11-clean.
+# Provisioned via `envctl run debloat` ONLY (never part of `run all` or
+# `run windows`). Every entry is idempotent: registry values are checked
+# before writing, Appx packages are removed only when installed, and services
+# are touched only when they exist and are not already disabled.
+#
+# Deliberately OUT (see skill windows-debloat for manual steps):
+# - OneDrive removal (recursive user-data delete, needs confirmation)
+# - Xbox suite + MSTeams + OutlookForWindows (gaming / work comms)
+# - Machine-specific services (Dell*, AnyDesk, Firebird*, Tailscale, sshd)
+# - Spooler / WSearch / SysMain / NgcSvc (printing, search perf, Windows Hello)
+# - powercfg plans, hibernation, Teredo, UserPreferencesMask (Binary),
+#   .wslconfig tuning, Copilot/Recall winget removal, Defender sample opt-out
+version: "1.0"
+
+tweaks:
+  # --- Telemetry: disable Microsoft data collection (12 registry) ---
+  - id: "telemetry-advertising-id"
+    description: "Disable Windows advertising ID"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo'
+    name: "Enabled"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-tailored-experiences"
+    description: "Disable tailored experiences with diagnostic data"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy'
+    name: "TailoredExperiencesWithDiagnosticDataEnabled"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-online-speech"
+    description: "Decline online speech recognition privacy prompt"
+    path: 'HKCU:\Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy'
+    name: "HasAccepted"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-typing-data"
+    description: "Disable typing/inking telemetry (TIPC)"
+    path: 'HKCU:\Software\Microsoft\Input\TIPC'
+    name: "Enabled"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-ink-collection"
+    description: "Restrict implicit ink collection (input personalization)"
+    path: 'HKCU:\Software\Microsoft\InputPersonalization'
+    name: "RestrictImplicitInkCollection"
+    value: 1
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-text-collection"
+    description: "Restrict implicit text collection (input personalization)"
+    path: 'HKCU:\Software\Microsoft\InputPersonalization'
+    name: "RestrictImplicitTextCollection"
+    value: 1
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-harvest-contacts"
+    description: "Disable contact harvesting for input personalization"
+    path: 'HKCU:\Software\Microsoft\InputPersonalization\TrainedDataStore'
+    name: "HarvestContacts"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-personalization-policy"
+    description: "Decline personalization privacy policy"
+    path: 'HKCU:\Software\Microsoft\Personalization\Settings'
+    name: "AcceptedPrivacyPolicy"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-allow-telemetry"
+    description: "Set diagnostic telemetry level to Security (0)"
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection'
+    name: "AllowTelemetry"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-start-track-progs"
+    description: "Disable Start menu program tracking"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    name: "Start_TrackProgs"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-publish-user-activities"
+    description: "Disable user activity publishing (Timeline upload)"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+    name: "PublishUserActivities"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  - id: "telemetry-siuf-feedback"
+    description: "Disable Settings feedback notifications (SIUF)"
+    path: 'HKCU:\Software\Microsoft\Siuf\Rules'
+    name: "NumberOfSIUFInPeriod"
+    value: 0
+    type: "DWord"
+    category: "telemetry"
+
+  # --- Privacy: hardening beyond telemetry (12 registry) ---
+  - id: "privacy-activity-feed"
+    description: "Disable Activity History feed"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+    name: "EnableActivityFeed"
+    value: 0
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-upload-user-activities"
+    description: "Disable Activity History upload"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System'
+    name: "UploadUserActivities"
+    value: 0
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-consumer-features"
+    description: "Disable promoted (suggested) app installs"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
+    name: "DisableWindowsConsumerFeatures"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-delivery-optimization"
+    description: "Disable Delivery Optimization P2P updates (direct download)"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization'
+    name: "DODownloadMode"
+    value: 0
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-wpbt"
+    description: "Disable WPBT vendor binary execution at boot"
+    path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager'
+    name: "DisableWpbtExecution"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-device-metadata"
+    description: "Block Device Companion Apps metadata from network"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Device Metadata'
+    name: "PreventDeviceMetadataFromNetwork"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-background-apps"
+    description: "Disable background apps globally (current user)"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications'
+    name: "GlobalUserDisabled"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-bing-search"
+    description: "Disable Bing search in Start menu"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search'
+    name: "BingSearchEnabled"
+    value: 0
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-taskbar-end-task"
+    description: "Enable End Task on taskbar right-click"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings'
+    name: "TaskbarEndTask"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-soft-landing"
+    description: "Disable Store recommended search results"
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
+    name: "DisableSoftLanding"
+    value: 1
+    type: "DWord"
+    category: "privacy"
+
+  - id: "privacy-location-consent"
+    description: "Deny location consent store"
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location'
+    name: "Value"
+    value: "Deny"
+    type: "String"
+    category: "privacy"
+
+  - id: "privacy-maps-autoupdate"
+    description: "Disable offline Maps auto-update"
+    path: 'HKLM:\SYSTEM\Maps'
+    name: "AutoUpdateEnabled"
+    value: 0
+    type: "DWord"
+    category: "privacy"
+
+  # --- Gaming: Windows performance visuals + Game Mode (12 registry) ---
+  # NOTE: KeyboardDelay is REG_SZ upstream — windows11-clean declared it
+  # DWord, which would write the wrong value type. Declared String here.
+  - id: "gaming-win-auto-game-mode"
+    description: "Allow auto Game Mode"
+    path: 'HKCU:\Software\Microsoft\GameBar'
+    name: "AllowAutoGameMode"
+    value: 1
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-game-mode-enabled"
+    description: "Enable auto Game Mode"
+    path: 'HKCU:\Software\Microsoft\GameBar'
+    name: "AutoGameModeEnabled"
+    value: 1
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-drag-full-windows"
+    description: "Disable drag full windows (best performance)"
+    path: 'HKCU:\Control Panel\Desktop'
+    name: "DragFullWindows"
+    value: "0"
+    type: "String"
+    category: "gaming"
+
+  - id: "gaming-win-menu-show-delay"
+    description: "Set menu show delay to 200ms"
+    path: 'HKCU:\Control Panel\Desktop'
+    name: "MenuShowDelay"
+    value: "200"
+    type: "String"
+    category: "gaming"
+
+  - id: "gaming-win-min-animate"
+    description: "Disable minimize animation"
+    path: 'HKCU:\Control Panel\Desktop\WindowMetrics'
+    name: "MinAnimate"
+    value: "0"
+    type: "String"
+    category: "gaming"
+
+  - id: "gaming-win-keyboard-delay"
+    description: "Set keyboard repeat delay to shortest"
+    path: 'HKCU:\Control Panel\Keyboard'
+    name: "KeyboardDelay"
+    value: "0"
+    type: "String"
+    category: "gaming"
+
+  - id: "gaming-win-listview-alpha"
+    description: "Disable list view alpha selection"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    name: "ListviewAlphaSelect"
+    value: 0
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-listview-shadow"
+    description: "Disable list view item shadow"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    name: "ListviewShadow"
+    value: 0
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-taskbar-animations"
+    description: "Disable taskbar animations"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    name: "TaskbarAnimations"
+    value: 0
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-visual-fx"
+    description: "Set visual effects to best performance"
+    path: 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects'
+    name: "VisualFXSetting"
+    value: 3
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-aero-peek"
+    description: "Disable Aero Peek"
+    path: 'HKCU:\Software\Microsoft\Windows\DWM'
+    name: "EnableAeroPeek"
+    value: 0
+    type: "DWord"
+    category: "gaming"
+
+  - id: "gaming-win-mpo-test-mode"
+    description: "Disable Multiplane Overlay (GPU compatibility, needs admin)"
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows\Dwm'
+    name: "OverlayTestMode"
+    value: 5
+    type: "DWord"
+    category: "gaming"
+
+  # --- Apps: remove bloatware Store packages (31 Appx) ---
+  # Xbox suite + MSTeams + OutlookForWindows are excluded on purpose
+  # (gaming / work comms) — see skill windows-debloat for manual removal.
+  - id: "appx-microsoft-copilot"
+    description: "Remove Microsoft.Copilot bloatware"
+    name: "Microsoft.Copilot"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-bingsearch"
+    description: "Remove Microsoft.BingSearch bloatware"
+    name: "Microsoft.BingSearch"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-cortana"
+    description: "Remove Cortana (549981C3F5F10) bloatware"
+    name: "Microsoft.549981C3F5F10"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-bingnews"
+    description: "Remove Microsoft.BingNews bloatware"
+    name: "Microsoft.BingNews"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-bingweather"
+    description: "Remove Microsoft.BingWeather bloatware"
+    name: "Microsoft.BingWeather"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-zunemusic"
+    description: "Remove ZuneMusic (Media Player legacy) bloatware"
+    name: "Microsoft.ZuneMusic"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-zunevideo"
+    description: "Remove ZuneVideo bloatware"
+    name: "Microsoft.ZuneVideo"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-skypeapp"
+    description: "Remove SkypeApp bloatware"
+    name: "Microsoft.SkypeApp"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-solitaire"
+    description: "Remove SolitaireCollection bloatware"
+    name: "Microsoft.MicrosoftSolitaireCollection"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-feedbackhub"
+    description: "Remove FeedbackHub bloatware"
+    name: "Microsoft.WindowsFeedbackHub"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-gethelp"
+    description: "Remove GetHelp bloatware"
+    name: "Microsoft.GetHelp"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-getstarted"
+    description: "Remove Getstarted (Tips) bloatware"
+    name: "Microsoft.Getstarted"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-officehub"
+    description: "Remove OfficeHub bloatware"
+    name: "Microsoft.MicrosoftOfficeHub"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-powerautomate"
+    description: "Remove PowerAutomateDesktop bloatware"
+    name: "Microsoft.PowerAutomateDesktop"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-todos"
+    description: "Remove Microsoft.Todos bloatware"
+    name: "Microsoft.Todos"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-alarms"
+    description: "Remove WindowsAlarms bloatware"
+    name: "Microsoft.WindowsAlarms"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-maps"
+    description: "Remove WindowsMaps bloatware"
+    name: "Microsoft.WindowsMaps"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-soundrecorder"
+    description: "Remove WindowsSoundRecorder bloatware"
+    name: "Microsoft.WindowsSoundRecorder"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-clipchamp"
+    description: "Remove Clipchamp bloatware"
+    name: "Microsoft.Clipchamp"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-stickynotes"
+    description: "Remove StickyNotes bloatware"
+    name: "Microsoft.MicrosoftStickyNotes"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-people"
+    description: "Remove People bloatware"
+    name: "Microsoft.People"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-3dbuilder"
+    description: "Remove 3DBuilder bloatware"
+    name: "Microsoft.3DBuilder"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-camera"
+    description: "Remove WindowsCamera bloatware"
+    name: "Microsoft.WindowsCamera"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-commapps"
+    description: "Remove Windows Communications Apps (Mail/Calendar legacy) bloatware"
+    name: "Microsoft.Windows Communications Apps"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-noisecancellation"
+    description: "Remove WindowsNoiseCancellation bloatware"
+    name: "Microsoft.WindowsNoiseCancellation"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-devhome"
+    description: "Remove DevHome bloatware"
+    name: "Microsoft.Windows.DevHome"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-yourphone"
+    description: "Remove YourPhone bloatware"
+    name: "Microsoft.YourPhone"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-crossdevice"
+    description: "Remove CrossDevice (Phone Link companion) bloatware"
+    name: "MicrosoftWindows.CrossDevice"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-startexperiences"
+    description: "Remove StartExperiencesApp bloatware"
+    name: "Microsoft.StartExperiencesApp"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-widgets"
+    description: "Remove WindowsWidgets board"
+    name: "Microsoft.WindowsWidgets"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-webexperience"
+    description: "Remove WebExperience (Widgets host) pack"
+    name: "MicrosoftWindows.Client.WebExperience"
+    type: "Appx"
+    category: "apps"
+
+  # --- Services: stop & disable safe-only set (9 services) ---
+  # Spooler (printing), WSearch/SysMain (perf tradeoffs), NgcSvc (Hello),
+  # vendor/user services (Dell*, AnyDesk, Firebird*, Tailscale, sshd) and the
+  # Xbox suite stay out — see skill windows-debloat for manual steps.
+  - id: "svc-diagtrack"
+    description: "Stop & disable Connected User Experiences and Telemetry"
+    name: "DiagTrack"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-wermgr"
+    description: "Stop & disable Windows Error Reporting Service"
+    name: "wermgr"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-mapsbroker"
+    description: "Stop & disable Downloaded Maps Manager"
+    name: "MapsBroker"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-lfsvc"
+    description: "Stop & disable Geolocation Service"
+    name: "lfsvc"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-sharedaccess"
+    description: "Stop & disable Internet Connection Sharing"
+    name: "SharedAccess"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-wisvc"
+    description: "Stop & disable Windows Insider Service"
+    name: "wisvc"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-retaildemo"
+    description: "Stop & disable Retail Demo Service"
+    name: "RetailDemo"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-cscservice"
+    description: "Stop & disable Offline Files service"
+    name: "CscService"
+    value: "Disabled"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-wsaifabrics"
+    description: "Stop & disable WSAIFabricSvc (Android subsystem fabric, EOL)"
+    name: "WSAIFabricSvc"
+    value: "Disabled"
+    type: "Service"
+    category: "services"

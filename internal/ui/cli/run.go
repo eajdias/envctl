@@ -24,7 +24,7 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 			_ = cmd.Help()
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, providers, winget, apt, pacman, paru, gaming, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
+			return fmt.Errorf("unknown subsystem '%s' (valid: all, providers, winget, apt, pacman, paru, gaming, debloat, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
 		},
 	}
 
@@ -78,6 +78,15 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runGamingProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "debloat",
+		Short: "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, safe services)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runDebloatProvisioning()
 		},
 	})
 
@@ -506,4 +515,36 @@ func runWindowsProvisioning() {
 	}
 
 	spinner.Success(fmt.Sprintf("Processed %d Windows system tweaks and customizations", len(results)))
+}
+
+func runDebloatProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services)...")
+	ctx := context.Background()
+
+	results, err := appCtx.ProvisionDebloatUC.Execute(ctx, func(tweak entity.WindowsTweak, status, details string) {
+		targetName := debloatDisplayName(tweak)
+		switch status {
+		case "applied":
+			pterm.Success.Printf("  • %s: %s\n", targetName, details)
+		case "skipped":
+			pterm.Success.Printf("  • %s: %s\n", targetName, details)
+		case "failed":
+			pterm.Error.Printf("  • %s: %s\n", targetName, details)
+		}
+	})
+
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed debloat provisioning: %v", err))
+		return
+	}
+
+	spinner.Success(fmt.Sprintf("Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services)", len(results)))
+}
+
+func debloatDisplayName(tweak entity.WindowsTweak) string {
+	targetName := fmt.Sprintf("%s\\%s", tweak.Path, tweak.Name)
+	if tweak.Path == "" {
+		targetName = fmt.Sprintf("[%s] %s", tweak.Type, tweak.Name)
+	}
+	return targetName
 }

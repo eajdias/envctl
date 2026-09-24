@@ -55,7 +55,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected skills to be non-empty")
 	}
 
-	const expectedSkills = 43
+	const expectedSkills = 44
 	if len(skills) != expectedSkills {
 		t.Errorf("expected exactly %d skills in manifest, got %d", expectedSkills, len(skills))
 	}
@@ -132,5 +132,56 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 
 	if len(tweaks) == 0 {
 		t.Errorf("expected windows tweaks to be non-empty")
+	}
+
+	debloat, err := repo.LoadDebloatTweaks()
+	if err != nil {
+		t.Fatalf("failed to load debloat manifest: %v", err)
+	}
+
+	const expectedDebloat = 76
+	if len(debloat) != expectedDebloat {
+		t.Errorf("expected exactly %d debloat tweaks, got %d", expectedDebloat, len(debloat))
+	}
+
+	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true}
+	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true}
+	seen := map[string]bool{}
+	for _, tw := range debloat {
+		if seen[tw.ID] {
+			t.Errorf("duplicate debloat tweak id %q", tw.ID)
+		}
+		seen[tw.ID] = true
+		if !validTypes[tw.Type] {
+			t.Errorf("debloat tweak %q has unsupported type %q (want DWord/String/Appx/Service)", tw.ID, tw.Type)
+		}
+		if !validCats[tw.Category] {
+			t.Errorf("debloat tweak %q has unknown category %q", tw.ID, tw.Category)
+		}
+		switch tw.Type {
+		case "Appx":
+			if tw.Path != "" {
+				t.Errorf("debloat Appx tweak %q must have empty path, got %q", tw.ID, tw.Path)
+			}
+			if tw.Name == "" {
+				t.Errorf("debloat Appx tweak %q must name a package", tw.ID)
+			}
+		case "Service":
+			if s, ok := tw.Value.(string); !ok || (s != "Disabled" && s != "Manual") {
+				t.Errorf("debloat Service tweak %q must declare Disabled/Manual, got %v", tw.ID, tw.Value)
+			}
+		default: // registry
+			if tw.Path == "" || tw.Name == "" {
+				t.Errorf("debloat registry tweak %q needs path and name", tw.ID)
+			}
+		}
+	}
+
+	// Regression: windows11-clean declared KeyboardDelay as DWord, but the
+	// value is REG_SZ upstream — a DWord write would corrupt the type.
+	for _, tw := range debloat {
+		if tw.ID == "gaming-win-keyboard-delay" && tw.Type != "String" {
+			t.Errorf("gaming-win-keyboard-delay must be String (REG_SZ), got %q", tw.Type)
+		}
 	}
 }
