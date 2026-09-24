@@ -321,22 +321,16 @@ packages:
   # ============================================================================
   # AI Coding Agents
   # ============================================================================
-  # OpenCode ships per-platform: the Arch family has it in `extra`, Windows has
-  # it in winget, and everywhere else the official installer is used (see the
-  # Linux bootstrap). The npm package is not used — its channel lags upstream
-  # and would shadow a newer distro build.
+  # OpenCode ships per-platform: the Arch family has it in `extra`, Windows uses
+  # the official installer (PowerShell-native, into ~/.local/bin — winget froze
+  # on the 1.x line with bot-authored manifests), and everywhere else the
+  # official installer is used (see the Linux bootstrap). The npm package is
+  # not used — its channel lags upstream and would shadow a newer distro build.
   - id: opencode
     name: OpenCode CLI
     type: pacman
     category: ai-agents
     os: arch,cachyos
-    check_command: opencode --version
-
-  - id: SST.opencode
-    name: OpenCode CLI
-    type: winget
-    category: ai-agents
-    os: windows
     check_command: opencode --version
 
   - id: command-code

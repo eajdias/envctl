@@ -68,18 +68,26 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		return false, "Feature is disabled or not present", nil
 
 	case "psmodule":
-		psScript := fmt.Sprintf(
-			`if (Get-Module -ListAvailable -Name '%s') { Write-Output "INSTALLED" } else { Write-Output "MISSING" }`,
+		// Availability = importable by powershell.exe (5.1): existence in
+		// the tree is not enough (a Save-PSResource copy without a valid
+		// manifest resolves in Get-Module -ListAvailable but fails at
+		// import). powershell.exe is the strictest probe — a module that
+		// imports there also satisfies pwsh, whose PSModulePath is a
+		// superset on this machine.
+		// CurrentUser scope on purpose: all-users needs elevation, and envctl
+		// runs unprivileged.
+		checkPsScript := fmt.Sprintf(
+			`try { Import-Module -Name '%s' -Force -ErrorAction Stop; Write-Output "INSTALLED" } catch { Write-Output "MISSING" }`,
 			psQuote(tweak.Name))
-		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", checkPsScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return false, "", fmt.Errorf("failed to check PowerShell module %s: %w", tweak.Name, err)
 		}
 		if strings.Contains(string(out), "INSTALLED") {
-			return true, "PowerShell module available", nil
+			return true, "PowerShell module importable (powershell + pwsh)", nil
 		}
-		return false, "PowerShell module not installed", nil
+		return false, "PowerShell module not importable by powershell.exe", nil
 
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
@@ -147,12 +155,27 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 	case "psmodule":
 		// CurrentUser scope on purpose: installing for all users needs
 		// elevation, and envctl runs unprivileged.
+		// Single install via Install-PSResource into the shared Documents
+		// tree: both powershell.exe (5.1) and pwsh (7.x) list
+		// Documents\PowerShell\Modules on this machine, and Import-Module
+		// succeeds in both (validated live). A second Save-PSResource copy
+		// is NOT created — it resolves in Get-Module -ListAvailable but
+		// carries no valid manifest and fails at import.
+		// -Repository PSGallery pins the source explicitly: with several
+		// registered repositories, Install-PSResource would otherwise prompt
+		// for one and hang the non-interactive provisioning shell.
 		psScript := fmt.Sprintf(`
-if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
+    $r = Get-PSResource -Name '%s' -Scope CurrentUser -ErrorAction SilentlyContinue
+    if (-not $r) { Install-PSResource -Name '%s' -Scope CurrentUser -TrustRepository -Repository PSGallery -ErrorAction Stop }
+} else {
+    if (-not (Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue)) {
+        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force | Out-Null
+    }
+    Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+    Install-Module -Name '%s' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
-Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-Install-Module -Name '%s' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop`, psQuote(tweak.Name))
+Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if m.logger != nil {

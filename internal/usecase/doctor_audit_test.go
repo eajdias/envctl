@@ -540,11 +540,24 @@ func handshakeUseCase(lsps []entity.LSP) *DoctorAuditUseCase {
 }
 
 func TestDoctorAudit_LSPHandshakeFlagsConnectionError(t *testing.T) {
+	// `sh` only resolves on POSIX hosts: on Windows the audit skips the
+	// fixture as "binary missing" (presence check owns it) before any
+	// handshake runs — see TestDoctorAudit_LSPHandshakeSkipsMissingBinary.
+	command := "sh"
+	if runtime.GOOS == "windows" {
+		command = "cmd"
+	}
+	args := []string{"-c", "echo 'Connection input stream is not set' >&2; exit 1"}
+	checkBinary := "sh"
+	if runtime.GOOS == "windows" {
+		args = []string{"/c", "echo Connection input stream is not set >&2 & exit /b 1"}
+		checkBinary = "cmd"
+	}
 	uc := handshakeUseCase([]entity.LSP{{
 		ServerName:  "Broken Test Server",
-		Command:     "sh",
-		Args:        []string{"-c", "echo 'Connection input stream is not set' >&2; exit 1"},
-		CheckBinary: "sh",
+		Command:     command,
+		Args:        args,
+		CheckBinary: checkBinary,
 	}})
 
 	var diags []entity.Diagnostic
@@ -557,7 +570,7 @@ func TestDoctorAudit_LSPHandshakeFlagsConnectionError(t *testing.T) {
 	if d.Category != entity.DiagWarning {
 		t.Errorf("expected WARNING for connection error, got %v: %s", d.Category, d.Details)
 	}
-	if !strings.Contains(d.Details, "sh -c") {
+	if !strings.Contains(d.Details, command) {
 		t.Errorf("expected diagnostic to carry the repro command, got %q", d.Details)
 	}
 	if d.FixHint == "" {
@@ -566,11 +579,19 @@ func TestDoctorAudit_LSPHandshakeFlagsConnectionError(t *testing.T) {
 }
 
 func TestDoctorAudit_LSPHandshakeQuietExitPasses(t *testing.T) {
+	command := "sh"
+	args := []string{"-c", "exit 1"}
+	checkBinary := "sh"
+	if runtime.GOOS == "windows" {
+		command = "cmd"
+		args = []string{"/c", "exit /b 1"}
+		checkBinary = "cmd"
+	}
 	uc := handshakeUseCase([]entity.LSP{{
 		ServerName:  "Quiet Test Server",
-		Command:     "sh",
-		Args:        []string{"-c", "exit 1"},
-		CheckBinary: "sh",
+		Command:     command,
+		Args:        args,
+		CheckBinary: checkBinary,
 	}})
 
 	var diags []entity.Diagnostic
@@ -740,5 +761,25 @@ func TestDoctorAudit_GamingStackAuditsPackagesWhenOptedIn(t *testing.T) {
 	}
 	if !missingWarn {
 		t.Errorf("expected WARNING diagnostic for missing gaming package")
+	}
+}
+
+func TestAuditOpenCodeVersionSkewParsesMajor(t *testing.T) {
+	cases := []struct {
+		output string
+		skewed bool
+	}{
+		{"opencode 1.18.30", true},
+		{"opencode v1.18.32", true},
+		{"opencode v2.0.15", false},
+		{"2.0.5", false},
+		{"no numbers here", false},
+	}
+	for _, tc := range cases {
+		version := firstVersionToken(tc.output)
+		skewed := version != "" && strings.SplitN(version, ".", 2)[0] < "2"
+		if skewed != tc.skewed {
+			t.Errorf("firstVersionToken(%q) = %q, skewed = %v, want %v", tc.output, version, skewed, tc.skewed)
+		}
 	}
 }

@@ -269,6 +269,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditOpenCodeFileRefs(addDiag)
 	uc.auditRemovedMCPEntries(addDiag)
 	uc.auditAgentsIdentityCoverage(addDiag, configFiles)
+	uc.auditOpenCodeVersionSkew(ctx, addDiag)
 
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
@@ -1322,6 +1323,34 @@ func (uc *DoctorAuditUseCase) auditOpenCodeFileRefs(addDiag func(entity.Diagnost
 		Target:   "Config file references",
 		Details:  fmt.Sprintf("%d {file:...} reference(s) resolve on disk", len(seen)),
 	})
+}
+
+// auditOpenCodeVersionSkew warns when the installed opencode CLI predates the
+// V2-native config the repo deploys (review the 2026-09-22 migration): a v1
+// binary discards unknown keys (strict()), inverts MCP flags and fails V2
+// plugins with LoadError, while doctor would otherwise stay green.
+func (uc *DoctorAuditUseCase) auditOpenCodeVersionSkew(_ context.Context, addDiag func(entity.Diagnostic)) {
+	resolved, err := resolveOnToolchainPath("opencode")
+	if err != nil {
+		return
+	}
+	out, err := runWithToolchain(context.Background(), resolved, "--version")
+	if err != nil {
+		return
+	}
+	version := firstVersionToken(strings.TrimSpace(out))
+	if version == "" {
+		return
+	}
+	if major := strings.SplitN(version, ".", 2)[0]; major < "2" {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "OpenCode",
+			Target:   "Version skew",
+			Details:  fmt.Sprintf("opencode v%s + V2 config (agents/permissions/plugins/skills/mcp.servers): v1 discards keys, inverts MCP flags and fails V2 plugins", version),
+			FixHint:  "upgrade opencode to 2.x (envctl run providers), then 'opencode debug config'",
+		})
+	}
 }
 
 // removedMCPEntries lists MCP servers that envctl no longer provisions. A

@@ -103,21 +103,21 @@ func resolveOnToolchainPath(name string) (string, error) {
 
 // providerCLI is one agent-facing CLI phase 0 is responsible for.
 type providerCLI struct {
-	name      string // human name for diagnostics
-	binary    string // binary that must resolve on PATH
-	voltaPkg  string // Volta/npm package name, empty when the tool has its own installer
-	wingetID  string // winget id used on Windows when there is no Volta package
-	installer string // shell installer used on Linux when there is no Volta package
+	name             string // human name for diagnostics
+	binary           string // binary that must resolve on PATH
+	voltaPkg         string // Volta/npm package name, empty when the tool has its own installer
+	windowsInstaller string // PowerShell installer used on Windows when there is no Volta package
+	installer        string // shell installer used on Linux when there is no Volta package
 }
 
 func providerCLIs() []providerCLI {
 	return []providerCLI{
 		{name: "CommandCode CLI", binary: "cmdc", voltaPkg: "command-code"},
 		{
-			name:      "OpenCode CLI",
-			binary:    "opencode",
-			wingetID:  "SST.opencode",
-			installer: "curl -fsSL https://opencode.ai/install | bash",
+			name:             "OpenCode CLI",
+			binary:           "opencode",
+			installer:        "curl -fsSL https://opencode.ai/install | bash",
+			windowsInstaller: `$ErrorActionPreference='Stop'; $bin=Join-Path $HOME '.local\bin'; New-Item -ItemType Directory -Force -Path $bin | Out-Null; $ver=(Invoke-RestMethod 'https://opencode.ai/update/api/latest/cli/npm').version; $arch='x64'; if ($env:PROCESSOR_ARCHITECTURE -match 'ARM64') { $arch='arm64' }; $variant="opencode-windows-$arch.zip"; try { Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool IsProcessorFeaturePresent(int f);' -Name K32 -Namespace W32 -PassThru | Out-Null; if ($arch -eq 'x64' -and -not [W32.K32]::IsProcessorFeaturePresent(40)) { $variant='opencode-windows-x64-baseline.zip' } } catch {}; $url="https://opencode.ai/files/bin/$ver/$variant"; $tmp=Join-Path $env:TEMP 'opencode-win.zip'; Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing; Expand-Archive -Path $tmp -DestinationPath $bin -Force; Remove-Item $tmp -Force; $p=[Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike "*$bin*") { [Environment]::SetEnvironmentVariable('Path', "$p;$bin", 'User') }`,
 		},
 	}
 }
@@ -270,17 +270,19 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 }
 
 // installStandaloneProvider installs a provider that ships its own installer
-// instead of an npm package (OpenCode on Linux, winget on Windows).
+// instead of an npm package (OpenCode: official installer on Linux,
+// PowerShell-native official zip on Windows, pacman on Arch).
 func (uc *ProvisionProvidersUseCase) installStandaloneProvider(ctx context.Context, tool providerCLI, add func(entity.DiagnosticStatus, string, string, string)) {
-	if runtime.GOOS == "windows" && tool.wingetID != "" {
-		if mgr, ok := uc.managers[entity.PackageTypeWinget]; ok && mgr.IsAvailable(ctx) {
-			if err := mgr.Install(ctx, entity.Package{ID: tool.wingetID, Type: entity.PackageTypeWinget}); err == nil {
-				add(entity.DiagOK, tool.name, "Installed via winget ("+tool.wingetID+")", "")
-				return
-			}
+	if runtime.GOOS == "windows" && tool.windowsInstaller != "" {
+		uc.logInfo("Providers: installing %s", tool.name)
+		//nolint:gosec // G204: command/args come from the local provider table, not user input.
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", tool.windowsInstaller)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			add(entity.DiagWarning, tool.name, fmt.Sprintf("installer failed: %v (%s)", err, strings.TrimSpace(string(out))),
+				"Run the Windows installer manually (see docs/os-and-agent-matrix.md Fase 0)")
+			return
 		}
-		add(entity.DiagWarning, tool.name, "Not installed and winget could not install it",
-			"Run 'envctl run winget' to install "+tool.wingetID)
+		add(entity.DiagOK, tool.name, "Installed via the official installer (PowerShell, ~/.local/bin)", "")
 		return
 	}
 

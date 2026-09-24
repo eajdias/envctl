@@ -442,7 +442,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 					Category: entity.DiagOK,
 					System:   "OpenCodePlugins",
 					Target:   packageJsonPath,
-					Details:  "OpenCode plugins installed (@opencode-ai/plugin)",
+					Details:  "OpenCode plugins installed (@opencode/plugin)",
 				})
 			}
 		} else {

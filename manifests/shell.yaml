@@ -82,7 +82,7 @@ config_files:
     category: "opencode"
 
   - id: opencode_package_json
-    description: "OpenCode plugins dependency declaration (V1 SDK pin 1.18.18 — local-plugin deps only; a future V2 plugin needs @opencode-ai/plugin matching the opencode release, validated via npm view)"
+    description: "OpenCode plugins dependency declaration (V2 SDK @opencode/plugin 2.0.15, matching the opencode release line, validated via npm view)"
     source: "configs/package.json"
     destination: "~/.config/opencode/package.json"
     strict_acl: false

@@ -124,10 +124,10 @@ func TestProviderCLIsAreInstallable(t *testing.T) {
 		if tool.name == "" || tool.binary == "" {
 			t.Errorf("provider entry is incomplete: %+v", tool)
 		}
-		if tool.voltaPkg == "" && tool.wingetID == "" && tool.installer == "" {
+		if tool.voltaPkg == "" && tool.windowsInstaller == "" && tool.installer == "" {
 			t.Errorf("%s has no install path at all", tool.name)
 		}
-		if onWindows && tool.voltaPkg == "" && tool.wingetID == "" {
+		if onWindows && tool.voltaPkg == "" && tool.windowsInstaller == "" {
 			t.Errorf("%s has no Windows install path", tool.name)
 		}
 		if !onWindows && tool.voltaPkg == "" && tool.installer == "" {
