@@ -1402,7 +1402,7 @@ func (uc *DoctorAuditUseCase) auditOpenCodeVersionSkew(_ context.Context, addDia
 	if version == "" {
 		return
 	}
-	if major := strings.SplitN(version, ".", 2)[0]; major < "2" {
+	if !versionMajorAtLeast(version, 2) {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "OpenCode",

@@ -46,6 +46,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   `--fix`) + skill `windows-debloat` (`os: windows`; Tier 3 manual: OneDrive, hibernação,
   power plan, Teredo, `.wslconfig`, Copilot/Recall). Checks em batch (`CheckBatch`:
   1 spawn PowerShell por família em vez de 1 por tweak). `run all`/`run windows` intocados.
+- **Fixed**: `run providers` e `run bootstrap` no Ubuntu/Debian passam a instalar e convergir
+  OpenCode pelo canal oficial V2 (`https://opencode.ai/v2/install`, `~/.opencode/bin`), validar
+  o major instalado e persistir o PATH em shells POSIX/fish. Instalações v1 user-local são
+  atualizadas; no Arch, a propriedade é consultada no banco do pacman, cópias envctl locais
+  são arquivadas com backup e o pacote do sistema continua sendo a autoridade.
 
 ## [v1.3.0] - 2026-09-22
 

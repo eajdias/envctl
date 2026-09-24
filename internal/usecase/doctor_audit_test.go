@@ -776,12 +776,13 @@ func TestAuditOpenCodeVersionSkewParsesMajor(t *testing.T) {
 		{"opencode 1.18.30", true},
 		{"opencode v1.18.32", true},
 		{"opencode v2.0.15", false},
+		{"opencode v10.0.0", false},
 		{"2.0.5", false},
 		{"no numbers here", false},
 	}
 	for _, tc := range cases {
 		version := firstVersionToken(tc.output)
-		skewed := version != "" && strings.SplitN(version, ".", 2)[0] < "2"
+		skewed := version != "" && !versionMajorAtLeast(version, 2)
 		if skewed != tc.skewed {
 			t.Errorf("firstVersionToken(%q) = %q, skewed = %v, want %v", tc.output, version, skewed, tc.skewed)
 		}

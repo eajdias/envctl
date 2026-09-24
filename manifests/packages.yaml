@@ -322,10 +322,10 @@ packages:
   # AI Coding Agents
   # ============================================================================
   # OpenCode ships per-platform: the Arch family has it in `extra`, Windows uses
-  # the official installer (PowerShell-native, into ~/.local/bin — winget froze
-  # on the 1.x line with bot-authored manifests), and everywhere else the
-  # official installer is used (see the Linux bootstrap). The npm package is
-  # not used — its channel lags upstream and would shadow a newer distro build.
+  # the official V2 installer (PowerShell-native, into ~/.local/bin — winget froze
+  # on the 1.x line with bot-authored manifests), and Linux uses the official V2
+  # installer into ~/.opencode/bin. The npm/Volta package is not used — its
+  # channel lags upstream and would shadow a newer distro build.
   - id: opencode
     name: OpenCode CLI
     type: pacman
