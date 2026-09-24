@@ -142,6 +142,16 @@ type WindowsTweak struct {
 	Category    string `yaml:"category"`
 }
 
+// TweakCheckResult is the outcome of checking one Windows tweak. Batch
+// checks return one per input tweak (order-preserving) so callers can audit
+// dozens of tweaks with ~3 PowerShell spawns instead of one per tweak.
+type TweakCheckResult struct {
+	Tweak   WindowsTweak
+	OK      bool
+	Details string
+	Err     error
+}
+
 // GitConfig represents a global Git configuration.
 type GitConfig struct {
 	Key   string `yaml:"key"`

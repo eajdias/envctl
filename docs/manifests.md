@@ -180,3 +180,37 @@ tweaks:
     value: 0
     description: "Exibe sempre as extensões de arquivo no Explorer"
 ```
+
+---
+
+## 📄 6. `manifests/debloat.yaml`
+
+Debloat opt-in do Windows 11 absorvido do `windows11-clean` — **só** via `envctl run debloat`
+(nunca no `run all`/`run windows`). Reusa o schema de `windows.yaml` com dois tipos extras:
+
+```yaml
+tweaks:
+  - id: "telemetry-allow-telemetry"   # 12 registry (telemetry) + 12 (privacy) + 12 (gaming)
+    path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\DataCollection"
+    name: "AllowTelemetry"
+    type: "DWord"
+    value: 0
+    category: "telemetry"
+
+  - id: "appx-microsoft-copilot"      # 31 remoções (Xbox/Teams/Outlook excluídos)
+    name: "Microsoft.Copilot"
+    type: "Appx"                      # conforme = ausente; aplica Remove-AppxPackage -AllUsers
+    category: "apps"
+
+  - id: "svc-diagtrack"               # 9 serviços safe-only (Spooler/WSearch/NgcSvc fora)
+    name: "DiagTrack"
+    type: "Service"                   # conforme = StartType; value Disabled/Manual
+    value: "Disabled"
+    category: "services"
+```
+
+O `doctor` audita uma linha agregada por categoria (`Debloat / category <nome>`):
+`OK` quando aplicada, `INFO` com `run 'envctl run debloat'` quando há drift — nunca
+`WARN`/`ERROR` e nunca no `--fix`. Checks usam `CheckBatch` (1 spawn PowerShell por
+família: registro, Appx, serviços) em vez de 1 por tweak. O Tier 3 destrutivo (OneDrive, hibernação, power
+plan, Teredo, `.wslconfig`, Copilot/Recall) vive na skill `windows-debloat`.
