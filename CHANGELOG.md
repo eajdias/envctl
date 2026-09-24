@@ -7,6 +7,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.6.0](https://github.com/eajdias/envctl/compare/v1.5.0...v1.6.0) (2026-09-24)
+
+
+### Features
+
+* **debloat:** absorb windows11-clean as opt-in run debloat ([#24](https://github.com/eajdias/envctl/issues/24)) ([9f8c80f](https://github.com/eajdias/envctl/commit/9f8c80f6631bafc3676fb07fabe283cb8c623cc3))
+* **platform:** absorb CachyOS toolbox and default OpenCode v2 ([b7d12bc](https://github.com/eajdias/envctl/commit/b7d12bc3c6ec7619a37f763a52ee7f1a5beda23c))
+
 ## [1.5.0](https://github.com/eajdias/envctl/compare/v1.4.0...v1.5.0) (2026-09-24)
 
 
