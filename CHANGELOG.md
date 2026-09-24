@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 Todas as alterações notáveis no projeto **`envctl`** serão documentadas neste arquivo.
 
@@ -6,6 +6,18 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 ---
+
+## [1.4.0](https://github.com/eajdias/envctl/compare/v1.3.0...v1.4.0) (2026-09-24)
+
+
+### Features
+
+* **gaming:** absorb cachyos-init tuning into manifests, doctor and skill ([2663fc9](https://github.com/eajdias/envctl/commit/2663fc9aae59908fe35d6b96f4dea0aae55615af))
+
+
+### Bug Fixes
+
+* lsp-smoke-test wording, lsp-return monitor, windows CI skips ([#21](https://github.com/eajdias/envctl/issues/21)) ([d8592ea](https://github.com/eajdias/envctl/commit/d8592eabdcac95e5bbc92182543bd5f584e37183))
 
 ## [Unreleased]
 
