@@ -40,6 +40,7 @@ type AppContext struct {
 	ProvisionSkillsUC    *usecase.ProvisionSkillsUseCase
 	ProvisionLSPUC       *usecase.ProvisionLSPsUseCase
 	ProvisionWindowsUC   *usecase.ProvisionWindowsUseCase
+	ProvisionDebloatUC   *usecase.ProvisionDebloatUseCase
 	ProvisionBootstrapUC *usecase.ProvisionBootstrapUseCase
 	ProvisionProvidersUC *usecase.ProvisionProvidersUseCase
 	DoctorAuditUC        *usecase.DoctorAuditUseCase
@@ -115,6 +116,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		ProvisionSkillsUC:    usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
 		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
 		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
 		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, fileLogger),
 		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),

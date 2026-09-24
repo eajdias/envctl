@@ -376,6 +376,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		}
 	}
 
+	// 8b. Audit opt-in Windows debloat (debloat.yaml). Never WARN: the stack
+	// only applies via `run debloat`, so drift is informational. One line per
+	// category keeps the report compact; per-tweak detail lives in the
+	// `run debloat` output itself.
+	uc.auditDebloat(ctx, addDiag)
+
 	// 9. Audit Browser & Playwright
 	// 9.1 Audit Google Chrome (native system browser for chrome-devtools MCP
 	// & CLI tools). Playwright CLI brings its own bundled Chromium, so a
@@ -1262,6 +1268,60 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "multilib repo",
 				Details:  "[multilib] enabled",
+			})
+		}
+	}
+}
+
+// auditDebloat checks the opt-in Windows debloat stack (debloat.yaml) and
+// reports one aggregated line per category. Drift is DiagInfo, never a
+// warning: the stack only applies when the owner explicitly runs
+// `run debloat`, so an unapplied tweak is not a health problem. Windows-only;
+// anywhere else the section stays silent.
+func (uc *DoctorAuditUseCase) auditDebloat(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if runtime.GOOS != "windows" || uc.tweaksManager == nil {
+		return
+	}
+	tweaks, err := uc.manifestRepo.LoadDebloatTweaks()
+	if err != nil || len(tweaks) == 0 {
+		return
+	}
+	type catStat struct {
+		total   int
+		applied int
+	}
+	order := []string{}
+	stats := map[string]*catStat{}
+	checks := uc.tweaksManager.CheckBatch(ctx, tweaks)
+	for _, c := range checks {
+		tw := c.Tweak
+		st, ok := stats[tw.Category]
+		if !ok {
+			st = &catStat{}
+			stats[tw.Category] = st
+			order = append(order, tw.Category)
+		}
+		st.total++
+		if c.Err == nil && c.OK {
+			st.applied++
+		}
+	}
+	for _, cat := range order {
+		st := stats[cat]
+		if st.applied == st.total {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Debloat",
+				Target:   "category " + cat,
+				Details:  fmt.Sprintf("Fully applied (%d/%d)", st.applied, st.total),
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Debloat",
+				Target:   "category " + cat,
+				Details:  fmt.Sprintf("Opt-in stack: %d/%d applied", st.applied, st.total),
+				FixHint:  "run 'envctl run debloat' as Administrator to apply (opt-in, never auto-fixed)",
 			})
 		}
 	}

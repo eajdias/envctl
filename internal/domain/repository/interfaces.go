@@ -40,6 +40,7 @@ type ManifestRepository interface {
 	LoadDirectories() ([]entity.RestrictedDir, error)
 	LoadCleanupItems() ([]entity.CleanupItem, error)
 	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
+	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
 
 	SavePackages(pkgs []entity.Package) error
 	SaveSkills(skills []entity.Skill) error
@@ -67,6 +68,10 @@ type WindowsEnvManager interface {
 // WindowsTweaksManager manages Windows 11 system registry tweaks, features and fonts.
 type WindowsTweaksManager interface {
 	CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error)
+	// CheckBatch checks many tweaks with one PowerShell spawn per family
+	// (registry, Appx, services) instead of one per tweak. Results are
+	// order-preserving: results[i] answers tweaks[i].
+	CheckBatch(ctx context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult
 	ApplyTweak(ctx context.Context, tweak entity.WindowsTweak) error
 	EnsureTweaks(ctx context.Context, tweaks []entity.WindowsTweak) ([]entity.Diagnostic, error)
 }

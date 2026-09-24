@@ -178,6 +178,12 @@ skills:
       target_dir: ""
       enabled: true
       os: windows
+    - name: windows-debloat
+      description: Debloat opt-in do Windows 11 (Tier 3 manual — OneDrive, hibernação, power plan, Teredo, .wslconfig, Copilot/Recall)
+      source: configs/skills/windows-debloat
+      target_dir: ""
+      enabled: true
+      os: windows
     - name: writing-plans
       description: Escrever especificações e planos de implementação passo a passo antes de codar
       source: configs/skills/writing-plans

@@ -26,6 +26,7 @@ type mockManifestRepo struct {
 	directories  []entity.RestrictedDir
 	cleanupItems []entity.CleanupItem
 	tweaks       []entity.WindowsTweak
+	debloat      []entity.WindowsTweak
 }
 
 func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error) { return m.pkgs, nil }
@@ -45,6 +46,9 @@ func (m *mockManifestRepo) LoadCleanupItems() ([]entity.CleanupItem, error) {
 }
 func (m *mockManifestRepo) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
 	return m.tweaks, nil
+}
+func (m *mockManifestRepo) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
+	return m.debloat, nil
 }
 func (m *mockManifestRepo) SavePackages(pkgs []entity.Package) error        { return nil }
 func (m *mockManifestRepo) SaveSkills(skills []entity.Skill) error          { return nil }
@@ -781,5 +785,123 @@ func TestAuditOpenCodeVersionSkewParsesMajor(t *testing.T) {
 		if skewed != tc.skewed {
 			t.Errorf("firstVersionToken(%q) = %q, skewed = %v, want %v", tc.output, version, skewed, tc.skewed)
 		}
+	}
+}
+
+// stubTweaksManager scripts CheckTweak results for the debloat audit tests.
+type stubTweaksManager struct {
+	check func(entity.WindowsTweak) (bool, string, error)
+}
+
+func (s *stubTweaksManager) CheckTweak(_ context.Context, tw entity.WindowsTweak) (bool, string, error) {
+	return s.check(tw)
+}
+
+func (s *stubTweaksManager) CheckBatch(_ context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult {
+	results := make([]entity.TweakCheckResult, len(tweaks))
+	for i, tw := range tweaks {
+		ok, details, err := s.check(tw)
+		results[i] = entity.TweakCheckResult{Tweak: tw, OK: ok, Details: details, Err: err}
+	}
+	return results
+}
+
+func (s *stubTweaksManager) ApplyTweak(_ context.Context, _ entity.WindowsTweak) error {
+	return nil
+}
+
+func (s *stubTweaksManager) EnsureTweaks(_ context.Context, tweaks []entity.WindowsTweak) ([]entity.Diagnostic, error) {
+	return nil, nil
+}
+
+func debloatAuditUseCase(debloat []entity.WindowsTweak, mgr repository.WindowsTweaksManager) *DoctorAuditUseCase {
+	return NewDoctorAuditUseCase(
+		&mockManifestRepo{debloat: debloat},
+		&mockFSManager{},
+		&mockEnvManager{},
+		nil,
+		mgr,
+		map[entity.PackageType]repository.PackageManager{},
+		&mockLogger{},
+	)
+}
+
+func TestAuditDebloatNilManagerIsSilent(t *testing.T) {
+	uc := debloatAuditUseCase([]entity.WindowsTweak{
+		{ID: "x", Category: "telemetry", Type: "DWord"},
+	}, nil)
+
+	var diags []entity.Diagnostic
+	uc.auditDebloat(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 0 {
+		t.Errorf("expected no debloat diagnostics without a tweaks manager, got %d", len(diags))
+	}
+}
+
+func TestAuditDebloatAggregatesPerCategoryAsInfo(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("debloat audit is Windows-only")
+	}
+	uc := debloatAuditUseCase([]entity.WindowsTweak{
+		{ID: "t1", Category: "telemetry", Type: "DWord"},
+		{ID: "t2", Category: "telemetry", Type: "DWord"},
+		{ID: "a1", Category: "apps", Type: "Appx"},
+	}, &stubTweaksManager{check: func(tw entity.WindowsTweak) (bool, string, error) {
+		if tw.ID == "t1" {
+			return true, "applied", nil
+		}
+		return false, "drifted", nil
+	}})
+
+	var diags []entity.Diagnostic
+	uc.auditDebloat(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 2 {
+		t.Fatalf("expected one line per category (2), got %d: %v", len(diags), diags)
+	}
+	for _, d := range diags {
+		if d.System != "Debloat" {
+			t.Errorf("expected System Debloat, got %q", d.System)
+		}
+		if d.Category == entity.DiagWarning || d.Category == entity.DiagError {
+			t.Errorf("debloat drift must never WARN/ERROR, got %v for %q", d.Category, d.Target)
+		}
+		switch d.Target {
+		case "category telemetry":
+			if d.Category != entity.DiagInfo {
+				t.Errorf("partial telemetry must be INFO, got %v", d.Category)
+			}
+			if !strings.Contains(d.Details, "1/2") {
+				t.Errorf("telemetry details must show 1/2 applied, got %q", d.Details)
+			}
+			if !strings.Contains(d.FixHint, "run debloat") {
+				t.Errorf("telemetry fix hint must point at run debloat, got %q", d.FixHint)
+			}
+		case "category apps":
+			if d.Category != entity.DiagInfo {
+				t.Errorf("drifted apps must be INFO, got %v", d.Category)
+			}
+		default:
+			t.Errorf("unexpected debloat target %q", d.Target)
+		}
+	}
+}
+
+func TestAuditDebloatFullyAppliedIsOK(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("debloat audit is Windows-only")
+	}
+	uc := debloatAuditUseCase([]entity.WindowsTweak{
+		{ID: "t1", Category: "telemetry", Type: "DWord"},
+	}, &stubTweaksManager{check: func(_ entity.WindowsTweak) (bool, string, error) {
+		return true, "applied", nil
+	}})
+
+	var diags []entity.Diagnostic
+	uc.auditDebloat(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 || diags[0].Category != entity.DiagOK {
+		t.Fatalf("expected a single OK line, got %v", diags)
 	}
 }
