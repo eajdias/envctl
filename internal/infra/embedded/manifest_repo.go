@@ -26,20 +26,31 @@ func NewManifestRepository(embeddedFS fs.FS, localDir string) repository.Manifes
 }
 
 func (m *manifestRepository) readManifestFile(filename string) ([]byte, error) {
-	// Try local directory first if specified and file exists
+	readLocal := func(path string) ([]byte, error) {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return data, nil
+		}
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to read local manifest %s: %w", path, err)
+		}
+		return nil, nil
+	}
+
+	// A local manifest is authoritative when present. Only a missing file may
+	// fall through to the embedded asset; permission/I/O errors must not
+	// silently activate a different profile.
 	if m.localDir != "" {
-		localPath := filepath.Join(m.localDir, "manifests", filename)
-		if data, err := os.ReadFile(localPath); err == nil {
+		if data, err := readLocal(filepath.Join(m.localDir, "manifests", filename)); err != nil {
+			return nil, err
+		} else if data != nil {
 			return data, nil
 		}
-		// Also check direct manifests folder relative to current working directory
-		if data, err := os.ReadFile(filepath.Join("manifests", filename)); err == nil {
-			return data, nil
-		}
-	} else {
-		if data, err := os.ReadFile(filepath.Join("manifests", filename)); err == nil {
-			return data, nil
-		}
+	}
+	if data, err := readLocal(filepath.Join("manifests", filename)); err != nil {
+		return nil, err
+	} else if data != nil {
+		return data, nil
 	}
 
 	// Fallback to embedded filesystem
@@ -208,6 +219,44 @@ func (m *manifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) 
 		return nil, fmt.Errorf("failed to parse debloat.yaml: %w", err)
 	}
 	return manifest.Tweaks, nil
+}
+
+type performanceManifest struct {
+	Profile  entity.PerformanceProfile `yaml:"profile"`
+	Packages []entity.Package          `yaml:"packages"`
+	Sysctls  []entity.SysctlSetting    `yaml:"sysctls"`
+}
+
+func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+	filename := ""
+	switch profile {
+	case entity.PerformanceProfileUbuntu:
+		filename = "performance_ubuntu.yaml"
+	case entity.PerformanceProfileCachyOS:
+		filename = "performance_cachyos.yaml"
+	default:
+		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
+	}
+
+	data, err := m.readManifestFile(filename)
+	if err != nil {
+		return entity.PerformanceSpec{}, err
+	}
+	var manifest performanceManifest
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return entity.PerformanceSpec{}, fmt.Errorf("failed to parse %s: %w", filename, err)
+	}
+	if manifest.Profile != profile {
+		return entity.PerformanceSpec{}, fmt.Errorf("%s declares profile %q, expected %q", filename, manifest.Profile, profile)
+	}
+	if profile == entity.PerformanceProfileCachyOS && len(manifest.Sysctls) > 0 {
+		return entity.PerformanceSpec{}, fmt.Errorf("%s cannot declare sysctls for the CachyOS profile", filename)
+	}
+	return entity.PerformanceSpec{
+		Profile:  manifest.Profile,
+		Packages: manifest.Packages,
+		Sysctls:  manifest.Sysctls,
+	}, nil
 }
 
 func (m *manifestRepository) SavePackages(pkgs []entity.Package) error {

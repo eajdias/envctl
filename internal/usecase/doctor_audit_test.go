@@ -16,17 +16,18 @@ import (
 
 // mockManifestRepo implements repository.ManifestRepository for testing.
 type mockManifestRepo struct {
-	pkgs         []entity.Package
-	gamingPkgs   []entity.Package
-	configFiles  []entity.ConfigFile
-	skills       []entity.Skill
-	lsps         []entity.LSP
-	envVars      []entity.EnvironmentVar
-	gitConfigs   []entity.GitConfig
-	directories  []entity.RestrictedDir
-	cleanupItems []entity.CleanupItem
-	tweaks       []entity.WindowsTweak
-	debloat      []entity.WindowsTweak
+	pkgs             []entity.Package
+	gamingPkgs       []entity.Package
+	configFiles      []entity.ConfigFile
+	skills           []entity.Skill
+	lsps             []entity.LSP
+	envVars          []entity.EnvironmentVar
+	gitConfigs       []entity.GitConfig
+	directories      []entity.RestrictedDir
+	cleanupItems     []entity.CleanupItem
+	tweaks           []entity.WindowsTweak
+	debloat          []entity.WindowsTweak
+	performanceSpecs map[entity.PerformanceProfile]entity.PerformanceSpec
 }
 
 func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error) { return m.pkgs, nil }
@@ -49,6 +50,9 @@ func (m *mockManifestRepo) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
 }
 func (m *mockManifestRepo) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
 	return m.debloat, nil
+}
+func (m *mockManifestRepo) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+	return m.performanceSpecs[profile], nil
 }
 func (m *mockManifestRepo) SavePackages(pkgs []entity.Package) error        { return nil }
 func (m *mockManifestRepo) SaveSkills(skills []entity.Skill) error          { return nil }

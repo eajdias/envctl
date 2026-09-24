@@ -36,6 +36,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Added**: baseline de performance Linux separado por SO — `run performance` para Ubuntu Server 24.04+ (toolbox headless, `systemd-zram-generator` e drop-in sysctl com backup) e CachyOS (garantia de `zram-generator` sem sobrescrever o tuning existente); `doctor` agora reporta swap/zram/governor/scheduler/journald/fstrim/serviços como auditoria read-only. Swapfile, journald, governors, schedulers, serviços e kernel cmdline permanecem manuais/benchmark-gated.
+
 - **Added**: 21 pacotes pacman (`os: arch,cachyos`) absorvidos do inventário CachyOS —
   `eza`, `zoxide`, `direnv`, `lazygit`, `lazydocker`, `tmux`, `sqlite`, `restic`, `rclone`,
   `rsync`, `btop`, `duf`, `glances`, `fastfetch`, `micro`, `meld`, `cmake`, `ninja`, `mosh`,
@@ -44,8 +46,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Added**: `gaming.yaml` 33→38 pkgs — `heroic-games-launcher`, `lutris`, `sunshine`
   (pacman) + `skyscraper-git`, `hactool` (paru/AUR).
 - **Added**: skills portáteis `tailscale` (roadmap item 3, parcial) e `syncthing-ops`
-  (via REST API, nunca `config.xml` na mão) — com `windows-debloat` (main), catálogo 41→44
-  (Win 41, Ubuntu 40, CachyOS 42).
+  (via REST API, nunca `config.xml` na mão) — com `windows-debloat` (main), catálogo 41→45
+  (Win 41, Ubuntu 41, CachyOS 43).
 - **Added**: debloat opt-in do Windows 11 absorvido do `windows11-clean` — `envctl run debloat`
   (76 tweaks em `manifests/debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win +
   31 Appx + 9 serviços safe-only; tipos novos `Appx`/`Service` no TweaksManager com check

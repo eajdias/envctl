@@ -22,7 +22,7 @@ envctl doctor
      nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:
    - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
-   - Presença de 45–55 binários conforme o OS (45 Ubuntu / 48 Arch / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
+   - Presença de 55–70 binários conforme o OS (63 Ubuntu 24.04+ / 70 Arch/CachyOS / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
@@ -30,9 +30,12 @@ envctl doctor
 4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de Skills por OS (38 Win / 38 Ubuntu / 40 CachyOS, + espelho CommandCode)**:
+6. **Catálogo de Skills por OS (41 Win / 41 Ubuntu / 43 CachyOS, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
-7. **Verificação Local (`Verify`)**:
+7. **Performance Linux (read-only)**:
+   - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
+   - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
+8. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 
 ---

@@ -17,13 +17,14 @@ import (
 )
 
 type DoctorAuditUseCase struct {
-	manifestRepo  repository.ManifestRepository
-	fsManager     repository.FileSystemManager
-	envManager    repository.WindowsEnvManager
-	gitManager    repository.GitManager
-	tweaksManager repository.WindowsTweaksManager
-	managers      map[entity.PackageType]repository.PackageManager
-	logger        repository.Logger
+	manifestRepo         repository.ManifestRepository
+	fsManager            repository.FileSystemManager
+	envManager           repository.WindowsEnvManager
+	gitManager           repository.GitManager
+	tweaksManager        repository.WindowsTweaksManager
+	managers             map[entity.PackageType]repository.PackageManager
+	performanceInspector repository.PerformanceInspector
+	logger               repository.Logger
 }
 
 func NewDoctorAuditUseCase(
@@ -34,15 +35,21 @@ func NewDoctorAuditUseCase(
 	tweaksManager repository.WindowsTweaksManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
+	performanceInspectors ...repository.PerformanceInspector,
 ) *DoctorAuditUseCase {
+	var performanceInspector repository.PerformanceInspector
+	if len(performanceInspectors) > 0 {
+		performanceInspector = performanceInspectors[0]
+	}
 	return &DoctorAuditUseCase{
-		manifestRepo:  manifestRepo,
-		fsManager:     fsManager,
-		envManager:    envManager,
-		gitManager:    gitManager,
-		tweaksManager: tweaksManager,
-		managers:      managers,
-		logger:        logger,
+		manifestRepo:         manifestRepo,
+		fsManager:            fsManager,
+		envManager:           envManager,
+		gitManager:           gitManager,
+		tweaksManager:        tweaksManager,
+		managers:             managers,
+		performanceInspector: performanceInspector,
+		logger:               logger,
 	}
 }
 
@@ -274,7 +281,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
-		if !entity.MatchesOS(pkg.OS) {
+		if !entity.MatchesPackage(pkg) {
 			continue
 		}
 
@@ -309,6 +316,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 5.5. Audit Gaming stack (Arch/CachyOS only, opt-in: silent unless Steam
 	// is installed, so a non-gaming Arch box stays at zero warnings).
 	uc.auditGamingStack(ctx, addDiag)
+
+	// 5.6. Audit read-only OS performance state. Optional differences are
+	// informational; this audit never applies a performance tweak.
+	uc.auditLinuxPerformance(ctx, func(diagnostic entity.Diagnostic) {
+		addDiag(diagnostic)
+	})
 
 	// 6. Audit Skills (only the ones that belong on this OS and are enabled).
 	// Both agents share the validator: a skill whose frontmatter the loader

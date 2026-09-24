@@ -50,6 +50,7 @@
 | Ajustar skill recém-baixada ao ambiente do usuário | `skill-personalizer` |
 | Publicar/compartilhar skill (remover dados privados) | `skill-generalizer` |
 | Editar `opencode.json` / agentes | `customize-opencode` |
+| Performance Linux por OS (Ubuntu Server 24.04+, CachyOS, zram, sysctl, swap) | `linux-performance-tuning` `[linux]` |
 | Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
 | Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |
 | Validar app GUI (Qt/SDL) sem display | `headless-gui-probe` `[linux]` |

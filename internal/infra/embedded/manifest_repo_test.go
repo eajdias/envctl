@@ -2,6 +2,8 @@ package embedded
 
 import (
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/eajdias/envctl"
@@ -55,7 +57,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected skills to be non-empty")
 	}
 
-	const expectedSkills = 44
+	const expectedSkills = 45
 	if len(skills) != expectedSkills {
 		t.Errorf("expected exactly %d skills in manifest, got %d", expectedSkills, len(skills))
 	}
@@ -182,6 +184,112 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 	for _, tw := range debloat {
 		if tw.ID == "gaming-win-keyboard-delay" && tw.Type != "String" {
 			t.Errorf("gaming-win-keyboard-delay must be String (REG_SZ), got %q", tw.Type)
+		}
+	}
+}
+
+func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	ubuntu, err := repo.LoadPerformanceSpec("ubuntu-24.04")
+	if err != nil {
+		t.Fatalf("failed to load Ubuntu performance manifest: %v", err)
+	}
+	if ubuntu.Profile != "ubuntu-24.04" || len(ubuntu.Packages) != 1 || ubuntu.Packages[0].ID != "systemd-zram-generator" {
+		t.Fatalf("unexpected Ubuntu performance spec: %#v", ubuntu)
+	}
+	if len(ubuntu.Sysctls) == 0 {
+		t.Fatal("Ubuntu performance spec must contain sysctl settings")
+	}
+
+	cachyos, err := repo.LoadPerformanceSpec("cachyos")
+	if err != nil {
+		t.Fatalf("failed to load CachyOS performance manifest: %v", err)
+	}
+	if cachyos.Profile != "cachyos" || len(cachyos.Packages) != 1 || cachyos.Packages[0].ID != "zram-generator" {
+		t.Fatalf("unexpected CachyOS performance spec: %#v", cachyos)
+	}
+	if len(cachyos.Sysctls) != 0 {
+		t.Fatal("CachyOS performance spec must not mutate sysctls in this branch")
+	}
+
+	if _, err := repo.LoadPerformanceSpec("debian"); err == nil {
+		t.Fatal("expected unsupported performance profile to be rejected")
+	}
+}
+
+func TestUnreadableLocalPerformanceManifestDoesNotFallBack(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "manifests", "performance_cachyos.yaml"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
+	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+		t.Fatal("expected unreadable local manifest to fail closed")
+	}
+}
+
+func TestLocalCachyPerformanceManifestCannotInjectSysctls(t *testing.T) {
+	dir := t.TempDir()
+	manifestDir := filepath.Join(dir, "manifests")
+	if err := os.MkdirAll(manifestDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := []byte("profile: cachyos\npackages: []\nsysctls:\n  - key: vm.swappiness\n    value: \"10\"\n")
+	if err := os.WriteFile(filepath.Join(manifestDir, "performance_cachyos.yaml"), manifest, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
+	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+		t.Fatal("expected local CachyOS sysctl injection to be rejected")
+	}
+}
+
+func TestUbuntuPerformanceToolboxManifest(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+	packages, err := repo.LoadPackages()
+	if err != nil {
+		t.Fatalf("failed to load packages manifest: %v", err)
+	}
+
+	required := map[string]bool{
+		"eza":         false,
+		"tmux":        false,
+		"sqlite3":     false,
+		"restic":      false,
+		"rclone":      false,
+		"btop":        false,
+		"duf":         false,
+		"glances":     false,
+		"micro":       false,
+		"cmake":       false,
+		"ninja-build": false,
+		"mosh":        false,
+		"nvtop":       false,
+		"iotop":       false,
+		"sysstat":     false,
+		"zstd":        false,
+		"lz4":         false,
+	}
+
+	for _, pkg := range packages {
+		if _, ok := required[pkg.ID]; !ok {
+			continue
+		}
+		if pkg.Type != "apt" || pkg.TargetDistro != "ubuntu" {
+			continue
+		}
+		if pkg.OS != "ubuntu" || pkg.MinDistroVersion != "24.04" {
+			t.Errorf("Ubuntu performance package %q has wrong scope: os=%q target=%q min=%q", pkg.ID, pkg.OS, pkg.TargetDistro, pkg.MinDistroVersion)
+		}
+		required[pkg.ID] = true
+	}
+
+	for id, found := range required {
+		if !found {
+			t.Errorf("missing Ubuntu 24.04 performance package %q", id)
 		}
 	}
 }

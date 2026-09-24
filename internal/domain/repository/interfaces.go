@@ -41,6 +41,7 @@ type ManifestRepository interface {
 	LoadCleanupItems() ([]entity.CleanupItem, error)
 	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
 	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
+	LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error)
 
 	SavePackages(pkgs []entity.Package) error
 	SaveSkills(skills []entity.Skill) error

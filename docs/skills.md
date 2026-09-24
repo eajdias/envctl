@@ -1,12 +1,12 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **44 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **45 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
 > **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
 
 > **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
 
-> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` distro-strict no manifesto (`windows` · `arch,cachyos` · `debian,ubuntu`) e são **podadas** nas demais plataformas — 44 no manifesto, 41 deployadas no Windows, 40 no Ubuntu Server, 42 no CachyOS. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
+> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` distro-strict no manifesto (`windows` · `arch,cachyos` · `debian,ubuntu`) e são **podadas** nas demais plataformas — 45 no manifesto, 41 deployadas no Windows, 41 no Ubuntu Server, 43 no CachyOS. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
 
 > **Créditos.** Boa parte destas skills foi adotada de projetos de terceiros (obra/superpowers, mattpocock/skills, hqhq1025/skill-optimizer, Hardik Pandya) — o autor e o repositório de origem estão no `metadata` de cada `SKILL.md`. Tabela completa, o que foi adaptado e o checklist para adotar skill nova: [**Atribuição de Skills**](skills-attribution.md).
 
@@ -20,9 +20,9 @@ O `envctl` embuta e sincroniza **44 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das Skills (44)
+## 📋 Categorias das Skills (45)
 
-### 1. Engenharia de Software & Arquitetura (12)
+### 1. Engenharia de Software & Arquitetura (11)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
 - **`database-ops`**: Gestão multi-banco dinâmica (PostgreSQL, MySQL, Firebird, MongoDB, SQLite) via Docker Compose e migrações ORM sem sobrecarga de MCPs estáticos.
 - **`universal-test-runner`**: Execução unificada de testes e análise de cobertura para Go, Python (pytest), Node/TypeScript (vitest/jest), .NET e Rust.
@@ -32,7 +32,6 @@ O `envctl` embuta e sincroniza **44 Skills de Agentes Especialistas** projetadas
 - **`variant-analysis`**: Caça às outras instâncias de um bug já encontrado — variantes da mesma causa raiz no resto do código (original, sem upstream).
 - **`verification-before-completion`**: Protocolo rigoroso de auto-verificação por evidências empíricas antes de finalizar tarefas.
 - **`receiving-code-review`**: Raciocínio crítico para avaliação e implementação de feedbacks de code review.
-- **`using-git-worktrees`**: Isolamento determinístico de workspaces através de árvores de trabalho do Git.
 - **`writing-plans`**: Elaboração de especificações e planos de implementação passo a passo.
 - **`docs-sync`**: Auditoria/atualização da documentação contra a implementação real (gaps, incorreções, docstrings TS/PY/GO) — audit-only por default (ideia de openai/openai-agents-python, workflow adaptado).
 
@@ -63,7 +62,7 @@ O `envctl` embuta e sincroniza **44 Skills de Agentes Especialistas** projetadas
 - **`skill-generalizer`**: Preparação de skills locais/privadas para publicação (portabilidade, metadados, licenciamento).
 - **`skill-personalizer`**: Auditoria e adaptação de skills recém-criadas/baixadas às preferências e ao ambiente do usuário.
 
-### 4. Domínio & Aplicações (10)
+### 4. Domínio & Aplicações (11)
 - **`bulk-postgres-import`**: Import/upsert em massa no PostgreSQL (batch multi-VALUES, `ON CONFLICT`, dedupe) tolerante a latência alta (túnel SSH).
 - **`jwt-hs256-node`**: Implementação de JWT HS256 sem dependências externas em Node.js (`createHmac` + `timingSafeEqual` com hash duplo).
 - **`lsp-smoke-test`**: Smoke test de LSP servers (`--stdio` com stdin fechado; nunca confiar em `--version`) antes de registrar na config.
@@ -73,6 +72,7 @@ O `envctl` embuta e sincroniza **44 Skills de Agentes Especialistas** projetadas
 - **`simple-feature-flag`**: Feature flags simples e auditáveis (tabela `app_config` + API JWT + leitura no início de cada ciclo).
 - **`web-dashboard-automation`**: Automação de dashboards/SPAs autenticados (interceptar o request real via Playwright, CSRF token, replicar chamadas).
 - **`cachyos-gaming-setup`**: Tuning de CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores, perfis de controle).
+- **`linux-performance-tuning`**: Performance Linux por OS (Ubuntu Server 24.04+ e CachyOS), zram, sysctl, swap planejado, journald, scheduler, governor, benchmark e rollback.
 - **`headless-gui-probe`**: Geração de configs e validação de apps GUI (Qt/SDL) sem display (offscreen/dummy, `timeout -k`, log scraping).
 
 ---

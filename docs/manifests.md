@@ -9,10 +9,12 @@ O `envctl` é orientado a **infraestrutura declarativa como código** (IaC). Tod
 ```
 manifests/
 ├── packages.yaml    # Pacotes de sistema, toolchains e aplicativos de produtividade
+├── performance_ubuntu.yaml # Perfil opt-in Ubuntu Server 24.04+ (zram + sysctl)
+├── performance_cachyos.yaml # Perfil opt-in CachyOS (zram; sem tuning genérico)
 ├── git.yaml         # Otimizações de performance e configurações globais do Git
 ├── shell.yaml       # Variáveis de ambiente, diretórios protegidos e templates de arquivo
 ├── lsp.yaml         # Servidores de linguagem (LSP) para IDEs e OpenCode
-├── skills.yaml      # Catálogo das 44 Skills de Agentes de IA (com escopo por ambiente)
+├── skills.yaml      # Catálogo das 45 Skills de Agentes de IA (com escopo por ambiente)
 └── windows.yaml     # Tweaks de registro, Developer Mode e fontes do Windows 11
 ```
 
@@ -67,7 +69,31 @@ packages:
 
 ---
 
-## 📄 2. `manifests/shell.yaml`
+## 📄 2. `manifests/performance_ubuntu.yaml` e `performance_cachyos.yaml`
+
+Perfis de performance são carregados somente pelo comando explícito
+`envctl run performance`; eles não fazem parte de `run all` nem de
+`doctor --fix`. O seletor exige o ID e a versão exatos do sistema:
+
+- Ubuntu `>= 24.04` usa `performance_ubuntu.yaml`;
+- CachyOS usa `performance_cachyos.yaml`;
+- Debian, Ubuntu antigo e Arch genérico são rejeitados.
+
+Entradas Ubuntu 24.04+ no `packages.yaml` podem usar
+`target_distro: ubuntu` e `min_distro_version: "24.04"` para impedir bleed entre
+distribuições. O perfil Ubuntu pode instalar `systemd-zram-generator` e gravar
+`/etc/sysctl.d/90-envctl-performance.conf`; o perfil CachyOS apenas garante o
+pacote `zram-generator` quando ausente. Nenhum dos dois cria swapfile ou altera
+journald, scheduler, governor, serviços, kernel cmdline ou mitigations.
+
+```bash
+envctl run performance --dry-run
+envctl run performance
+```
+
+---
+
+## 📄 3. `manifests/shell.yaml`
 
 Define variáveis de ambiente, diretórios restritos e o mapeamento de templates de configuração para o sistema de arquivos do usuário.
 
@@ -102,7 +128,7 @@ restricted_dirs:
 
 ---
 
-## 📄 3. `manifests/git.yaml`
+## 📄 4. `manifests/git.yaml`
 
 Define configurações globais do Git com foco em máxima performance em repositórios massivos e sistemas Windows/Linux:
 
@@ -127,7 +153,7 @@ git_configs:
 
 ---
 
-## 📄 4. `manifests/lsp.yaml`
+## 📄 5. `manifests/lsp.yaml`
 
 Registra os 15 servidores de linguagem utilizados por agentes de IA e IDEs (14 aplicáveis no Linux — `pwsh` é windows-only), associando cada um ao seu gerenciador nativo:
 
@@ -153,7 +179,7 @@ lsps:
 
 ---
 
-## 📄 5. `manifests/windows.yaml`
+## 📄 6. `manifests/windows.yaml`
 
 Define ajustes de registro do Windows 11 para desenvolvedores, visualização do Windows Explorer, modo escuro e fontes tipográficas:
 
@@ -183,7 +209,7 @@ tweaks:
 
 ---
 
-## 📄 6. `manifests/debloat.yaml`
+## 📄 7. `manifests/debloat.yaml`
 
 Debloat opt-in do Windows 11 absorvido do `windows11-clean` — **só** via `envctl run debloat`
 (nunca no `run all`/`run windows`). Reusa o schema de `windows.yaml` com dois tipos extras:

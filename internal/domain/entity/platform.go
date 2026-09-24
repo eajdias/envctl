@@ -3,6 +3,7 @@ package entity
 import (
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -16,31 +17,60 @@ const (
 	DistroUnknown = ""
 )
 
-var (
-	distroOnce   sync.Once
-	distroCached string
-)
-
-// DetectedDistro resolves the running platform to a provisioning family.
-//
-// Linux distros are classified through /etc/os-release (ID + ID_LIKE) so that
-// Arch-based hosts (Arch, CachyOS, EndeavourOS, Manjaro, Garuda) can be told
-// apart from Debian-based ones (Ubuntu, Debian, Mint) without probing for a
-// package manager at every call site. Windows and macOS report themselves,
-// and an unrecognized Linux host reports DistroUnknown — callers then fall
-// back to plain `linux` matching.
-func DetectedDistro() string {
-	distroOnce.Do(func() {
-		distroCached = detectDistro()
-	})
-	return distroCached
+// PlatformInfo contains both the broad family used by existing manifests and
+// the exact distro identity/version read from /etc/os-release. The latter is
+// required for profiles that must not bleed across Ubuntu, Debian, and Arch
+// derivatives.
+type PlatformInfo struct {
+	GOOS      string
+	Family    string
+	ID        string
+	VersionID string
+	IDLike    string
 }
 
-func detectDistro() string {
+var platformOnce sync.Once
+var platformCached PlatformInfo
+
+// DetectedPlatform resolves the running platform and caches the result.
+func DetectedPlatform() PlatformInfo {
+	platformOnce.Do(func() {
+		platformCached = detectPlatform()
+	})
+	return platformCached
+}
+
+// DetectedDistro resolves the running platform to a provisioning family.
+func DetectedDistro() string {
+	return DetectedPlatform().Family
+}
+
+// DetectedDistroID returns the exact ID from /etc/os-release on Linux.
+func DetectedDistroID() string {
+	return DetectedPlatform().ID
+}
+
+// DetectedDistroVersion returns VERSION_ID from /etc/os-release on Linux.
+func DetectedDistroVersion() string {
+	return DetectedPlatform().VersionID
+}
+
+func detectPlatform() PlatformInfo {
 	if runtime.GOOS != "linux" {
-		return runtime.GOOS
+		return PlatformInfo{GOOS: runtime.GOOS, Family: runtime.GOOS}
 	}
-	id, idLike := readOSRelease()
+
+	id, idLike, version := readOSRelease()
+	return PlatformInfo{
+		GOOS:      "linux",
+		Family:    distroFamily(id, idLike),
+		ID:        id,
+		VersionID: version,
+		IDLike:    idLike,
+	}
+}
+
+func distroFamily(id, idLike string) string {
 	candidates := append([]string{id}, strings.Fields(idLike)...)
 	for _, candidate := range candidates {
 		switch candidate {
@@ -53,13 +83,17 @@ func detectDistro() string {
 	return DistroUnknown
 }
 
-// readOSRelease extracts ID and ID_LIKE from /etc/os-release.
-func readOSRelease() (id, idLike string) {
+// readOSRelease extracts ID, ID_LIKE, and VERSION_ID from /etc/os-release.
+func readOSRelease() (id, idLike, version string) {
 	data, err := os.ReadFile("/etc/os-release")
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	return parseOSRelease(string(data))
+}
+
+func parseOSRelease(data string) (id, idLike, version string) {
+	for _, line := range strings.Split(data, "\n") {
 		key, value, ok := strings.Cut(strings.TrimSpace(line), "=")
 		if !ok {
 			continue
@@ -70,9 +104,11 @@ func readOSRelease() (id, idLike string) {
 			id = value
 		case "ID_LIKE":
 			idLike = value
+		case "VERSION_ID":
+			version = value
 		}
 	}
-	return id, idLike
+	return id, idLike, version
 }
 
 // MatchOS reports whether an `os:` manifest filter applies to a platform.
@@ -109,7 +145,83 @@ func MatchOS(filter, goos, distro string) bool {
 	return false
 }
 
+// PackageMatchesPlatform applies the legacy OS-family filter plus optional
+// exact distro and minimum VERSION_ID constraints. It is pure so package
+// selection can be tested without depending on the host running the tests.
+func PackageMatchesPlatform(pkg Package, platform PlatformInfo) bool {
+	if !MatchOS(pkg.OS, platform.GOOS, platform.Family) {
+		return false
+	}
+	if pkg.TargetDistro != "" && !strings.EqualFold(strings.TrimSpace(pkg.TargetDistro), platform.ID) {
+		return false
+	}
+	if pkg.MinDistroVersion != "" && compareDistroVersions(platform.VersionID, pkg.MinDistroVersion) < 0 {
+		return false
+	}
+	return true
+}
+
+// MatchesPackage applies PackageMatchesPlatform to the current host.
+func MatchesPackage(pkg Package) bool {
+	return PackageMatchesPlatform(pkg, DetectedPlatform())
+}
+
+func compareDistroVersions(current, minimum string) int {
+	currentParts, currentOK := parseDistroVersion(current)
+	minimumParts, minimumOK := parseDistroVersion(minimum)
+	if !currentOK || !minimumOK {
+		return -1
+	}
+
+	max := len(currentParts)
+	if len(minimumParts) > max {
+		max = len(minimumParts)
+	}
+	for i := 0; i < max; i++ {
+		var currentPart, minimumPart int
+		if i < len(currentParts) {
+			currentPart = currentParts[i]
+		}
+		if i < len(minimumParts) {
+			minimumPart = minimumParts[i]
+		}
+		if currentPart < minimumPart {
+			return -1
+		}
+		if currentPart > minimumPart {
+			return 1
+		}
+	}
+	return 0
+}
+
+func parseDistroVersion(version string) ([]int, bool) {
+	version = strings.TrimSpace(version)
+	if version == "" {
+		return nil, false
+	}
+
+	parts := strings.Split(version, ".")
+	values := make([]int, 0, len(parts))
+	for _, part := range parts {
+		end := 0
+		for end < len(part) && part[end] >= '0' && part[end] <= '9' {
+			end++
+		}
+		if end == 0 {
+			break
+		}
+		value, err := strconv.Atoi(part[:end])
+		if err != nil {
+			return nil, false
+		}
+		values = append(values, value)
+	}
+	return values, len(values) > 0
+}
+
 // MatchesOS reports whether the filter applies to the running platform.
 func MatchesOS(filter string) bool {
-	return MatchOS(filter, runtime.GOOS, DetectedDistro())
+	platform := DetectedPlatform()
+	return MatchOS(filter, platform.GOOS, platform.Family)
 }

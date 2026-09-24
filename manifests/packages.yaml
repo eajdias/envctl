@@ -589,6 +589,163 @@ packages:
     category: cli-tools
 
   # ============================================================================
+  # Ubuntu Server 24.04+ headless performance/CLI toolbox
+  # Verified against Ubuntu 24.04 repositories; exact target fields prevent
+  # these entries from being selected on Debian or older Ubuntu releases.
+  # ============================================================================
+  - id: eza
+    name: eza (modern ls replacement)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: eza --version
+
+  - id: tmux
+    name: tmux (persistent terminal sessions)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: tmux -V
+
+  - id: sqlite3
+    name: SQLite CLI
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: sqlite3 --version
+
+  - id: restic
+    name: restic (backup CLI; no remote configured)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: system
+    check_command: restic version
+
+  - id: rclone
+    name: rclone (transfer CLI; no remote configured)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: system
+    check_command: rclone --version
+
+  - id: btop
+    name: btop (resource monitor)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: btop --version
+
+  - id: duf
+    name: duf (disk usage viewer)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: duf --version
+
+  - id: glances
+    name: glances (system overview)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: glances --version
+
+  - id: micro
+    name: micro (terminal editor)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: micro --version
+
+  - id: cmake
+    name: CMake (build toolchain)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: toolchain
+    check_command: cmake --version
+
+  - id: ninja-build
+    name: Ninja (fast build backend)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: toolchain
+    check_command: ninja --version
+
+  - id: mosh
+    name: Mosh (resilient remote shell)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: mosh --version
+
+  - id: nvtop
+    name: nvtop (NVIDIA/AMD/Intel GPU monitor)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: nvtop --version
+
+  - id: iotop
+    name: iotop (disk I/O monitor)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: cli-tools
+    check_command: iotop --version
+
+  - id: sysstat
+    name: sysstat (system activity accounting)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: system
+
+  - id: zstd
+    name: zstd (fast compression)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: system
+    check_command: zstd --version
+
+  - id: lz4
+    name: lz4 (fast compression)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: system
+    check_command: lz4 --version
+
+  # ============================================================================
   # Arch Linux / CachyOS (pacman) — skipped automatically where pacman is absent
   # ============================================================================
   # paru is the AUR helper the `type: paru` entries below rely on. CachyOS ships

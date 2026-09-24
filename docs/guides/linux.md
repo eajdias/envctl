@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 44 Skills de IA.
+4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 45 Skills de IA.
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -86,7 +86,7 @@ envctl run volta
 # Apenas configurações de shell (.bashrc, aliases, git configs)
 envctl run shell
 
-# Apenas extração e validação das 44 Skills de Agentes
+# Apenas extração e validação das 45 Skills de Agentes
 envctl run skills
 
 # Apenas instalação dos binários de linguagem p/ shell/IDE (15 LSPs; sem efeito no runtime opencode v2)
@@ -98,6 +98,28 @@ envctl doctor
 # Auto-remediação de avisos e pendências
 envctl doctor --fix
 ```
+
+### Performance Linux por SO (opt-in)
+
+O comando `run performance` seleciona um perfil exato e nunca mistura Ubuntu
+com CachyOS:
+
+```bash
+# Ubuntu Server 24.04+ ou CachyOS: mostra o plano sem alterar o host
+envctl run performance --dry-run
+
+# Aplica somente o perfil do sistema detectado
+envctl run performance
+```
+
+Ubuntu 24.04+ pode instalar `systemd-zram-generator`, carregar o módulo `zram`,
+recarregar as units e ativar `dev-zram0.swap` quando necessário, além de
+gerenciar o drop-in `/etc/sysctl.d/90-envctl-performance.conf`. CachyOS garante o
+`zram-generator` quando ausente e preserva o tuning já existente. O comando não
+cria swapfile, não altera journald, scheduler, governor, serviços de tuning,
+kernel parameters ou mitigations; o único lifecycle de serviço permitido é o
+gerador do zram. Esses pontos restantes ficam em auditoria/skill e exigem
+benchmark e aprovação.
 
 ---
 

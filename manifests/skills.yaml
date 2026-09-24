@@ -81,6 +81,12 @@ skills:
       source: configs/skills/database-ops
       target_dir: ""
       enabled: true
+    - name: linux-performance-tuning
+      description: Auditar e tuning de performance Linux por OS (Ubuntu Server 24.04+, CachyOS), zram, sysctl, swap, journald, scheduler, governor e rollback
+      source: configs/skills/linux-performance-tuning
+      target_dir: ""
+      enabled: true
+      os: arch,cachyos,debian,ubuntu
     - name: git-workflow
       description: Git & GitHub CLI — branches semânticas, conventional commits, PR lifecycle e resolução de conflitos
       source: configs/skills/git-workflow

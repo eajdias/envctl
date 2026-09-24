@@ -24,7 +24,7 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 			_ = cmd.Help()
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, providers, winget, apt, pacman, paru, gaming, debloat, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
+			return fmt.Errorf("unknown subsystem '%s' (valid: all, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
 		},
 	}
 
@@ -80,6 +80,21 @@ func newRunCmd() *cobra.Command {
 			runGamingProvisioning()
 		},
 	})
+
+	performanceCmd := &cobra.Command{
+		Use:   "performance",
+		Short: "Apply the exact Ubuntu 24.04+ or CachyOS performance profile",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dryRun, err := cmd.Flags().GetBool("dry-run")
+			if err != nil {
+				return err
+			}
+			PrintBanner()
+			return runPerformanceProvisioning(cmd.Context(), dryRun)
+		},
+	}
+	performanceCmd.Flags().Bool("dry-run", false, "Show the exact OS profile and changes without applying them")
+	cmd.AddCommand(performanceCmd)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "debloat",

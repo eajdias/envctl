@@ -104,6 +104,22 @@ func TestManifestOSLint(t *testing.T) {
 			}
 		}
 
+		var targetDistro []string
+		collectStringValues(doc, "target_distro", &targetDistro)
+		for _, target := range targetDistro {
+			if target != "ubuntu" && target != "cachyos" {
+				t.Errorf("%s: unknown target_distro %q (allowed: ubuntu, cachyos)", filepath.Base(mf), target)
+			}
+		}
+
+		var minVersions []string
+		collectStringValues(doc, "min_distro_version", &minVersions)
+		for _, version := range minVersions {
+			if version == "" {
+				t.Errorf("%s: min_distro_version must not be empty", filepath.Base(mf))
+			}
+		}
+
 		var checks []string
 		collectStringValues(doc, "check_command", &checks)
 		for _, c := range checks {

@@ -22,7 +22,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
 | Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
-| Pacotes declarados (aplicáveis) | **55** (29 winget · 15 volta · 11 pip) | **46** (27 apt · 15 volta · 4 uv-pip) | **70** (50 pacman · 15 volta · 4 uv-pip · 1 paru) |
+| Pacotes declarados (aplicáveis) | **55** (29 winget · 15 volta · 11 pip) | **63** em Ubuntu 24.04+ (44 apt · 15 volta · 4 uv-pip; **46** em Ubuntu/Debian antigos) | **70** (50 pacman · 15 volta · 4 uv-pip · 1 paru) |
 | **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
 | Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 18 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
@@ -31,7 +31,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
 | LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
-| Skills por agente | **41** (39 + 2 só-Windows) | **40** (39 + `headless-gui-probe`) | **42** (39 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
+| Skills por agente | **41** (39 + 2 só-Windows) | **41** (39 + `headless-gui-probe` + `linux-performance-tuning`) | **43** (39 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe` + `linux-performance-tuning`) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat opt-in **`run debloat`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
@@ -64,9 +64,12 @@ v1 legado em `/usr/bin` é substituído pelo v2 user-local, porque a configuraç
 V2 não funciona com v1. Uma cópia local nunca deve vencer o pacote do Arch.
 
 **Famílias de distro:** o campo `os:` aceita, além de `windows`/`linux`/`darwin`, as famílias
-`arch`/`cachyos` e `debian`/`ubuntu` (via `entity.MatchOS`). Exemplo real: `cursor-bin` é
-`os: arch` com `type: paru`, então só é tocado em Arch — em Ubuntu o gerenciador paru nem é
-consultado.
+`arch`/`cachyos` e `debian`/`ubuntu` (via `entity.MatchOS`). Perfis novos usam
+`target_distro` + `min_distro_version` para separar Ubuntu 24.04+ de Debian/Ubuntu
+antigos e CachyOS de Arch genérico. Exemplo real: `cursor-bin` é `os: arch` com
+`type: paru`, então só é tocado em Arch — em Ubuntu o gerenciador paru nem é consultado.
+O comando `run performance` é opt-in: Ubuntu 24.04+ pode instalar zram e aplicar o
+sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tuning existente.
 
 ---
 

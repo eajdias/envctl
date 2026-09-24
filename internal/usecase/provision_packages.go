@@ -15,6 +15,7 @@ type ProvisionPackagesUseCase struct {
 	manifestRepo repository.ManifestRepository
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
+	platform     func() entity.PlatformInfo
 }
 
 func NewProvisionPackagesUseCase(
@@ -26,6 +27,7 @@ func NewProvisionPackagesUseCase(
 		manifestRepo: manifestRepo,
 		managers:     managers,
 		logger:       logger,
+		platform:     entity.DetectedPlatform,
 	}
 }
 
@@ -77,12 +79,30 @@ func packageOwnershipProbe(pkg entity.Package) entity.Package {
 	return pkg
 }
 
+// ExecuteList provisions an explicitly supplied package list. It is used by
+// opt-in profiles so they cannot accidentally load the general packages.yaml.
+func (uc *ProvisionPackagesUseCase) ExecuteList(ctx context.Context, allPkgs []entity.Package, filterType entity.PackageType, dryRun bool, onProgress PackageProgressHandler) ([]entity.Package, error) {
+	return uc.provisionListMode(ctx, allPkgs, filterType, dryRun, onProgress)
+}
+
 func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs []entity.Package, filterType entity.PackageType, onProgress PackageProgressHandler) ([]entity.Package, error) {
+	return uc.provisionListMode(ctx, allPkgs, filterType, false, onProgress)
+}
+
+func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPkgs []entity.Package, filterType entity.PackageType, dryRun bool, onProgress PackageProgressHandler) ([]entity.Package, error) {
 
 	var results []entity.Package
+	platform := uc.platform
+	if platform == nil {
+		platform = entity.DetectedPlatform
+	}
+	currentPlatform := platform()
+	if currentPlatform.GOOS == "" {
+		currentPlatform = entity.DetectedPlatform()
+	}
 
 	for _, pkg := range allPkgs {
-		if !entity.MatchesOS(pkg.OS) {
+		if !entity.PackageMatchesPlatform(pkg, currentPlatform) {
 			continue
 		}
 
@@ -137,6 +157,15 @@ func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs [
 			}
 			if onProgress != nil {
 				onProgress(pkg, fmt.Sprintf("already installed (%s)", info), nil)
+			}
+			continue
+		}
+
+		if dryRun {
+			pkg.Status = entity.StatusMissing
+			results = append(results, pkg)
+			if onProgress != nil {
+				onProgress(pkg, "would install (dry-run)", nil)
 			}
 			continue
 		}

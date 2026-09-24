@@ -34,6 +34,9 @@
 - 2026-09-24 ❌ Persistir `~/.opencode/bin` procurando o valor expandido de `$HOME` no arquivo de shell → ✅ Persistir a linha uma única vez procurando o token literal `.opencode/bin` (e testar o script duas vezes) — o `printf` grava `$HOME` literalmente, então o grep por `/home/user/.opencode/bin` não encontra a linha e duplica o PATH.
 - 2026-09-24 ❌ Copiar um binário com `scp` para `/tmp/envctl-v2-test` sem criar o diretório remoto → ✅ Criar o diretório primeiro e enviar para `host:/tmp/envctl-v2-test/envctl` (sem unprepared path, scp cria um arquivo e a execução falha com `Not a directory`).
 
+- 2026-09-24 ❌ Assumir que instalar `systemd-zram-generator` já cria `/dev/zram0` → ✅ Antes de iniciar `systemd-zram-setup@zram0.service`, carregar `modprobe zram`, aguardar o device e recusar criar `zram0` se outro `zram*` já existir (porque o serviço falha em `/sys/block/zram0/disksize` quando o módulo não está carregado).
+- 2026-09-24 ❌ Trocar `/etc/sysctl.d/*.conf` com `install` direto no arquivo vivo → ✅ Instalar um temporário no mesmo diretório e fazer `mv` atômico, preservando backup antes (because uma cópia interrompida pode truncar o drop-in).
+
 ## Padrões / Preferências (o que funciona)
 
 <!-- - 2026-08-20 ✅ Quando <situação>, faça <o que funciona> -->

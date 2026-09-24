@@ -18,6 +18,7 @@ import (
 	"github.com/eajdias/envctl/internal/infra/logger"
 	"github.com/eajdias/envctl/internal/infra/pacman"
 	"github.com/eajdias/envctl/internal/infra/paru"
+	"github.com/eajdias/envctl/internal/infra/performance"
 	"github.com/eajdias/envctl/internal/infra/toolchain"
 	"github.com/eajdias/envctl/internal/infra/windows"
 	"github.com/eajdias/envctl/internal/infra/winget"
@@ -35,19 +36,20 @@ type AppContext struct {
 	PackageManagers map[entity.PackageType]repository.PackageManager
 
 	// UseCases
-	ProvisionPkgsUC      *usecase.ProvisionPackagesUseCase
-	ProvisionShellUC     *usecase.ProvisionShellUseCase
-	ProvisionSkillsUC    *usecase.ProvisionSkillsUseCase
-	ProvisionLSPUC       *usecase.ProvisionLSPsUseCase
-	ProvisionWindowsUC   *usecase.ProvisionWindowsUseCase
-	ProvisionDebloatUC   *usecase.ProvisionDebloatUseCase
-	ProvisionBootstrapUC *usecase.ProvisionBootstrapUseCase
-	ProvisionProvidersUC *usecase.ProvisionProvidersUseCase
-	DoctorAuditUC        *usecase.DoctorAuditUseCase
-	SnapshotSyncUC       *usecase.SnapshotSyncUseCase
-	TempHygieneUC        *usecase.TempHygieneUseCase
-	CleanupOpenCodeUC    *usecase.CleanupOpenCodeUseCase
-	CleanupCommandCodeUC *usecase.CleanupCommandCodeUseCase
+	ProvisionPkgsUC        *usecase.ProvisionPackagesUseCase
+	ProvisionPerformanceUC *usecase.ProvisionPerformanceUseCase
+	ProvisionShellUC       *usecase.ProvisionShellUseCase
+	ProvisionSkillsUC      *usecase.ProvisionSkillsUseCase
+	ProvisionLSPUC         *usecase.ProvisionLSPsUseCase
+	ProvisionWindowsUC     *usecase.ProvisionWindowsUseCase
+	ProvisionDebloatUC     *usecase.ProvisionDebloatUseCase
+	ProvisionBootstrapUC   *usecase.ProvisionBootstrapUseCase
+	ProvisionProvidersUC   *usecase.ProvisionProvidersUseCase
+	DoctorAuditUC          *usecase.DoctorAuditUseCase
+	SnapshotSyncUC         *usecase.SnapshotSyncUseCase
+	TempHygieneUC          *usecase.TempHygieneUseCase
+	CleanupOpenCodeUC      *usecase.CleanupOpenCodeUseCase
+	CleanupCommandCodeUC   *usecase.CleanupCommandCodeUseCase
 }
 
 var (
@@ -102,28 +104,34 @@ func InitApp(embeddedFS fs.FS, version string) {
 		entity.PackageTypeGo:     toolchain.NewGoManager(),
 	}
 
+	packagesUC := usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger)
+	sysctlManager := performance.NewSysctlManager()
+	zramManager := performance.NewZRAMManager()
+	performanceInspector := performance.NewPerformanceInspector()
+
 	appCtx = &AppContext{
-		EmbeddedFS:           embeddedFS,
-		ManifestRepo:         manifestRepo,
-		FSManager:            fsManager,
-		EnvManager:           envManager,
-		GitManager:           gitManager,
-		TweaksManager:        windowsTweaksMgr,
-		Logger:               fileLogger,
-		PackageManagers:      pkgManagers,
-		ProvisionPkgsUC:      usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionShellUC:     usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
-		ProvisionSkillsUC:    usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
-		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
-		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
-		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger),
-		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
-		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
-		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
-		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
+		EmbeddedFS:             embeddedFS,
+		ManifestRepo:           manifestRepo,
+		FSManager:              fsManager,
+		EnvManager:             envManager,
+		GitManager:             gitManager,
+		TweaksManager:          windowsTweaksMgr,
+		Logger:                 fileLogger,
+		PackageManagers:        pkgManagers,
+		ProvisionPkgsUC:        packagesUC,
+		ProvisionPerformanceUC: usecase.NewProvisionPerformanceUseCase(manifestRepo, packagesUC, sysctlManager, zramManager, fileLogger, entity.DetectedPlatform),
+		ProvisionShellUC:       usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
+		ProvisionSkillsUC:      usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
+		ProvisionLSPUC:         usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionWindowsUC:     usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionDebloatUC:     usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionBootstrapUC:   usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
+		ProvisionProvidersUC:   usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
+		DoctorAuditUC:          usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
+		SnapshotSyncUC:         usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
+		TempHygieneUC:          usecase.NewTempHygieneUseCase(fileLogger),
+		CleanupOpenCodeUC:      usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
+		CleanupCommandCodeUC:   usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
 	registerCommands()
