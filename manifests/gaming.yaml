@@ -37,6 +37,26 @@ packages:
     os: arch,cachyos
     category: gaming
 
+  # Launchers & streaming (homelab inventory 95/50-games: GOG/Epic + mixed
+  # catalog + Sunshine/Moonlight vaapi stream to weak clients)
+  - id: heroic-games-launcher
+    name: Heroic launcher (GOG/Epic)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: lutris
+    name: Lutris mixed game catalog/compat
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: sunshine
+    name: Sunshine stream host (Moonlight clients)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
   # Standalone emulators (official repos)
   - id: dolphin-emu
     name: Dolphin emulator (GameCube/Wii)
@@ -210,5 +230,18 @@ packages:
   - id: xf86-input-libinput
     name: libinput X.Org input driver
     type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  # Scraper & Switch tooling (AUR binaries, no compilation)
+  - id: skyscraper-git
+    name: Skyscraper game scraper (ES-DE covers/artwork)
+    type: paru
+    os: arch,cachyos
+    category: gaming
+
+  - id: hactool
+    name: hactool (extract Switch ROM keys/content)
+    type: paru
     os: arch,cachyos
     category: gaming

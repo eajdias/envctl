@@ -26,6 +26,8 @@
 | Auditar/atualizar docs contra a implementação real | `docs-sync` |
 | Desenhar/validar contrato de API (OpenAPI, GraphQL, gRPC) | `api-contract-design` |
 | Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
+| Rede tailnet: status/inventário, exit node, expor porta (serve/funnel) | `tailscale` |
+| Sync de pastas entre devices via API (status, pasta nova, conflitos) | `syncthing-ops` |
 | Provisionar, atualizar ou auditar VPS/VM com envctl | `vps-provisioning` |
 | Rodar tarefa pesada (build, suíte, crawler) numa VPS | `vps-agent-dispatch` |
 | Containers, compose, imagens, volumes, Docker Hub, build local/transporte (VPS fraca) e restart WSL2 | `docker` |

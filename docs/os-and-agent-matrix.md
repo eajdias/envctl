@@ -22,7 +22,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
 | Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
-| Pacotes declarados (aplicáveis) | **54** (29 winget · 15 volta · 10 pip) | **45** (27 apt · 15 volta · 3 uv-pip) | **48** (29 pacman · 15 volta · 3 uv-pip · 1 paru) |
+| Pacotes declarados (aplicáveis) | **55** (29 winget · 15 volta · 11 pip) | **46** (27 apt · 15 volta · 4 uv-pip) | **70** (50 pacman · 15 volta · 4 uv-pip · 1 paru) |
 | **Fase 0: provedores (`run providers`)** | instalador oficial PowerShell (`~/.local/bin`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial do opencode + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
 | Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 18 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, com **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
@@ -31,7 +31,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
 | LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
-| Skills por agente | **38** (37 + 1 só-Windows) | **38** (37 + `headless-gui-probe`) | **40** (37 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
+| Skills por agente | **40** (39 + 1 só-Windows) | **40** (39 + `headless-gui-probe`) | **42** (39 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe`) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
@@ -148,7 +148,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Cursor IDE | Windows (winget) · Arch (paru) | — (é o editor padronizado; habilita `/ide` + `get_diagnostics`) |
 | RAG / automações | libs de agente (`requests`, `bs4`, `pypdf`, `openpyxl`, `lxml`, `docx`, `yaml`) | libs de RAG pertencem ao venv do projeto (`uv`) |
 | N8N | — | npm-based: pertence ao projeto (`bunx`/`npx`) |
-| Gaming / debloat | `run gaming` (33 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) | telemetria/Game Bar no Windows |
+| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) | telemetria/Game Bar no Windows |
 
 **Fora da stack (removidos):** `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`), Visual Studio Code
 (+ `vscode_settings`), Termius, WinSCP, GitHub Desktop, Rust/Oh-My-Posh (remoção anterior).

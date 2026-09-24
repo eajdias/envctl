@@ -28,6 +28,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Added**: 21 pacotes pacman (`os: arch,cachyos`) absorvidos do inventário CachyOS —
+  `eza`, `zoxide`, `direnv`, `lazygit`, `lazydocker`, `tmux`, `sqlite`, `restic`, `rclone`,
+  `rsync`, `btop`, `duf`, `glances`, `fastfetch`, `micro`, `meld`, `cmake`, `ninja`, `mosh`,
+  `android-tools`, `unzip` (nomes/`check_command` verificados com `pacman -Si` no CachyOS) +
+  `yt-dlp` via `uv tool` (portátil) — matriz §1: Arch 48→70 aplicáveis.
+- **Added**: `gaming.yaml` 33→38 pkgs — `heroic-games-launcher`, `lutris`, `sunshine`
+  (pacman) + `skyscraper-git`, `hactool` (paru/AUR).
+- **Added**: skills portáteis `tailscale` (roadmap item 3, parcial) e `syncthing-ops`
+  (via REST API, nunca `config.xml` na mão) — catálogo 41→43 (Win 40, Ubuntu 40, CachyOS 42).
+
 ## [v1.3.0] - 2026-09-22
 
 ### 🧹 OpenCode configs em formato nativo V2 + plan built-in (sem `lsp`, sem `dcp.jsonc`)

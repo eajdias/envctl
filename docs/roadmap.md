@@ -64,6 +64,9 @@ Auditoria por subsistema:
 de ACL; e `cloudflared` (criar/listar túneis, `tunnel route dns`, rodar como serviço com
 credenciais 0600).
 
+- **Status 2026-09-24:** skill `tailscale` absorvida do inventário CachyOS (portátil, sem PII);
+  `cloudflared` segue pendente.
+
 - Onde: `configs/skills/<nome>/` + `manifests/skills.yaml` (checklist na §5 da matriz).
 - Hoje a camada de rede **não** tem skill; o acesso remoto existe pelo skill de SSH/ssh-manager.
 - Receita que vale documentar: "expor uma porta local para o tailnet **ou** para a internet
@@ -135,6 +138,8 @@ whitelist segura.
 
 - **CLIs extras de dev** (lazygit, `npm-check-updates`/`ncu`; avaliar `xh`, `duf`): entram no
   manifesto de **pacotes** com `check_command` e auditoria — não na fase 0, que é só provedores.
+  **Status 2026-09-24:** `lazygit`, `lazydocker` e `duf` absorvidos do inventário CachyOS
+  (pacman, `os: arch,cachyos`); `ncu`/`xh` seguem pendentes.
 - **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
   nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
 - **`ty`** (Astral) como segundo type checker Python, ao lado do mypy (ver §4 da matriz).
