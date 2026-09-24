@@ -32,8 +32,12 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   cloudflared skills, deep SSH verification between OSes, local provider driving remote
   providers over SSH, the project rename and running envctl as a background service), each
   with the context already gathered. Check it before proposing "new" work.
-- **`CHANGELOG.md`** — released work, one section per release. Shipped work never
-  stays under `[Unreleased]`.
+- **`CHANGELOG.md`** — owned by the release-please bot: version sections and
+  release notes are generated from conventional commits (`feat`→minor,
+  `fix`→patch, `chore`/`docs`→no release). Never hand-write a version
+  section or create a tag — push `feat:`/`fix:` commits and merge the
+  `chore(main): release X.Y.Z` PR the bot opens (merge ships tag +
+  release + binaries). Brief notes may sit under `[Unreleased]`.
 
 Counts (packages, skills, LSPs) drift by design; the manifests are the source of
 truth and `envctl doctor` asserts the machine against them. When a number in the

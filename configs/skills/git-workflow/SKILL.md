@@ -23,6 +23,14 @@ Commits atômicos; `git status` + `git diff --staged` antes de cada commit.
 `git push -u origin HEAD` → `gh pr create` → `gh pr checks` → `gh pr merge --squash --delete-branch`.
 Conflitos: `git fetch origin main` + `git rebase origin/main`, resolvendo a favor do remoto. **NUNCA** force-push em `main`/`master`.
 
+## Releases (release-please, automático)
+
+- NUNCA crie tags (`git tag`, `gh release create`) — um workflow antigo criava 1 tag por push e poluíu o repo com 74 tags (apagadas em 2026-09-24).
+- A versão nasce dos conventional commits: `feat:` → minor, `fix:` → patch, `feat!:`/`BREAKING CHANGE:` → major. `chore:`/`docs:`/`test:` não geram release.
+- O bot abre o PR `chore(main): release X.Y.Z` (CHANGELOG + manifest). Confira o CI e dê merge (squash, sem deletar o branch do bot) — o merge cria tag + release e o pipeline anexa os binários.
+- `CHANGELOG.md` é do bot: nunca escreva seção de versão à mão; notas breves podem ir em `[Unreleased]`.
+- Release sem binários (pipeline falhou)? Re-dispare: `gh workflow run "Release Pipeline" --ref main -f version=vX.Y.Z`.
+
 ## Isolamento com git worktree
 
 Quando precisar de workspace isolado (feature, plano, paralelo no mesmo repo) — use como complemento ao fluxo acima.
