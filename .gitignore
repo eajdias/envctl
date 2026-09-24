@@ -29,6 +29,9 @@
 *.swp
 *.swo
 
+# PowerShell Editor Services session file (per-session NamedPipe names)
+PowerShellEditorServices.json
+
 # Playwright MCP scratch
 .playwright-mcp/
 
