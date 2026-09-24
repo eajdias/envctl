@@ -2,7 +2,7 @@
 
 Go CLI (Clean Architecture) that provisions and audits dev environments on
 Windows 11, Ubuntu/Debian and Arch/CachyOS: system packages, shell/env/configs,
-41 agent skills (OpenCode + CommandCode), 15 LSPs, Windows tweaks, and a local
+44 agent skills (OpenCode + CommandCode), 15 LSPs, Windows tweaks, and a local
 verification gate wired both to the agent and to git.
 
 Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
@@ -24,9 +24,12 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   atomic backup and log conventions.
 - **Phase 0 — `run providers`** — runs first inside `run all` and guarantees Volta,
   a default Node runtime and the OpenCode/CommandCode CLIs. It updates what Volta
-  owns and **only reports** anything owned by the OS: installing a second copy
-  under `~/.local/bin` would win on PATH and freeze that version. `opencode` is
-  never installed via npm — the npm channel lags the distro/release line (see
+  owns and keeps OS-owned binaries authoritative: on Arch, stale envctl user-local
+  copies are archived and pacman remains the owner; a second copy under
+  `~/.local/bin` would otherwise win on PATH and freeze that version. `opencode` is
+  never installed via npm/Volta — the official V2 channel is used on Linux
+  (`https://opencode.ai/v2/install`, `~/.opencode/bin`) and the PowerShell
+  installer on Windows; the npm channel lags the distro/release line (see
   asymmetry #9 in the matrix).
 - **`docs/roadmap.md`** — the agreed future work (Termux/Android as an OS, tailscale and
   cloudflared skills, deep SSH verification between OSes, local provider driving remote

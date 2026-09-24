@@ -22,6 +22,7 @@ import (
 type ProvisionBootstrapUseCase struct {
 	fsManager    repository.FileSystemManager
 	manifestRepo repository.ManifestRepository
+	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 }
 
@@ -31,8 +32,8 @@ type BootstrapResult struct {
 }
 
 // NewProvisionBootstrapUseCase builds the Linux toolchain bootstrap use case.
-func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, manifestRepo repository.ManifestRepository, logger repository.Logger) *ProvisionBootstrapUseCase {
-	return &ProvisionBootstrapUseCase{fsManager: fsManager, manifestRepo: manifestRepo, logger: logger}
+func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, manifestRepo repository.ManifestRepository, managers map[entity.PackageType]repository.PackageManager, logger repository.Logger) *ProvisionBootstrapUseCase {
+	return &ProvisionBootstrapUseCase{fsManager: fsManager, manifestRepo: manifestRepo, managers: managers, logger: logger}
 }
 
 // userHome expands ~ to the current user's home directory.
@@ -51,11 +52,12 @@ func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
 // linuxToolchainEnv builds an environment that resolves Volta shims,
 // user-local binaries and Go, shared by the bootstrap and doctor use cases.
 func linuxToolchainEnv(home string) []string {
+	openCodeBin := filepath.Join(home, ".opencode", "bin")
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
 	goBin := "/usr/local/go/bin"
 	userGoBin := filepath.Join(home, "go", "bin")
-	path := strings.Join([]string{localBin, voltaBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
+	path := strings.Join([]string{openCodeBin, localBin, voltaBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
 	env := []string{
 		"PATH=" + path,
 		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
@@ -94,13 +96,14 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	if home == "" {
 		return
 	}
+	openCodeBin := filepath.Join(home, ".opencode", "bin")
 	localBin := filepath.Join(home, ".local", "bin")
 	voltaBin := filepath.Join(home, ".volta", "bin")
 	goBin := "/usr/local/go/bin"
 	userGoBin := filepath.Join(home, "go", "bin")
 	cur := os.Getenv("PATH")
-	if !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
-		os.Setenv("PATH", strings.Join([]string{localBin, voltaBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
+	if !strings.Contains(cur, openCodeBin) || !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
+		os.Setenv("PATH", strings.Join([]string{openCodeBin, localBin, voltaBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
 	}
 	if os.Getenv("VOLTA_HOME") == "" {
 		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
@@ -144,6 +147,20 @@ func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *Bootstrap
 		return
 	}
 
+	if err := uc.installStep(ctx, result, name, target, installScript); err != nil {
+		return
+	}
+	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "installed successfully")
+	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
+		Details: "Installed successfully",
+	})
+}
+
+// installStep runs an installer and records only its failure. Callers that
+// need a post-install version check can add their own success diagnostic after
+// verifying the resulting binary.
+func (uc *ProvisionBootstrapUseCase) installStep(ctx context.Context, result *BootstrapResult, name, target, installScript string) error {
 	uc.logger.Info("LinuxBootstrap: installing %s (%s)", name, target)
 	out, err := uc.runShell(ctx, installScript)
 	if err != nil {
@@ -156,13 +173,141 @@ func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *Bootstrap
 			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: target,
 			Details: msg, FixHint: "Run the install command manually as your user",
 		})
+	}
+	return err
+}
+
+// ensureOpenCodeV2 converges the OpenCode CLI to the V2-native channel. A
+// package-owned binary stays authoritative: stale user-local copies are
+// archived, and the package is updated through its manager. Ubuntu/Debian
+// user-local and non-package system copies use the official V2 installer.
+func (uc *ProvisionBootstrapUseCase) ensureOpenCodeV2(ctx context.Context, result *BootstrapResult) {
+	installed := uc.toolVersion(ctx, "opencode")
+	source := installSource("opencode")
+	pacmanOwns := uc.pacmanOwnsOpenCode(ctx)
+
+	for pacmanOwns && source != sourceSystem {
+		path, err := resolveOnToolchainPath("opencode")
+		if err != nil {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
+				Details: fmt.Sprintf("could not locate the user-local binary to archive: %v", err),
+				FixHint: "Move the stale user-local opencode binary aside, then run bootstrap again",
+			})
+			return
+		}
+		backup, err := archiveUserOpenCode(path)
+		if err != nil {
+			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
+				Details: fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err),
+				FixHint: "Move the stale user-local binary aside, then run bootstrap again",
+			})
+			return
+		}
+		uc.logger.Info("LinuxBootstrap: archived user-local opencode at %s; pacman remains authoritative", backup)
+		installed = uc.toolVersion(ctx, "opencode")
+		source = installSource("opencode")
+	}
+
+	if versionMajorAtLeast(installed, 2) {
+		if source != sourceSystem && !uc.ensureOpenCodeShellPath(ctx, result) {
+			return
+		}
+		uc.logger.LogIdempotency("LinuxBootstrap", "OpenCode CLI", true, "already installed")
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "OpenCode CLI",
+			Details: fmt.Sprintf("OpenCode %s is already installed and available on PATH", printableVersion(installed)),
+		})
 		return
 	}
-	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "installed successfully")
+
+	if pacmanOwns {
+		if !uc.installPacmanOpenCode(ctx, result) {
+			return
+		}
+	} else if uc.pacmanManagerAvailable(ctx) || uc.hasTool(ctx, "pacman") {
+		if !uc.installPacmanOpenCode(ctx, result) {
+			return
+		}
+	} else if err := uc.installStep(ctx, result, "opencode", "OpenCode CLI", openCodeLinuxV2Installer); err != nil {
+		return
+	}
+
+	after := uc.toolVersion(ctx, "opencode")
+	source = installSource("opencode")
+	if !versionMajorAtLeast(after, 2) {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
+			Details: fmt.Sprintf("installer completed but OpenCode %s was not verified", printableVersion(after)),
+			FixHint: "Run 'curl -fsSL https://opencode.ai/v2/install | bash' and verify 'opencode --version'",
+		})
+		return
+	}
+	if source != sourceSystem && !uc.ensureOpenCodeShellPath(ctx, result) {
+		return
+	}
+	uc.logger.LogIdempotency("LinuxBootstrap", "OpenCode CLI", false, "installed successfully")
 	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
-		Details: "Installed successfully",
+		Category: entity.DiagOK, System: "LinuxBootstrap", Target: "OpenCode CLI",
+		Details: fmt.Sprintf("Installed/updated OpenCode %s", printableVersion(after)),
 	})
+}
+
+func (uc *ProvisionBootstrapUseCase) pacmanManagerAvailable(ctx context.Context) bool {
+	mgr, ok := uc.managers[entity.PackageTypePacman]
+	return ok && mgr.IsAvailable(ctx)
+}
+
+func (uc *ProvisionBootstrapUseCase) pacmanOwnsOpenCode(ctx context.Context) bool {
+	if !uc.pacmanManagerAvailable(ctx) {
+		return false
+	}
+	mgr := uc.managers[entity.PackageTypePacman]
+	installed, _, err := mgr.IsInstalled(ctx, entity.Package{ID: "opencode", Type: entity.PackageTypePacman})
+	return err == nil && installed
+}
+
+func (uc *ProvisionBootstrapUseCase) installPacmanOpenCode(ctx context.Context, result *BootstrapResult) bool {
+	mgr, ok := uc.managers[entity.PackageTypePacman]
+	if !ok || !mgr.IsAvailable(ctx) {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
+			Details: "pacman is required for the distro-owned opencode package but is unavailable",
+			FixHint: "Restore pacman, then run bootstrap again",
+		})
+		return false
+	}
+	if err := mgr.Install(ctx, entity.Package{ID: "opencode", Type: entity.PackageTypePacman}); err != nil {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
+			Details: fmt.Sprintf("pacman could not install/update opencode: %v", err),
+			FixHint: "Run 'envctl run pacman' to install or update opencode",
+		})
+		return false
+	}
+	return true
+}
+
+func (uc *ProvisionBootstrapUseCase) ensureOpenCodeShellPath(ctx context.Context, result *BootstrapResult) bool {
+	out, err := uc.runShell(ctx, openCodePathInstaller)
+	if err != nil {
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI PATH",
+			Details: fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
+			FixHint: "Run 'envctl run shell' after installing OpenCode",
+		})
+		return false
+	}
+	return true
+}
+
+func (uc *ProvisionBootstrapUseCase) toolVersion(ctx context.Context, name string) string {
+	out, err := uc.runShellStdout(ctx, "command -v "+name+" >/dev/null 2>&1 && "+name+" --version")
+	if err != nil {
+		return ""
+	}
+	return firstVersionToken(out)
 }
 
 // Execute provisions the Linux toolchain. On Windows it is a no-op.
@@ -275,15 +420,10 @@ bunx @playwright/cli@latest install-browser chromium`)
 		}
 	}
 
-	// 3. OpenCode CLI - official installer into ~/.local/bin.
-	//
-	// Deliberately not through npm: the npm package lags upstream (its channel
-	// sits behind the distro builds) and installing it under ~/.local would win
-	// on PATH, shadowing a newer opencode that pacman/winget already manages.
-	uc.step(ctx, result, "opencode", "OpenCode CLI",
-		`set -e
-export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
-curl -fsSL https://opencode.ai/install | bash`)
+	// 3. OpenCode CLI - official V2 installer into ~/.opencode/bin. The
+	// bootstrap path also converges a user-local V1 install; a pacman-owned
+	// binary is reported instead of being shadowed.
+	uc.ensureOpenCodeV2(ctx, result)
 
 	// 3.5. CommandCode CLI - npm global (user prefix).
 	uc.step(ctx, result, "cmdc", "CommandCode CLI",

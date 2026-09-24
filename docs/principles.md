@@ -18,7 +18,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 - A camada de **Infraestrutura** lida com a realidade suja do sistema operacional (subshells, pipes, registry, códigos de saída de processos, gerenciamento de pacotes por OS).
 
 ### C. Self-Contained Binary (`//go:embed`)
-- O binário compilado (`envctl` / `envctl.exe`) carrega todos os manifestos declarativos, templates de configuração e as 41 Skills em tempo de compilação.
+- O binário compilado (`envctl` / `envctl.exe`) carrega todos os manifestos declarativos, templates de configuração e as 44 Skills em tempo de compilação.
 - Permite execução offline ou via pendrive sem requisições HTTP adicionais para baixar assets de configuração.
 
 ---
@@ -39,8 +39,8 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Volta: Node.js e pacotes LSP globais (`typescript`, `pyright`, `bash-ls`, `dockerfile-ls`, `yaml-ls`, `sqllens`, etc.).
    - Python: `uv`, `ruff`.
    - Go: `gopls`.
-5. **Ecossistema OpenCode & CommandCode com 41 skills:**
+5. **Ecossistema OpenCode & CommandCode com 44 skills:**
    - Implantação de `opencode.json`, `package.json` e `AGENTS.md`.
-   - Extração das 41 Skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.
+   - Extração das 44 Skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.
 6. **Verificação, Diagnóstico e Relatório:**
    - Auditoria completa via `envctl doctor` com checagens diagnósticas de todo o ecossistema e opção de auto-remediação (`--fix`).

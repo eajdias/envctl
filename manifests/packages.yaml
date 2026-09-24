@@ -322,10 +322,10 @@ packages:
   # AI Coding Agents
   # ============================================================================
   # OpenCode ships per-platform: the Arch family has it in `extra`, Windows uses
-  # the official installer (PowerShell-native, into ~/.local/bin — winget froze
-  # on the 1.x line with bot-authored manifests), and everywhere else the
-  # official installer is used (see the Linux bootstrap). The npm package is
-  # not used — its channel lags upstream and would shadow a newer distro build.
+  # the official V2 installer (PowerShell-native, into ~/.local/bin — winget froze
+  # on the 1.x line with bot-authored manifests), and Linux uses the official V2
+  # installer into ~/.opencode/bin. The npm/Volta package is not used — its
+  # channel lags upstream and would shadow a newer distro build.
   - id: opencode
     name: OpenCode CLI
     type: pacman
@@ -784,3 +784,163 @@ packages:
     type: pacman
     os: arch,cachyos
     category: cli-tools
+
+  # ============================================================================
+  # Arch Linux / CachyOS — homelab toolbox (absorbed from CachyOS inventory
+  # 95-ambiente-cachyos: shell, dev CLI, backup, monitoring, build, mobile)
+  # All names verified with `pacman -Si` on CachyOS; check_commands verified
+  # live (heroic/sunshine included). apt/winget siblings are a follow-up after
+  # verification on those platforms — no guessing per policy.
+  # ============================================================================
+  - id: eza
+    name: eza (ls replacement, icons/grid)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: eza --version
+
+  - id: zoxide
+    name: zoxide (frequent-dir jumper)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: zoxide --version
+
+  - id: direnv
+    name: direnv (per-project env via .envrc)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: direnv --version
+
+  - id: lazygit
+    name: lazygit (git staging UI)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: lazygit --version
+
+  - id: lazydocker
+    name: lazydocker (container/log viewer)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: lazydocker --version
+
+  - id: tmux
+    name: tmux (persistent sessions)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: tmux -V
+
+  - id: sqlite
+    name: sqlite (sqlite3 CLI for local DB inspection)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: sqlite3 --version
+
+  - id: restic
+    name: restic (real backup, not sync)
+    type: pacman
+    os: arch,cachyos
+    category: system
+    check_command: restic version
+
+  - id: rclone
+    name: rclone (backup transport)
+    type: pacman
+    os: arch,cachyos
+    category: system
+    check_command: rclone --version
+
+  - id: rsync
+    name: rsync remote file copy (Arch sibling of the apt entry)
+    type: pacman
+    os: arch,cachyos
+    category: system
+    check_command: rsync --version
+
+  - id: btop
+    name: btop (process/monitor UI)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: btop --version
+
+  - id: duf
+    name: duf (disk usage UI)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: duf --version
+
+  - id: glances
+    name: glances (system overview)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: glances --version
+
+  - id: fastfetch
+    name: fastfetch (quick system breakdown)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: fastfetch --version
+
+  - id: micro
+    name: micro (light terminal editor)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: micro --version
+
+  - id: meld
+    name: meld (visual diff/merge)
+    type: pacman
+    os: arch,cachyos
+    category: desktop-apps
+    check_command: meld --version
+
+  - id: cmake
+    name: cmake (build from source fallback)
+    type: pacman
+    os: arch,cachyos
+    category: toolchain
+    check_command: cmake --version
+
+  - id: ninja
+    name: ninja (fast builder, cmake companion)
+    type: pacman
+    os: arch,cachyos
+    category: toolchain
+    check_command: ninja --version
+
+  - id: mosh
+    name: mosh (mobile shell, survives network sleep)
+    type: pacman
+    os: arch,cachyos
+    category: cli-tools
+    check_command: mosh --version
+
+  - id: android-tools
+    name: android-tools (adb/fastboot over USB)
+    type: pacman
+    os: arch,cachyos
+    category: toolchain
+    check_command: adb --version
+
+  - id: unzip
+    name: unzip extraction utility (Arch sibling of the apt entry)
+    type: pacman
+    os: arch,cachyos
+    category: system
+    check_command: unzip -v
+
+  - id: yt-dlp
+    name: yt-dlp (media download via uv tool)
+    type: pip
+    category: cli-tools
+    check_command: yt-dlp --version

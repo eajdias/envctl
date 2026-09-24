@@ -214,3 +214,13 @@ skills:
       source: configs/skills/variant-analysis
       target_dir: ""
       enabled: true
+    - name: tailscale
+      description: Tailscale tailnet — status/inventário via JSON, up/down, exit nodes, ACL, expor porta local (serve/funnel) e teardown
+      source: configs/skills/tailscale
+      target_dir: ""
+      enabled: true
+    - name: syncthing-ops
+      description: Syncthing via REST API — status de pastas/devices, adicionar pastas, rescan, conflitos; nunca editar config.xml na mão
+      source: configs/skills/syncthing-ops
+      target_dir: ""
+      enabled: true

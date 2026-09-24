@@ -67,6 +67,16 @@ func (uc *ProvisionPackagesUseCase) ExecuteGaming(ctx context.Context, onProgres
 	return uc.provisionList(ctx, gamingPkgs, "", onProgress)
 }
 
+// packageOwnershipProbe removes a check command only where a generic command
+// probe would confuse a user-local binary with a distro package. All other
+// package types retain their manifest check behavior.
+func packageOwnershipProbe(pkg entity.Package) entity.Package {
+	if pkg.Type == entity.PackageTypePacman && pkg.ID == "opencode" {
+		pkg.CheckCommand = ""
+	}
+	return pkg
+}
+
 func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs []entity.Package, filterType entity.PackageType, onProgress PackageProgressHandler) ([]entity.Package, error) {
 
 	var results []entity.Package
@@ -107,7 +117,17 @@ func (uc *ProvisionPackagesUseCase) provisionList(ctx context.Context, allPkgs [
 			continue
 		}
 
-		isInstalled, info, _ := mgr.IsInstalled(ctx, pkg)
+		// A user-local opencode can satisfy the manifest's check_command even
+		// when no pacman package exists. Probe the package database for this
+		// one entry so run all cannot skip the authoritative Arch install.
+		probePkg := packageOwnershipProbe(pkg)
+		isInstalled, info, probeErr := mgr.IsInstalled(ctx, probePkg)
+		if probeErr != nil {
+			if uc.logger != nil {
+				uc.logger.Warn("Package manager '%s' could not query '%s': %v", pkg.Type, pkg.ID, probeErr)
+			}
+			isInstalled = false
+		}
 		if isInstalled {
 			pkg.Status = entity.StatusInstalled
 			pkg.Version = info

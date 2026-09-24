@@ -5,7 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 func TestFirstVersionToken(t *testing.T) {
@@ -46,6 +50,27 @@ func TestVersionsDiffer(t *testing.T) {
 	}
 }
 
+func TestVersionMajorAtLeast(t *testing.T) {
+	cases := []struct {
+		version string
+		major   int
+		want    bool
+	}{
+		{"2.0.16", 2, true},
+		{"v2.0.16", 2, true},
+		{"3.0.0", 2, true},
+		{"1.18.32", 2, false},
+		{"1.18.32", 1, true},
+		{"", 2, false},
+		{"not-a-version", 2, false},
+	}
+	for _, tc := range cases {
+		if got := versionMajorAtLeast(tc.version, tc.major); got != tc.want {
+			t.Errorf("versionMajorAtLeast(%q, %d) = %v, want %v", tc.version, tc.major, got, tc.want)
+		}
+	}
+}
+
 func TestClassifyInstallSource(t *testing.T) {
 	home := "/home/user"
 	cases := []struct {
@@ -55,6 +80,7 @@ func TestClassifyInstallSource(t *testing.T) {
 	}{
 		{filepath.Join(home, ".volta", "bin", "cmdc"), home, sourceVolta},
 		{filepath.Join(home, ".local", "bin", "opencode"), home, sourceEnvctl},
+		{filepath.Join(home, ".opencode", "bin", "opencode"), home, sourceEnvctl},
 		{"/usr/bin/opencode", home, sourceSystem},
 		{"/usr/bin/opencode", "", sourceSystem},
 	}
@@ -132,6 +158,81 @@ func TestProviderCLIsAreInstallable(t *testing.T) {
 		}
 		if !onWindows && tool.voltaPkg == "" && tool.installer == "" {
 			t.Errorf("%s has no Linux install path", tool.name)
+		}
+	}
+}
+
+func TestOpenCodeProviderUsesV2Installer(t *testing.T) {
+	for _, tool := range providerCLIs() {
+		if tool.binary != "opencode" {
+			continue
+		}
+		if !strings.Contains(tool.installer, "https://opencode.ai/v2/install") {
+			t.Fatalf("OpenCode Linux installer = %q, want official v2 endpoint", tool.installer)
+		}
+		if strings.Contains(tool.installer, "https://opencode.ai/install") {
+			t.Fatalf("OpenCode Linux installer still uses the v1 endpoint: %q", tool.installer)
+		}
+		if tool.requiredMajor != 2 {
+			t.Fatalf("OpenCode requiredMajor = %d, want 2", tool.requiredMajor)
+		}
+		return
+	}
+	t.Fatal("OpenCode provider is missing from providerCLIs()")
+}
+
+func TestPacmanOwnsOpenCodeUsesPackageDatabase(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("pacman ownership is Linux-only")
+	}
+	uc := &ProvisionProvidersUseCase{managers: map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"opencode": "2.0.16-1"},
+		},
+	}}
+	if !uc.pacmanOwnsOpenCode(context.Background()) {
+		t.Fatal("pacmanOwnsOpenCode = false, want true for an installed package")
+	}
+	uc.managers[entity.PackageTypePacman] = &mockGamingPackageManager{available: true, installed: map[string]string{}}
+	if uc.pacmanOwnsOpenCode(context.Background()) {
+		t.Fatal("pacmanOwnsOpenCode = true, want false when the package is absent")
+	}
+}
+
+func TestArchiveUserOpenCode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "opencode")
+	if err := os.WriteFile(path, []byte("v1"), 0755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	backup, err := archiveUserOpenCode(path)
+	if err != nil {
+		t.Fatalf("archiveUserOpenCode: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("live path still exists after archive: %v", err)
+	}
+	data, err := os.ReadFile(backup)
+	if err != nil || string(data) != "v1" {
+		t.Fatalf("backup = %q, err = %v, want original content", data, err)
+	}
+}
+
+func TestStandaloneProviderCanReplace(t *testing.T) {
+	cases := []struct {
+		name       string
+		source     string
+		pacmanOwns bool
+		want       bool
+	}{
+		{"user-local V1 on Ubuntu", sourceEnvctl, false, true},
+		{"system V1 on Ubuntu", sourceSystem, false, true},
+		{"system V1 owned by pacman", sourceSystem, true, false},
+		{"user-local V1 while pacman owns the package", sourceEnvctl, true, false},
+	}
+	for _, tc := range cases {
+		if got := standaloneProviderCanReplace(tc.source, tc.pacmanOwns); got != tc.want {
+			t.Errorf("%s: standaloneProviderCanReplace(%q, %v) = %v, want %v", tc.name, tc.source, tc.pacmanOwns, got, tc.want)
 		}
 	}
 }

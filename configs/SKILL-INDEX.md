@@ -26,10 +26,13 @@
 | Auditar/atualizar docs contra a implementação real | `docs-sync` |
 | Desenhar/validar contrato de API (OpenAPI, GraphQL, gRPC) | `api-contract-design` |
 | Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
+| Rede tailnet: status/inventário, exit node, expor porta (serve/funnel) | `tailscale` |
+| Sync de pastas entre devices via API (status, pasta nova, conflitos) | `syncthing-ops` |
 | Provisionar, atualizar ou auditar VPS/VM com envctl | `vps-provisioning` |
 | Rodar tarefa pesada (build, suíte, crawler) numa VPS | `vps-agent-dispatch` |
 | Containers, compose, imagens, volumes, Docker Hub, build local/transporte (VPS fraca) e restart WSL2 | `docker` |
 | Windows: serviços, registro, tarefas agendadas, firewall, winget | `windows-admin` `[win]` |
+| Windows: debloat opt-in (telemetria, Appx, serviços + Tier 3 manual) | `windows-debloat` `[win]` |
 | Deploy de Next.js standalone / migração v15→v16 | `nextjs-standalone-deploy` |
 | Ligar/desligar funcionalidade sem re-deploy | `simple-feature-flag` |
 | JWT HS256 em Node.js sem dependências | `jwt-hs256-node` |

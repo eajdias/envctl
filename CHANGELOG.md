@@ -28,6 +28,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Added**: 21 pacotes pacman (`os: arch,cachyos`) absorvidos do inventário CachyOS —
+  `eza`, `zoxide`, `direnv`, `lazygit`, `lazydocker`, `tmux`, `sqlite`, `restic`, `rclone`,
+  `rsync`, `btop`, `duf`, `glances`, `fastfetch`, `micro`, `meld`, `cmake`, `ninja`, `mosh`,
+  `android-tools`, `unzip` (nomes/`check_command` verificados com `pacman -Si` no CachyOS) +
+  `yt-dlp` via `uv tool` (portátil) — matriz §1: Arch 48→70 aplicáveis.
+- **Added**: `gaming.yaml` 33→38 pkgs — `heroic-games-launcher`, `lutris`, `sunshine`
+  (pacman) + `skyscraper-git`, `hactool` (paru/AUR).
+- **Added**: skills portáteis `tailscale` (roadmap item 3, parcial) e `syncthing-ops`
+  (via REST API, nunca `config.xml` na mão) — com `windows-debloat` (main), catálogo 41→44
+  (Win 41, Ubuntu 40, CachyOS 42).
 - **Added**: debloat opt-in do Windows 11 absorvido do `windows11-clean` — `envctl run debloat`
   (76 tweaks em `manifests/debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win +
   31 Appx + 9 serviços safe-only; tipos novos `Appx`/`Service` no TweaksManager com check
@@ -36,6 +46,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   `--fix`) + skill `windows-debloat` (`os: windows`; Tier 3 manual: OneDrive, hibernação,
   power plan, Teredo, `.wslconfig`, Copilot/Recall). Checks em batch (`CheckBatch`:
   1 spawn PowerShell por família em vez de 1 por tweak). `run all`/`run windows` intocados.
+- **Fixed**: `run providers` e `run bootstrap` no Ubuntu/Debian passam a instalar e convergir
+  OpenCode pelo canal oficial V2 (`https://opencode.ai/v2/install`, `~/.opencode/bin`), validar
+  o major instalado e persistir o PATH em shells POSIX/fish. Instalações v1 user-local são
+  atualizadas; no Arch, a propriedade é consultada no banco do pacman, cópias envctl locais
+  são arquivadas com backup e o pacote do sistema continua sendo a autoridade.
 
 ## [v1.3.0] - 2026-09-22
 

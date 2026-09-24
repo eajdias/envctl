@@ -72,7 +72,7 @@ Quando você (agente local) for instruído a despachar uma tarefa para um VPS:
 
 2. **Verificar Pré-requisitos no VPS**:
    - Verifique se o OpenCode está instalado: `ssh <servidor> "which opencode || command -v opencode"`.
-   - Se ausente, provisione pelo canal da distro (NUNCA por npm — o pacote `opencode-ai` rebaixa a linha 2.x para 1.18.x, assimetria #9): preferido `envctl run all` (ou `envctl run providers` só para os CLIs); fallback por OS — Ubuntu/Debian: `curl -fsSL https://opencode.ai/install | bash` · Arch/CachyOS: `sudo pacman -S opencode` (repo `extra`) · Windows: instalador oficial via PowerShell (zip de `https://opencode.ai/files/bin/<ver>/opencode-windows-x64.zip` — ou `-baseline` sem AVX2 — extraído para `~/.local/bin`; o winget congelou na linha 1.x e não serve).
+   - Se ausente, provisione pelo canal da distro (NUNCA por npm/Volta — o pacote legado `opencode-ai` rebaixa a linha V2 para 1.x, assimetria #9): preferido `envctl run all` (ou `envctl run providers` só para os CLIs); fallback por OS — Ubuntu/Debian: `curl -fsSL https://opencode.ai/v2/install | bash` (instalador oficial V2, `~/.opencode/bin`) · Arch/CachyOS: `sudo pacman -S opencode` (repo `extra`; nunca sombrear o binário do sistema) · Windows: instalador oficial via PowerShell (zip de `https://opencode.ai/files/bin/<ver>/opencode-windows-x64.zip` — ou `-baseline` sem AVX2 — extraído para `~/.local/bin`; o winget congelou na linha 1.x e não serve).
 
 3. **Montar o Prompt do Subagente Remoto**:
    - O prompt enviado deve ser **autocontido, explícito e com critérios claros de sucesso**.
