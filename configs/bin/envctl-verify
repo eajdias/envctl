@@ -13,12 +13,15 @@
 # pyproject.toml, *.sql, *.sh, Dockerfile, *.ps1) and only the stacks present
 # run. Linters are scoped to the files this change touches — the same rule as
 # golangci-lint's --new-from-rev for Go — while type checks and tests run
-# repo-wide, because that is where their signal lives. Every tool is optional:
-# one that is not installed is skipped silently, and one that cannot run here is
-# named in the summary and recorded in the log trail.
+# repo-wide, because that is where their signal lives. Inferred lint and format
+# findings are advisory; explicit project checks, builds, vets, and tests remain
+# blocking. Every tool is optional: one that is not installed is skipped
+# silently, and one that cannot run here is named in the summary and recorded in
+# the log trail.
 #
-# Exits 2 with the failing output on stderr when a check fails, 0 when
-# everything passes or when the repository has no recognizable stack.
+# Exits 2 with the failing output on stderr when a blocking check fails. Advisory
+# findings are printed as non-blocking diagnostics and exit 0 when no blocking
+# check failed.
 #
 # Deliberately no timeout: the suite runs in seconds on a warm cache, so a
 # check that hangs is a broken check and should say so instead of being waited
@@ -47,16 +50,43 @@ has_any_file() {
 	return 1
 }
 
-# resolve_tool prints the project-local binary when one exists — node_modules and
-# a virtualenv pin their own versions, so the local one must win — falling back
-# to PATH. Returns non-zero when the tool is nowhere, so callers skip silently.
-resolve_tool() {
-	for candidate in "node_modules/.bin/$1" ".venv/bin/$1" "venv/bin/$1"; do
+# local_tool_candidates lists project-local tool paths in resolution order. The
+# Windows venv and npm shim forms are included so Git Bash and native Windows
+# layouts share one resolver.
+local_tool_candidates() {
+	printf '%s\n' \
+		"node_modules/.bin/$1" \
+		"node_modules/.bin/$1.cmd" \
+		".venv/bin/$1" \
+		".venv/bin/$1.exe" \
+		"venv/bin/$1" \
+		"venv/bin/$1.exe" \
+		".venv/Scripts/$1.exe" \
+		"venv/Scripts/$1.exe" \
+		".venv/Scripts/$1" \
+		"venv/Scripts/$1"
+}
+
+# resolve_local_tool prints only a project-local executable. It is used by
+# tools whose global fallback would resolve the wrong project configuration.
+resolve_local_tool() {
+	local candidate
+	while IFS= read -r candidate; do
 		if [ -x "$candidate" ]; then
 			printf './%s\n' "$candidate"
 			return 0
 		fi
-	done
+	done < <(local_tool_candidates "$1")
+	return 1
+}
+
+# resolve_tool prints the project-local binary when one exists — node_modules and
+# a virtualenv pin their own versions, so the local one must win — falling back
+# to PATH. Returns non-zero when the tool is nowhere, so callers skip silently.
+resolve_tool() {
+	if resolve_local_tool "$1"; then
+		return 0
+	fi
 	command -v "$1" 2>/dev/null
 }
 
@@ -77,32 +107,46 @@ repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$repo_root" || exit 0
 
 fail_count=0
+advisory_count=0
 ok_count=0
 skip_count=0
 skip_notes=""
 failures=""
+advisories=""
 
 # --- trail ------------------------------------------------------------------
-# Skips and failures are appended to a log so "this never caught anything" can be
-# answered with evidence instead of memory. Green runs stay silent.
-trail_log="${ENVCTL_VERIFY_LOG:-${HOME}/.envctl/verify.log}"
+# Skips, advisories, and failures are appended to a log so "this never caught
+# anything" can be answered with evidence instead of memory. Green runs stay
+# silent.
+trail_log="${ENVCTL_VERIFY_LOG:-${HOME:-/tmp}/.envctl/verify.log}"
 trail() {
 	mkdir -p "$(dirname "$trail_log")" 2>/dev/null || return 0
 	printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$MODE" "$repo_root" "$1" >>"$trail_log" 2>/dev/null || true
 }
 
 report() {
+	severity="$1"
+	label="$2"
+	output="${3:-failed}"
+	if [ "$severity" = "advisory" ]; then
+		advisory_count=$((advisory_count + 1))
+		advisories="${advisories}
+--- advisory: ${label} ---
+$(printf '%s' "$output" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
+		return 0
+	fi
 	fail_count=$((fail_count + 1))
 	failures="${failures}
---- ${1} ---
-$(printf '%s' "${2:-failed}" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
+--- ${label} ---
+$(printf '%s' "$output" | head -n "${ENVCTL_VERIFY_MAX_LINES:-25}")"
 }
 
 check() {
-	label="$1"
-	shift
+	severity="$1"
+	label="$2"
+	shift 2
 	if [ "$DRY_RUN" = "1" ]; then
-		printf '  %s\n' "$label"
+		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
 	out=$("$@" 2>&1)
@@ -111,16 +155,25 @@ check() {
 		ok_count=$((ok_count + 1))
 		return 0
 	fi
-	report "$label" "${out:-exited ${rc}}"
+	report "$severity" "$label" "${out:-exited ${rc}}"
+	if [ "$severity" = "advisory" ]; then
+		return 0
+	fi
 	return 1
 }
 
-# is_tool_unavailable recognises a tool that cannot run in this project at all
-# (a Volta shim with no local dependency, `uv run` without a virtualenv). That is
-# a skip, never a finding.
+# is_tool_unavailable recognises a tool that cannot start in this project at all
+# (a broken shim, a missing interpreter, or `uv run` without a virtualenv). Exit
+# codes identify startup failures; output patterns are restricted to known
+# prefixes so a real test assertion containing "command not found" stays blocking.
 is_tool_unavailable() {
-	case "$1" in
-	*"Volta error"* | *"command not found"* | *"not recognized as an internal or external command"* | *"No virtual environment found"*)
+	local rc="$1"
+	local output="$2"
+	case "$rc" in
+	126 | 127 | 9009) return 0 ;;
+	esac
+	case "$output" in
+	"Volta error:"* | "No virtual environment found"* | "error: No virtual environment found"* | "not recognized as an internal or external command"*)
 		return 0
 		;;
 	esac
@@ -131,10 +184,11 @@ is_tool_unavailable() {
 # a Volta shim with no matching local dependency, for instance. That is a skip,
 # not a finding, so it is named in the push summary instead of failing the gate.
 check_soft() {
-	label="$1"
-	shift
+	severity="$1"
+	label="$2"
+	shift 2
 	if [ "$DRY_RUN" = "1" ]; then
-		printf '  %s\n' "$label"
+		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
 	out=$("$@" 2>&1)
@@ -143,50 +197,44 @@ check_soft() {
 		ok_count=$((ok_count + 1))
 		return 0
 	fi
-	if is_tool_unavailable "$out"; then
+	if is_tool_unavailable "$rc" "$out"; then
 		skip_count=$((skip_count + 1))
 		skip_notes="${skip_notes} ${label};"
 		return 0
 	fi
-	report "$label" "${out:-exited ${rc}}"
+	report "$severity" "$label" "${out:-exited ${rc}}"
+	if [ "$severity" = "advisory" ]; then
+		return 0
+	fi
 	return 1
 }
 
-# check_files <label> <newline-separated files> <command...> runs a tool on the
-# listed files, passing them as separate arguments so paths with spaces survive.
-check_files() {
-	label="$1"
-	list="$2"
-	shift 2
-	[ "$DRY_RUN" = "1" ] && {
-		printf '  %s (%d file(s))\n' "$label" "$(printf '%s\n' "$list" | grep -c .)"
-		return 0
-	}
-	mapfile -t selected <<<"$list"
-	check "$label" "$@" "${selected[@]}"
-}
-
-# check_soft_files is check_files for tools that may skip themselves.
+# check_soft_files <severity> <label> <newline-separated files> <command...> runs
+# a tool on the listed files, passing them as separate arguments so paths with
+# spaces survive. A tool that cannot run in this environment is a skip, not a
+# finding.
 check_soft_files() {
-	label="$1"
-	list="$2"
-	shift 2
+	severity="$1"
+	label="$2"
+	list="$3"
+	shift 3
 	[ "$DRY_RUN" = "1" ] && {
-		printf '  %s (%d file(s))\n' "$label" "$(printf '%s\n' "$list" | grep -c .)"
+		printf '  [%s] %s (%d file(s))\n' "$severity" "$label" "$(printf '%s\n' "$list" | grep -c .)"
 		return 0
 	}
 	mapfile -t selected <<<"$list"
-	check_soft "$label" "$@" "${selected[@]}"
+	check_soft "$severity" "$label" "$@" "${selected[@]}"
 }
 
 # check_ok_codes runs a command that signals "nothing to do" with its own exit
 # code (pytest returns 5 when it collects no tests, for instance).
 check_ok_codes() {
-	label="$1"
-	codes="$2"
-	shift 2
+	severity="$1"
+	label="$2"
+	codes="$3"
+	shift 3
 	if [ "$DRY_RUN" = "1" ]; then
-		printf '  %s\n' "$label"
+		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
 	out=$("$@" 2>&1)
@@ -197,12 +245,15 @@ check_ok_codes() {
 			return 0
 		fi
 	done
-	if is_tool_unavailable "$out"; then
+	if is_tool_unavailable "$rc" "$out"; then
 		skip_count=$((skip_count + 1))
 		skip_notes="${skip_notes} ${label};"
 		return 0
 	fi
-	report "$label" "${out:-exited ${rc}}"
+	report "$severity" "$label" "${out:-exited ${rc}}"
+	if [ "$severity" = "advisory" ]; then
+		return 0
+	fi
 	return 1
 }
 
@@ -239,101 +290,261 @@ changed_matching() {
 # Untracked files are hashed by content too: their path alone appears in
 # `git status`, so without this an edit to a file that is still untracked (the
 # normal state while writing something new) would look like no change at all.
-# Files above the size cap are skipped to bound the cost.
+# Files above the size cap are not cached at all: a path-only hash would hide a
+# later edit that can still break a build.
+MAX_UNTRACKED_HASH_BYTES=1048576
 stamp_file="$(git rev-parse --git-dir 2>/dev/null)/envctl-verify.stamp"
+
+has_oversized_untracked() {
+	while IFS= read -r -d '' file; do
+		[ -f "$file" ] || continue
+		size=$(wc -c <"$file" 2>/dev/null || echo 0)
+		if [ "${size:-0}" -gt "$MAX_UNTRACKED_HASH_BYTES" ]; then
+			return 0
+		fi
+	done < <(git ls-files --others --exclude-standard -z 2>/dev/null)
+	return 1
+}
+
+local_tool_state() {
+	local tool candidate size mtime mode checksum
+	for tool in eslint tsc prettier ruff mypy pytest sqlfluff; do
+		while IFS= read -r candidate; do
+			if [ -e "$candidate" ] || [ -L "$candidate" ]; then
+				size=$(wc -c <"$candidate" 2>/dev/null || echo 0)
+				mtime=$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)
+				mode=$(stat -c %a "$candidate" 2>/dev/null || stat -f %Lp "$candidate" 2>/dev/null || echo 0)
+				if [ "${size:-0}" -le "$MAX_UNTRACKED_HASH_BYTES" ]; then
+					checksum=$(cksum <"$candidate" 2>/dev/null | awk '{print $1 ":" $2}' || true)
+				else
+					checksum="large"
+				fi
+				printf 'local:%s:%s:%s:%s:%s\n' "$candidate" "${size:-0}" "${mtime:-0}" "${mode:-0}" "${checksum:-unknown}"
+			else
+				printf 'local:%s:-\n' "$candidate"
+			fi
+		done < <(local_tool_candidates "$tool")
+	done
+}
+
 state_hash() {
 	{
 		git rev-parse HEAD 2>/dev/null
+		printf 'base:%s\n' "${base:-none}"
+		[ -n "$base" ] && git rev-parse "$base" 2>/dev/null || true
 		git status --porcelain 2>/dev/null
 		git diff HEAD 2>/dev/null | git hash-object --stdin 2>/dev/null
+		for tool in gofmt go golangci-lint node pnpm npm yarn bun uv tsc prettier eslint ruff mypy pytest sqlfluff shellcheck shfmt hadolint pwsh; do
+			tool_path=$(command -v "$tool" 2>/dev/null || true)
+			printf 'tool:%s:%s\n' "$tool" "${tool_path:--}"
+		done
+		local_tool_state
 		git ls-files --others --exclude-standard -z 2>/dev/null | while IFS= read -r -d '' file; do
 			[ -f "$file" ] || continue
 			size=$(wc -c <"$file" 2>/dev/null || echo 0)
-			[ "${size:-0}" -gt 1048576 ] && continue
+			[ "${size:-0}" -gt "$MAX_UNTRACKED_HASH_BYTES" ] && continue
 			printf '%s:' "$file"
 			cat "$file" 2>/dev/null
 		done | git hash-object --stdin 2>/dev/null
 	} | git hash-object --stdin 2>/dev/null
 }
 current_state=""
-if [ "$MODE" = "--hook" ] && [ "$DRY_RUN" = "0" ]; then
-	current_state=$(state_hash)
-	if [ -n "$current_state" ] && [ -f "$stamp_file" ] && [ "$(cat "$stamp_file" 2>/dev/null)" = "$current_state" ]; then
-		exit 0
+if [ "$MODE" = "--hook" ] && [ "$DRY_RUN" = "0" ] && [ ! -x .commandcode/verify.sh ]; then
+	if ! has_oversized_untracked; then
+		current_state=$(state_hash)
+		if [ -n "$current_state" ] && [ -f "$stamp_file" ] && [ "$(cat "$stamp_file" 2>/dev/null)" = "$current_state" ]; then
+			exit 0
+		fi
 	fi
 fi
 
 # --- Go ---------------------------------------------------------------------
 check_go() {
 	if [ "$DRY_RUN" = "1" ]; then
-		printf '  %s\n' "gofmt -l ."
+		printf '  [advisory] %s\n' "gofmt -l ."
 	elif have gofmt; then
-		unformatted=$(gofmt -l . 2>/dev/null)
-		if [ -n "$unformatted" ]; then
-			report "gofmt -l ." "$unformatted"
+		gofmt_output=$(gofmt -l . 2>&1)
+		gofmt_rc=$?
+		if [ "$gofmt_rc" -ne 0 ]; then
+			if is_tool_unavailable "$gofmt_rc" "$gofmt_output"; then
+				skip_count=$((skip_count + 1))
+				skip_notes="${skip_notes} gofmt -l .;"
+			else
+				report "advisory" "gofmt -l ." "${gofmt_output:-exited ${gofmt_rc}}"
+			fi
+		elif [ -n "$gofmt_output" ]; then
+			report "advisory" "gofmt -l ." "$gofmt_output"
 		else
 			ok_count=$((ok_count + 1))
 		fi
 	fi
 
-	check "go build ./..." go build ./...
-	check "go vet ./..." go vet ./...
-	[ "$RUN_TESTS" = "1" ] && check "go test ./..." go test ./...
+	check_soft "blocking" "go build ./..." go build ./...
+	check_soft "blocking" "go vet ./..." go vet ./...
+	[ "$RUN_TESTS" = "1" ] && check_soft "blocking" "go test ./..." go test ./...
 
 	# Windows is a supported target: cross-compiling here catches a
 	# platform-specific break before CI spends a runner on it.
-	check "GOOS=windows go build ./..." env GOOS=windows go build ./...
-	check "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
+	check_soft "blocking" "GOOS=windows go build ./..." env GOOS=windows go build ./...
+	check_soft "blocking" "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
 
-	# Lint parity with CI, which gates on issues introduced by the change: the
-	# existing debt never blocks a push, new findings always do.
+	# Lint parity with CI, which reports issues introduced by the change: the
+	# existing debt never blocks a push, and new findings are advisory here.
 	if have golangci-lint && [ -n "$base" ]; then
-		check "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
+		check_soft "advisory" "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
 	fi
 }
 
 # --- Node / TypeScript ------------------------------------------------------
+has_package_script() {
+	[ -f package.json ] || return 1
+	if have node; then
+		node -e 'try { const p=require("./package.json"); process.exit(p.scripts && typeof p.scripts.lint === "string" ? 0 : 3) } catch { process.exit(2) }' >/dev/null 2>&1
+		case "$?" in
+		0) return 0 ;;
+		3) return 1 ;;
+		esac
+	fi
+	# A broken/missing Node must not make an explicit lint script disappear and
+	# re-enable the inferred ESLint fallback. This is deliberately conservative.
+	grep -Eq '"lint"[[:space:]]*:' package.json 2>/dev/null
+}
+
+package_manager() {
+	declared=""
+	if have node; then
+		declared=$(node -e 'const p=require("./package.json"); const v=p.packageManager || ""; process.stdout.write(v.split("@")[0]);' 2>/dev/null || true)
+	fi
+	if [ -n "$declared" ]; then
+		case "$declared" in
+		pnpm | npm | yarn | bun)
+			if have "$declared"; then
+				printf '%s\n' "$declared"
+				return 0
+			fi
+			return 1
+			;;
+		esac
+	fi
+	if [ -f pnpm-lock.yaml ]; then
+		if have pnpm; then
+			printf 'pnpm\n'
+			return 0
+		fi
+		return 1
+	fi
+	if [ -f yarn.lock ]; then
+		if have yarn; then
+			printf 'yarn\n'
+			return 0
+		fi
+		return 1
+	fi
+	if [ -f bun.lock ] || [ -f bun.lockb ]; then
+		if have bun; then
+			printf 'bun\n'
+			return 0
+		fi
+		return 1
+	fi
+	if [ -f package-lock.json ]; then
+		if have npm; then
+			printf 'npm\n'
+			return 0
+		fi
+		return 1
+	fi
+	if have npm; then
+		printf 'npm\n'
+		return 0
+	fi
+	return 1
+}
+
+run_explicit_lint() {
+	manager="$1"
+	case "$manager" in
+	pnpm) check_soft "blocking" "package.json lint (pnpm)" pnpm run lint ;;
+	npm) check_soft "blocking" "package.json lint (npm)" npm run lint ;;
+	yarn) check_soft "blocking" "package.json lint (yarn)" yarn lint ;;
+	bun) check_soft "blocking" "package.json lint (bun)" bun run lint ;;
+	*) return 1 ;;
+	esac
+}
+
+ESLINT_CONFIG_FILES=(
+	eslint.config.js
+	eslint.config.mjs
+	eslint.config.cjs
+	eslint.config.ts
+	eslint.config.mts
+	eslint.config.cts
+)
+
 check_node() {
-	code_files=$(changed_matching '\.(js|jsx|mjs|cjs|ts|tsx)$')
+	code_files=$(
+		changed_matching '\.(js|jsx|mjs|cjs|ts|tsx)$' |
+			grep -Eiv '(^|/)eslint\.config\.(js|mjs|cjs|ts|mts|cts)$' || true
+	)
 	style_files=$(changed_matching '\.(css|scss|less)$')
+	explicit_lint=0
+
+	if has_package_script; then
+		explicit_lint=1
+		if manager=$(package_manager); then
+			run_explicit_lint "$manager"
+			explicit_lint=1
+		else
+			if [ "$DRY_RUN" = "1" ]; then
+				printf '  [skip] package.json lint (package manager unavailable)\n'
+			else
+				skip_count=$((skip_count + 1))
+				skip_notes="${skip_notes} package.json lint (package manager unavailable);"
+			fi
+		fi
+	fi
 
 	if [ -f tsconfig.json ] && tsc_bin=$(resolve_tool tsc); then
-		check_soft "tsc --noEmit" "$tsc_bin" --noEmit
+		check_soft "blocking" "tsc --noEmit" "$tsc_bin" --noEmit
 	fi
 
 	# ESLint resolves the project's config and plugins from node_modules, so only
 	# the local binary is trustworthy here: a global eslint fails on the project's
-	# own config and would report that as if it were a finding.
-	if [ -x node_modules/.bin/eslint ] &&
-		has_any_file eslint.config.js eslint.config.mjs eslint.config.cjs &&
-		[ -n "$code_files" ]; then
-		check_files "eslint (changed files)" "$code_files" ./node_modules/.bin/eslint
+	# own config and would report that as if it were a finding. The fallback is
+	# advisory because the project may intentionally lint a different file set.
+	if [ "$explicit_lint" -eq 0 ] && eslint_bin=$(resolve_local_tool eslint) &&
+		has_any_file "${ESLINT_CONFIG_FILES[@]}" && [ -n "$code_files" ]; then
+		check_soft_files "advisory" "eslint (changed files)" "$code_files" "$eslint_bin"
 	fi
 
 	if [ -n "$code_files$style_files" ] && prettier_bin=$(resolve_tool prettier) &&
 		{ has_any_file .prettierrc .prettierrc.json .prettierrc.yml .prettierrc.yaml .prettierrc.js .prettierrc.cjs prettier.config.js prettier.config.cjs .prettierrc.toml ||
 			grep -q '"prettier"' package.json 2>/dev/null; }; then
-		check_soft_files "prettier --check (changed files)" "$code_files
+		check_soft_files "advisory" "prettier --check (changed files)" "$code_files
 $style_files" "$prettier_bin" --check
 	fi
 }
 
-# python_tool resolves a Python tool to an argument list: the project's own
+# python_tool resolves a Python tool into PYTHON_TOOL_CMD: the project's own
 # virtualenv first, then `uv run --no-sync` (which never installs anything), then
-# whatever is on PATH. The venv matters because a Python tool must see the
-# project's dependencies — a bare global pytest cannot import the package.
+# whatever is on PATH. The array keeps paths with spaces as one argument.
+PYTHON_TOOL_CMD=()
 python_tool() {
-	for candidate in ".venv/bin/$1" "venv/bin/$1"; do
+	PYTHON_TOOL_CMD=()
+	local candidate
+	for candidate in ".venv/bin/$1" "venv/bin/$1" ".venv/Scripts/$1.exe" "venv/Scripts/$1.exe" ".venv/Scripts/$1" "venv/Scripts/$1"; do
 		if [ -x "$candidate" ]; then
-			printf './%s\n' "$candidate"
+			PYTHON_TOOL_CMD=("./$candidate")
 			return 0
 		fi
 	done
 	if [ -f pyproject.toml ] && have uv; then
-		printf 'uv run --no-sync %s\n' "$1"
+		PYTHON_TOOL_CMD=(uv run --no-sync "$1")
 		return 0
 	fi
-	command -v "$1" 2>/dev/null
+	local resolved
+	resolved=$(command -v "$1" 2>/dev/null) || return 1
+	PYTHON_TOOL_CMD=("$resolved")
 }
 
 # --- Python -----------------------------------------------------------------
@@ -341,24 +552,21 @@ check_python() {
 	py_files=$(changed_matching '\.py$')
 	test_files=$(changed_matching '(^|/)test_.*\.py$|_test\.py$')
 
-	if [ -n "$py_files" ] && ruff_list=$(python_tool ruff); then
-		read -r -a ruff_cmd <<<"$ruff_list"
-		check_files "ruff check (changed files)" "$py_files" "${ruff_cmd[@]}" check
+	if [ -n "$py_files" ] && python_tool ruff; then
+		check_soft_files "advisory" "ruff check (changed files)" "$py_files" "${PYTHON_TOOL_CMD[@]}" check
 	fi
 
 	# A type checker only runs where the project configured one: without that, its
 	# defaults would report findings the project never agreed to.
-	if mypy_list=$(python_tool mypy) && has_any_file mypy.ini .mypy.ini setup.cfg pyproject.toml &&
+	if python_tool mypy && has_any_file mypy.ini .mypy.ini setup.cfg pyproject.toml &&
 		grep -qs '\[mypy\]\|\[tool\.mypy\]' mypy.ini .mypy.ini setup.cfg pyproject.toml 2>/dev/null; then
-		read -r -a mypy_cmd <<<"$mypy_list"
-		check_soft "mypy ." "${mypy_cmd[@]}" .
+		check_soft "blocking" "mypy ." "${PYTHON_TOOL_CMD[@]}" .
 	fi
 
 	# pytest exits 5 when it collects nothing; that is not a failure.
-	if [ "$RUN_TESTS" = "1" ] && pytest_list=$(python_tool pytest) &&
+	if [ "$RUN_TESTS" = "1" ] && python_tool pytest &&
 		{ has_any_file tests pytest.ini conftest.py tox.ini || [ -n "$test_files" ]; }; then
-		read -r -a pytest_cmd <<<"$pytest_list"
-		check_ok_codes "pytest -q" "0 5" "${pytest_cmd[@]}" -q
+		check_ok_codes "blocking" "pytest -q" "0 5" "${PYTHON_TOOL_CMD[@]}" -q
 	fi
 }
 
@@ -370,7 +578,7 @@ check_sql() {
 	# sqlfluff's defaults are opinionated; lint only where the project chose a
 	# dialect and ruleset.
 	if has_any_file .sqlfluff .sqlfluffignore || grep -qs '\[tool\.sqlfluff\]' pyproject.toml 2>/dev/null; then
-		check_files "sqlfluff lint (changed files)" "$sql_files" "$sqlfluff_bin" lint --disable-progress-bar
+		check_soft_files "advisory" "sqlfluff lint (changed files)" "$sql_files" "$sqlfluff_bin" lint --disable-progress-bar
 	fi
 }
 
@@ -397,10 +605,10 @@ check_shell() {
 	[ -n "$sh_files" ] || return 0
 
 	if have shellcheck; then
-		check_files "shellcheck (changed scripts)" "$sh_files" shellcheck
+		check_soft_files "advisory" "shellcheck (changed scripts)" "$sh_files" shellcheck
 	fi
 	if have shfmt; then
-		check_files "shfmt -d (changed scripts)" "$sh_files" shfmt -d
+		check_soft_files "advisory" "shfmt -d (changed scripts)" "$sh_files" shfmt -d
 	fi
 }
 
@@ -409,7 +617,7 @@ check_docker() {
 	dockerfiles=$(changed_matching '(^|/)(Dockerfile[^/]*|.*\.Dockerfile)$')
 	[ -n "$dockerfiles" ] || return 0
 	if have hadolint; then
-		check_files "hadolint (changed Dockerfiles)" "$dockerfiles" hadolint
+		check_soft_files "advisory" "hadolint (changed Dockerfiles)" "$dockerfiles" hadolint
 	fi
 }
 
@@ -421,13 +629,13 @@ check_powershell() {
 
 	if pwsh -NoProfile -NonInteractive -Command 'if (Get-Module -ListAvailable PSScriptAnalyzer) { exit 0 } else { exit 1 }' >/dev/null 2>&1; then
 		# shellcheck disable=SC2016  # PowerShell must see its own variables, not bash
-		check "Invoke-ScriptAnalyzer (changed files)" env "ENVCTL_PS_FILES=$ps_files" pwsh -NoProfile -NonInteractive -Command \
+		check_soft "advisory" "Invoke-ScriptAnalyzer (changed files)" env "ENVCTL_PS_FILES=$ps_files" pwsh -NoProfile -NonInteractive -Command \
 			'Invoke-ScriptAnalyzer -Path (($env:ENVCTL_PS_FILES -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -Severity Error,Warning -EnableExit'
 	fi
 
 	if [ "$RUN_TESTS" = "1" ] && printf '%s\n' "$ps_files" | grep -qi 'Tests\.ps1$' &&
 		pwsh -NoProfile -NonInteractive -Command 'if (Get-Module -ListAvailable Pester) { exit 0 } else { exit 1 }' >/dev/null 2>&1; then
-		check "Invoke-Pester" pwsh -NoProfile -NonInteractive -Command 'Invoke-Pester -CI -Output Minimal'
+		check_soft "blocking" "Invoke-Pester" pwsh -NoProfile -NonInteractive -Command 'Invoke-Pester -CI -Output Minimal'
 	fi
 }
 
@@ -446,7 +654,7 @@ fi
 # A repository-local verifier wins: a project can define exactly what its
 # definition of done is without touching this script.
 if [ -x .commandcode/verify.sh ]; then
-	check ".commandcode/verify.sh" ./.commandcode/verify.sh
+	check "blocking" ".commandcode/verify.sh" ./.commandcode/verify.sh
 else
 	[ -f go.mod ] && check_go
 	[ -f package.json ] && check_node
@@ -462,18 +670,27 @@ if [ "$DRY_RUN" = "1" ]; then
 	exit 0
 fi
 
-total=$((ok_count + fail_count))
+total=$((ok_count + fail_count + advisory_count + skip_count))
 [ "$total" -eq 0 ] && exit 0
 
 if [ "$fail_count" -eq 0 ]; then
-	if [ "$skip_count" -gt 0 ]; then
+	if [ "$advisory_count" -gt 0 ]; then
+		trail "ADVISORY ${advisory_count}/${total} in ${repo_root} skip=${skip_count}${skip_notes:+ ${skip_notes}}"
+		printf 'envctl-verify: %d advisory finding(s) in %s (non-blocking)\n%s\n' \
+			"$advisory_count" "$repo_root" "$advisories" >&2
+	elif [ "$skip_count" -gt 0 ]; then
 		trail "ok=${ok_count} skip=${skip_count} skipped:${skip_notes}"
 	fi
-	if [ -n "$current_state" ]; then
+	if [ "$MODE" = "--hook" ] && { [ "$skip_count" -gt 0 ] || [ -z "$current_state" ]; }; then
+		rm -f "$stamp_file" 2>/dev/null || true
+	elif [ "$skip_count" -eq 0 ] && [ -n "$current_state" ]; then
 		printf '%s' "$current_state" >"$stamp_file" 2>/dev/null || true
 	fi
 	if [ "$MODE" = "--git-push" ]; then
-		summary="all ${ok_count} checks passed in ${repo_root}"
+		summary="${ok_count} checks passed in ${repo_root}"
+		if [ "$advisory_count" -gt 0 ]; then
+			summary="${summary}; ${advisory_count} advisory finding(s) (non-blocking)"
+		fi
 		if [ "$skip_count" -gt 0 ]; then
 			summary="${summary} (skipped, tool unavailable here:${skip_notes})"
 		fi
@@ -482,7 +699,11 @@ if [ "$fail_count" -eq 0 ]; then
 	exit 0
 fi
 
-trail "FAILED ${fail_count}/${total} in ${repo_root}"
+if [ "$advisory_count" -gt 0 ]; then
+	printf 'envctl-verify: %d advisory finding(s) in %s (non-blocking)\n%s\n' \
+		"$advisory_count" "$repo_root" "$advisories" >&2
+fi
+trail "FAILED ${fail_count}/${total} in ${repo_root} advisory=${advisory_count} skip=${skip_count}${skip_notes:+ ${skip_notes}}"
 printf 'envctl-verify: %d of %d checks failed in %s\n%s\n' \
 	"$fail_count" "$total" "$repo_root" "$failures" >&2
 exit 2

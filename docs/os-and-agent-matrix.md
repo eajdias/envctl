@@ -36,7 +36,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat opt-in **`run debloat`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
-| Quality gates (`envctl-verify` + pre-push) | ✓ | ✓ | ✓ |
+| Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
 **Escopo por subsistema:** `run winget`/`run windows` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
@@ -210,4 +210,4 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 4. Declare o `check_command` no manifesto para o `doctor` auditar a presença naquela plataforma.
 
 **Sempre**: `gofmt`/`go build`/`go vet`/`go test` + `golangci-lint run --new-from-rev=origin/main`
-antes do push (o `envctl-verify` já cobre os sete automaticamente, no hook e no pre-push).
+antes do push. O `envctl-verify` cobre os sete automaticamente: findings de lint/formatação são advisories, enquanto builds, vets, testes e comandos explícitos são bloqueantes.

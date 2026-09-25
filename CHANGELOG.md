@@ -36,6 +36,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Fixed**: `envctl-verify` now treats inferred lint and formatting findings as non-blocking advisories, excludes all flat ESLint config variants from its fallback file selection, honors an explicit `package.json` `lint` script as the project's blocking authority, and invalidates hook caching when tools, comparison refs, overrides, or oversized untracked content change; the global pre-push also fails closed when its verifier is missing.
+
 - **Added**: baseline de performance Linux separado por SO — `run performance` para Ubuntu Server 24.04+ (toolbox headless, `systemd-zram-generator` e drop-in sysctl com backup) e CachyOS (garantia de `zram-generator` sem sobrescrever o tuning existente); `doctor` agora reporta swap/zram/governor/scheduler/journald/fstrim/serviços como auditoria read-only. Swapfile, journald, governors, schedulers, serviços e kernel cmdline permanecem manuais/benchmark-gated.
 
 - **Added**: 21 pacotes pacman (`os: arch,cachyos`) absorvidos do inventário CachyOS —
