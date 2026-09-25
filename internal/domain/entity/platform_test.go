@@ -34,6 +34,13 @@ func TestMatchOS(t *testing.T) {
 	}
 }
 
+func TestParseOSRelease(t *testing.T) {
+	id, idLike, version := parseOSRelease("ID=ubuntu\nID_LIKE=debian\nVERSION_ID=\"24.04\"\n")
+	if id != "ubuntu" || idLike != "debian" || version != "24.04" {
+		t.Fatalf("parseOSRelease = %q, %q, %q", id, idLike, version)
+	}
+}
+
 func TestDetectedDistroIsAKnownValue(t *testing.T) {
 	switch got := DetectedDistro(); got {
 	case DistroArch, DistroDebian, DistroWindows, DistroDarwin, DistroUnknown:
@@ -54,5 +61,64 @@ func TestSkillAppliesToOS(t *testing.T) {
 	}
 	if !windowsOnly.AppliesToOS("windows") {
 		t.Errorf("windows-scoped skill must apply on windows")
+	}
+}
+
+func TestPackageMatchesPlatform(t *testing.T) {
+	ubuntuPackage := Package{
+		OS:               "ubuntu",
+		TargetDistro:     "ubuntu",
+		MinDistroVersion: "24.04",
+	}
+	cases := []struct {
+		name     string
+		pkg      Package
+		platform PlatformInfo
+		want     bool
+	}{
+		{
+			name:     "ubuntu 24.04 accepts target",
+			pkg:      ubuntuPackage,
+			platform: PlatformInfo{GOOS: "linux", Family: DistroDebian, ID: "ubuntu", VersionID: "24.04"},
+			want:     true,
+		},
+		{
+			name:     "ubuntu 22.04 rejects minimum",
+			pkg:      ubuntuPackage,
+			platform: PlatformInfo{GOOS: "linux", Family: DistroDebian, ID: "ubuntu", VersionID: "22.04"},
+			want:     false,
+		},
+		{
+			name:     "debian rejects exact ubuntu target",
+			pkg:      ubuntuPackage,
+			platform: PlatformInfo{GOOS: "linux", Family: DistroDebian, ID: "debian", VersionID: "12"},
+			want:     false,
+		},
+		{
+			name:     "cachyos accepts exact target",
+			pkg:      Package{OS: "arch", TargetDistro: "cachyos"},
+			platform: PlatformInfo{GOOS: "linux", Family: DistroArch, ID: "cachyos", VersionID: "rolling"},
+			want:     true,
+		},
+		{
+			name:     "generic arch rejects exact cachyos target",
+			pkg:      Package{OS: "arch", TargetDistro: "cachyos"},
+			platform: PlatformInfo{GOOS: "linux", Family: DistroArch, ID: "arch", VersionID: "rolling"},
+			want:     false,
+		},
+		{
+			name:     "windows rejects linux target",
+			pkg:      ubuntuPackage,
+			platform: PlatformInfo{GOOS: "windows", Family: DistroWindows, ID: "windows", VersionID: ""},
+			want:     false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := PackageMatchesPlatform(tc.pkg, tc.platform); got != tc.want {
+				t.Errorf("PackageMatchesPlatform() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

@@ -16,15 +16,18 @@ envctl/
 │   │   └── repository/          # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
 │   ├── usecase/                 # Casos de Uso da Aplicação
 │   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
+│   │   ├── provision_performance.go # Perfil opt-in Ubuntu/CachyOS + sysctl
 │   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
-│   │   ├── provision_skills.go  # Extração e atualização das 44 Skills
+│   │   ├── provision_skills.go  # Extração e atualização das 45 Skills
 │   │   ├── provision_lsp.go     # Instalação e validação dos 15 binários LSP (shell/IDE)
 │   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
 │   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
+│   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
 │   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
 │   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
 │   │   ├── winget/              # Adaptador para Windows Package Manager
 │   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
+│   │   ├── performance/         # Sysctl, zram e inspeção read-only de performance Linux
 │   │   ├── toolchain/           # Adaptadores para Volta, Go, UV/Pip
 │   │   ├── windows/             # Adaptador de Registro e Fontes Windows
 │   │   ├── git/                 # Adaptador Git e GitHub CLI
@@ -44,7 +47,8 @@ envctl/
 
 ### 1. Camada de Domínio (`internal/domain`)
 - **Entidades (`entity/models.go`)**: Modelos puros sem dependências externas.
-  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `volta`, `go`, `pip`), binário esperado e filtro de OS.
+  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `volta`, `go`, `pip`), binário esperado, filtro de OS e constraints opcionais de distro/versão.
+  - `PerformanceSpec`/`SysctlSetting`: Perfil de performance separado por SO e ajustes sysctl revisáveis.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
   - `LSP`: Servidor de linguagem (Language Server Protocol), gerenciador de pacote nativo e linguagens suportadas.
@@ -54,17 +58,19 @@ envctl/
   - `PackageManager`: Interface universal com `CheckPackage`, `InstallPackage` e `VerifyPackage`.
   - `FileSystemManager`: Operações com caminho dinâmico (`~`, `%VAR%`, `$VAR`), backup atômico e restrição de permissões (Windows ACLs via `icacls` ou POSIX `chmod`).
   - `WindowsTweaksManager`: Gestão de tweaks de registro e instalação de fontes.
-  - `ManifestRepository`: Carga e persistência dos manifestos declarativos.
+  - `ManifestRepository`: Carga e persistência dos manifestos declarativos, incluindo specs de performance por perfil.
+  - `SysctlManager`/`PerformanceInspector`: escrita idempotente com backup e leitura de estado Linux.
   - `Logger`: Gravação assíncrona/síncrona de eventos com trilha de auditoria em arquivo.
 
 ### 2. Camada de Casos de Uso (`internal/usecase`)
 Orquestra o fluxo de negócio do provisionador sem acoplamento a implementações concretas:
-- **`ProvisionPackagesUseCase`**: Itera pelos manifestos, filtra pelo OS corrente (`runtime.GOOS`) e orquestra a instalação em lote chamando os adaptadores específicos.
+- **`ProvisionPackagesUseCase`**: Itera pelos manifestos, filtra pelo OS/distro/versão corrente e orquestra a instalação em lote chamando os adaptadores específicos.
+- **`ProvisionPerformanceUseCase`**: Seleciona exatamente Ubuntu 24.04+ ou CachyOS, executa o perfil opt-in e impede que sysctl seja aplicado ao perfil errado.
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
-- **`ProvisionSkillsUseCase`**: Extrai as 44 Skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
+- **`ProvisionSkillsUseCase`**: Extrai as 45 Skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
 - **`ProvisionLSPsUseCase`**: Garante a presença dos 15 binários de language server p/ shell/IDE (sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
 - **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux/macOS).
-- **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema.
+- **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
 - **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
 
 ### 3. Camada de Infraestrutura (`internal/infra`)

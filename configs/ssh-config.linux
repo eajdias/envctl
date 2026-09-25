@@ -7,6 +7,11 @@ Host *
     ServerAliveInterval 30
     ServerAliveCountMax 3
 
+    # Reuse authenticated connections for faster repeat sessions
+    ControlMaster auto
+    ControlPath ~/.ssh/sockets/%r@%h:%p
+    ControlPersist 10m
+
     # TCP keepalive and compression
     TCPKeepAlive yes
     Compression yes

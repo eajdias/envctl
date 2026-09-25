@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
 - **Language Server Protocol (15 binários LSP p/ shell/IDE)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
-- **Ecossistema OpenCode & CommandCode com 44 Skills**: `opencode.json`, plugins e **44 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
+- **Ecossistema OpenCode & CommandCode com 45 Skills**: `opencode.json`, plugins e **45 Skills de Agentes de IA provisionadas** (+ 1 built-in do opencode). Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via volta) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
 - **Quality Gates Locais**: Verificador único conectado ao hook `Stop` do CommandCode (diagnóstico de volta ao modelo no mesmo turno) e a um pre-push global do git. Ele detecta a stack do repositório (Go, Node/TS, Python, SQL, shell, Docker, PowerShell) e roda só as presentes: linters nos **arquivos alterados** (com o mesmo gate de "somente findings novos" do CI) e type checks/testes no repo inteiro. Veja [docs/verification.md](docs/verification.md).
@@ -74,8 +74,9 @@ envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
-envctl run skills       # Extração e sincronização das 44 Skills
+envctl run skills       # Extração e sincronização das 45 Skills
 envctl run lsp          # 15 Servidores de Linguagem (LSP)
+envctl run performance  # Perfil opt-in Ubuntu 24.04+ ou CachyOS (zram + auditoria/sysctl)
 envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 
@@ -96,8 +97,8 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 
 ### 🏛️ Engenharia & Especificações:
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
-- 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `lsp.yaml`, `windows.yaml`).
-- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 44 Skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
+- 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `performance_*.yaml`, `lsp.yaml`, `windows.yaml`).
+- 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 45 Skills provisionadas, roteamento de subagentes, orquestração remota (`vps-agent-dispatch`) e automação de browser via MCP.
 - ©️ [**Atribuição de Skills**](docs/skills-attribution.md) — De onde veio cada skill adotada de terceiros (autor + repositório), o que foi adaptado e como creditar skill nova.
 - 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks por stack e variáveis de controle.
@@ -108,7 +109,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ---
 
 ## 💎 Princípios Fundamentais
-1. **100% Standalone via `//go:embed`**: Todas as 44 Skills e templates residem dentro do próprio binário executável compilado.
+1. **100% Standalone via `//go:embed`**: Todas as 45 Skills e templates residem dentro do próprio binário executável compilado.
 2. **Idempotência Estrita**: Executar 1 ou 100 vezes produz o mesmo estado final estável sem reinstalações redundantes.
 3. **Backup Atômico com Timestamp**: Arquivos modificados sofrem backup automático (`.bak.YYYYMMDD-HHMMSS`) caso haja divergência de hash.
 4. **Logging Persistente Estruturado**: Trilha de auditoria completa gerada em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.

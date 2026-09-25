@@ -1,0 +1,18 @@
+# CachyOS performance profile.
+# Selected only on exact CachyOS hosts by `run performance`; generic Arch does
+# not match this profile.
+profile: cachyos
+
+packages:
+  - id: zram-generator
+    name: zram-generator (compressed RAM swap)
+    type: pacman
+    os: arch
+    target_distro: cachyos
+    category: performance
+    check_command: pacman -Q zram-generator
+
+# CachyOS already has a tuned zram, scheduler, and governor profile on the
+# managed workstation. This branch deliberately does not overwrite those
+# privileged settings; inspect them through doctor and the gaming skill.
+sysctls: []

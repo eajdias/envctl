@@ -29,16 +29,22 @@ const (
 
 // Package represents a system or toolchain package to be managed.
 type Package struct {
-	ID           string        `yaml:"id"`
-	Name         string        `yaml:"name"`
-	Type         PackageType   `yaml:"type"`
-	Category     string        `yaml:"category"`
-	OS           string        `yaml:"os,omitempty"` // "windows", "linux" or empty for all
-	Version      string        `yaml:"version,omitempty"`
-	CheckCommand string        `yaml:"check_command,omitempty"`
-	Args         []string      `yaml:"args,omitempty"`
-	Status       PackageStatus `yaml:"status,omitempty"`
-	Error        string        `yaml:"error,omitempty"`
+	ID       string      `yaml:"id"`
+	Name     string      `yaml:"name"`
+	Type     PackageType `yaml:"type"`
+	Category string      `yaml:"category"`
+	OS       string      `yaml:"os,omitempty"` // "windows", "linux" or distro family
+	// TargetDistro optionally narrows an os: family scope to an exact ID from
+	// /etc/os-release (for example, ubuntu or cachyos).
+	TargetDistro string `yaml:"target_distro,omitempty"`
+	// MinDistroVersion optionally requires the detected VERSION_ID to be at
+	// least the given dotted version. It is only meaningful for Linux targets.
+	MinDistroVersion string        `yaml:"min_distro_version,omitempty"`
+	Version          string        `yaml:"version,omitempty"`
+	CheckCommand     string        `yaml:"check_command,omitempty"`
+	Args             []string      `yaml:"args,omitempty"`
+	Status           PackageStatus `yaml:"status,omitempty"`
+	Error            string        `yaml:"error,omitempty"`
 }
 
 func (p Package) String() string {
