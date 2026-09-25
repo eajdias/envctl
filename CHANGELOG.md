@@ -40,6 +40,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 - **Added**: baseline de performance Linux separado por SO — `run performance` para Ubuntu Server 24.04+ (toolbox headless, `systemd-zram-generator` e drop-in sysctl com backup) e CachyOS (garantia de `zram-generator` sem sobrescrever o tuning existente); `doctor` agora reporta swap/zram/governor/scheduler/journald/fstrim/serviços como auditoria read-only. Swapfile, journald, governors, schedulers, serviços e kernel cmdline permanecem manuais/benchmark-gated.
 
+- **Added**: cinco skills portáteis de engenharia — `go-development`, `python-development`, `mcp-tool-design`, `technical-research` e `frontend-markup` — catálogo 45→50 (46 Win / 46 Ubuntu / 48 CachyOS / 44 macOS).
+
 - **Added**: 21 pacotes pacman (`os: arch,cachyos`) absorvidos do inventário CachyOS —
   `eza`, `zoxide`, `direnv`, `lazygit`, `lazydocker`, `tmux`, `sqlite`, `restic`, `rclone`,
   `rsync`, `btop`, `duf`, `glances`, `fastfetch`, `micro`, `meld`, `cmake`, `ninja`, `mosh`,

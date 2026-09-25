@@ -9,6 +9,7 @@
 | Situação | Skill |
 |---|---|
 | Escrever, alterar ou configurar código com lib/framework/API | `context7-auto` |
+| Pesquisar ou verificar fato técnico atual com fontes, versões e citações | `technical-research` |
 | Bug, teste vermelho, erro intermitente, comportamento inesperado | `systematic-debugging` |
 | Achou um bug e quer saber onde mais o mesmo padrão ocorre | `variant-analysis` |
 | Antes de declarar "pronto"/corrigido/passando (inclusive antes de commitar ou abrir PR) | `verification-before-completion` |
@@ -23,8 +24,11 @@
 | Inserir/atualizar muitos registros no PostgreSQL | `bulk-postgres-import` |
 | Rodar testes, medir cobertura, rodar benchmark | `universal-test-runner` |
 | Feature nova, bugfix, refatoração em TS/PY/GO (teste antes do código) | `test-driven-development` |
+| Go: módulo, APIs, concorrência, testes, race/vet/gofmt | `go-development` |
+| Python: ambiente, módulos, async, tipos, packaging e pytest/ruff | `python-development` |
 | Auditar/atualizar docs contra a implementação real | `docs-sync` |
 | Desenhar/validar contrato de API (OpenAPI, GraphQL, gRPC) | `api-contract-design` |
+| Projetar/revisar tools, resources, prompts, schemas e erros de servidor MCP | `mcp-tool-design` |
 | Servidor/VPS remoto: monitorar, diagnosticar, reiniciar serviço | `ssh-vps` |
 | Rede tailnet: status/inventário, exit node, expor porta (serve/funnel) | `tailscale` |
 | Sync de pastas entre devices via API (status, pasta nova, conflitos) | `syncthing-ops` |
@@ -39,6 +43,7 @@
 | Padronizar telefone BR (E.164) | `phone-e164-normalization` |
 | Regressão/validação contra produção sem mutar dados | `playwright-prod-regression` |
 | Dashboard/SPA autenticado (login, extrair dados, executar ação via HTTP) | `web-dashboard-automation` |
+| HTML/CSS/SCSS semântico, acessível e responsivo | `frontend-markup` |
 | Automação de browser interativa (abrir, clicar, 2FA manual, inspeção) | MCP `chrome-devtools` — habilite via `/mcp` |
 | Automação de browser determinística (regressão, scripts repetíveis) | `pw` via shell (wrapper de `playwright-cli`; skills `web-dashboard-automation`, `playwright-prod-regression`) |
 | Validar servidor de linguagem (LSP) que não responde | `lsp-smoke-test` |
@@ -49,7 +54,6 @@
 | Descobrir/criar skill a partir de uso repetido | `skill-miner` |
 | Ajustar skill recém-baixada ao ambiente do usuário | `skill-personalizer` |
 | Publicar/compartilhar skill (remover dados privados) | `skill-generalizer` |
-| Editar `opencode.json` / agentes | `customize-opencode` |
 | Performance Linux por OS (Ubuntu Server 24.04+, CachyOS, zram, sysctl, swap) | `linux-performance-tuning` `[linux]` |
 | Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
 | Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |

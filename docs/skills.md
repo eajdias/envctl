@@ -1,12 +1,12 @@
 # Catálogo de Skills de Agentes de IA & Orquestração Remota
 
-O `envctl` embuta e sincroniza **45 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
+O `envctl` embuta e sincroniza **50 Skills de Agentes Especialistas** projetadas para os agentes **CommandCode** e **OpenCode**. As skills fornecem instruções estruturadas, regras determinísticas, scripts utilitários e referências técnicas que capacitam os agentes a executar tarefas de engenharia complexas de ponta a ponta.
 
 > **Carga sob demanda — é o motivo de usar skill em vez de MCP.** A cada turno entra no prompt apenas o par *nome + descrição* de cada skill; o corpo do `SKILL.md` só é lido quando a tarefa casa ou quando você invoca `/<skill>`. Nenhuma skill é carregada antecipadamente.
 
 > **Índice externo.** Cada agente recebe um `SKILL-INDEX.md` (tabela *situação → skill*) que o agente abre **apenas** se precisar decidir qual skill usar — não é auto-carregado. No CommandCode fica em `~/.commandcode/SKILL-INDEX.md`; no OpenCode em `~/.config/opencode/SKILL-INDEX.md`.
 
-> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` distro-strict no manifesto (`windows` · `arch,cachyos` · `debian,ubuntu`) e são **podadas** nas demais plataformas — 45 no manifesto, 41 deployadas no Windows, 41 no Ubuntu Server, 43 no CachyOS. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
+> **Deploy por agente.** Cada agente tem seu próprio comando (`envctl commandcode` / `envctl opencode`) e seu diretório (`~/.commandcode/skills/`, `~/.config/opencode/skills/`) — um comando não toca os arquivos do outro. A fonte única da verdade é `configs/skills/` + `manifests/skills.yaml`; propague com `envctl run skills`. Skills de ambiente específico declaram `os:` distro-strict no manifesto (`windows` · `arch,cachyos` · `debian,ubuntu`) e são **podadas** nas demais plataformas — 50 no manifesto, 46 deployadas no Windows, 46 no Ubuntu Server, 48 no CachyOS. O OpenCode recebe ainda um `REFERENCE.md` (detalhe operacional: plugins, DCP, agentes, memória, VPS) — também lido só sob demanda.
 
 > **Créditos.** Boa parte destas skills foi adotada de projetos de terceiros (obra/superpowers, mattpocock/skills, hqhq1025/skill-optimizer, Hardik Pandya) — o autor e o repositório de origem estão no `metadata` de cada `SKILL.md`. Tabela completa, o que foi adaptado e o checklist para adotar skill nova: [**Atribuição de Skills**](skills-attribution.md).
 
@@ -20,9 +20,9 @@ O `envctl` embuta e sincroniza **45 Skills de Agentes Especialistas** projetadas
 
 ---
 
-## 📋 Categorias das Skills (45)
+## 📋 Categorias das Skills (50)
 
-### 1. Engenharia de Software & Arquitetura (11)
+### 1. Engenharia de Software & Arquitetura (15)
 - **`git-workflow`**: Estratégia de branches semânticas, Conventional Commits, ciclo de Pull Requests via `gh` CLI, resolução de conflitos de merge/rebase e gerenciamento de `git worktree`.
 - **`database-ops`**: Gestão multi-banco dinâmica (PostgreSQL, MySQL, Firebird, MongoDB, SQLite) via Docker Compose e migrações ORM sem sobrecarga de MCPs estáticos.
 - **`universal-test-runner`**: Execução unificada de testes e análise de cobertura para Go, Python (pytest), Node/TypeScript (vitest/jest), .NET e Rust.
@@ -34,6 +34,10 @@ O `envctl` embuta e sincroniza **45 Skills de Agentes Especialistas** projetadas
 - **`receiving-code-review`**: Raciocínio crítico para avaliação e implementação de feedbacks de code review.
 - **`writing-plans`**: Elaboração de especificações e planos de implementação passo a passo.
 - **`docs-sync`**: Auditoria/atualização da documentação contra a implementação real (gaps, incorreções, docstrings TS/PY/GO) — audit-only por default (ideia de openai/openai-agents-python, workflow adaptado).
+- **`go-development`**: Desenvolvimento Go idiomático — APIs, erros, context, concorrência, portabilidade, testes e race detector.
+- **`python-development`**: Desenvolvimento Python — ambientes, módulos, tipos, async, packaging, pytest, Ruff e type checkers.
+- **`mcp-tool-design`**: Design e revisão de servidores MCP — tools, resources, prompts, schemas, segurança, compatibilidade e testes.
+- **`frontend-markup`**: HTML, CSS e SCSS semânticos, acessíveis, responsivos e verificados no navegador.
 
 ### 2. Orquestração de Infraestrutura & Servidores Remotos (9)
 - **`vps-agent-dispatch`**: Orquestrador autônomo que permite ao agente master no notebook delegar tarefas pesadas, builds longos e testes para instâncias remotas OpenCode em servidores VPS (AWS/Oracle) via SSH, trazendo de volta apenas o sumário técnico cristalizado.
@@ -46,10 +50,11 @@ O `envctl` embuta e sincroniza **45 Skills de Agentes Especialistas** projetadas
 - **`windows-debloat`**: Debloat opt-in do Windows 11 (`run debloat`, Tier 1-2 automáticos + Tier 3 manual) — telemetria, privacidade, gaming, Appx, serviços; `doctor` agrega por categoria, nunca `--fix`. `[win]`
 - **`aur-headless-install`**: Instalação de pacotes AUR em shells não-interativos (`makepkg` como usuário + `sudo pacman -U`), sem prompts de senha.
 
-### 3. Contexto, Memória & Operação Autônoma (14)
+### 3. Contexto, Memória & Operação Autônoma (15)
 - **`agent-memory`**: Memória persistente de lições e patterns — consulte quando a tarefa parecer repetir algo já resolvido e registre quando aprender.
 - **`memory-promotion`**: Classifica cada aprendizado gravado e promove processos reutilizáveis a skills, removendo a entrada da memória (sem redundância memória ↔ skill); aplica a regra de atribuição ao adotar skill de terceiro.
 - **`context7-auto`**: Busca obrigatória de documentação atualizada de bibliotecas/frameworks via MCP Context7 antes de escrever código.
+- **`technical-research`**: Pesquisa técnica com fontes primárias, versões explícitas, contradições e citações.
 - **`grill-me`**: Porteiro de ambiguidade — mede de 0 a 100 a clareza do pedido e, acima do limiar, pergunta **antes** de executar.
 - **`ask-questions-if-underspecified`**: A mecânica de perguntar bem — perguntas mínimas, opções com default, resposta compacta.
 - **`subagent-routing`**: Roteamento e despacho de subagentes — quando delegar, qual tipo (`explore`/`general`/`plan`), paralelo vs sequencial, mecânica de dispatch múltiplo na mesma resposta, e orquestração no mesmo repositório (fronteiras disjuntas, base comum, integração final).
