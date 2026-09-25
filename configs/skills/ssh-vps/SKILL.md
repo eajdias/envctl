@@ -1,118 +1,198 @@
 ---
 name: ssh-vps
-description: Operar VPS/servidores remotos da empresa via SSH (Linux + Windows OpenSSH) — monitorar, diagnosticar e recuperar serviços (systemd, Docker, PM2) em ~10 servidores. Use quando o usuário pedir para verificar, monitorar, reiniciar, corrigir ou gerenciar um servidor/VPS ("ssh", "vps", "server", "servidor", "instância", "monitorar servidor", "health check", "reiniciar serviço", "conectar no", "ssh-manager", "mcp de ssh", "subir serviço", "serviço caiu").
+description: >-
+  Operação segura de VPS e servidores remotos via SSH, Linux ou Windows OpenSSH. Use para monitorar, diagnosticar, recuperar ou automatizar serviços com ssh-manager, ssh, rsync, systemd, Docker ou PM2, além de organizar chaves, permissões, known_hosts e conexões não interativas. Triggers: ssh, vps, servidor, instância, monitorar, health check, ssh-manager, chave ssh, known_hosts, authorized_keys, BatchMode, systemd, pm2, serviço caiu, túnel, rsync, backup remoto.
 license: MIT
 ---
 
-# SSH VPS Operations
+# SSH em VPS e servidores remotos
 
-## Contexto
-O usuário é o gerente de infraestrutura da empresa. Existem ~10 VPS (Linux e Windows), cada um rodando um serviço 'cloud' das operações (systemd, Docker, PM2). O uso é sob demanda: o usuário pede, você monitora/diagnostica/recupera.
+## Quando usar
 
-## Infraestrutura local
-- `ssh` (OpenSSH client) — disponível direto no terminal.
-- `ssh-manager` CLI + `mcp-ssh-manager` (npm global via Volta).
-- `rsync`, `jq`, `sshpass` — ferramentas auxiliares.
-- Chaves SSH: `~/Documents/SSH-keys/<VPS>/<VPS>.pem` (+ .txt com dados de conexão).
+Use para operar um servidor por SSH quando o usuário fornecer o alvo por um inventário local ou por um comando explícito. O inventário pode conter dados de conexão, mas esse arquivo permanece local e nunca deve ser copiado para esta skill, README, docs ou outro arquivo versionado.
 
-## MCP `ssh-manager` — DESATIVADO por padrão (regra permanente)
+Comece com leitura. Reiniciar, parar, editar, enviar arquivos, criar usuários, instalar pacotes, abrir portas e alterar chaves são operações mutáveis: mostre o comando, o impacto e a forma de recuperação, e peça confirmação quando o risco não for evidente.
 
-O MCP está registrado com `"enabled": false` para não carregar ~43k tokens de contexto desnecessariamente — user-scope em `~/.commandcode/mcp.json` (CommandCode, provisionado pelo envctl) e no bloco `mcp.ssh-manager` de `~/.config/opencode/opencode.json` (OpenCode). **O default é SEMPRE `false`; ativação é SEMPRE manual em runtime, conforme a necessidade.**
+## Inventário e ferramentas
 
-**Caminho padrão = CLI (Opção A), não o MCP.** O processo MCP resolve o `.env` UMA vez no boot e pinna a assinatura do estado inicial — VPS cadastrada DEPOIS exige restart real do processo (toggle OFF→ON). O CLI lê `~/.ssh-manager/.env` a cada chamada: nunca precisa restart. Por isso opere via CLI por padrão e só suba o MCP quando as tools exclusivas dele pagarem o custo.
+Consulte, sem imprimir segredos:
 
-**Regra — o AGENT NUNCA edita o config por conta própria.**
+1. o inventário local fornecido pelo ambiente;
+2. `ssh-manager server list` ou a listagem do MCP quando ele estiver habilitado;
+3. a ajuda da ferramenta para confirmar sintaxe e permissões.
 
-**Quando PEDIR ativação:** se você PERCEBER que a tarefa ficaria melhor/mais segura com as ferramentas MCP, PARE e PEÇA ao usuário para ativar o MCP, explicando o motivo. Cenários em que é ideal:
-- Operações em **múltiplos VPS ao mesmo tempo** (`ssh_group_execute`)
-- **Health check / status consolidado** de vários servidores (`ssh_health_check`, `ssh_service_status`)
-- **DB ops** (`ssh_db_dump/import/query`), **túnel SSH** (`ssh_tunnel_create`), **backups/sessões**
-- Upload/download/rsync estruturado (`ssh_upload/download/sync`) e tarefas repetitivas longas
+O caminho e o formato do inventário são configuração local. Não incorpore hostname, endereço IP, usuário, porta, fingerprint ou caminho de chave real neste arquivo. Use referências genéricas como `<host>`, `<usuario>`, `<porta>` e `<chave>` nos exemplos.
 
-**Como pedir (mensagem ao usuário):** explique o motivo e peça para ativar o MCP:
-1. Abra o gerenciador de MCP do agente — `/mcp` (CommandCode ou OpenCode; no OpenCode também `Ctrl+P` → busque "mcp")
-2. Habilite/conecte o `ssh-manager` (no OpenCode é hot-reload, não precisa reiniciar; no CommandCode a sessão adota na próxima rodada)
-3. Avise quando estiver ativo para eu prosseguir com as ferramentas `ssh_*`
+Use o `ssh-manager` CLI quando ele já estiver disponível:
 
-**Após ativar, valide antes de usar:** rode `ssh_list_servers` e confira se os servidores esperados aparecem. Se retornar vazio (`Available servers: none`) com servidores cadastrados, o processo MCP subiu ANTES do cadastro — peça ao usuário um toggle OFF→ON no `/mcp` (restart real; nunca mate o processo node — as tools somem sem reconexão).
-
-**Enquanto o MCP estiver desativado:** use a CLI (Opção A) ou ssh/rsync (Opção C) — funcionam sem o MCP.
-
-## Servidores registrados — inventário LOCAL (nunca versionar)
-
-**Os dados reais de servidores (IPs, usuários, caminhos de chaves) ficam APENAS em arquivos locais por máquina — NUNCA neste SKILL.md nem em qualquer arquivo versionado.**
-
-Fonte de consulta (em ordem):
-1. `~/.config/opencode/extras/ssh_servers.md` — inventário local de servidores (diretório gerenciado pelo envctl, existe independente do agente em uso; individual por PC/VPS, nunca commitado)
-2. `~/.ssh-manager/.env` — config do ssh-manager (formato dotenv; chaves `SSH_SERVER_<NOME>_HOST/_USER/_PORT/_KEYPATH/_PASSPHRASE/_PLATFORM/...`; nome do servidor = parte entre `SSH_SERVER_` e `_HOST`, minúsculo)
-3. `ssh-manager server list` (CLI) ou `ssh_list_servers` (MCP) — lista dinâmica
-
-**⚠️ REGRA DE SEGURANÇA:** nunca adicione IPs, usuários, hostnames ou caminhos de chaves reais em `SKILL.md`, README, docs ou qualquer arquivo versionado. Se o usuário fornecer, registre apenas no inventário local (`~/.config/opencode/extras/ssh_servers.md`).
-
-## Cadastro de nova VPS (workflow rápido)
-
-Quando o usuário pedir para cadastrar VPS, siga estes 3 passos:
-
-**1. Ler o .txt** — caminho informado pelo usuário (geralmente `~/Documents/SSH-keys/<Nome>/<Nome>.txt`). Extrair: host, user, key path.
-
-**2. Append no `.env`** — adicione bloco no final de `~/.ssh-manager/.env`:
-```
-# Server: <NomeDisplay>
-SSH_SERVER_<NOMEUpper>_HOST=<ip>
-SSH_SERVER_<NOMEUpper>_USER=<user>
-SSH_SERVER_<NOMEUpper>_PORT=22
-SSH_SERVER_<NOMEUpper>_KEYPATH=~/Documents/SSH-keys/<Pasta>/<Arquivo>.pem
-SSH_SERVER_<NOMEUpper>_DESCRIPTION="<descrição>"
-```
-- Nome do servidor = `<NOMEUpper>` em minúsculo no MCP (ex: `<NOME>` → `<SERVER>`)
-- Key path: use `~` para home do usuário, nunca caminho absoluto hardcoded — o ssh-manager expande `~` automaticamente (`os.homedir()`)
-
-**Localização das chaves por plataforma** (a pasta exata vem do .txt do usuário):
-- Windows: `~/Documents/SSH-keys/<VPS>/<VPS>.pem`
-- Linux/macOS: `~/.ssh/<VPS>.pem` (padrão `ssh-config.linux`)
-
-**3. Testar e atualizar inventário local** — teste pela CLI (`ssh-manager server test <nome>`, lê o `.env` na hora, sem restart); depois ADICIONE/ATUALIZE o servidor em `~/.config/opencode/extras/ssh_servers.md` (nome, host, usuário, OS, chave, observação). NUNCA adicione a tabela neste SKILL.md. Se o MCP estiver ativo na sessão, valide com `ssh_list_servers` — vazio aqui com CLI OK significa processo MCP anterior ao cadastro: toggle OFF→ON no `/mcp`.
-
-**4. Provisionar com envctl (VPS vira agente OpenCode)** — após cadastro validado, NUNCA deixar a VPS crua: rode o bootstrap do envctl na VPS (1 linha) e provisione:
-```
-ssh <vps> "curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash"
-ssh <vps> "envctl run all && envctl doctor"
-```
-Assim a VPS ganha OpenCode + skills próprios (plano Free) e passa a ser orquestrável via `vps-agent-dispatch`. Se o usuário só quiser monitorar a VPS, pule este passo. Detalhes do fluxo completo: skill `vps-provisioning`.
-
-## Como usar
-
-### Opção A — CLI (padrão, sem MCP)
-```
-ssh-manager server list                 # lista servidores
-ssh-manager server test <nome>          # testa conexão
-ssh-manager exec <nome> "<comando>"     # executa comando no servidor
-ssh-manager exec <nome> "systemctl status nginx"
-```
-Nota: sintaxe é `ssh-manager exec <servidor> <comando>` (não existe 'exec run').
-
-### Opção B — MCP (após habilitar via `/mcp` ou `Ctrl+P`, hot-reload)
-Ferramentas principais: `ssh_list_servers`, `ssh_execute`, `ssh_upload`, `ssh_download`, `ssh_sync`, `ssh_health_check`, `ssh_service_status`, `ssh_process_manager`, `ssh_execute_sudo`, `ssh_group_execute`, `ssh_tunnel_create`, `ssh_db_dump/import/list/query`, backups e sessões.
-
-### Opção C — ssh direto / rsync (fallback)
-```
-ssh -i "<caminho da chave do inventário local>" <user>@<host> "uptime"
-rsync -avz -e "ssh -i <chave>" ./dir/ <user>@<host>:/home/<user>/dir/
+```bash
+ssh-manager server list
+ssh-manager server test <nome>
+ssh-manager exec <nome> "<comando>"
 ```
 
-## Checklist de diagnóstico/recuperação (comum: serviço caiu)
-1. Visão geral: `uptime`, `df -h /`, `free -h`, `systemctl is-system-running`.
-2. Identificar o serviço: `systemctl list-units --type=service --state=failed`; Docker: `docker ps -a`; PM2: `pm2 list`.
-3. Logs: `journalctl -u <serviço> --no-pager -n 50`; Docker: `docker logs --tail 50 <ctr>`; PM2: `pm2 logs <id> --lines 50`.
-4. Recuperar: `sudo systemctl restart <svc>` / `docker restart <ctr>` / `pm2 restart <id>`.
-5. Verificar de novo (status + is-system-running) e reportar ao usuário.
+Para SSH direto ou transferência, use somente dados obtidos do inventário local:
 
-## Boas práticas
-- Comece SEMPRE com comandos read-only; só use sudo quando necessário (`ssh_execute_sudo`, ou `sudo -S` com SUDO_PASSWORD se definido no `.env`).
-- NADA de comandos interativos no remoto (vim, top, htop, nano) — use `cat`, `ps aux`, `systemctl status`.
-- Processos longos: `nohup <cmd> > /temp/x.log 2>&1 &`.
-- Arquivos pequenos (<1MB): base64 ou `ssh_upload`; grandes: rsync (`ssh_sync` usa rsync).
-- Alvos Windows (`PLATFORM=windows`): shell é PowerShell — comandos Linux (systemctl etc.) NÃO funcionam; use `Get-Service`, `sc.exe`, `Restart-Service`.
-- Nunca exponha chaves/senhas no output; não logue segredos.
-- Nunca escreva IPs/usuários/caminhos de chaves reais em arquivos versionados — registre no inventário local `~/.config/opencode/extras/ssh_servers.md`.
-- Alterações no `.env` são lidas na hora (hot reload), mas o CLI usa o processo atual — reinicie se precisar.
+```bash
+ssh -i "<chave-do-inventario>" <usuario>@<host> "uptime"
+rsync -avz -e "ssh -i <chave-do-inventario>" ./arquivo/ <usuario>@<host>:<destino>
+```
+
+Se um MCP for habilitado no ambiente, valide a lista de servidores antes de usar as ferramentas. Não habilite, desabilhe ou edite configuração do agente como efeito colateral desta skill.
+
+## Higiene de chaves
+
+Esta parte é válida para qualquer usuário ou servidor; não substitui a política de cada ambiente.
+
+### Permissões no cliente
+
+No cliente Linux, use um diretório SSH privado, arquivo de chave privada e arquivos de controle restritos. `chmod` deve ser executado no cliente, no usuário correto:
+
+```bash
+umask 077
+install -d -m 700 "$HOME/.ssh"
+chmod 700 "$HOME/.ssh"
+chmod 600 "<chave-privada>"
+chmod 644 "<chave-publica>"
+for path in "$HOME/.ssh/config" "$HOME/.ssh/known_hosts"; do
+  [ -e "$path" ] && chmod 600 "$path"
+done
+if [ -e "$HOME/.ssh/authorized_keys" ]; then
+  chmod 600 "$HOME/.ssh/authorized_keys"
+fi
+```
+
+Antes de corrigir modos ou ownership, rejeite links simbólicos inesperados; não altere o alvo de um link para completar a receita. Ajuste a ownership sem alterar recursivamente diretórios desconhecidos:
+
+```bash
+owner="$(id -un)"
+group="$(id -gn)"
+chown "$owner:$group" "$HOME/.ssh"
+chown "$owner:$group" "<chave-privada>" "<chave-publica>"
+for path in "$HOME/.ssh/config" "$HOME/.ssh/known_hosts"; do
+  [ -e "$path" ] && chown "$owner:$group" "$path"
+done
+if [ -e "$HOME/.ssh/authorized_keys" ]; then
+  chown "$owner:$group" "$HOME/.ssh/authorized_keys"
+fi
+```
+
+A chave privada nunca deve ser legível por grupo ou outros usuários. A chave pública pode ser `0644`, desde que a ownership e o conteúdo sejam válidos. Se a máquina cliente também aceitar conexões de entrada, `authorized_keys` é um arquivo de chaves públicas e deve ter `0600`; ele não substitui `known_hosts` e não deve ser confundido com a chave privada do cliente. Se o cliente não atua como servidor, não crie esse arquivo por padrão.
+
+### Permissões no servidor
+
+O `authorized_keys` do servidor deve pertencer ao usuário SSH e ficar dentro de um diretório `.ssh` com `0700`:
+
+```bash
+sudo install -d -m 700 -o <usuario> -g <grupo> <home>/.ssh
+sudo chown <usuario>:<grupo> <home>/.ssh/authorized_keys
+sudo chmod 600 <home>/.ssh/authorized_keys
+```
+
+Use o caminho e o grupo efetivamente criados pelo administrador; não use `chown -R` nem troque o dono da home inteira. Verifique sem revelar o conteúdo:
+
+```bash
+stat -c '%A %U:%G %n' <home>/.ssh <home>/.ssh/authorized_keys
+```
+
+A configuração do `sshd` pode recusar chaves com permissão excessiva. Se um login falha, compare ownership, modo, tipo de arquivo, home, `AuthorizedKeysFile` e logs do servidor; não enfraqueça a segurança global como atalho.
+
+### `known_hosts` e verificação do host
+
+`known_hosts` registra a identidade do servidor. Não desative a verificação para fugir de um erro:
+
+```bash
+ssh-keygen -F <host> -f "$HOME/.ssh/known_hosts"
+ssh -o StrictHostKeyChecking=yes \
+  -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+  -o BatchMode=yes <usuario>@<host> "uptime"
+```
+
+Para uma conexão nova, obtenha o fingerprint por um canal confiável e compare-o antes de aceitar a chave. `accept-new` só é aceitável em uma conexão nova verificada; não o transforme em uma política permanente. Se uma chave foi rotacionada, remova somente a entrada antiga depois de confirmar a nova identidade.
+
+### `BatchMode` e identidade explícita
+
+Para automação, faça a conexão falhar rápido em vez de abrir prompt invisível:
+
+```bash
+ssh -o BatchMode=yes \
+  -o IdentitiesOnly=yes \
+  -o ConnectTimeout=10 \
+  -i "<chave-do-inventario>" \
+  <usuario>@<host> "<comando>"
+```
+
+`BatchMode=yes` desativa prompts de senha e confirmação. Se a chave usa passphrase, carregue-a no agente em uma etapa autorizada ou use um mecanismo de credencial aprovado; não coloque a passphrase no comando, no arquivo de inventário versionado ou no output. `IdentitiesOnly=yes` evita que o cliente tente chaves agentes que não foram solicitadas.
+
+### Gerar chave de forma idempotente
+
+O comando só cria a chave quando ela ainda não existe; nunca sobrescreve material existente:
+
+```bash
+set -eu
+umask 077
+install -d -m 700 "$HOME/.ssh"
+key="$HOME/.ssh/<nome-da-chave>"
+if [ ! -e "$key" ] && [ ! -e "$key.pub" ]; then
+  ssh-keygen -t ed25519 -a 100 -f "$key" -C "<rotulo>"
+elif [ -e "$key" ] && [ -e "$key.pub" ]; then
+  printf '%s\n' 'Chave existente; nenhuma troca foi feita.'
+else
+  printf '%s\n' 'Par de chaves incompleto; investigue antes de continuar.' >&2
+  exit 1
+fi
+chmod 600 "$key"
+chmod 644 "$key.pub"
+```
+
+Se apenas um dos dois arquivos existir, pare e investigue o par incompleto; não force a regeneração. Para automação não interativa, use uma política de passphrase e uma fonte de segredo aprovada, nunca uma senha vazia implícita apenas para conveniência. A chave pública pode ser instalada no `authorized_keys` do servidor; a privada permanece no cliente.
+
+## Diagnóstico remoto
+
+Para um serviço que caiu, comece com uma coleta ampla e sem mudança:
+
+1. `uptime`, `df -h`, `free -h` e o estado geral do sistema;
+2. serviços com falha, containers ou processos gerenciados;
+3. logs recentes do serviço e do sistema;
+4. causa provável, impacto e comando de recuperação;
+5. confirmação para reiniciar/alterar;
+6. nova consulta de status, logs e uma verificação funcional.
+
+Linux:
+
+```bash
+systemctl is-system-running
+systemctl list-units --type=service --state=failed
+journalctl -u <servico> --no-pager -n 50
+systemctl status <servico> --no-pager
+```
+
+Docker e PM2:
+
+```bash
+docker ps -a
+docker logs --tail 50 <container>
+pm2 list
+pm2 logs <id> --lines 50
+```
+
+Em Windows OpenSSH, use PowerShell e comandos nativos (`Get-Service`, `Get-WinEvent`, `Restart-Service`) em vez de `systemctl` ou caminhos Linux. Descubra o shell e o principal da sessão antes de executar.
+
+## Execução remota segura
+
+- Comece com comandos somente leitura e capture a saída completa necessária.
+- Use `sudo` só quando a operação realmente precisar de privilégio; em uma cadeia, explicite o privilégio de cada parte em vez de presumir que ele se propaga.
+- Evite editores e programas interativos no remoto. Use arquivos temporários controlados, `cat`, `journalctl`, `docker logs` e `pm2 logs`.
+- Para processos longos, use uma sessão gerenciada, log persistente e mecanismo de retomada; não dependa de um terminal que possa morrer.
+- Para arquivos pequenos, prefira envio controlado; para arquivos grandes, use `rsync` com a identidade correta e verifique soma de verificação/tamanho.
+- Nunca exponha chaves, senhas, tokens ou variáveis secretas na saída, nos logs ou em arquivos versionados.
+- Alterações no inventário local são permitidas quando solicitadas, mas devem ser testadas e não devem ser sincronizadas para o repositório.
+
+## Checklist de segurança
+
+- O cliente usa a identidade explícita e não depende de senha interativa em automação.
+- `~/.ssh` está `0700`; chave privada, `config` e `known_hosts` estão `0600`; ownership pertence ao usuário certo.
+- O servidor tem `authorized_keys` com ownership e `0600`, e a configuração do `sshd` foi consultada.
+- A identidade do host foi comparada; a verificação de host permanece habilitada.
+- A chave foi gerada uma única vez e não foi sobrescrita por idempotência.
+- Toda mudança remota tem plano, confirmação quando necessária e verificação posterior.

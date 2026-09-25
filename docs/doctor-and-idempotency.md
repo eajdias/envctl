@@ -30,7 +30,7 @@ envctl doctor
 4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de Skills por OS (41 Win / 41 Ubuntu / 43 CachyOS, + espelho CommandCode)**:
+6. **Catálogo de Skills por OS (46 Win / 46 Ubuntu / 48 CachyOS, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
 7. **Performance Linux (read-only)**:
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.

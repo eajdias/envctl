@@ -9,170 +9,104 @@ metadata:
   adapted: envctl — descricao/triggers em PT-BR; planos vao para spec-agent/ (o upstream usava docs/superpowers/plans/)
 ---
 
-# Writing Plans
+# Escrita de planos
 
-## Overview
+Escreva um plano executável antes de modificar produção. O objetivo não é produzir um relatório bonito: é deixar claro o que muda, por quê, em qual ordem, como provar e como desfazer.
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+**Anuncie no início:** “Estou usando a skill `writing-plans` para criar o plano de implementação.”
 
-Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
+## Regras de contexto e escopo
 
-**Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
+- Se a execução estiver em um worktree isolado, use a skill `git-workflow` para verificar ou preparar o isolamento. Detecte o worktree antes de criar outro e peça consentimento quando a criação exigir uma decisão do usuário.
+- Salve o plano em `spec-agent/YYYY-MM-DD-<feature-name>.md`, na raiz do projeto. Uma preferência explícita do usuário por outro local prevalece.
+- Não implemente enquanto o requisito, o impacto ou um unknown bloqueante não estiver claro.
+- Se o pedido misturar subsistemas independentes, proponha specs/planos separados; cada um deve entregar software testável por conta própria.
 
-**Context:** If working in an isolated worktree, it should have been created via the `using-git-worktrees` skill at execution time.
+## 1. Descoberta antes do desenho
 
-**Save plans to:** `spec-agent/YYYY-MM-DD-<feature-name>.md` (na raiz do projeto)
-- (Preferência do usuário por outro local de plano sobrepõe este default)
+Não adivinhe a estrutura do projeto. Antes de escrever tarefas, leia as instruções do repositório, README, arquitetura disponível, manifests/configs, CI e os pontos de entrada. Depois mapeie:
 
-## Scope Check
+- arquivos que serão criados, modificados ou testados, com a responsabilidade de cada um;
+- interfaces, consumidores, contratos e dados que atravessam as fronteiras;
+- padrões já existentes de testes, lint, formatação, tipos, commits e verificação;
+- dependências, variáveis de ambiente, migrações, feature flags e restrições de plataforma que precisam ser considerados.
 
-If the spec covers multiple independent subsystems, it should have been broken into sub-project specs during brainstorming. If it wasn't, suggest breaking this into separate plans — one per subsystem. Each plan should produce working, testable software on its own.
+Registre a fonte de cada decisão importante. Quando um detalhe não puder ser confirmado no código, ele é um unknown — não uma suposição escondida no plano.
 
-## File Structure
+## 2. Impacto e contratos
 
-Before defining tasks, map out which files will be created or modified and what each one is responsible for. This is where decomposition decisions get locked in.
+Descreva o efeito da mudança antes da sequência de passos:
 
-- Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
-- You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
-- Files that change together should live together. Split by responsibility, not by technical layer.
-- In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
+- **Superfície alterada:** componentes e chamadas que podem ser afetados.
+- **Contratos:** assinaturas, tipos, status/códigos de erro, configurações, formatos de arquivo e compatibilidade.
+- **Dependências:** bibliotecas, serviços, dados, migrações e limites de plataforma.
+- **Critério de não regressão:** quais comportamentos existentes precisam continuar funcionando.
 
-This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
+Mantenha a nomenclatura, a linguagem e as convenções do repositório. Divida uma unidade grande quando cada parte puder ser revisada e testada de forma independente; não divida só para criar etapas sem resultado observável.
 
-## Task Right-Sizing
+## 3. Riscos, unknowns e breaking changes
 
-A task is the smallest unit that carries its own test cycle and is worth a
-fresh reviewer's gate. When drawing task boundaries: fold setup,
-configuration, scaffolding, and documentation steps into the task whose
-deliverable needs them; split only where a reviewer could meaningfully
-reject one task while approving its neighbor. Each task ends with an
-independently testable deliverable.
+Inclua uma seção explícita com estes três blocos:
 
-## Bite-Sized Task Granularity
+- **Riscos:** o que pode quebrar, afetar segurança, dados, performance, disponibilidade, UX ou operação; registre a probabilidade/impacto quando isso orientar a ordem das tarefas e a mitigação.
+- **Unknowns:** perguntas concretas, o motivo de cada uma bloquear ou mudar o desenho, quem precisa responder e quando. Um unknown sem dono e próximo passo continua pendente.
+- **Breaking changes:** mudanças incompatíveis em API pública, CLI, flags, exit codes, configuração, schema, serialização, protocolo, arquivos ou comportamento padrão. Para cada uma, liste consumidores afetados, estratégia de migração/compatibilidade, janela de depreciação e como a mudança será verificada.
 
-**Each step is one action (2-5 minutes):**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+Se não houver breaking change, declare isso e explique como a compatibilidade foi verificada. Não esconda uma mudança incompatível dentro de “ajuste interno”.
 
-## Plan Document Header
+## 4. Rollback e reversibilidade
 
-**Every plan MUST start with this header:**
+Para cada tarefa ou mudança com efeito persistente, indique:
 
-```markdown
-# [Feature Name] Implementation Plan
+1. o ponto de rollback ou a forma de reverter;
+2. o backup/snapshot necessário e onde ele fica;
+3. a ordem segura para desfazer código, configuração e dados;
+4. feature flag, compatibilidade temporária ou outra estratégia de transição;
+5. o que acontece se a reversão não for segura ou não for possível.
 
-> **For agentic workers:** implement this plan task-by-task — dispatch a fresh `general` subagent per task via the task tool, or execute inline with checkpoints. Steps use checkbox (`- [ ]`) syntax for tracking.
+Priorize operações atômicas, migrações reversíveis, flags e implantações compatíveis com o estado anterior. Marque explicitamente qualquer passo irreversível e peça aprovação antes de executá-lo. Não trate “apagar e refazer” como rollback se o estado original não estiver preservado.
 
-**Goal:** [One sentence describing what this builds]
+## 5. Formato de cada tarefa
 
-**Architecture:** [2-3 sentences about approach]
+Uma tarefa é a menor unidade que entrega um resultado verificável e passa por uma revisão útil. Cada tarefa deve conter:
 
-**Tech Stack:** [Key technologies/libraries]
+- **Arquivos:** criar/modificar/testar, com caminhos exatos;
+- **Interfaces:** o que consome e o que produz, com nomes e tipos que as tarefas vizinhas devem usar;
+- **Passos pequenos:** uma ação por item, com checkboxes `- [ ]`;
+- **TDD:** teste RED, comando e motivo esperado da falha; implementação mínima; comando GREEN;
+- **Verificação:** teste direcionado, suíte relacionada, lint/typecheck/build conforme o gate real do projeto;
+- **Histórico:** commits atômicos quando a política do repositório permitir, sem substituir os gates;
+- **Rollback:** como desfazer a tarefa ou onde está o backup;
+- **Resultado esperado:** condição observável que encerra a tarefa.
 
-**Spec:** [path to the spec/design doc this plan implements — the plan
-argues from the spec, so the spec travels with it; executors read both]
+Inclua comandos reais, não apenas “rode os testes”. Informe o resultado esperado do RED e do GREEN, mas não declare PASS antes de executar. Evite `TBD`, “implementar depois”, “adicionar validação”, “handle edge cases”, “similar à tarefa N” e qualquer passo que não diga como verificar o resultado. Quando uma tarefa exigir decisão do usuário, marque isso explicitamente em vez de preencher a lacuna com texto genérico.
 
-## Global Constraints
+## 6. Definition of Done
 
-[The spec's project-wide requirements — version floors, dependency limits,
-naming and copy rules, platform requirements — one line each, with exact
-values copied verbatim from the spec. Every task's requirements implicitly
-include this section.]
+Inclua no plano uma checklist de Definition of Done adaptada ao repositório. Ela deve verificar, no mínimo:
 
----
-```
+- [ ] requisito e escopo estão cobertos por tarefas;
+- [ ] interfaces, nomes, tipos e contratos são consistentes entre tarefas;
+- [ ] testes cobrem comportamento novo, limites, entradas vazias, erros e falhas de dependência relevantes;
+- [ ] cada mudança de comportamento teve RED observado antes do GREEN;
+- [ ] suíte relacionada, testes de regressão, lint, typecheck, build e demais gates aplicáveis passaram com evidência fresca;
+- [ ] riscos, unknowns, breaking changes, migrações e consumidores foram tratados ou foram aceitos explicitamente;
+- [ ] rollback/reversibilidade foi testado ou o limite irreversível foi documentado e aprovado;
+- [ ] documentação, configuração e artefatos de implantação foram atualizados quando necessários;
+- [ ] o diff não contém segredos, arquivos gerados sem motivo ou mudanças fora do escopo;
+- [ ] o resultado final pode ser reproduzido por outra pessoa a partir dos comandos do plano.
 
-## Task Structure
+## 7. Revisão do plano
 
-````markdown
-### Task N: [Component Name]
+Revise o plano contra a spec e o código encontrado, sem delegar essa conferência a um relatório genérico:
 
-**Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
+- confirme cobertura de cada requisito e cada consumidor;
+- procure placeholders, nomes desatualizados e referências a arquivos inexistentes;
+- confira assinaturas, tipos, paths e ordem de dependências;
+- confirme que cada risco tem mitigação e cada unknown tem resposta/dono;
+- confirme que breaking changes, rollback e DoD aparecem no ponto em que são relevantes;
+- reduza tarefas sem resultado ou qualquer trabalho fora do escopo.
 
-**Interfaces:**
-- Consumes: [what this task uses from earlier tasks — exact signatures]
-- Produces: [what later tasks rely on — exact function names, parameter
-  and return types. A task's implementer sees only their own task; this
-  block is how they learn the names and types neighboring tasks use.]
+## Execução do plano
 
-- [ ] **Step 1: Write the failing test**
-
-```python
-def test_specific_behavior():
-    result = function(input)
-    assert result == expected
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: FAIL with "function not defined"
-
-- [ ] **Step 3: Write minimal implementation**
-
-```python
-def function(input):
-    return expected
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/path/test.py::test_name -v`
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
-```
-````
-
-## No Placeholders
-
-Every step must contain the actual content an engineer needs. These are **plan failures** — never write them:
-- "TBD", "TODO", "implement later", "fill in details"
-- "Add appropriate error handling" / "add validation" / "handle edge cases"
-- "Write tests for the above" (without actual test code)
-- "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
-- Steps that describe what to do without showing how (code blocks required for code steps)
-- References to types, functions, or methods not defined in any task
-
-## Self-Review
-
-After writing the complete plan, look at the spec with fresh eyes and check the plan against it. This is a checklist you run yourself — not a subagent dispatch.
-
-**1. Spec coverage:** Skim each section/requirement in the spec. Can you point to a task that implements it? List any gaps.
-
-**2. Placeholder scan:** Search your plan for red flags — any of the patterns from the "No Placeholders" section above. Fix them.
-
-**3. Type consistency:** Do the types, method signatures, and property names you used in later tasks match what you defined in earlier tasks? A function called `clearLayers()` in Task 3 but `clearFullLayers()` in Task 7 is a bug.
-
-If you find issues, fix them inline. No need to re-review — just fix and move on. If you find a spec requirement with no task, add the task.
-
-## Execution Handoff
-
-After saving the plan, offer execution choice:
-
-**"Plan complete and saved to `spec-agent/<filename>.md`. Two execution options:**
-
-**1. Subagent-Driven (recommended)** - I dispatch a fresh `general` subagent per task via the task tool, review between tasks, fast iteration
-
-**2. Inline Execution** - Execute tasks in this session, one at a time, with a checkpoint (pause for approval) after each task
-
-**Which approach?"**
-
-**If Subagent-Driven chosen:**
-- Dispatch one `general` subagent per task (task tool, `subagent_type: "general"`), passing the task text and its Interfaces block verbatim
-- Review the subagent result between tasks: approve and move on, or send back with fix notes
-- Only advance to the next task after the current one passes review
-
-**If Inline Execution chosen:**
-- Execute tasks in order in this session, running the tests of each task before moving on
-- Pause after each task for user approval (checkpoint)
+Depois de salvar, informe o caminho e ofereça execução inline ou por `subagent`, quando o ambiente disponibilizar despacho. Para execução por subagentes, use subagentes `general` com contexto autocontido, fronteira de arquivos e resultado esperado; revise o retorno antes de avançar. Não presuma uma API, um nome de ferramenta ou argumentos de despacho que não estejam documentados no ambiente atual. Na execução inline, rode os testes da tarefa antes de avançar e pare nos checkpoints definidos.

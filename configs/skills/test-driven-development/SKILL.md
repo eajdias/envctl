@@ -11,95 +11,101 @@ metadata:
 
 # Test-Driven Development
 
-**Lei de ferro:** `SEM CÓDIGO DE PRODUÇÃO SEM TESTE FALHANDO PRIMEIRO.` Se não viu o teste falhar pelo motivo certo, não sabe se ele testa a coisa certa.
+**Regra:** não escreva código de produção sem antes observar um teste falhar pelo motivo certo. “Acho que cobre” não é evidência.
 
-## Quando usar
+Use TDD em feature, bugfix, refatoração e qualquer mudança de comportamento. Para protótipo descartável, código gerado ou configuração, pergunte antes de abrir uma exceção.
 
-**Sempre:** feature nova, bugfix, refatoração, mudança de comportamento.
+## Descoberta obrigatória de framework e convenção
 
-**Exceções (pergunte):** protótipo descartável, código gerado, arquivo de config.
+Antes de escrever o teste:
 
-"Vou pular o TDD só dessa vez"? Pare. Isso é racionalização.
+1. Localize testes existentes (`tests/`, `__tests__/`, `*_test.go`, `*.test.*`, `test_*.py` ou padrão equivalente), CI e scripts de verificação.
+2. Leia `package.json`, `pyproject.toml`, `go.mod`, arquivos de configuração e Makefile/task runner para identificar o runner, comandos e versão.
+3. Examine dois ou três testes próximos: nomenclatura de arquivos e casos, estrutura AAA/Given-When-Then, fixtures, factories, helpers, assertions e forma de lidar com I/O.
+4. Descubra a biblioteca de mock/fake e o gerenciador de dependências real do projeto. Não troque `pytest`, `vitest`, `go test` ou qualquer outro por hábito.
 
-## Ciclo Red-Green-Refactor
+Se o projeto não tiver convenção ou runner, pare e registre a necessidade no plano antes de inventar uma configuração. Quando usar exemplos deste documento, adapte-os ao comando descoberto; não copie um comando de outro repositório. Para API ou ferramenta cuja sintaxe possa ter mudado, consulte a documentação atual.
 
-### RED — escreva o teste falhando
+## Ciclo RED — GREEN — REFACTOR
 
-Um teste mínimo mostrando o comportamento esperado. Um comportamento por teste; nome claro; código real (sem mock, salvo inevitável).
+### RED
 
-### Verifique o RED — veja falhar (obrigatório, nunca pule)
+Escreva um teste pequeno para um comportamento observável, com nome que descreva cenário e expectativa. Ele deve falhar, não passar nem quebrar por erro de setup. Rode o comando exato do projeto e confirme a falha esperada: recurso ausente, comportamento incorreto ou bug reproduzido. Corrija o teste até a mensagem mostrar que ele realmente mede a coisa.
 
-Rode o teste e confirme: falha (não erro), mensagem esperada, falha porque o recurso não existe (não typo). Teste passou de primeira? Está testando comportamento existente — corrija o teste. Teste com erro? Corrija até falhar do jeito certo.
+### GREEN
 
-### GREEN — código mínimo
+Implemente somente o necessário para o teste passar. Não esconda outro comportamento, não introduza refatoração ou dependência sem necessidade e não contorne o teste. Rode o teste direcionado, a suíte relacionada e a verificação estática prevista pelo projeto; leia erros e warnings, não apenas o código de saída.
 
-O mais simples que faz o teste passar. Sem features extras, sem refatorar outro código, sem "melhorar" além do teste.
+### REFACTOR
 
-### Verifique o GREEN — veja passar (obrigatório)
+Depois do verde, remova duplicação, ajuste nomes e extraia helpers. Mantenha a suíte verde e não misture uma mudança de comportamento com a limpeza. Se surgir uma necessidade nova, volte ao ciclo com outro teste.
 
-Teste passa + demais testes continuam verdes + saída limpa (sem erros/warnings).
+## Matriz mínima de casos
 
-### REFACTOR — limpe (só depois do verde)
+Escolha os cenários relevantes para o contrato; não invente comportamento só para preencher a matriz. Para cada comportamento, documente ao menos o que é preparado, a ação e o resultado verificável.
 
-Remova duplicação, melhore nomes, extraia helpers. Mantenha tudo verde. Sem comportamento novo.
+| Caso | O que exercitar | Evidência esperada |
+|---|---|---|
+| **Happy path** | Entrada válida e representativa | Retorno/efeito observável conforme o contrato, sem depender de detalhes internos. |
+| **Boundary** | Zero, mínimo, máximo, limite de transição, tamanho grande ou timezone relevante | O valor-limite é aceito, rejeitado ou tratado exatamente como o contrato define. |
+| **Empty** | Lista, string, mapa, arquivo, `nil`/ausência ou zero, conforme aplicável | Comportamento explícito — por exemplo, resultado vazio, erro de domínio ou no-op — sem exceção acidental. |
+| **Error** | Entrada inválida, violação de regra, estado inconsistente ou erro de domínio | Tipo/código/status de erro e ausência dos efeitos colaterais que importam. |
+| **Dependency failure** | Timeout, indisponibilidade, resposta inválida ou falha de recurso externo | Propagação, retry, fallback ou cancelamento conforme o contrato, com a limpeza realizada e mensagem útil. |
 
-### Repita
+A matriz não exige teste artificial para um cenário que não existe no domínio. Nesse caso, registre `N/A` e o motivo no plano ou no teste apropriado.
 
-Próximo teste falhando para a próxima fatia.
+## Regressão para bugs
 
-## Ciclos por linguagem
+Um bug corrigido recebe um teste de regressão permanente:
 
-### TS/Node (vitest)
+1. Reproduza o problema com a menor entrada ou sequência que ainda dispare o bug.
+2. Execute o teste e confirme que falha pela mesma razão do defeito, não por uma configuração incidental.
+3. Corrija a causa, rode o teste de regressão e a suíte que cobre os consumidores afetados.
+4. Mantenha o caso no repositório; não o remova quando a implementação parecer estável.
+
+Para um bug já corrigido por outra pessoa, reconstrua a reprodução a partir do relato, do diff e do comportamento observável antes de escrever a regressão. Se a causa permanecer incerta, use `systematic-debugging` em vez de escolher uma correção por tentativa.
+
+## Mocks apenas nas fronteiras
+
+Use mocks, stubs ou fakes para controlar **fronteiras** que sejam lentas, não determinísticas, destrutivas ou externas ao teste: rede, banco, serviço de terceiros, sistema de arquivos, relógio, filas e fontes de evento. Configure cada double para o contrato que a fronteira deve cumprir, incluindo falha, timeout e cancelamento quando forem parte do teste.
+
+Não transforme a integração inteira em mocks: o sistema sob teste, seus adaptadores reais e a composição entre componentes devem continuar exercitados em testes de integração. Use ambiente, container, banco temporário ou servidor de teste real quando a integração for o que precisa ser provado. Não faça mock de lógica pura só para acompanhar chamadas, nem esconda um bug de ciclo de vida atrás de um stub. Um teste que verifica apenas “o mock foi chamado” não prova o comportamento do produto.
+
+## Critério de assertion
+
+Cada teste precisa de uma assertion significativa sobre comportamento observável. Organize-o em Arrange–Act–Assert ou Given–When–Then, com as três partes identificáveis:
+
+- o nome diz o cenário e o resultado esperado;
+- a assertion verifica retorno, estado persistido, evento emitido, chamada de fronteira relevante ou erro conforme o contrato — não uma implementação interna;
+- “não lançou exceção”, `assert true` ou apenas contar chamadas não bastam;
+- se houver várias assertions, todas precisam pertencer ao mesmo comportamento e ter mensagens que ajudem a diagnosticar;
+- use verificações estáveis para erros e payloads; não fixe textos voláteis, IDs aleatórios ou detalhes que não fazem parte do contrato;
+- um teste de regressão deve falhar novamente quando o bug for reintroduzido.
+
+## Comandos e gates
+
+Use sempre o comando descoberto no projeto. Exemplos apenas ilustrativos:
 
 ```bash
-npx vitest run path/to/file.test.ts        # RED: confirma FAIL esperado
-# ... código mínimo ...
-npx vitest run path/to/file.test.ts        # GREEN: confirma PASS
-npx tsc --noEmit                           # type-check antes de declarar verde
+# Python, quando pytest for o runner encontrado
+pytest path/to/test_file.py -k "nome_do_caso" -v
+
+# Go, quando o runner for go test
+go test ./pkg/x -run TestNome -v
+
+# Node/TypeScript, quando o projeto declarar vitest
+npx vitest run path/to/file.test.ts
 ```
 
-### Python (pytest)
+Execute o teste RED, o GREEN, a suíte relacionada e o gate completo. Use `universal-test-runner` para suíte, cobertura e comparação entre frameworks; use `verification-before-completion` antes de declarar pronto. Para cobertura, suíte completa e regressões, não substitua comandos por exemplos genéricos deste arquivo.
 
-```bash
-pytest tests/test_x.py -k test_nome -v     # RED: confirma FAIL esperado
-# ... código mínimo ...
-pytest tests/test_x.py -k test_nome -v     # GREEN: confirma PASS
-ruff check . && ruff format --check .      # lint antes de declarar verde
-```
+## Checklist de conclusão
 
-### Go (go test)
-
-```bash
-go test ./pkg/x -run TestNome -v          # RED: confirma FAIL esperado
-# ... código mínimo ...
-go test ./pkg/x -run TestNome -v          # GREEN: confirma PASS
-go vet ./pkg/x                             # vet antes de declarar verde
-```
-
-Cobertura e suíte completa via `universal-test-runner`; gate final de conclusão via `verification-before-completion`. Bug encontrado? Escreva o teste que o reproduz e entre no ciclo (integra com `systematic-debugging`: a Fase 4 dela já pede RED primeiro).
-
-## Racionalizações comuns
-
-| Desculpa | Realidade |
-|---|---|
-| "Simples demais para testar" | Código simples quebra. O teste leva 30 segundos. |
-| "Testo depois" | Teste escrito depois passa de imediato — o que prova nada. Pode testar a coisa errada, a implementação em vez do comportamento. Sem ver falhar, nunca provou que ele pega o bug. |
-| "Já testei manual" | Manual é ad-hoc: sem registro do que cobriu, sem re-run quando o código muda. "Funcionou quando tentei" ≠ cobertura. |
-| "Apagar X horas é desperdício" | Sunk cost — o tempo já foi gasto. A escolha real: reescrever com TDD (alta confiança) vs. manter código não-confiável (bugs prováveis). |
-| "Preciso explorar primeiro" | Ok. Jogue a exploração fora e comece com TDD. |
-| "TDD me atrasa" | TDD pega bugs antes do commit, previne regressão, permite refatorar sem medo. Debugar em produção é mais lento. |
-
-## Red flags — PARE e recomece
-
-Código antes do teste · teste depois da implementação · teste passou de imediato · não sabe explicar por que o teste falhou · testes "depois" · "só dessa vez" · "já testei manual" · "manter de referência e adaptar" · "TDD é dogma, sou pragmático".
-
-**Todos significam: apague o código. Recomece com TDD.**
-
-## Checklist antes de declarar pronto
-
-- [ ] Toda função/método novo tem teste
-- [ ] Viu cada teste falhar antes de implementar
-- [ ] Cada um falhou pelo motivo esperado (recurso ausente, não typo)
-- [ ] Escreveu o código mínimo para passar
-- [ ] Todos os testes passam; saída limpa
-- [ ] Edge cases e erros cobertos
+- [ ] framework, convenção e comando foram descobertos no projeto;
+- [ ] matriz happy path, boundary, empty, error e dependency failure foi considerada;
+- [ ] RED falhou pelo motivo esperado antes da implementação;
+- [ ] GREEN usa código mínimo e a suíte relacionada passa sem warnings/erros;
+- [ ] mocks ficaram nas fronteiras e a integração real não foi substituída por mocks;
+- [ ] toda assertion verifica um contrato observável e falharia se o comportamento regredisse;
+- [ ] bug tem teste de regressão, quando aplicável;
+- [ ] o gate final foi executado com evidência fresca.

@@ -230,3 +230,28 @@ skills:
       source: configs/skills/syncthing-ops
       target_dir: ""
       enabled: true
+    - name: go-development
+      description: Desenvolvimento Go idiomático — APIs, erros, context, concorrência, portabilidade e verificação
+      source: configs/skills/go-development
+      target_dir: ""
+      enabled: true
+    - name: python-development
+      description: Desenvolvimento Python — ambiente, módulos, tipos, async, packaging, testes e lint
+      source: configs/skills/python-development
+      target_dir: ""
+      enabled: true
+    - name: mcp-tool-design
+      description: Design e revisão de servidores MCP — tools, resources, prompts, schemas, segurança e compatibilidade
+      source: configs/skills/mcp-tool-design
+      target_dir: ""
+      enabled: true
+    - name: technical-research
+      description: Pesquisa técnica verificável com fontes primárias, versões, contradições e citações
+      source: configs/skills/technical-research
+      target_dir: ""
+      enabled: true
+    - name: frontend-markup
+      description: HTML, CSS e SCSS semânticos, acessíveis, responsivos e verificados no navegador
+      source: configs/skills/frontend-markup
+      target_dir: ""
+      enabled: true

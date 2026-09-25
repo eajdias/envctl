@@ -14,7 +14,7 @@ manifests/
 ├── git.yaml         # Otimizações de performance e configurações globais do Git
 ├── shell.yaml       # Variáveis de ambiente, diretórios protegidos e templates de arquivo
 ├── lsp.yaml         # Servidores de linguagem (LSP) para IDEs e OpenCode
-├── skills.yaml      # Catálogo das 45 Skills de Agentes de IA (com escopo por ambiente)
+├── skills.yaml      # Catálogo das 50 Skills de Agentes de IA (com escopo por ambiente)
 └── windows.yaml     # Tweaks de registro, Developer Mode e fontes do Windows 11
 ```
 
