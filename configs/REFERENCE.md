@@ -37,11 +37,12 @@ O catálogo (nome + `description`) já vem no prompt a cada turno; o corpo é li
 
 ## Supervisão de subagentes (OpenCode V2)
 
-- Terminologia real: dispatch devolve `sessionID`; **não existe** `agent_output`/`agent_id` no toolset V2 — se aparecer em skill, é bug.
+- Terminologia real: dispatch devolve `sessionID`; **não existe** `agent_output`/`agent_id` no toolset V2.
 - Foreground: interromper a sessão pai cancela a filha; aguardar confirmação antes de retry.
 - Background: `opencode api get /api/session/active` para status e `opencode api post /api/session/<sessionID>/interrupt` para interromper a sessão filha. Probe seguro de rota: ID inexistente devolve `SessionNotFoundError` (404) — não mata sessão viva.
 - `sessionID` **não** é PID. Processo externo só é encerrado com PID rastreado + command line conferida: `SIGTERM` primeiro, `SIGKILL` só depois. Preservar worktree/logs (nada de `reset --hard`, `clean`, `worktree remove --force`).
-- Regra de retry: no máximo **uma** repetição com escopo refinado; depois escalar. No CommandCode use só o controle de sessão exposto pelo runtime ativo — nunca nomes de tools do OpenCode.
+- Regra de retry: no máximo **uma** repetição com escopo refinado; depois escalar.
+- **O CommandCode tem o vocabulary oposto** (`agent_id`, `agent_output({action:"kill"})`, `run_in_background`, `kill_shell`, `monitor_command`) — ver doc oficial dele. A skill compartilhada `subagent-supervision` mantém as duas colunas em seções separadas: ao "limpar" este arquivo, nunca apague o vocabulary do CommandCode achando que é relic; o teste de conteúdo valida cada coluna por seção. No CommandCode use só o controle exposto pelo runtime ativo.
 
 ## Memória do agente
 

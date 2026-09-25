@@ -1,74 +1,82 @@
 ---
 name: subagent-supervision
 description: >-
-  Supervisionar subagentes que podem demorar, repetir tool calls, ficar sem progresso ou produzir conclusões sem evidência. Use quando houver subagente em background, task longa, loop, timeout, resultado suspeito ou necessidade de interromper e retentar com escopo refinado. Triggers: subagente não retorna, loop de tool calls, alucinação, sem progresso, demorou demais, interromper subagente, cancelar sessão, matar processo, retry, escalar, supervisor, background agent.
+  Supervisionar subagentes que podem demorar, repetir tool calls, ficar sem progresso ou produzir conclusões sem evidência. Use quando houver subagente em background, task longa, loop, timeout, resultado suspeito ou necessidade de interromper e retentar com escopo refinado. A forma de interromper muda por runtime: CommandCode usa agent_output/agent_id e kill_shell; OpenCode V2 usa sessionID + opencode api. Triggers: subagente não retorna, loop de tool calls, alucinação, sem progresso, demorou demais, interromper subagente, cancelar sessão, matar processo, retry, escalar, supervisor, background agent.
 license: MIT
 ---
 
 # Subagent Supervision (o coordenador vigia os subagentes)
 
-Supervisão é uma responsabilidade do coordenador, mas execução, depuração e
-verificação continuam inline por padrão. Um subagente é justificado apenas quando o
-contexto que ele produz é volumoso e o retorno é compactado.
+Supervisão é responsabilidade do coordenador; execução, depuração e verificação
+continuam inline. Um subagente só se justifica quando o contexto que ele produz é
+volumoso e o retorno é compactado.
 
-## Regra de segurança
+## Antes de agir: identifique o runtime
 
-- Só supervisione sessões que o coordenador atual criou ou recebeu explicitamente.
-- Uma `sessionID` não é um PID e não prova que o processo pode ser morto.
-- `interrupt` encerra a sessão LLM; não apaga worktree, não faz `reset`, `clean`,
-  commit ou remoção de worktree.
-- Para encerrar um processo externo, é necessário ter o PID rastreado e propriedade
-  do processo. Nunca inferir PID pelo nome do agente.
+A capacidade de interromper **muda por agente**. Nunca copie comando de um runtime
+para o outro — a mesma skill é servida para os dois, e um tool inexistente no runtime
+ativo é erro, não fallback.
 
-## Ciclo de vida no OpenCode V2
+| | OpenCode V2 | CommandCode |
+|---|---|---|
+| id do filho | `sessionID` | `agent_id` (`bg-1-…`) |
+| ver status | `opencode api get /api/session/active` | `agent_output({})` lista todos |
+| coletar resultado | notificação de conclusão | `agent_output({agent_id})` (default `wait`) |
+| **interromper** | `opencode api post /api/session/<sessionID>/interrupt` | `agent_output({agent_id, action: "kill"})` |
+| estados possíveis | sessão encerrada | `running`/`completed`/`failed`/`killed` |
+| processo externo | `sessionID` **não** é PID: só com PID rastreado | `kill_shell({pid})` faz graceful→force |
 
-### Subagent em foreground
+Cada runtime tem o seu próprio toolset de background: o do CommandCode (`agent`
+delegando com `run_in_background`, coleta e `kill` por id, `shell_command` em
+background com leitura e parada por task) não existe no OpenCode V2, e
+`sessionID`/`opencode api` não existem no CommandCode. Use a coluna do runtime ativo.
 
-O coordenador mantém a chamada ativa. Uma interrupção da sessão pai cancela a
-execução filha; aguarde a confirmação antes de iniciar um retry.
+## CommandCode
 
-### Subagent em background
+- Dispatch com `run_in_background: true` (ou `background: true` no frontmatter do
+  agente) devolve `agent_id` na hora, e o filho **sobrevive** ao cancelamento do
+  turno pai — cada um tem abort controller próprio. Só um `kill` explícito encerra.
+- `agent_output({agent_id})` → `wait` (bloqueia; abortar a *espera* **não** mata o
+  agente e reporta "still running in the background"), `action: "status"` (peek sem
+  block, com tempo decorrido), `action: "kill"` (interrompe).
+- Shell segue o mesmo modelo: `shell_command` + `run_in_background` → task id, PID,
+  cwd e path de log; `shell_output` (com `wait: "output"|"exit"`, `from_offset`, teto
+  inline de 30k e resto no log), `shell_tasks`, `task_output` (bloqueante até 600s) e
+  `task_stop` (por id) / `kill_shell` (por `taskId`, `pid` ou `port`).
+- Long-lived observe com `monitor_command` + `monitor_events` (delta read): o runtime
+  acorda o agente sozinho. **Não** faça poll.
+- O painel Background (`Ctrl+B` no TUI) mostra e para o mesmo registry.
+- Esperar sem segurar shell: tool `sleep` (acorda com input do usuário em ~1s);
+  cadência com `/loop` e `cron_*`.
 
-1. Guarde o `sessionID`/identificador devolvido no dispatch.
-2. Observe a notificação de conclusão ou consulte as sessões ativas:
+## OpenCode V2
 
-   ```bash
-   opencode api get /api/session/active
-   ```
+- Guarde o `sessionID` devolvido no dispatch. Em foreground, interromper a sessão pai
+  cancela a filha — aguarde a confirmação antes de qualquer retry.
+- Status: `opencode api get /api/session/active`.
+- Interrupção: `opencode api post /api/session/<sessionID>/interrupt`.
+- Probe seguro de rota: um id inexistente devolve `SessionNotFoundError` (404) —
+  prova o endpoint sem tocar em sessão viva.
+- `sessionID` **não** é PID: processo externo só com PID rastreado e command line
+  conferida (SIGTERM, espera, SIGKILL). Nunca inferir PID pelo nome do agente.
 
-3. Se precisar interromper a sessão filha, use somente a API documentada do V2:
+## Regras (valem para os dois)
 
-   ```bash
-   opencode api post /api/session/<sessionID>/interrupt
-   ```
-
-4. Se a interrupção não encerrar um processo que o subagente iniciou, trate isso como
-   dependência externa: identifique o PID, confirme o command line e finalize o
-   processo separado. `SIGTERM` primeiro; `SIGKILL` somente após verificar que a
-   interrupção suave não funcionou.
-
-O comando acima é uma interrupção de sessão, não uma operação destrutiva de
-filesystem. Shell, Git e worktrees continuam sob as regras de `git-workflow`.
-
-## Sinais e decisão
-
-| Sinal | Ação |
-|---|---|
-| Mesma tool call repetida sem avanço | `interrupt`; retry uma vez com escopo menor |
-| Sem tool call ou sem saída por prazo inesperado | `interrupt`; preserve o worktree e escale se persistir |
-| Resultado contraditório ou sem evidência | pedir nova evidência ou revisão independente; não matar por “alucinação” presumida |
-| Processo externo ainda vivo após `interrupt` | agir somente com PID rastreado e autorização apropriada |
-| Duas tentativas refinadas falharam | escalar ao usuário; nunca entrar em loop de retry |
-
-## CommandCode e outros agentes
-
-A vocabulary de runtime é diferente. Use apenas o controle de sessão/background
-exposto pelo agente ativo. Se ele não expõe status, interrupção ou PID, reporte
-o bloqueio em vez de inventar uma tool ou chamar um comando de outro runtime.
+- Só supervisione sessões/agentes que o coordenador atual criou ou recebeu
+  explicitamente.
+- `interrupt`/`kill` encerra a execução — não apaga worktree, não faz `reset`, `clean`,
+  commit nem `worktree remove --force`.
+- Resultado suspeito não é motivo de kill: peça evidência nova (`file:line`, saída de
+  comando) ou revisão independente.
+- Retry: **uma** tentativa, com escopo menor e prompt refinado. Duas falhas: escalar
+  para o usuário. Nunca entrar em loop de retry.
+- Devolva ao coordenador um resumo compacto: decisão, evidência, arquivos afetados,
+  risco e próximo passo — nunca o transcript bruto.
 
 ## Verificação
 
-- [ ] A sessão interrompida realmente parou ou foi escalada com evidência.
-- [ ] O worktree e os arquivos permaneceram preservados.
-- [ ] O retry, quando houve, refineu o escopo e teve no máximo uma repetição.
-- [ ] O coordenador recebeu um resumo compacto, não o transcript bruto.
+- [ ] Runtime identificado e o comando veio da coluna certa.
+- [ ] O filho realmente parou (ou escalado com evidência).
+- [ ] Worktree, arquivos e logs preservados.
+- [ ] Retry no máximo 1×, com escopo refinado.
+- [ ] Coordenador recebeu resumo compacto, não o log bruto.

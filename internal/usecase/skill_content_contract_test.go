@@ -46,28 +46,115 @@ func TestSubagentRoutingPrefersInlineExecution(t *testing.T) {
 	}
 }
 
-func TestSubagentSupervisionUsesV2SessionInterrupt(t *testing.T) {
-	data, err := envctl.EmbeddedFS.ReadFile("configs/skills/subagent-supervision/SKILL.md")
+// markdownSection returns the body of the `## <prefix>` section, stopping at the
+// next level-2 heading. Shared skills document one runtime per section, so the
+// contracts below assert vocabulary per runtime instead of per file.
+func markdownSection(t *testing.T, content, prefix string) string {
+	t.Helper()
+
+	var body []string
+	inSection := false
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			if inSection {
+				break
+			}
+			if strings.HasPrefix(line, prefix) {
+				inSection = true
+				continue
+			}
+		}
+		if inSection {
+			body = append(body, line)
+		}
+	}
+	if !inSection {
+		t.Fatalf("no %q section found", prefix)
+	}
+	return strings.Join(body, "\n")
+}
+
+func requireTerms(t *testing.T, label, section string, terms ...string) {
+	t.Helper()
+	for _, term := range terms {
+		if !strings.Contains(section, term) {
+			t.Errorf("%s is missing the term %q", label, term)
+		}
+	}
+}
+
+func forbidTerms(t *testing.T, label, section string, terms ...string) {
+	t.Helper()
+	for _, term := range terms {
+		if strings.Contains(section, term) {
+			t.Errorf("%s must not use %q (wrong runtime vocabulary)", label, term)
+		}
+	}
+}
+
+func readEmbeddedSkill(t *testing.T, name string) string {
+	t.Helper()
+	data, err := envctl.EmbeddedFS.ReadFile("configs/skills/" + name + "/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := string(data)
+	return string(data)
+}
 
-	for _, forbidden := range []string{"agent_output", "agent_id", "run_in_background"} {
-		if strings.Contains(content, forbidden) {
-			t.Errorf("subagent-supervision still references unavailable tool vocabulary %q", forbidden)
-		}
-	}
-	for _, required := range []string{
+// commandCodeVocabulary is the background surface that really exists in
+// CommandCode (docs/background-tasks + agent_output schema in the shipped
+// bundle) and must never leak into the OpenCode section.
+var commandCodeVocabulary = []string{
+	"agent_output",
+	"agent_id",
+	"run_in_background",
+	"kill_shell",
+	"monitor_command",
+	"shell_output",
+}
+
+func TestSubagentSupervisionIsRuntimeAware(t *testing.T) {
+	content := readEmbeddedSkill(t, "subagent-supervision")
+
+	openCode := markdownSection(t, content, "## OpenCode")
+	requireTerms(t, "subagent-supervision/OpenCode",
+		openCode,
 		"opencode api post /api/session/",
-		"interrupt",
 		"sessionID",
+		"interrupt",
 		"PID",
-	} {
-		if !strings.Contains(content, required) {
-			t.Errorf("subagent-supervision is missing the V2 lifecycle term %q", required)
-		}
-	}
+	)
+	forbidTerms(t, "subagent-supervision/OpenCode", openCode, commandCodeVocabulary...)
+
+	commandCode := markdownSection(t, content, "## CommandCode")
+	requireTerms(t, "subagent-supervision/CommandCode",
+		commandCode,
+		"agent_output",
+		"agent_id",
+		`action: "kill"`,
+		"kill_shell",
+		"monitor_command",
+	)
+	forbidTerms(t, "subagent-supervision/CommandCode", commandCode, "opencode api")
+}
+
+func TestTaskHangWatchdogIsRuntimeAware(t *testing.T) {
+	content := readEmbeddedSkill(t, "task-hang-watchdog")
+
+	openCode := markdownSection(t, content, "## OpenCode")
+	requireTerms(t, "task-hang-watchdog/OpenCode", openCode, "timeout", "PID")
+	forbidTerms(t, "task-hang-watchdog/OpenCode", openCode, commandCodeVocabulary...)
+
+	commandCode := markdownSection(t, content, "## CommandCode")
+	requireTerms(t, "task-hang-watchdog/CommandCode",
+		commandCode,
+		"run_in_background",
+		"shell_output",
+		"task_output",
+		"kill_shell",
+		"monitor_command",
+	)
+	forbidTerms(t, "task-hang-watchdog/CommandCode", commandCode, "opencode api")
 }
 
 func TestVPSDispatchDescriptionUsesTriggerContract(t *testing.T) {
