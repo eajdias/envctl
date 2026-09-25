@@ -52,7 +52,9 @@ docs disagrees with a manifest, the manifest wins — fix the doc.
 - Idempotent operations with atomic backup (`.bak.YYYYMMDD-HHMMSS`); never
   overwrite user-owned content — declare a `merge:` mode or `seed_if_missing`.
 - Verify with `go build ./...`, `go vet ./...`, `go test ./...` and
-  `golangci-lint run --new-from-rev=origin/main`, or simply `envctl-verify
-  --git-push` (the same gate the hooks run; `--dry-run` shows what it would do).
+  `golangci-lint run --new-from-rev=origin/main`, or run `envctl-verify
+  --git-push` for the local diagnostic/gate. Inferred lint and formatting
+  findings are advisory; explicit project checks, builds, vets, and tests remain
+  blocking. `--dry-run` shows the detected checks and severities.
 - The verifier script has its own tests in `internal/usecase/verify_script_test.go`
-  — a change to it must keep them passing, since it blocks pushes when broken.
+  — a change to it must keep them passing because the hook wiring depends on it.

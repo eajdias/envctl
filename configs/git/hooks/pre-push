@@ -12,12 +12,25 @@ git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 local_hook="${git_dir}/hooks/pre-push"
 
 if [ -x "$local_hook" ]; then
-  "$local_hook" "$@" || exit $?
+	"$local_hook" "$@" || exit $?
 fi
 
-verifier="${HOME}/.local/bin/envctl-verify"
-if [ -x "$verifier" ]; then
-  exec "$verifier" --git-push
+verifier=""
+if [ -n "${HOME:-}" ]; then
+	verifier="${HOME}/.local/bin/envctl-verify"
+	if [ -x "$verifier" ]; then
+		exec "$verifier" --git-push
+	fi
 fi
 
-exit 0
+verifier=$(command -v envctl-verify 2>/dev/null || true)
+if [ -n "$verifier" ] && [ -x "$verifier" ]; then
+	exec "$verifier" --git-push
+fi
+
+if [ -z "${HOME:-}" ]; then
+	printf '%s\n' 'envctl-verify: HOME is not set and no verifier was found on PATH' >&2
+else
+	printf '%s\n' 'envctl-verify: verifier not found; refusing an ungated push' >&2
+fi
+exit 2
