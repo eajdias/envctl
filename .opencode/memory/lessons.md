@@ -36,6 +36,7 @@
 
 - 2026-09-24 ❌ Assumir que instalar `systemd-zram-generator` já cria `/dev/zram0` → ✅ Antes de iniciar `systemd-zram-setup@zram0.service`, carregar `modprobe zram`, aguardar o device e recusar criar `zram0` se outro `zram*` já existir (porque o serviço falha em `/sys/block/zram0/disksize` quando o módulo não está carregado).
 - 2026-09-24 ❌ Trocar `/etc/sysctl.d/*.conf` com `install` direto no arquivo vivo → ✅ Instalar um temporário no mesmo diretório e fazer `mv` atômico, preservando backup antes (because uma cópia interrompida pode truncar o drop-in).
+- 2026-09-25 ❌ Tratar `agent_output(action: "kill")` em uma skill como capacidade existente → ✅ Validar o toolset da sessão e `opencode debug agents` antes de documentar; no runtime atual não há `agent_output`, então interrupção de subagente deve ser desenhada via API/plugin (because a skill pode estar stale em relação ao runtime).
 
 ## Padrões / Preferências (o que funciona)
 

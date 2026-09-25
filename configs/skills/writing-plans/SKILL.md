@@ -1,7 +1,7 @@
 ---
 name: writing-plans
 description: >-
-  Escrever especificação e plano de implementação passo a passo antes de tocar no código. Use em tarefa multi-passo ou multi-arquivo, feature nova, refatoração ampla, ou quando o usuário pedir plano/design/estratégia. Produz tarefas pequenas, ordenadas e verificáveis. Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
+  Escrever especificação e plano de implementação passo a passo antes de tocar no código. Use automaticamente em tarefa multi-passo ou multi-arquivo, feature nova, refatoração ampla, ou quando o usuário pedir plano/design/estratégia. Produz tarefas pequenas, ordenadas e verificáveis. Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
 license: MIT
 metadata:
   author: obra (superpowers)

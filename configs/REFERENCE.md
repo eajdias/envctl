@@ -18,8 +18,30 @@ DCP removido em 2026-09-22 (plugin V1 quebra o boot do v2; `dcp.jsonc` era confi
 Definidos no `opencode.json` — **não** existe mais `~/.config/opencode/agents/` (o provisioning remove o diretório; um `.md` lá sobrescreveria o JSON silenciosamente).
 
 - **`review`** (primary): revisão read-only — bash granular read-only para evidências, `edit` negado, `subagent: allow`. Severidades BLOCKER/MAJOR/MINOR/NIT (nit só se pedido), evidência obrigatória `file:line`, YAGNI check contra callers reais, veredito APPROVE/REQUEST-CHANGES.
-- **`plan`** (built-in + 1 regra: `edit spec-agent/** allow` por merge — efetivo primary; **não** dispatchável via task tool): planejamento read-only; escrita apenas em `spec-agent/` na raiz do projeto (convenção do envctl — nada de pastas da skill upstream); carrega `writing-plans`, `agent-memory` e context7.
+- **`plan`** (built-in + 1 regra: `edit spec-agent/** allow` por merge — efetivo primary; **não** dispatchável via tool de subagente): planejamento read-only interativo; escrita apenas em `spec-agent/` na raiz do projeto (convenção do envctl — nada de pastas da skill upstream); carrega `writing-plans`, `agent-memory` e context7.
+- **`planner`** (`mode: subagent`): variante **dispatchável** do planejamento, para isolar pesquisa/plano volumoso sem gastar contexto do coordenador. Mesmo boundary read-only (`edit` negado fora de `spec-agent/**`, sem subagentes aninhados), retorna só caminho do plano + resumo/risks/rollback/verificação. Regra de ouro: execução é **inline** por padrão; `planner` só quando o contexto bruto é volumoso e o retorno é compactável.
 - O agente `goal` foi removido (o `build` cobre o fluxo); `/goal` continua funcionando pelo plugin.
+- `envctl doctor` audita o shape do `opencode.json` (V1 `agent`/`permission`, ações `bash`/`task`, subagent sem `description`, mode inválido) — o problema aparece como `Config shape` em vez de config ignorada em silêncio.
+
+## Skills: ativação proativa
+
+O catálogo (nome + `description`) já vem no prompt a cada turno; o corpo é lido só quando a description casa. Por isso as descriptions carregam gatilhos explícitos (`Triggers:`) e os `AGENTS.md` mandam carregar a skill **antes de agir** quando ela casa. `SKILL-INDEX.md` é só desempate — não cole o índice no prompt. Critério de edição de description: gatilho em PT-BR **e** EN quando o termo técnico é em inglês, sem inflar o texto.
+
+## Worktrees (convenção do repositório)
+
+- Path: `.worktrees/<type>-<slug>` (ex.: `.worktrees/feat-agent-skills`); config de projeto `.opencode/opencode.json` (`worktree.directory`) + `watcher.ignore` para `.worktrees/**`; `/.worktrees/` no `.gitignore`.
+- Um branch por worktree; dois agentes nunca dividem a mesma árvore. Criar a partir de base explícita (`origin/main`), com consentimento, e passar o path no prompt.
+- Detecção antes de criar: `git worktree list --porcelain` + `git rev-parse --git-dir` vs `--git-common-dir`.
+- `envctl doctor` reporta entrada `prunable` como **WARNING** e `locked` como **INFO** (nunca auto-poda/auto-destrai). `git worktree prune` só depois de revisar cada entrada.
+- Worktree isola arquivos, não containers/portas/volumes/serviços — recursos concorrentes precisam de nome próprio.
+
+## Supervisão de subagentes (OpenCode V2)
+
+- Terminologia real: dispatch devolve `sessionID`; **não existe** `agent_output`/`agent_id` no toolset V2 — se aparecer em skill, é bug.
+- Foreground: interromper a sessão pai cancela a filha; aguardar confirmação antes de retry.
+- Background: `opencode api get /api/session/active` para status e `opencode api post /api/session/<sessionID>/interrupt` para interromper a sessão filha. Probe seguro de rota: ID inexistente devolve `SessionNotFoundError` (404) — não mata sessão viva.
+- `sessionID` **não** é PID. Processo externo só é encerrado com PID rastreado + command line conferida: `SIGTERM` primeiro, `SIGKILL` só depois. Preservar worktree/logs (nada de `reset --hard`, `clean`, `worktree remove --force`).
+- Regra de retry: no máximo **uma** repetição com escopo refinado; depois escalar. No CommandCode use só o controle de sessão exposto pelo runtime ativo — nunca nomes de tools do OpenCode.
 
 ## Memória do agente
 

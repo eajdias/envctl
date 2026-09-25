@@ -32,10 +32,18 @@ envctl doctor
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de Skills por OS (46 Win / 46 Ubuntu / 48 CachyOS, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
-7. **Performance Linux (read-only)**:
+7. **Agentes & Config do OpenCode**:
+   - `Config shape` (read-only): valida o formato V2 nativo do `~/.config/opencode/opencode.json` —
+     sem `agent`/`permission` de V1, sem ações de permissão `bash`/`task`, `mode` em
+     `primary|subagent|all` e `description` obrigatória em agente dispatchable. `OK` no shape
+     nativo, `WARN` nomeando cada problema (config inválida passava pelo doctor verde).
+   - `git worktree`: parse de `git worktree list --porcelain` — entrada `prunable` vira `WARN`
+     com hint de `git worktree prune` **após revisão manual**; entrada `locked` vira `INFO`
+     (trabalho intencional). O `doctor` nunca poda, destrava ou remove worktree.
+8. **Performance Linux (read-only)**:
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
-8. **Verificação Local (`Verify`)**:
+9. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 
 ---

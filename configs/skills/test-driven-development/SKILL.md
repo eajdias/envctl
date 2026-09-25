@@ -1,7 +1,7 @@
 ---
 name: test-driven-development
 description: >-
-  Desenvolver em ciclo TDD red-green-refactor: teste falhando primeiro, código mínimo depois. Use em feature nova, bugfix, refatoração ou mudança de comportamento em TS/Node, Python ou Go. Triggers: tdd, red green refactor, teste primeiro, failing test, ciclo tdd, disciplina tdd, teste antes do código.
+  Desenvolver em ciclo TDD red-green-refactor: teste falhando primeiro, código mínimo depois. Use automaticamente em feature nova, bugfix, refatoração ou mudança de comportamento em TS/Node, Python ou Go. Triggers: tdd, red green refactor, teste primeiro, failing test, ciclo tdd, disciplina tdd, teste antes do código.
 license: MIT
 metadata:
   author: obra (superpowers)

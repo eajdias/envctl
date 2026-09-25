@@ -1,50 +1,62 @@
 ---
 name: task-hang-watchdog
 description: >-
-  Prevenir e recuperar terminais travados e tarefas autônomas presas. Use ao rodar comandos de shell longos ou não-interativos (build, teste, migração, servidor, watch), despachar agentes em background, ou quando uma tarefa simplesmente não prossegue. Estratégias: rodar em background, classificar o que é read-only (não espera input), tratar prompts interativos, detectar e matar processos travados, observar saídas longas via monitor. Triggers: terminal travou, comando não responde, tarefa presa, processo hung, demorou demais, background, travamento, não interativo, input prompt, kill processo.
+  Prevenir e recuperar terminais travados e tarefas autônomas presas. Use ao rodar comandos de shell longos ou não interativos (build, teste, migração, servidor, watch), despachar agentes em background, ou quando uma tarefa simplesmente não prossegue. Prefira comandos com timeout e saída persistente; nunca deixe um prompt interativo bloquear a sessão. Triggers: terminal travou, comando não responde, tarefa presa, processo hung, demorou demais, background, travamento, não interativo, input prompt, kill processo.
 license: MIT
 ---
 
 # Task & Terminal Hang Watchdog
 
-Evite que um comando ou subagente trave a sessão — e, se travar, recupere o controle.
+Evite que um comando ou subagente trave a sessão — e, se travar, recupere o
+controle sem perder trabalho.
 
-## Prevenção (sempre, antes de rodar)
+## Prevenção
 
-1. **Classifique o comando.** O shell do CommandCode/ReadCode é read-only-safe: `git status`, `ls`, `rg`, `cat` rodam sem prompt. Já `rm`, `apt-get install`, `npm init` pedem confirmação e **travam** o agente esperando input.
-2. **Use `run_in_background: true`** em `shell_command` para tarefas longas (build, `npm run dev`, migração, servidor). Assim o agente não fica bloqueado e você lê a saída depois com `shell_output` ou `monitor_command`.
-3. **Prompts interativos** nunca são respondidos pelo agente. Substitua por flags não-interativas:
-   - `apt-get install -y ...`, `npm init -y`, `rm -f`, `--force`, `-y`/`--yes` sempre que existir.
-   - Em scripts que pedem TTY (ssh, sudo com senha), use o `ssh-manager`/`ssh-vps` em vez de shell direto.
-4. **Defina `timeout`** (ms) em `shell_command` — padrão 30s; suba para o que a tarefa exige. Se estourar, o shell é killado e você recebe o código de saída.
-5. **Para saídas longas/continuas** (servidor, watch, log `-f`), use `monitor_command` — ele grava em log e te acorda quando algo relevante acontece, sem travar a sessão.
+1. **Classifique o comando.** Comandos read-only como `git status`, `ls`, `rg` e
+   `cat` não esperam input. Comandos que removem arquivos, instalam pacotes ou
+   abrem prompts exigem flags não interativas (`-y`, `--yes`, `--force`) e
+   aprovação quando a tool do runtime exigir.
+2. **Defina um timeout real** para builds, testes, migrações, servidores e
+   watchers. O timeout deve ser proporcional à tarefa; não use um valor que corta
+   uma operação legítima.
+3. **Persistir saída longa** em log no scratch padronizado quando o comando
+   precisar continuar depois do turno. Use `ENVCTL_TEMP` e um subdir por tarefa.
+4. **Não responda prompts interativos por adivinhação.** Para SSH, sudo com senha
+   ou TTY, use a skill e o fluxo do runtime local.
+
+## Runtime
+
+As ferramentas de background e shell são específicas do agente:
+
+- **OpenCode V2:** use o timeout da tool shell; para uma sessão filha, siga
+  `subagent-supervision` e use a API de interrupção documentada.
+- **CommandCode:** use apenas o controle de background/timeout exposto pela
+  sessão atual; não copie nomes de tools de outro runtime.
 
 ## Quando algo trava
 
-Sinais: sem saída por muito tempo, prompt esperando `[y/N]`, `Enter`, senha; a tarefa não avança; CPU/disco parados.
+Sinais: sem saída por muito tempo, prompt esperando confirmação, senha ou
+`Enter`; a tarefa não avança; CPU/disco parados.
 
-**Diagnóstico rápido:**
-- `shell_tasks` — lista tarefas em background e seus PIDs/status.
-- `shell_output(id)` — vê o que o processo travado já emitiu.
-- `exec.LookPath` de um processo "zombie" ou checagem de porta/port com `kill_shell(port:)`.
-
-**Ação:**
-- `kill_shell(taskId=...)` — mata a tarefa em background pelo id.
-- `shell_output(id, wait: "exit")` — espera o processo atual terminar (último recurso).
-- Se o **próprio shell do agente** travar (comando bloqueante em foreground), peça ao usuário para matar o processo pelo terminal/gerenciador de tarefas ou reiniciar a sessão (`/reload`).
-
-## Tarefas autônomas (subagentes) que travam
-
-Um subagente pode alucinar, entrar em loop de tool calls ou nunca retornar. Ver a skill `subagent-supervision` para monitorar e matar subagentes presos.
+1. Verifique o estado real com `git status`, logs e o processo do shell.
+2. Encerre apenas o processo que você sabe que possui; comece por uma interrupção
+   suave e só force o encerramento depois de confirmar que a interrupção não
+   funcionou.
+3. Se o processo é um subagente, prefira interromper a sessão pelo identificador
+   retornado no dispatch; `sessionID` não é PID.
+4. Preserve logs, worktree e arquivos para diagnóstico. Nunca use `reset --hard`,
+   `clean`, remoção de worktree ou `kill -9` como primeira resposta.
 
 ## Não fazer
 
-- Nunca deixar `run_in_background: false` em algo que pode demorar mais que o timeout sem motivo.
-- Nunca confiar que "vai pedir input e eu respondo" — o agente não responde prompts interativos.
-- Nunca rodar servidores/watch em foreground na sessão principal.
+- Não deixar um comando potencialmente longo sem timeout.
+- Não confiar que o agente responderá um prompt interativo.
+- Não rodar servidor/watch em foreground na sessão principal sem necessidade.
+- Não matar processos por padrão de nome; use PID e comando verificados.
 
 ## Verificação
 
-- `shell_tasks` mostra tudo rodando.
-- Saída do `monitor_command` no log indica se o processo terminou ou está ativo.
-- Tarefa completa? Saída confirma (exit 0 / resultado esperado).
+- [ ] O comando tem timeout e propriedade de processo conhecida.
+- [ ] A saída está disponível no log ou no resultado da task.
+- [ ] Uma interrupção foi tentada antes de encerramento forçado.
+- [ ] Nenhum arquivo, worktree ou estado Git foi apagado como parte do recovery.

@@ -1,7 +1,7 @@
 ---
 name: verification-before-completion
 description: >-
-  Exigir evidência empírica ANTES de declarar algo pronto, corrigido ou passando: rodar build, testes e lint e mostrar a saída real antes de commitar ou abrir PR. Sem verificação fresca nesta mensagem, sem claim de sucesso. Use ao concluir tarefa, fechar TODO ou delegar a agentes. Triggers: terminei, está pronto, funcionou, corrigido, passou nos testes, evidência, antes de commitar, validar, build/test/lint, não afirmar sem rodar, regressão.
+  Exigir evidência empírica ANTES de declarar algo pronto, corrigido ou passando: rodar build, testes e lint e mostrar a saída real antes de commitar ou abrir PR. Sem verificação fresca nesta mensagem, sem claim de sucesso. Use automaticamente ao concluir tarefa, fechar TODO ou delegar a agentes. Triggers: terminei, está pronto, funcionou, corrigido, passou nos testes, evidência, antes de commitar, validar, build/test/lint, não afirmar sem rodar, regressão.
 license: MIT
 metadata:
   author: obra (superpowers)

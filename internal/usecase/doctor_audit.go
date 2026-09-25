@@ -276,6 +276,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditOpenCodeFileRefs(addDiag)
 	uc.auditRemovedMCPEntries(addDiag)
 	uc.auditAgentsIdentityCoverage(addDiag, configFiles)
+	uc.auditOpenCodeConfigShape(addDiag)
 	uc.auditOpenCodeVersionSkew(ctx, addDiag)
 
 	// 5. Audit Packages
@@ -564,7 +565,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Target:   "git worktree",
 			Details:  "git worktree supported (command not run: current directory is not inside a git repository)",
 		})
-	} else if _, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
+	} else if out, err := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain").CombinedOutput(); err != nil {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "Git",
@@ -579,6 +580,21 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Target:   "git worktree",
 			Details:  "Worktree command supported and active",
 		})
+
+		worktrees, parseErr := parseWorktreeListPorcelain(string(out))
+		if parseErr != nil {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Git",
+				Target:   "worktree report",
+				Details:  fmt.Sprintf("Could not parse 'git worktree list --porcelain': %v", parseErr),
+				FixHint:  "inspect the worktree list manually; do not prune or remove entries automatically",
+			})
+		} else {
+			for _, diagnostic := range worktreeFindings(worktrees) {
+				addDiag(diagnostic)
+			}
+		}
 	}
 
 	// 10.5 Audit the local verification wiring: the same gates run by the

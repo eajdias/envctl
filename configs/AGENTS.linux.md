@@ -24,16 +24,16 @@
 ## OpenCode
 
 - **Config:** `~/.config/opencode/opencode.json` (padrão único, JSON — `opencode.jsonc`/`tui.json` são removidos pelo provisioning). **Regras:** `~/.config/opencode/AGENTS.md` (este arquivo), auto-carregado. **Config não é hot-reload:** reinicie o opencode e valide com `opencode debug config`.
-- **Agentes:** `review` (primary explícito) e `plan` (herda primary do built-in) — ambos read-only — use `plan` antes de implementações multi-passos e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
+- **Agentes:** `review` (primary explícito), `plan` (primary built-in) e `planner` (subagent read-only de planejamento) — use `planner` para pesquisa/plano volumoso, `plan` no Tab para planejamento interativo e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
 - **Plugins:** `opencode-goal-plugin` (dcp + ponytail removidos em 2026-09-19: quebram no opencode v2, ver REFERENCE.md). Detalhe em REFERENCE.md.
 - **MCP:** `context7` (docs); `ssh-manager` + `chrome-devtools` (`disabled: true` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`, skills `web-dashboard-automation`, `playwright-prod-regression`). VPS via CLI `ssh-manager` + skills `ssh-vps`/`vps-provisioning`/`vps-agent-dispatch`.
 - **LSP:** binários LSP provisionados p/ shell/IDE (`run lsp`); sem bloco `lsp` no JSON (runtime v2 ignora LSP — diagnósticos do agente via lint/typecheck).
-- **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>`. Para escolher entre elas, veja `~/.config/opencode/SKILL-INDEX.md`; não leia por padrão.
+- **Skills:** carregadas **sob demanda** — o catálogo (nome + descrição) já vem no prompt e o corpo só é lido quando a tarefa casa ou você invoca `/<skill>`. Para escolher entre elas, veja `~/.config/opencode/SKILL-INDEX.md`; não leia por padrão. **Proactive:** Se a descrição de uma skill casar com a tarefa, carregue-a com a tool `skill` antes de agir; o índice é apenas para desempate.
 - **Memória:** no início de toda tarefa carregue `agent-memory` e leia projeto → global (1x por invocação); ao errar, ser corrigido ou descobrir padrão reutilizável, grave lição/pattern na hora (passe `memory-promotion` a cada escrita); ao fechar, revise e pode duplicados. Mecânica (paths, promoção a skill) em REFERENCE.md.
 
 ## Planejamento
 
-- Use o agente Tab `plan` (built-in + regra `spec-agent/**`) antes de implementações multi-passos.
+- Use `planner` para pesquisa e planos volumosos; use o agente Tab `plan` para planejamento interativo. Ambos são read-only; specs vão para `spec-agent/`.
 - Specs em `spec-agent/YYYY-MM-DD-<feature>.md` na raiz do projeto; carregue `writing-plans` + `agent-memory` primeiro.
 - Tarefas bite-sized TDD com comandos reais de teste; verifique antes de declarar pronto.
 

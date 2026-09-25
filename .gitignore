@@ -47,6 +47,9 @@ PowerShellEditorServices.json
 !.commandcode/commands/
 !.commandcode/agents/
 
+# Local git worktrees created for parallel agent sessions
+/.worktrees/
+
 # OS specific
 Thumbs.db
 Desktop.ini

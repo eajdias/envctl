@@ -196,12 +196,12 @@ skills:
       target_dir: ""
       enabled: true
     - name: task-hang-watchdog
-      description: Prevenir/recuperar terminais travados e tarefas autônomas presas (background, timeout, kill, monitor)
+      description: Prevenir/recuperar terminais travados e tarefas presas (timeout real, saída persistente, interrupção suave antes de forçada)
       source: configs/skills/task-hang-watchdog
       target_dir: ""
       enabled: true
     - name: subagent-supervision
-      description: Coordenador monitora subagentes paralelos e mata os que alucinam/loopam/travam (agent_output kill)
+      description: Coordenador monitora subagentes e interrompe sessão V2 (sessionID via opencode api) quando alucinam/loopam/travam; 1 retry refinado ou escala
       source: configs/skills/subagent-supervision
       target_dir: ""
       enabled: true

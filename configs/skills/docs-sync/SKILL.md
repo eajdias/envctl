@@ -1,7 +1,7 @@
 ---
 name: docs-sync
 description: >-
-  Auditar ou atualizar a documentação contra a implementação real: achar docs faltando, incorretas ou desatualizadas e propor correções pontuais. Use ao auditar cobertura de docs, sincronizar docs com código, checar README/CHANGELOG/manifests após mudança. Triggers: docs desatualizada, sincronizar docs, doc coverage, doc drift, doc faltando, changelog desatualizado, readme desatualizado, auditar docs.
+  Auditar ou atualizar a documentação contra a implementação real: achar docs faltando, incorretas ou desatualizadas e propor correções pontuais. Use automaticamente ao auditar cobertura de docs, sincronizar docs com código, checar README/CHANGELOG/manifests após mudança. Triggers: docs desatualizada, sincronizar docs, doc coverage, doc drift, doc faltando, changelog desatualizado, readme desatualizado, auditar docs.
 license: MIT
 metadata:
   author: openai/openai-agents-python (ideia)

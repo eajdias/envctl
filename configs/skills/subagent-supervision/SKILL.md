@@ -1,54 +1,74 @@
 ---
 name: subagent-supervision
 description: >-
-  O coordenador monitora o progresso de subagentes paralelos e, se perceber que um está alucinando, em loop de tool calls, travado ou sem progresso, mata o subagente com `agent_output(action: "kill")` e decide se tenta de novo (com prompt refinado) ou escala ao usuário. Use logo após despachar 2+ subagentes em paralelo ou quando um demorar além do esperado. Triggers: subagente não retorna, loop de tool calls, alucinação, sem progresso, demorou demais, matar subagente, retry, escalar, coordenador, background agent, agent_output kill.
+  Supervisionar subagentes que podem demorar, repetir tool calls, ficar sem progresso ou produzir conclusões sem evidência. Use quando houver subagente em background, task longa, loop, timeout, resultado suspeito ou necessidade de interromper e retentar com escopo refinado. Triggers: subagente não retorna, loop de tool calls, alucinação, sem progresso, demorou demais, interromper subagente, cancelar sessão, matar processo, retry, escalar, supervisor, background agent.
 license: MIT
 ---
 
 # Subagent Supervision (o coordenador vigia os subagentes)
 
-Ao despachar subagentes em paralelo (via `agent(run_in_background: true)`), o coordenador **não espera passivamente**. Ele monitora progresso e age quando algo sai do esperado.
+Supervisão é uma responsabilidade do coordenador, mas execução, depuração e
+verificação continuam inline por padrão. Um subagente é justificado apenas quando o
+contexto que ele produz é volumoso e o retorno é compactado.
 
-## Quando aplicar
+## Regra de segurança
 
-- Você despachou 2+ subagentes em background e precisa que **todos** terminem bem.
-- Um subagente está demorando mais que o razoável.
-- Você suspeita que um está alucinando, em loop ou travado.
+- Só supervisione sessões que o coordenador atual criou ou recebeu explicitamente.
+- Uma `sessionID` não é um PID e não prova que o processo pode ser morto.
+- `interrupt` encerra a sessão LLM; não apaga worktree, não faz `reset`, `clean`,
+  commit ou remoção de worktree.
+- Para encerrar um processo externo, é necessário ter o PID rastreado e propriedade
+  do processo. Nunca inferir PID pelo nome do agente.
 
-## Como monitorar
+## Ciclo de vida no OpenCode V2
 
-Subagentes em background devolvem um `agent_id`. Com ele:
+### Subagent em foreground
 
-- `agent_output(agent_id, action: "status")` — está rodando, concluído ou morto?
-- `agent_output(agent_id, action: "wait")` — bloqueia até terminar (use com parcimônia).
-- `agent_output(agent_id, action: "kill")` — **mata o subagente** e libera o coordenador.
+O coordenador mantém a chamada ativa. Uma interrupção da sessão pai cancela a
+execução filha; aguarde a confirmação antes de iniciar um retry.
 
-## Detectar problemas
+### Subagent em background
 
-Sinais de que um subagente precisa ser morto:
+1. Guarde o `sessionID`/identificador devolvido no dispatch.
+2. Observe a notificação de conclusão ou consulte as sessões ativas:
 
-- **Loop de tool calls:** mesma ferramenta/chamada repetida dezenas de vezes sem avançar.
-- **Alucinação:** outputs que contradizem fatos conhecidos, inventam arquivos/APIs, "alucinam" conclusões.
-- **Sem progresso:** está rodando há muito mais que o esperado sem produzir resultado parcial.
-- **Travado:** não emite tool calls nem outputs por um longo período.
+   ```bash
+   opencode api get /api/session/active
+   ```
 
-## Ação ao detectar
+3. Se precisar interromper a sessão filha, use somente a API documentada do V2:
 
-1. **Mate:** `agent_output(agent_id, action: "kill")`.
-2. **Decida:**
-   - **Retry** — se faz sentido: despache um novo subagente com o **mesmo escopo mas prompt refinado** (explique o que estava errado, dê fronteiras mais restritas, peça outputs intermediários).
-   - **Escale ao usuário** — se 2+ tentativas no mesmo escopo falharam, pare e explique o bloqueio. Não entre em loop de retry infinito.
-3. **Integre** — quando os subagentes saudáveis retornarem, combine os resultados e valide (build + suíte completa).
+   ```bash
+   opencode api post /api/session/<sessionID>/interrupt
+   ```
 
-## Regras
+4. Se a interrupção não encerrar um processo que o subagente iniciou, trate isso como
+   dependência externa: identifique o PID, confirme o command line e finalize o
+   processo separado. `SIGTERM` primeiro; `SIGKILL` somente após verificar que a
+   interrupção suave não funcionou.
 
-- Nunca deixe um subagente problemático rodando "só mais um pouco" indefinidamente — mate cedo.
-- Nunca faça retry infinito no mesmo escopo: 2 tentativas, depois escale ao usuário.
-- Sempre valide a integração final (build/testes) — subagentes individuais podem passar e o conjunto quebrar.
-- Preserve o contexto do coordenador: monitore via `agent_output(status)` em vez de esperar cada resultado inteiro.
+O comando acima é uma interrupção de sessão, não uma operação destrutiva de
+filesystem. Shell, Git e worktrees continuam sob as regras de `git-workflow`.
+
+## Sinais e decisão
+
+| Sinal | Ação |
+|---|---|
+| Mesma tool call repetida sem avanço | `interrupt`; retry uma vez com escopo menor |
+| Sem tool call ou sem saída por prazo inesperado | `interrupt`; preserve o worktree e escale se persistir |
+| Resultado contraditório ou sem evidência | pedir nova evidência ou revisão independente; não matar por “alucinação” presumida |
+| Processo externo ainda vivo após `interrupt` | agir somente com PID rastreado e autorização apropriada |
+| Duas tentativas refinadas falharam | escalar ao usuário; nunca entrar em loop de retry |
+
+## CommandCode e outros agentes
+
+A vocabulary de runtime é diferente. Use apenas o controle de sessão/background
+exposto pelo agente ativo. Se ele não expõe status, interrupção ou PID, reporte
+o bloqueio em vez de inventar uma tool ou chamar um comando de outro runtime.
 
 ## Verificação
 
-- Todos os subagentes despachados terminaram (status concluído ou kill justificado)?
-- Resultados integrados e suíte passando?
-- Nenhum loop/alcoolização sobreviveu?
+- [ ] A sessão interrompida realmente parou ou foi escalada com evidência.
+- [ ] O worktree e os arquivos permaneceram preservados.
+- [ ] O retry, quando houve, refineu o escopo e teve no máximo uma repetição.
+- [ ] O coordenador recebeu um resumo compacto, não o transcript bruto.

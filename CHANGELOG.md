@@ -36,6 +36,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Added**: dispatchable `planner` subagent (`mode: subagent`, read-only, `spec-agent/**` only) in both OpenCode config templates, keeping the built-in `plan` as the primary Tab agent; `.opencode/opencode.json` standardizes project worktrees in `.worktrees/<type>-<slug>`.
+- **Added**: `envctl doctor` audits the native OpenCode V2 config shape (`Config shape`) and reports worktree hygiene from `git worktree list --porcelain` (`prunable` → warning, `locked` → info, never auto-pruned).
+- **Changed**: agent instructions now require proactive skill loading when a description matches the task, `subagent-routing` documents inline-first execution, and `subagent-supervision`/`task-hang-watchdog` use the real OpenCode V2 lifecycle (`sessionID`, `opencode api post /api/session/<id>/interrupt`) instead of nonexistent tools.
+
 - **Fixed**: `envctl-verify` now treats inferred lint and formatting findings as non-blocking advisories, excludes all flat ESLint config variants from its fallback file selection, honors an explicit `package.json` `lint` script as the project's blocking authority, and invalidates hook caching when tools, comparison refs, overrides, or oversized untracked content change; the global pre-push also fails closed when its verifier is missing.
 
 - **Added**: baseline de performance Linux separado por SO — `run performance` para Ubuntu Server 24.04+ (toolbox headless, `systemd-zram-generator` e drop-in sysctl com backup) e CachyOS (garantia de `zram-generator` sem sobrescrever o tuning existente); `doctor` agora reporta swap/zram/governor/scheduler/journald/fstrim/serviços como auditoria read-only. Swapfile, journald, governors, schedulers, serviços e kernel cmdline permanecem manuais/benchmark-gated.

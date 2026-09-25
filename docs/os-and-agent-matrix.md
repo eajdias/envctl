@@ -87,7 +87,7 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | Plugins | 1 (goal-plugin only; `dcp.jsonc` removido do provisioning em 2026-09-22 — YAGNI) | — |
 | Contexto / pruning | nativo (`compaction` do v2; DCP removido) | — |
 | Memória | seeds `lessons.md` + `patterns.md`, dir `memory` | — (memória vive no `AGENTS.md`; dir `memory` é limpo) |
-| Agentes custom | `review`, `plan` (no JSON) | `agents/code-reviewer.md` |
+| Agentes custom | `review` (primary), `planner` (subagent dispatchable), `plan` (regra de `spec-agent/**` no built-in) | `agents/code-reviewer.md` |
 | Permissões | no `opencode.json` | `settings.json`: 12 allow · 6 ask · 4 deny |
 | Hooks | — | `Stop` → `envctl-verify --hook` |
 | Skills (destino) | `~/.config/opencode/skills` | `~/.commandcode/skills` |
@@ -100,9 +100,9 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 
 | Provedor | Checks |
 | :--- | :--- |
-| OpenCode | `AGENTS.md (global rules)` · `Config file references` (refs `{file:...}` do `opencode.json`) · `Database` (tamanho + páginas livres do `opencode.db`) · `Tool Output` (diretório) · `Skills` (frontmatter + contagem) |
+| OpenCode | `AGENTS.md (global rules)` · `Config file references` (refs `{file:...}` do `opencode.json`) · `Config shape` (V2: sem `agent`/`permission` legacy, sem ações `bash`/`task`, subagent com `description`) · `Database` (tamanho + páginas livres do `opencode.db`) · `Tool Output` (diretório) · `Skills` (frontmatter + contagem) |
 | CommandCode | `CommandCode CLI` · `~/.commandcode/` · `Settings` (JSON válido) · `MCP config` (JSON válido) · `Agents` (frontmatter) · `Skills` (frontmatter + contagem) |
-| Ambos | `LSP` (binário no PATH) · `Verify` (verificador + pre-push) · `Git` · `TempFolder` |
+| Ambos | `LSP` (binário no PATH) · `Verify` (verificador + pre-push) · `Git` · `git worktree` (parse de `--porcelain`: `prunable` = WARN, `locked` = INFO, nunca auto-poda) · `TempFolder` |
 
 ---
 
@@ -127,6 +127,9 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | 15 | `taplo` tem dois canais (`taplo-cli` via pacman + `@taplo/cli` via npm) e o `run lsp` prefere o npm mesmo no Arch | **Exceção intencional** — mesmo dono nos dois canais, sem sombreamento entre gerenciadores. Revisitar só com skew de versão observado |
 | 16 | opencode v2 ignora runtime LSP (`lsp` aceito mas inerte), `subagent_depth` top-level (WARN `omitted unsupported legacy setting`) e `instructions` (aceito, não carregado) | **Resolvido 2026-09-22** — bloco `lsp`, `subagent_depth` e `instructions` removidos dos dois configs (formato nativo V2: `agents`/`permissions[]`/`plugins`/`skills[]`/`mcp.servers`); `review` com `mode: primary` explícito, `plan` sem `mode` (preserva o built-in — customs só com IDs novos); binários LSP seguem provisionados p/ shell/IDE e o `doctor` os audita como toolchain |
 | 17 | Retorno do runtime LSP no opencode v2 (hoje: config validada, nenhum servidor inicia, zero diagnósticos — [docs](https://dev.opencode.ai/v2/docs/lsp/)) passa batido sem monitoramento | **Monitoramento mensal** — conferir `pacman -Si opencode` (versão no `extra`) + changelog upstream; quando o runtime voltar: re-testar bloco `lsp` per-project (template em `patterns.md`), re-adicionar via `lsp.yaml` → JSON, sem plugin V2 antes da API sair de beta |
+| 18 | O `plan` do envctl é `primary`, portanto **não** aparece no catálogo de subagentes do OpenCode: a skill `subagent-routing` mandava despachar `plan` via task tool e o `review` só podia cair um nível (`review` → `explore`/`general`) | **Resolvido 2026-09-25** — novo custom `planner` com `mode: subagent` (ID novo, `description` obrigatória, boundary read-only igual ao `plan`, sem subagentes aninhados) nos dois configs; `plan` continua `primary` para o Tab. Contrato travado por `TestOpenCodeConfigTemplates` + `doctor` (`Config shape`) |
+| 19 | O `doctor` rodava `git worktree list` e **descartava a saída**: worktree `prunable` (gitdir apagado) ou `locked` ficava invisível, e o `CHANGELOG` antigo prometia um "worktree integrity audit" que não existia no código | **Resolvido 2026-09-25** — parser puro de `git worktree list --porcelain` + findings (`prunable` = WARNING com hint de `git worktree prune`; `locked` = INFO preservado); nenhuma remoção/auto-fix. Convenção de path fixada em `.worktrees/<type>-<slug>` (`.opencode/opencode.json` + `.gitignore`) |
+| 20 | A skill `subagent-supervision` orquestrava tools inexistentes (`agent_output`, `agent_id`, `run_in_background`) — o OpenCode V2 expõe `sessionID` e a API de sessão, nada de "matar subagente" via tool | **Resolvido 2026-09-25** — skill reescrita para o lifecycle V2 real (`opencode api get /api/session/active`, `opencode api post /api/session/<sessionID>/interrupt`), `sessionID` ≠ PID, `SIGTERM`→`SIGKILL` só com PID rastreado, 1 retry no máximo; `task-hang-watchdog` perdeu os nomes de tools de outro runtime. Teste de conteúdo impede a volta do vocabulary morto |
 
 ---
 
@@ -185,6 +188,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 **Agente custom** → `agents` no `configs/opencode*.json`
 1. SEMPRE ID novo — nunca sobrescrever built-ins (`build`/`plan`/`general`/`explore`): única exceção documentada é o `plan` do envctl, reduzido a 1 regra (`edit spec-agent/** allow`) que estende o built-in por merge (efetivo `primary`).
 2. `mode: primary` explícito no custom novo, `system` (nunca `prompt`), `permissions[]` nativas (`shell`/`subagent`, nunca `bash`/`task`).
+3. Para ser **dispatchable**, `mode: subagent` + `description` não vazia (o pai escolhe pela description) + boundary read-only explícito; `planner` é o exemplo de referência e `TestOpenCodeConfigTemplates` + o check `Config shape` do `doctor` cobrem o contrato.
 
 **LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.

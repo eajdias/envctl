@@ -1,7 +1,7 @@
 ---
 name: subagent-routing
 description: >-
-  Roteamento e despacho de subagentes: QUANDO delegar (explore/general/plan), COMO despachar em paralelo na mesma resposta (dispatch múltiplo), roteiro por situação, isolamento de contexto, integração final e quando NÃO delegar. Inclui mecânica de despacho paralelo e orquestração no mesmo repositório (fronteiras disjuntas, base comum). Use ao preservar o contexto do coordenador ou dividir 2+ tarefas independentes. Triggers: subagente, delegar, despachar, dispatch, paralelo, mesmo repositório, orquestrador, fronteira, contexto isolado, integrar.
+  Roteamento e despacho de subagentes: QUANDO delegar (explore/general/planner), COMO despachar em paralelo na mesma resposta (dispatch múltiplo), roteiro por situação, isolamento de contexto, integração final e quando NÃO delegar. A execução inline é o padrão; use subagente apenas quando o contexto bruto da pesquisa/planejamento for volumoso e o resultado puder ser compactado. Inclui mecânica de despacho paralelo e orquestração no mesmo repositório (fronteiras disjuntas, base comum). Use automaticamente para decidir se o isolamento de contexto compensa. Triggers: subagente, delegar, despachar, dispatch, paralelo, mesmo repositório, orquestrador, fronteira, contexto isolado, integrar, inline, preservar contexto.
 license: MIT
 ---
 
@@ -11,19 +11,32 @@ Suba trabalho para **preservar o contexto do coordenador** e **paralelizar domí
 independentes**. Cada subagente recebe contexto isolado e autocontido — nunca herda a
 sessão. O coordenador gasta o seu contexto integrando e verificando, não varrendo tudo.
 
+## Default: inline
+
+Implementação, correção, investigação com arquivos conhecidos e alterações pequenas
+continuam inline. O cache-hit e a continuidade da sessão são mais baratos que uma
+sessão nova. Só despache quando a pesquisa/planejamento produzir um transcript
+volumoso que o coordenador não precisa carregar adiante, quando houver paralelismo
+real ou quando uma avaliação independente for explicitamente útil.
+
+Todo subagente deve devolver um artefato compacto: decisão, evidência `file:line`,
+arquivos afetados, riscos/unknowns e próximos passos. Não retransmita explorations
+brutas ao coordenador.
+
 ## Quando delegar (e para quem)
 
 | Situação | Subagente | Paralelizar? |
 |---|---|---|
 | Exploração de codebase sem arquivo-alvo ("onde está X", "como funciona Y") | `explore` | Sim — vários na mesma resposta, se 2+ áreas independentes |
-| Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ `context7-auto`/`WebSearch`/`WebFetch`) | Sim, se fontes independentes |
-| Debug sem causa conhecida | `explore`/`general` por domínio | **Não primeiro** — investigue a causa raiz; paralelo só com falhas independentes |
+| Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ `context7-auto`/`WebSearch`/`WebFetch`) | Sim, se o resultado puder ser compactado |
+| Debug sem causa conhecida | `explore`/`general` por domínio | Não primeiro — investigue a causa raiz; paralelo só com falhas independentes |
 | Tarefa pesada multi-passo (build, suíte, crawler) | `general` ou `vps-agent-dispatch` (remoto) | Conforme independência |
-| Planejamento de implementação | `plan` | — |
+| Planejamento de implementação | `planner` (OpenCode) ou `plan` (CommandCode) | Não por padrão; apenas para plano extenso |
 
 Tipos comuns: `explore` (read-only, varredura), `general` (execução/pesquisa),
-`plan` (planejamento). No CommandCode `plan` é built-in dispatchável; no OpenCode é
-primary (não dispatchável via task tool).
+`planner` (OpenCode, planejamento dispatchável). No CommandCode `plan` é built-in
+dispatchável; no OpenCode o `planner` é a variante dispatchável e o `plan` nativo
+continua sendo o agente primary.
 
 ## Mecânica do despacho paralelo
 

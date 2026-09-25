@@ -1,7 +1,7 @@
 ---
 name: systematic-debugging
 description: >-
-  Depurar sistematicamente: achar a causa raiz antes de propor correção. 4 fases — (1) investigar a causa, (2) analisar padrões, (3) hipótese e teste mínimo, (4) correção guiada por teste. Use em qualquer bug, teste vermelho, erro intermitente ou comportamento inesperado. Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
+  Depurar sistematicamente: achar a causa raiz antes de propor correção. 4 fases — (1) investigar a causa, (2) analisar padrões, (3) hipótese e teste mínimo, (4) correção guiada por teste. Use automaticamente em qualquer bug, teste vermelho, erro intermitente ou comportamento inesperado. Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
 license: MIT
 metadata:
   author: obra (superpowers)

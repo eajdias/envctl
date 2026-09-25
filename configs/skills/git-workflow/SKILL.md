@@ -1,7 +1,7 @@
 ---
 name: git-workflow
 description: >-
-  Fluxo seguro com Git e GitHub CLI: inspeção de status, arquivos não rastreados, staged e unstaged diff, branches, commits convencionais, pull requests, rebase, merge, stashes, conflitos, releases, tags e worktrees. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, untracked, staged, unstaged, diff, changelog, tag, release, worktree, isolar workspace.
+  Fluxo seguro com Git e GitHub CLI: inspeção de status, arquivos não rastreados, staged e unstaged diff, branches, commits convencionais, pull requests, rebase, merge, stashes, conflitos, releases, tags e worktrees. Use automaticamente antes de qualquer operação Git, criação de worktree, commit, push, merge ou limpeza. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, untracked, staged, unstaged, diff, changelog, tag, release, worktree, isolar workspace.
 license: MIT
 ---
 
@@ -157,6 +157,12 @@ Para changelog narrativo, derive fatos de `git log` e dos diffs, não de nomes d
 
 ## Worktrees
 
+A convenção do repositório é `.worktrees/<type>-<slug>` (por exemplo,
+`.worktrees/feat-agent-skills`). A configuração de projeto
+`.opencode/opencode.json` aponta o OpenCode para esse diretório e o
+`.gitignore` mantém os checkouts fora do índice. Um branch fica em apenas um
+worktree; dois agentes não dividem a mesma árvore.
+
 Detecte antes de criar outro workspace:
 
 ```bash
@@ -165,15 +171,23 @@ GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 git rev-parse --show-superproject-working-tree
 ```
 
-Se `GIT_DIR` e `GIT_COMMON` forem diferentes e não for um submodule, já existe um linked worktree. Confirme branch, path e alterações antes de continuar. Se for necessário criar um, peça consentimento, escolha um path fora do repositório principal quando possível, verifique se o path está dentro do repositório e faça o baseline antes da implementação:
+Se `GIT_DIR` e `GIT_COMMON` forem diferentes e não for um submodule, já existe um linked worktree. Confirme branch, path e alterações antes de continuar. Se for necessário criar um, peça consentimento, use o path da convenção, verifique que está ignorado e faça o baseline antes da implementação:
 
 ```bash
-git worktree list
-git check-ignore -q <path> || true
-git worktree add <path> -b <branch>
+git worktree list --porcelain
+git check-ignore -q .worktrees/<name> || true
+git worktree add .worktrees/<name> -b <branch> <base-ref>
 ```
 
-O comando de criação muda o estado do repositório. Não remova worktrees com `--force` enquanto houver alterações não salvas.
+O branch deve ser criado a partir de uma base explícita (normalmente
+`origin/main`) e carregado no prompt do agente. `git worktree` isola arquivos,
+não containers, portas, volumes ou serviços externos; esses recursos precisam de
+nomes separados quando houver concorrência.
+
+O comando de criação muda o estado do repositório. Não remova worktrees com
+`--force` enquanto houver alterações não salvas. Use `git worktree prune` somente
+depois de revisar cada entrada `prunable`; entradas `locked` são trabalho
+intencional e devem ser preservadas.
 
 ## Verificação de uma operação
 

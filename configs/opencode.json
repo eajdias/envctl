@@ -339,6 +339,94 @@
           "effect": "allow"
         }
       ]
+    },
+    "planner": {
+      "mode": "subagent",
+      "description": "Planeja tarefas multi-passo, multi-arquivo ou de escopo ambíguo antes de implementar. Retorna um plano compacto com arquivos afetados, riscos, unknowns, rollback e comandos de verificação. Use quando a tarefa exigir pesquisa ampla, especificação, design, sequência de implementação ou quebra em etapas. Triggers: plano, planejar, planejamento, spec, design, estratégia, antes de codar, tarefa grande, breaking change.",
+      "steps": 25,
+      "system": "You are the planning subagent. Load agent-memory once and writing-plans before planning. Explore the repository and verify claims against the real code. Do not implement production code and do not dispatch nested subagents. Write the plan to spec-agent/YYYY-MM-DD-<feature>.md when the project uses that convention. Return only the plan path, a compact summary, open questions, risks, rollback, and verification commands.",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git log*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git show*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "rg *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "grep*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "head*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tail*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go test*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "spec-agent/**",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "todowrite",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
     }
   },
   "skills": [

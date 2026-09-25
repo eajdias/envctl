@@ -1,6 +1,7 @@
 ---
 name: vps-agent-dispatch
-description: Orquestrar e despachar tarefas e subagentes do OpenCode em servidores remotos (VPS Ubuntu/Debian/Oracle/AWS) via SSH. Use quando o usuário pedir para rodar tarefas pesadas, testes, builds, benchmarks ou subagentes remotos em VPS para economizar contexto local e paralelizar execuções ("despachar no vps", "executar agente remoto", "rodar subagente no servidor", "vps agent", "delegar para o vps", "dispatch agent", "executar remoto no opencode").
+description: >-
+  Orquestrar e despachar tarefas e subagentes do OpenCode em servidores remotos (VPS Ubuntu/Debian/Oracle/AWS) via SSH. Use automaticamente quando o usuário pedir para rodar tarefas pesadas, testes, builds, benchmarks ou subagentes remotos em VPS para economizar contexto local e paralelizar execuções. Triggers: despachar no vps, executar agente remoto, rodar subagente no servidor, vps agent, delegar para o vps, dispatch agent, executar remoto no opencode.
 license: MIT
 ---
 

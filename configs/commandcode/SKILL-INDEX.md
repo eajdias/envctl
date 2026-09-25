@@ -58,7 +58,7 @@
 | Jogos/emulação no CachyOS (kernel, GPU, Steam, emuladores) | `cachyos-gaming-setup` `[linux]` |
 | Instalar pacote AUR sem TTY/senha | `aur-headless-install` `[linux]` |
 | Validar app GUI (Qt/SDL) sem display | `headless-gui-probe` `[linux]` |
-| Prevenir/recover terminal travado ou tarefa presa (background/timeout/kill) | `task-hang-watchdog` |
-| Coordenador vigiar e matar subagentes que alucinam/loopam/travam | `subagent-supervision` |
+| Prevenir/recover terminal travado ou tarefa presa (timeout/saída persistente/recuperação suave) | `task-hang-watchdog` |
+| Coordenador vigiar subagentes e interromper sessão quando alucinam/loopam/travam | `subagent-supervision` |
 
 **Delegação:** `subagent-routing` cobre roteamento, despacho paralelo e orquestração no mesmo repo.
