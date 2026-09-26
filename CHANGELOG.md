@@ -7,6 +7,25 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [Unreleased]
+
+### Adicionado
+
+- Debloat Tier 2: fecha o gap do `windows11-clean` — 3 Appx (`MSTeams`,
+  `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
+  (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e
+  4 startup entries. `debloat.yaml` vai de 76 para 94 tweaks.
+- Novo tipo de tweak `StartupItem`, sondado e removido contra um conjunto
+  fechado (2 Run keys + 2 pastas `Startup`) em vez de `Win32_StartupCommand`:
+  essa classe é uma `CIM_Setting` cujo MOF lista só properties (o `Delete()` do
+  `windows11-clean` não existe) e o `Location` dela é inconsistente entre
+  formatos, o que fazia um classificador sobre ele casar com a forma errada e o
+  doctor reportar convergência inexistente. A sonda emite tokens (nunca paths),
+  recusa token desconhecido, escapa o nome para `-Name` (que é wildcard no
+  provider de registro) e trata sonda parcial como erro.
+
+---
+
 ## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)
 
 

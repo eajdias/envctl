@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -44,6 +45,249 @@ func psValue(v any) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// Startup entries are probed and removed against a closed set: the two Run keys
+// and the two Startup folders. NOT via Win32_StartupCommand, for two reasons
+// confirmed against its published MOF and docs:
+//   - it is a CIM_Setting whose MOF lists properties only, so the legacy tool's
+//     `$_.Delete()` does not exist;
+//   - its `Location` is inconsistent (registry key, the bare literals
+//     "Startup"/"Common Startup", HKU\<SID>\...), which is what forced a
+//     fragile classifier that matched nothing and left the doctor green.
+//
+// Reading the exact locations makes "never touches a service" structural: a
+// service is neither a Run-key value nor a Startup-folder file.
+type startupTarget struct {
+	token string // what the probe reports; a path never crosses the boundary
+	kind  string
+	path  string // registry only: ASCII literal, safe to embed
+	env   string // folder only: [Environment]::GetFolderPath argument
+}
+
+const (
+	startupKindRegistry = "registry"
+	startupKindDir      = "dir"
+)
+
+var startupTargets = []startupTarget{
+	{token: "RUN_HKCU", kind: startupKindRegistry, path: `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`},
+	{token: "RUN_HKLM", kind: startupKindRegistry, path: `HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`},
+	{token: "DIR_ROAMING", kind: startupKindDir, env: "ApplicationData"},
+	{token: "DIR_PROGRAMDATA", kind: startupKindDir, env: "CommonApplicationData"},
+}
+
+const startupFolderSuffix = `Microsoft\Windows\Start Menu\Programs\Startup`
+
+// startupTargetForToken resolves a probe token. An unknown token is refused, so
+// a name that somehow probes outside the closed set can never reach a deletion.
+func startupTargetForToken(token string) (startupTarget, bool) {
+	for _, tgt := range startupTargets {
+		if tgt.token == token {
+			return tgt, true
+		}
+	}
+	return startupTarget{}, false
+}
+
+// startupTargetsTable renders the PowerShell hashtable a script needs, so
+// probe and apply cannot disagree about what a target is. Only the requested
+// targets are rendered: a registry-only removal must not resolve a Startup
+// folder it will never touch. The Startup folders resolve through GetFolderPath
+// rather than %APPDATA%/%ProgramData%: those are absent in non-interactive
+// contexts (service, scheduled task), and a folder path never travels back
+// through the console code page.
+func startupTargetsTable(targets []startupTarget) string {
+	rows := make([]string, 0, len(targets))
+	for _, tgt := range targets {
+		var path string
+		if tgt.kind == startupKindDir {
+			path = fmt.Sprintf("(Join-Path ([Environment]::GetFolderPath('%s')) '%s')", tgt.env, startupFolderSuffix)
+		} else {
+			path = "'" + psQuote(tgt.path) + "'"
+		}
+		rows = append(rows, fmt.Sprintf("  '%s' = @{ Kind = '%s'; Path = %s }", tgt.token, tgt.kind, path))
+	}
+	// No trailing comma: `@( @{...}, )` is a parse error in powershell 5.1.
+	return "@{\n" + strings.Join(rows, "\n") + "\n}"
+}
+
+// startupProbeScript reports, for each wanted name, the `,`-joined tokens of
+// the targets it was found in (empty when absent). Registry keys are read with
+// GetValueNames() and compared with -contains, and folders with BaseName, so a
+// name carrying wildcard characters is never handed to a wildcard matcher.
+func startupProbeScript(names []string) string {
+	quoted := make([]string, 0, len(names))
+	for _, n := range names {
+		quoted = append(quoted, "'"+psQuote(n)+"'")
+	}
+	return fmt.Sprintf(`
+$targets = %s
+$keyNames = @{}
+$dirNames = @{}
+foreach ($tk in $targets.Keys) {
+  $p = $targets[$tk].Path
+  if ($targets[$tk].Kind -eq '%s') {
+    if (Test-Path -LiteralPath $p) { $keyNames[$tk] = @((Get-Item -LiteralPath $p).GetValueNames()) } else { $keyNames[$tk] = @() }
+  } else {
+    if (Test-Path -LiteralPath $p) {
+      $dirNames[$tk] = @(Get-ChildItem -LiteralPath $p -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.BaseName })
+    } else { $dirNames[$tk] = @() }
+  }
+}
+foreach ($n in @(%s)) {
+  $found = @()
+  foreach ($tk in $keyNames.Keys) { if (@($keyNames[$tk]) -contains $n) { $found += $tk } }
+  foreach ($tk in $dirNames.Keys) { if (@($dirNames[$tk]) -contains $n) { $found += $tk } }
+  Write-Output ("DEBLOATSTARTUP|||" + $n + "|||" + ($found -join ','))
+}
+`, startupTargetsTable(startupTargets), startupKindRegistry, strings.Join(quoted, ","))
+}
+
+// startupRemovalScript deletes one name from the given targets. Registry
+// targets go through Remove-ItemProperty — the System Registry Provider route
+// the WMI docs point at — with the name escaped because -Name is always a
+// WildcardPattern there. Folder targets go through the enumerated file, since
+// a Startup-folder entry is a file with an extension.
+func startupRemovalScript(name string, targets []startupTarget) string {
+	var b strings.Builder
+	b.WriteString("\n$targets = " + startupTargetsTable(targets) + "\n")
+	for _, tgt := range targets {
+		if tgt.kind == startupKindRegistry {
+			fmt.Fprintf(&b, `$p = $targets['%s'].Path
+if ((Test-Path -LiteralPath $p) -and (@((Get-Item -LiteralPath $p).GetValueNames()) -contains '%s')) {
+  Remove-ItemProperty -LiteralPath $p -Name ([WildcardPattern]::Escape('%s')) -Force -ErrorAction Stop
+}
+`, tgt.token, psQuote(name), psQuote(name))
+		} else {
+			fmt.Fprintf(&b, `$p = $targets['%s'].Path
+if (Test-Path -LiteralPath $p) {
+  Get-ChildItem -LiteralPath $p -ErrorAction Stop |
+    Where-Object { -not $_.PSIsContainer -and $_.BaseName -eq '%s' } |
+    Remove-Item -Force -ErrorAction Stop
+}
+`, tgt.token, psQuote(name))
+		}
+	}
+	return b.String()
+}
+
+// parseStartupProbe indexes the probe readout by lowercased name. A name
+// reported with no token is absent, not missing data.
+func parseStartupProbe(out string) map[string]string {
+	rows := make(map[string]string)
+	for _, line := range strings.Split(out, "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), "|||", 3)
+		if len(parts) != 3 || parts[0] != "DEBLOATSTARTUP" || parts[1] == "" {
+			continue
+		}
+		rows[strings.ToLower(parts[1])] = parts[2]
+	}
+	return rows
+}
+
+// startupConforms maps a probe token list to the tweak verdict. Conforming =
+// nothing envctl is able to remove, so the doctor never claims drift it cannot
+// resolve. probeStartup has already rejected unknown tokens, so an empty list
+// here really means "not present in any target".
+func startupConforms(tokens string) (bool, string) {
+	if len(startupTargetsForTokens(tokens)) == 0 {
+		return true, "No removable startup entry"
+	}
+	return false, "Startup entry present (will be removed on apply)"
+}
+
+// startupUnknownTokens returns the tokens the probe emitted that envctl did not
+// generate. Anything here is a probe/table disagreement, never "absent".
+func startupUnknownTokens(tokens string) []string {
+	var out []string
+	for _, tok := range strings.Split(tokens, ",") {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			if _, ok := startupTargetForToken(tok); !ok {
+				out = append(out, tok)
+			}
+		}
+	}
+	return out
+}
+
+// startupTargetsForTokens resolves the probe tokens, dropping any unknown one.
+// Callers reach it only through probeStartup, which already rejected unknowns.
+func startupTargetsForTokens(tokens string) []startupTarget {
+	var out []startupTarget
+	for _, tok := range strings.Split(tokens, ",") {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			if tgt, ok := startupTargetForToken(tok); ok {
+				out = append(out, tgt)
+			}
+		}
+	}
+	return out
+}
+
+// validateStartupRows fails closed on a probe readout envctl cannot fully
+// interpret. Both checks exist so a degraded probe can never be reported as
+// "absent", which is how the doctor would certify a convergence that never
+// happened:
+//
+//   - cardinality: a partial readout leaves names missing, and a missing name
+//     resolves to "" and then to "conforming". Same guard as the registry batch.
+//   - unknown target: the removal path refuses a token it cannot resolve, so
+//     approving one in the audit would have the two halves of the invariant
+//     disagreeing.
+func validateStartupRows(rows map[string]string, names []string) error {
+	if len(rows) != len(names) {
+		return fmt.Errorf("startup probe answered %d of %d names", len(rows), len(names))
+	}
+	// Sorted so the message is stable: map iteration order is randomized in Go
+	// and a flaky error message is a flaky CI log.
+	offenders := make([]string, 0, len(rows))
+	for name, tokens := range rows {
+		if unknown := startupUnknownTokens(tokens); len(unknown) > 0 {
+			offenders = append(offenders, fmt.Sprintf("%q reported %v", name, unknown))
+		}
+	}
+	if len(offenders) > 0 {
+		sort.Strings(offenders)
+		return fmt.Errorf("startup probe reported unknown target(s): %s", strings.Join(offenders, "; "))
+	}
+	return nil
+}
+
+func (m *TweaksManager) probeStartup(ctx context.Context, names []string) (map[string]string, error) {
+	if len(names) == 0 {
+		return map[string]string{}, nil
+	}
+	//nolint:gosec // G204: names come from the embedded manifest (same trust level as the package tables) and reach PowerShell only as single-quoted literals via psQuote; no shell, no expansion. Asserted by TestStartupScriptsQuoteAdversarialNames.
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupProbeScript(names))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to probe startup entries: %s (%w)", strings.TrimSpace(string(out)), err)
+	}
+	rows := parseStartupProbe(string(out))
+	if err := validateStartupRows(rows, names); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (m *TweaksManager) probeStartupTweak(ctx context.Context, name string) (string, error) {
+	rows, err := m.probeStartup(ctx, []string{name})
+	if err != nil {
+		return "", err
+	}
+	return rows[strings.ToLower(name)], nil
+}
+
+// serviceExpectedState reads the declared target startup type, defaulting to
+// Disabled when the manifest omits it. Shared by the check, batch-check and
+// apply paths so all three agree on the target.
+func serviceExpectedState(tweak entity.WindowsTweak) string {
+	if s, ok := tweak.Value.(string); ok && s != "" {
+		return s
+	}
+	return "Disabled"
 }
 
 func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error) {
@@ -108,10 +352,7 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		// Conforming = StartType matches the declared state (default
 		// Disabled). A service missing from the machine is conforming too:
 		// there is nothing to disable.
-		expectedState := "Disabled"
-		if s, ok := tweak.Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweak)
 		svcScript := fmt.Sprintf(`
 $s = Get-Service -Name '%s' -ErrorAction SilentlyContinue
 if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.StartType.ToString()) }
@@ -130,6 +371,14 @@ if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.S
 			return true, fmt.Sprintf("Service startup type is %s", actualState), nil
 		}
 		return false, fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState), nil
+
+	case "startupitem":
+		tokens, err := m.probeStartupTweak(ctx, tweak.Name)
+		if err != nil {
+			return false, "", err
+		}
+		ok, details := startupConforms(tokens)
+		return ok, details, nil
 
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
@@ -178,8 +427,9 @@ func matchRegistryValue(actualVal, expectedStr string) (bool, string) {
 }
 
 // CheckBatch checks many tweaks with one PowerShell spawn per family
-// (registry, Appx, services) instead of one per tweak. Feature/PSModule
-// tweaks keep the single-check path. Results are order-preserving.
+// (registry, Appx, services, startup entries) instead of one per tweak.
+// Feature/PSModule tweaks keep the single-check path. Results are
+// order-preserving.
 func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult {
 	results := make([]entity.TweakCheckResult, len(tweaks))
 	for i, tw := range tweaks {
@@ -193,13 +443,15 @@ func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsT
 		return results
 	}
 
-	var regIdx, appxIdx, svcIdx, singleIdx []int
+	var regIdx, appxIdx, svcIdx, startupIdx, singleIdx []int
 	for i, tw := range tweaks {
 		switch strings.ToLower(tw.Type) {
 		case "appx":
 			appxIdx = append(appxIdx, i)
 		case "service":
 			svcIdx = append(svcIdx, i)
+		case "startupitem":
+			startupIdx = append(startupIdx, i)
 		case "feature", "psmodule":
 			singleIdx = append(singleIdx, i)
 		default: // registry DWord, String, QWord, Binary
@@ -210,6 +462,7 @@ func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsT
 	m.checkRegistryBatch(ctx, tweaks, regIdx, results)
 	m.checkAppxBatch(ctx, tweaks, appxIdx, results)
 	m.checkServiceBatch(ctx, tweaks, svcIdx, results)
+	m.checkStartupBatch(ctx, tweaks, startupIdx, results)
 	for _, i := range singleIdx {
 		ok, details, err := m.CheckTweak(ctx, tweaks[i])
 		results[i].OK = ok
@@ -347,10 +600,7 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 		states[strings.ToLower(parts[1])] = parts[2]
 	}
 	for _, i := range idx {
-		expectedState := "Disabled"
-		if s, ok := tweaks[i].Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweaks[i])
 		actualState, present := states[strings.ToLower(tweaks[i].Name)]
 		switch {
 		case !present || actualState == "NOT_PRESENT":
@@ -362,6 +612,28 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 		default:
 			results[i].Details = fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState)
 		}
+	}
+}
+
+// checkStartupBatch probes every wanted name in one spawn and answers from the
+// resulting map (conforming = the probe found nothing to remove).
+func (m *TweaksManager) checkStartupBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
+	if len(idx) == 0 {
+		return
+	}
+	names := make([]string, 0, len(idx))
+	for _, i := range idx {
+		names = append(names, tweaks[i].Name)
+	}
+	rows, err := m.probeStartup(ctx, names)
+	if err != nil {
+		for _, i := range idx {
+			results[i].Err = err
+		}
+		return
+	}
+	for _, i := range idx {
+		results[i].OK, results[i].Details = startupConforms(rows[strings.ToLower(tweaks[i].Name)])
 	}
 }
 
@@ -440,10 +712,7 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 	case "service":
 		// Stop is best-effort (already stopped is fine); the startup-type
 		// change is strict so elevation problems surface.
-		expectedState := "Disabled"
-		if s, ok := tweak.Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweak)
 		var svcScript string
 		switch strings.ToLower(expectedState) {
 		case "disabled":
@@ -462,6 +731,36 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		m.logger.LogCommand("powershell.exe", []string{"-Command", svcScript}, exitCode, string(svcOut), svcErr)
 		if svcErr != nil {
 			return fmt.Errorf("failed to set service %s to %s: %s (%w)", tweak.Name, expectedState, string(svcOut), svcErr)
+		}
+		return nil
+
+	case "startupitem":
+		// Re-probe with the same script the check uses, then delete only from
+		// the targets it reported. The closed set is what keeps a service out
+		// of reach, not a classifier over a free-form Location.
+		tokens, err := m.probeStartupTweak(ctx, tweak.Name)
+		if err != nil {
+			return err
+		}
+		targets := startupTargetsForTokens(tokens)
+		if len(targets) == 0 {
+			// Converged by someone else between the two probes. Not an error:
+			// the desired end state holds, so returning nil keeps `run debloat`
+			// idempotent. Logged so the trace is not read as "we removed it".
+			m.logger.Info("Startup entry %s no longer present at apply time; nothing to remove", tweak.Name)
+			return nil
+		}
+		startupScript := startupRemovalScript(tweak.Name, targets)
+		//nolint:gosec // G204: the name comes from the embedded manifest (same trust level as the package tables) and reaches PowerShell only as a single-quoted literal via psQuote, then through [WildcardPattern]::Escape; paths are the fixed Run keys or GetFolderPath results. No shell, no expansion. Asserted by TestStartupScriptsQuoteAdversarialNames and TestStartupScriptsNeutralizeWildcardNames.
+		startupCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupScript)
+		startupOut, startupErr := startupCmd.CombinedOutput()
+		exitCode := 0
+		if startupCmd.ProcessState != nil {
+			exitCode = startupCmd.ProcessState.ExitCode()
+		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", startupScript}, exitCode, string(startupOut), startupErr)
+		if startupErr != nil {
+			return fmt.Errorf("failed to remove startup entry %s: %s (%w)", tweak.Name, string(startupOut), startupErr)
 		}
 		return nil
 

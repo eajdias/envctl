@@ -6,11 +6,18 @@
 #
 # Deliberately OUT (manual steps in docs/guides/windows-debloat-tier3.md):
 # - OneDrive removal (recursive user-data delete, needs confirmation)
-# - Xbox suite + MSTeams + OutlookForWindows (gaming / work comms)
-# - Machine-specific services (Dell*, AnyDesk, Firebird*, Tailscale, sshd)
-# - Spooler / WSearch / SysMain / NgcSvc (printing, search perf, Windows Hello)
+# - Xbox suite (gaming)
+# - Remote-access services: AnyDesk, Tailscale, sshd
+# - Spooler (printing), NgcRingFenceSvc, StorSvc, gupdate*, EasyAntiCheat*
 # - powercfg plans, hibernation, Teredo, UserPreferencesMask (Binary),
 #   .wslconfig tuning, Copilot/Recall winget removal, Defender sample opt-out
+#
+# Startup entries are probed and removed against the two Run keys and the two
+# Startup folders directly, never through Win32_StartupCommand: that class is a
+# CIM_Setting whose MOF lists properties only (no Delete method) and its
+# `Location` is inconsistent across shapes. A closed set is what keeps a service
+# out of reach — see startupProbeScript() in
+# internal/infra/windows/tweaks_manager.go.
 version: "1.0"
 
 tweaks:
@@ -307,9 +314,9 @@ tweaks:
     type: "DWord"
     category: "gaming"
 
-  # --- Apps: remove bloatware Store packages (31 Appx) ---
-  # Xbox suite + MSTeams + OutlookForWindows are excluded on purpose
-  # (gaming / work comms) — see docs/guides/windows-debloat-tier3.md for manual removal.
+  # --- Apps: remove bloatware Store packages (34 Appx) ---
+  # Só o Xbox suite fica de fora (gaming) — ver
+  # docs/guides/windows-debloat-tier3.md §8.
   - id: "appx-microsoft-copilot"
     description: "Remove Microsoft.Copilot bloatware"
     name: "Microsoft.Copilot"
@@ -496,10 +503,32 @@ tweaks:
     type: "Appx"
     category: "apps"
 
+  # --- Apps: work comms + the standalone Copilot provider (3 Appx) ---
+  # Absorbed from windows11-clean in the Tier 2 expansion. The Xbox suite
+  # stays out (gaming); see docs/guides/windows-debloat-tier3.md §8.
+  - id: "appx-mstteams"
+    description: "Remove MSTeams (bundled consumer Teams)"
+    name: "MSTeams"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-outlookforwindows"
+    description: "Remove OutlookForWindows (the new consumer Mail/Calendar)"
+    name: "Microsoft.OutlookForWindows"
+    type: "Appx"
+    category: "apps"
+
+  - id: "appx-microsoft-copilot-provider"
+    description: "Remove the Windows AI Copilot provider package"
+    name: "Microsoft.Windows.Ai.Copilot.Provider"
+    type: "Appx"
+    category: "apps"
+
   # --- Services: stop & disable safe-only set (9 services) ---
-  # Spooler (printing), WSearch/SysMain (perf tradeoffs), NgcSvc (Hello),
-  # vendor/user services (Dell*, AnyDesk, Firebird*, Tailscale, sshd) and the
-  # Xbox suite stay out — see docs/guides/windows-debloat-tier3.md for manual steps.
+  # Spooler (printing) and the remote-access services (AnyDesk, Tailscale,
+  # sshd) stay out, as do StorSvc, gupdate*, EasyAntiCheat* and
+  # NgcRingFenceSvc; the Xbox suite too. Firebird* is NOT out: it is in the
+  # Manual block below. See docs/guides/windows-debloat-tier3.md §9.
   - id: "svc-diagtrack"
     description: "Stop & disable Connected User Experiences and Telemetry"
     name: "DiagTrack"
@@ -562,3 +591,113 @@ tweaks:
     value: "Disabled"
     type: "Service"
     category: "services"
+
+  # --- Services: Manual, not Disabled (11 services) ---
+  # windows11-clean hard-disables most of these; envctl only relaxes the
+  # startup type, so the service still starts on demand and nothing the
+  # machine depends on breaks (owner decision 2026-09-26). Flip `value` to
+  # "Disabled" per entry to get the legacy behavior.
+  - id: "svc-wsearch-manual"
+    description: "Set Windows Search indexer to Manual (stops indexing at boot)"
+    name: "WSearch"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-sysmain-manual"
+    description: "Set SysMain (Superfetch) to Manual"
+    name: "SysMain"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-ngcsvc-manual"
+    description: "Set NgcSvc (Windows Hello credential provider) to Manual"
+    name: "NgcSvc"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-wbengine-manual"
+    description: "Set wbengine (Windows Backup) to Manual"
+    name: "wbengine"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-onesyncsvc-manual"
+    description: "Set OneSyncSvc (mail/calendar/roaming sync) to Manual"
+    name: "OneSyncSvc"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-dellcustomerconnect-manual"
+    description: "Set DellCustomerConnect to Manual (vendor telemetry, opt-in app)"
+    name: "DellCustomerConnect"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-dellsupportassist-manual"
+    description: "Set DellSupportAssistAgent to Manual (vendor updater)"
+    name: "DellSupportAssistAgent"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-delltechhub-manual"
+    description: "Set DellTechHub to Manual (vendor telemetry collector)"
+    name: "DellTechHub"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-delloptiplex-manual"
+    description: "Set DellOptiPlex service to Manual (vendor feedback)"
+    name: "DellOptiPlex"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-fbguard-manual"
+    description: "Set fbguard to Manual (Firebird SQL guardian, legacy project kept Manual)"
+    name: "fbguard"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  - id: "svc-fbserver-manual"
+    description: "Set fbserver to Manual (Firebird SQL server, legacy project kept Manual)"
+    name: "fbserver"
+    value: "Manual"
+    type: "Service"
+    category: "services"
+
+  # --- Startup entries: remove from Run keys + Startup folder (4 entries) ---
+  # Conforming = no removable entry; the doctor reports INFO drift, never WARN.
+  # Audio services (WavesSvc, RtkAuduService) are deliberately absent: they are
+  # driver services and disabling them can break audio on the owner's machine.
+  - id: "startup-brave"
+    description: "Remove Brave from startup (browser autostart)"
+    name: "BraveSoftware"
+    type: "StartupItem"
+    category: "startup"
+
+  - id: "startup-canva"
+    description: "Remove Canva from startup"
+    name: "Canva"
+    type: "StartupItem"
+    category: "startup"
+
+  - id: "startup-microsoftedge"
+    description: "Remove MicrosoftEdge from startup (Edge autostart/background)"
+    name: "MicrosoftEdge"
+    type: "StartupItem"
+    category: "startup"
+
+  - id: "startup-securityhealth"
+    description: "Remove SecurityHealth from startup (Defender tray placeholder)"
+    name: "SecurityHealth"
+    type: "StartupItem"
+    category: "startup"
