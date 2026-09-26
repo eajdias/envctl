@@ -61,6 +61,67 @@ func TestExpireQuarantinedSkillsRemovesOnlyStaleEntries(t *testing.T) {
 	}
 }
 
+// quarantineSkill used to leave the moved directory with the mtime of its last
+// write, so a skill that had been untouched for longer than the TTL was deleted
+// by the very deploy that quarantined it — the recovery window was zero for
+// exactly the skills it existed for. The window is only real if the age is
+// measured from the moment of the move, so this walks the real path.
+func TestQuarantinedSkillStaysRecoverableForTheWholeWindow(t *testing.T) {
+	root := t.TempDir()
+	live := filepath.Join(root, "skills", "long-lived-skill")
+	if err := os.MkdirAll(filepath.Join(live, "references"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(live, "SKILL.md"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// The skill was last written 90 days ago — well past the 30-day window.
+	longAgo := time.Now().Add(-90 * 24 * time.Hour)
+	if err := os.Chtimes(live, longAgo, longAgo); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(filepath.Join(live, "SKILL.md"), longAgo, longAgo); err != nil {
+		t.Fatal(err)
+	}
+
+	dest, err := quarantineSkill(filepath.Join(root, "skills"), "long-lived-skill")
+	if err != nil {
+		t.Fatalf("quarantineSkill: %v", err)
+	}
+
+	trashDir := filepath.Join(root, ".envctl-trash", "skills")
+	expired, err := expireQuarantinedSkills(trashDir, staleSkillQuarantineTTL)
+	if err != nil {
+		t.Fatalf("expireQuarantinedSkills: %v", err)
+	}
+	if len(expired) != 0 {
+		t.Errorf("a skill quarantined seconds ago must not expire: got %v", expired)
+	}
+	if _, err := os.Stat(dest); err != nil {
+		t.Errorf("quarantined skill must stay recoverable for the whole window: %v", err)
+	}
+
+	// Same tree, but genuinely quarantined before the window: it must expire.
+	aged := filepath.Join(trashDir, "ancient-skill-20260101-000000")
+	if err := os.MkdirAll(aged, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(aged, longAgo, longAgo); err != nil {
+		t.Fatal(err)
+	}
+	expired, err = expireQuarantinedSkills(trashDir, staleSkillQuarantineTTL)
+	if err != nil {
+		t.Fatalf("expireQuarantinedSkills (aged): %v", err)
+	}
+	if len(expired) != 1 || expired[0] != filepath.Base(aged) {
+		t.Errorf("expired = %v, want only %q", expired, filepath.Base(aged))
+	}
+	if _, err := os.Stat(dest); err != nil {
+		t.Errorf("the fresh quarantine must survive the aged one expiring: %v", err)
+	}
+}
+
 func TestExpireQuarantinedSkillsMissingDirIsNoop(t *testing.T) {
 	removed, err := expireQuarantinedSkills(filepath.Join(t.TempDir(), "absent"), time.Hour)
 	if err != nil {
