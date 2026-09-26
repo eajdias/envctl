@@ -130,3 +130,17 @@ tiers:
       nominal "16 GB" instance. The same reasoning as medium applies with more
       room; the band is unbounded so a future larger instance needs no manifest
       edit.
+
+# Journald size policy. All three reachable hosts are uncapped today, and the
+# built-in default is 10% of the filesystem: about 4.5 GB on the 45 GB OCI
+# disks, which a 951 MiB machine cannot afford and which, once full, prevents
+# logging, then SSH, then diagnosis. SystemKeepFree is mandatory rather than
+# extra because man 5 journald.conf states journald honours both limits and
+# uses the smaller of the two, so a cap without a floor can still be exceeded.
+journald:
+  dropin: /etc/systemd/journald.conf.d/90-envctl-journald.conf
+  values:
+    - { key: SystemMaxUse, value: "200M" }
+    - { key: SystemKeepFree, value: "1G" }
+    - { key: RuntimeMaxUse, value: "50M" }
+    - { key: MaxRetentionSec, value: "2week" }

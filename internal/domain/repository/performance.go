@@ -32,6 +32,13 @@ type TimezoneManager interface {
 	Apply(ctx context.Context, spec entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// JournaldManager installs the journald size drop-in. It restarts the service
+// rather than stopping it: man 8 systemd-journald documents that a restart
+// preserves the client streams and that stopping is not recommended.
+type JournaldManager interface {
+	Apply(ctx context.Context, spec entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

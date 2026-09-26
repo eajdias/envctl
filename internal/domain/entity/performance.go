@@ -65,6 +65,8 @@ type PerformanceSpec struct {
 	Tiers []PerformanceTier `yaml:"tiers,omitempty"`
 	// Timezone is the declared zone policy.
 	Timezone *TimezoneSpec `yaml:"timezone,omitempty"`
+	// Journald is the declared journal size policy.
+	Journald *JournaldSpec `yaml:"journald,omitempty"`
 }
 
 type SwapDevice struct {
@@ -161,6 +163,21 @@ type BlockScheduler struct {
 	Available string
 }
 
+// JournaldSetting is one size or retention key in the journald drop-in.
+type JournaldSetting struct {
+	Key   string `yaml:"key"`
+	Value string `yaml:"value"`
+}
+
+// JournaldSpec is the declared journald size policy. SystemKeepFree is part of
+// the contract, not an extra: journald honours the smaller of SystemMaxUse and
+// SystemKeepFree, so a cap without a floor still lets the journal grow to the
+// filesystem default.
+type JournaldSpec struct {
+	Dropin string            `yaml:"dropin"`
+	Values []JournaldSetting `yaml:"values"`
+}
+
 // TimezoneSpec declares the timezone policy. Mode defaults to "verify", which
 // only reports; writing a timezone changes log timestamps and scheduled jobs,
 // so it is never implicit.
@@ -170,9 +187,13 @@ type TimezoneSpec struct {
 }
 
 type JournaldState struct {
-	DiskUsage    string
-	Storage      string
-	SystemMaxUse string
+	DiskUsage string
+	Storage   string
+	// SystemMaxUse and SystemKeepFree are both honored by journald, which
+	// applies the smaller of the two. Reading only the first would let a host
+	// look capped when it has no floor at all.
+	SystemMaxUse   string
+	SystemKeepFree string
 }
 
 type TimerState struct {
