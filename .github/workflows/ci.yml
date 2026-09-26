@@ -2,26 +2,15 @@ name: CI Pipeline
 
 on:
   push:
-    # main keeps its own gate; the release-please branches are here because a
-    # `pull_request` run authored by the bot sits at `action_required` until a
-    # maintainer clicks approve (GitHub treats bot actors as outside
-    # collaborators), which put an approval click in front of every release. A
-    # `push` run needs no approval, and branch protection only cares that the
-    # required checks reported on the head SHA — so the release PR stays gated
-    # without a human in the loop. Verified: a push to a `release-please--*`
-    # branch runs Lint + Test green with no approval step.
-    branches: [ main, 'release-please--**' ]
-  # Every pull request, not only the ones targeting main: a feature-branch PR is
-  # where review actually happens, and filtering on `main` left those PRs with no
-  # check at all — the exact gap that let a docs/impl drift ship unverified.
+    branches: [ main ]
   pull_request:
-    # The release PR changes only these two generated files, and it is covered by
-    # the push trigger above. Listing them here is what keeps the bot's
-    # pull_request run from being created at all — an ignored path means no run,
-    # so there is nothing pending approval.
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - '.github/.release-please-manifest.json'
+    paths:
+      - '**.go'
+      - 'go.mod'
+      - 'go.sum'
+      - 'manifests/**'
+      - 'configs/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   lint:
