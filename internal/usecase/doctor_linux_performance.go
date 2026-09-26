@@ -165,6 +165,18 @@ func (uc *DoctorAuditUseCase) auditLinuxPerformance(ctx context.Context, addDiag
 			Details:  strings.Join(details, ", "),
 		})
 	}
+
+	// A pending reboot is the one performance line allowed to warn: the host
+	// genuinely is not in the state the profile would converge it to.
+	if state := ProbeRebootPending(nil); state.Pending {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Performance",
+			Target:   "reboot",
+			Details:  state.Detail,
+			FixHint:  "sudo reboot, then re-run envctl run performance",
+		})
+	}
 }
 
 func formatPerformanceBytes(bytes uint64) string {

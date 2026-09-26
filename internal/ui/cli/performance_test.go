@@ -111,3 +111,51 @@ func TestSelectPerformanceProfileErrorNamesTheMinimum(t *testing.T) {
 		t.Fatalf("error %q does not state the required minimum 24.04", err)
 	}
 }
+
+// The flag surface is part of the contract: every switch that changes what is
+// written to a host must be registered, and the two privileged ones must say so
+// in their help text.
+func TestPerformanceFlagsAreRegistered(t *testing.T) {
+	cmd := newRunCmd()
+	performanceCmd, _, err := cmd.Find([]string{"performance"})
+	if err != nil {
+		t.Fatalf("performance command not found: %v", err)
+	}
+	for _, name := range []string{
+		"dry-run", "no-daemon-reexec", "timezone", "allow-debloat", "debloat-only", "force-reboot-pending",
+	} {
+		flag := performanceCmd.Flags().Lookup(name)
+		if flag == nil {
+			t.Fatalf("flag --%s is not registered", name)
+		}
+		if flag.DefValue == "true" {
+			t.Fatalf("flag --%s defaults to true; a privileged change must be opt-in", name)
+		}
+	}
+	privileged := map[string]bool{"no-daemon-reexec": false, "allow-debloat": false, "debloat-only": false}
+	for name := range privileged {
+		flag := performanceCmd.Flags().Lookup(name)
+		if flag.Usage == "" {
+			t.Fatalf("flag --%s has no help text describing its effect", name)
+		}
+	}
+}
+
+func TestMustFlagHelpersTolerateUnknownNames(t *testing.T) {
+	cmd := newRunCmd()
+	performanceCmd, _, err := cmd.Find([]string{"performance"})
+	if err != nil {
+		t.Fatalf("performance command not found: %v", err)
+	}
+	// A missing flag must not be mistaken for a set one.
+	if mustBool(performanceCmd.Flags(), "does-not-exist") {
+		t.Fatal("an unknown flag must read as false")
+	}
+	if mustString(performanceCmd.Flags(), "does-not-exist") != "" {
+		t.Fatal("an unknown flag must read as empty")
+	}
+	// A registered flag reads through the same helpers.
+	if mustBool(performanceCmd.Flags(), "dry-run") {
+		t.Fatal("dry-run must default to false")
+	}
+}
