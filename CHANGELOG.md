@@ -172,6 +172,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   dedicated `run performance` command still refuses, and `--force-reboot-pending`
   still overrides. Found by running `run all` on a host with three pending kernel
   images: the run died at the performance phase and phases 5-7 never ran.
+* **linux:** resolve a toolchain binary against the toolchain PATH before
+  running it. `exec.Command` resolves against the PROCESS PATH when the command
+  is constructed, so assigning `cmd.Env` afterwards never affected which
+  executable ran. On a non-login shell (ssh, systemd, an agent) that PATH is
+  minimal, so the Node runtime and the CommandCode CLI were reported as
+  "executable file not found in $PATH" on a freshly provisioned VPS even though
+  the same run had just installed Volta into `~/.volta/bin`. A greenfield
+  `run all` now converges in one pass instead of two.
 * **linux:** raise the soft file-descriptor limit without pinning the host's hard
   limit. The systemd drop-in writes `DefaultLimitNOFILE=65536:`, a form verified
   to parse cleanly and to leave each host's own ceiling intact; the Oracle hosts

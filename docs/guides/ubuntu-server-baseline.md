@@ -250,6 +250,26 @@ Todos continuam atrás de benchmark e aprovação explícita, como decidido em
 envctl mora aqui, não em skill de agente: o commit `d5a2db0` cortou o catálogo de
 50 para 12 e movia esse conhecimento para dentro do repo de propósito.
 
+## Provisionar uma VPS nova em uma passada só
+
+`run all` numa caixa zerada converge numa passada. Dois motivos que historicamente
+forçavam uma segunda:
+
+**PATH de shell não-login.** `envctl` roda por ssh, systemd ou agente, e nesses
+contextos o PATH do processo é mínimo. `exec.Command` resolve o binário no PATH
+do processo no momento da construção do comando, então atribuir `cmd.Env` depois
+não muda qual executável roda: o `volta` recém-instalado em `~/.volta/bin` era
+reportado como ausente. Agora o binário é resolvido contra o PATH de toolchain
+antes de executar, e a sonda e o comando compartilham o mesmo resolvedor.
+
+**Fase de providers antes do toolchain.** A ordem das fases é
+providers → toolchain → pacotes → performance → shell → skills → LSPs, e
+providers instala o próprio Volta, então a ordem está correta. O que faltava era a
+resolução de path acima.
+
+Verificar em caixa zerada: `envctl run all` e então `envctl doctor`, esperando
+`Volta`, `Node runtime` e `CommandCode CLI` em `OK` já na primeira passada.
+
 ## Unknowns que ficam para o dono
 
 - **`zscan_proxy_prod` não autentica** — 9 de 10 máquinas verificadas.
