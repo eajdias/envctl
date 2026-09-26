@@ -56,6 +56,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Removed**: the release pipeline no longer builds or ships darwin binaries. `release.yml` had a
+  `# 3. Darwin amd64 & arm64` section feeding `envctl-darwin-amd64`, `envctl-darwin-arm64` and their tarballs into
+  `SHA256SUMS.txt` and the release upload, so every release advertised macOS artifacts for a platform whose manifest,
+  bootstrap and lint all reject it. Build, checksum and upload entries are gone; the workflow builds Windows and Linux
+  only, and its header now states the scope so the next reader does not re-derive it.
+
 - **Changed**: the agent skill catalog is now **12 entries instead of 50**, chosen by a measured rule: a skill earns a catalog slot only when it holds something the model would not do by itself (user preference, non-obvious procedure, or a trap already paid for). Language, framework, tool and domain knowledge moved to `code-playbooks/references/*.md` (loaded on demand behind one index entry); mandatory behavior moved to the `AGENTS.md` manifests; envctl product knowledge left the global tier and stays in the repo. Measured with `cmdc -p`: 50 skills cost ~6.4k tokens per turn and, at the CommandCode default catalog budget, the runtime degrades to names-only and **auto-activation stops happening**; 12 entries fit the default, so descriptions reach the model with no environment variable. `clarify-before-acting` merges `grill-me` + `ask-questions-if-underspecified` + `grilling`, and `systematic-debugging` absorbs `variant-analysis` as its last phase.
 - **Added**: `envctl` skill (operate/audit/provision the machine, product internals stay in the repo) and a doctor check that projects the catalog size against the CommandCode budget, so a silent fall back to names-only is reported instead of discovered later.
 - **Fixed**: the skill catalog restructure had silently dropped the `variant-analysis` content — `docs/` and the spec claimed it was absorbed as the last phase of `systematic-debugging` while the skill still had only four phases. The phase is now really there (root-cause family search: exact match first, one generalization step at a time, edge cases, severity triage), and the nine references to removed skills that were left inside the surviving skills (`context7-auto`, `vps-agent-dispatch`, `aur-headless-install`, `api-contract-design`, `docs-sync`, `universal-test-runner`, `verification-before-completion`) now point at the MCP server, the SSH path, `code-playbooks/references/*.md` or the `AGENTS.md` rule.
@@ -66,7 +72,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **Fixed**: six documents still claimed "50 skills" after the catalog cut (principles, architecture, manifests, both OS guides, ADR 0001) — the counting mistake `docs-sync.md` warns about, committed by the same change that introduced it.
 - **Fixed**: provisioning backups accumulated one file per redeploy forever, because `pruneTimestampedBackups` skipped directories and therefore never reached the nested `skills/<name>/SKILL.md` tree. The prune is now recursive and groups by the original file's path, so two `SKILL.md` files in different directories do not compete for the same `keep_newest` slot. Measured on the machine: 41 backups pruned per runtime.
 - **Fixed**: the reverse `snapshot` copied accumulated `.bak` files from a deployed skill tree into `configs/skills/`, which would have committed stale skill text (the old 50-skill `agent-memory` description) and shipped it to every machine on the next deploy. `copyDir` now skips provisioning backups in both directions.
-- **Removed**: any macOS/darwin support or mention — the release never built darwin binaries and no manifest targeted it, so the README section and `docs/guides/macos.md` pointed at artifacts that did not exist. `bootstrap.sh` now accepts Linux only, and the `os:` lint rejects the darwin token.
+- **Removed**: any macOS/darwin support or mention. `bootstrap.sh` now accepts Linux only, the `os:` lint rejects
+  the darwin token, `DistroDarwin` and the doctor branches that only served it are gone, and the README section plus
+  `docs/guides/macos.md` were removed.
+  - **Correction (found while publishing this release):** the claim originally recorded here — that "the release never
+    built darwin binaries" — was **false**. `release.yml` had a `# 3. Darwin amd64 & arm64` build section feeding
+    `envctl-darwin-amd64`, `envctl-darwin-arm64` and their tarballs into `SHA256SUMS.txt` and the release upload, so this
+    very release shipped darwin assets. The claim came from grepping the workflow with `head -12`, which truncated the
+    evidence before that section. The build, checksum and upload entries are removed in the next patch; v1.7.0 itself
+    still carries the darwin assets, because a published release's assets are immutable.
 
 - **Added**: `envctl doctor` now validates the documented CommandCode agent frontmatter schema (`tools`/`disallowedTools`, `permissionMode`, `maxTurns`, `background`, `showOutput`, `model`, `reasoningEffort`) on top of the existing `name == filename` check, and names the offending field: a wrong value is ignored by the runtime in silence, so the agent used to load with fewer capabilities than its frontmatter asked for while the doctor stayed green. An unknown tool id is informational so a CommandCode upgrade cannot keep the doctor red; `agent`/`agent_output` in `tools` is a warning, since delegation is one level deep.
 - **Added**: dispatchable `planner` subagent (`mode: subagent`, read-only, `spec-agent/**` only) in both OpenCode config templates, keeping the built-in `plan` as the primary Tab agent; `.opencode/opencode.json` standardizes project worktrees in `.worktrees/<type>-<slug>`.
