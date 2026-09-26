@@ -1,0 +1,81 @@
+# Linux debloat for headless servers.
+#
+# The list comes from the MEASURED fleet, not from any external bootstrap
+# script: on vps_oracle_2, vps_oracle_1 and zscan_chatbot the packages below are
+# installed, and the packages omitted below are absent from every measured cloud
+# image. An entry that is already absent reports OK and never invokes the
+# package manager, so this list is safe to re-apply.
+#
+# avahi-daemon, cups, bluez and bluetooth are deliberately NOT listed: they are
+# absent from all three measured cloud images, and avahi carries an mDNS
+# dependency the fleet has no reason to reason about. Listing packages that are
+# never installed is noise that hides the entries which matter.
+#
+# needrestart is installed by default on Ubuntu Server (3.11-1ubuntu2 was
+# measured on vps_oracle_2, with no override) and runs in automatic mode, which
+# restarts services after a package change. Over SSH that can drop the very
+# session performing the change, so the guard below is written before the first
+# purge. It is mandatory: the spec is rejected without it.
+version: "1.0"
+
+needrestart_dropin: /etc/needrestart/conf.d/99-envctl.conf
+
+removals:
+  # --- Present on 3/3 measured hosts: desktop daemons on a headless server ---
+  - id: modemmanager
+    package: modemmanager
+    type: apt
+    category: desktop-daemons
+    target_distro: ubuntu
+    rationale: >-
+      A modem manager for a machine with no modem. Measured running as
+      ModemManager.service on vps_oracle_2.
+
+  - id: fwupd
+    package: fwupd
+    type: apt
+    category: desktop-daemons
+    target_distro: ubuntu
+    rationale: >-
+      Desktop firmware update daemon. Present on all three measured hosts and
+      irrelevant to a cloud instance whose firmware is managed by the provider.
+
+  - id: udisks2
+    package: udisks2
+    type: apt
+    category: desktop-daemons
+    target_distro: ubuntu
+    rationale: >-
+      Desktop disk manager, superseded by the kernel's own automount on a
+      headless server. Present on all three measured hosts.
+
+  # --- Storage daemons a single-disk VPS does not use ---
+  - id: iscsid
+    package: iscsid
+    type: apt
+    category: storage
+    target_distro: ubuntu
+    rationale: >-
+      iSCSI initiator. Measured running as iscsid.service on vps_oracle_2, which
+      boots from a local virtio disk and has no iSCSI target.
+
+  - id: multipathd
+    package: multipathd
+    type: apt
+    category: storage
+    target_distro: ubuntu
+    rationale: >-
+      Device-mapper multipath daemon. Measured running on vps_oracle_2, which
+      has a single disk and therefore no path to aggregate.
+
+  # --- Network daemons with nothing to serve ---
+  - id: rpcbind
+    package: rpcbind
+    type: apt
+    category: network
+    target_distro: ubuntu
+    rationale: >-
+      ONC RPC portmapper. Present on the two Oracle hosts and absent on the AWS
+      one, with no NFS export anywhere in the fleet.
+    protected_when:
+      - nfs-common

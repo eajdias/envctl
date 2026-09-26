@@ -203,6 +203,8 @@ func (m *manifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) 
 	return manifest.Tweaks, nil
 }
 
+const linuxDebloatManifest = "debloat_linux.yaml"
+
 type performanceManifest struct {
 	Profile entity.PerformanceProfile `yaml:"profile"`
 	// MinDistroVersion is the release floor. It is manifest data so raising
@@ -217,6 +219,7 @@ type performanceManifest struct {
 	Limits           *entity.LimitsSpec       `yaml:"limits,omitempty"`
 	ZRAM             *entity.ZRAMSpec         `yaml:"zram,omitempty"`
 	Swap             *entity.SwapSpec         `yaml:"swap,omitempty"`
+	Debloat          *entity.DebloatSpec      `yaml:"debloat,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -272,6 +275,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 		Limits:           manifest.Limits,
 		ZRAM:             manifest.ZRAM,
 		Swap:             manifest.Swap,
+		Debloat:          manifest.Debloat,
 	}, nil
 }
 
@@ -281,6 +285,30 @@ func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfi
 		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
 	}
 	return m.parsePerformanceManifest(filename, profile)
+}
+
+// LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
+func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+	data, err := m.readManifestFile(linuxDebloatManifest)
+	if err != nil {
+		return entity.DebloatSpec{}, err
+	}
+	var manifest struct {
+		NeedrestartDropin string                  `yaml:"needrestart_dropin"`
+		Removals          []entity.PackageRemoval `yaml:"removals"`
+		Version           string                  `yaml:"version"`
+	}
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return entity.DebloatSpec{}, fmt.Errorf("failed to parse %s: %w", linuxDebloatManifest, err)
+	}
+	spec := entity.DebloatSpec{
+		NeedrestartDropin: manifest.NeedrestartDropin,
+		Removals:          manifest.Removals,
+	}
+	if err := entity.ValidateDebloatSpec(spec); err != nil {
+		return entity.DebloatSpec{}, fmt.Errorf("%s: %w", linuxDebloatManifest, err)
+	}
+	return spec, nil
 }
 
 // ListPerformanceProfiles reports every shipped profile with the release floor

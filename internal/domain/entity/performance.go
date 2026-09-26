@@ -73,6 +73,8 @@ type PerformanceSpec struct {
 	ZRAM *ZRAMSpec `yaml:"zram,omitempty"`
 	// Swap is the declared disk swapfile policy.
 	Swap *SwapSpec `yaml:"swap,omitempty"`
+	// Debloat is the declared package removal policy.
+	Debloat *DebloatSpec `yaml:"debloat,omitempty"`
 }
 
 type SwapDevice struct {

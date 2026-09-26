@@ -22,6 +22,7 @@ type ProvisionPerformanceUseCase struct {
 	limits       repository.ResourceLimitsManager
 	probe        repository.HardwareProbe
 	swap         repository.SwapManager
+	debloat      repository.LinuxDebloatManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -38,6 +39,7 @@ func NewProvisionPerformanceUseCase(
 	limits repository.ResourceLimitsManager,
 	probe repository.HardwareProbe,
 	swap repository.SwapManager,
+	debloat repository.LinuxDebloatManager,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -52,6 +54,7 @@ func NewProvisionPerformanceUseCase(
 		limits:       limits,
 		probe:        probe,
 		swap:         swap,
+		debloat:      debloat,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -65,6 +68,19 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	profile entity.PerformanceProfile,
 	dryRun bool,
 	onProgress PackageProgressHandler,
+) ([]entity.Package, []entity.Diagnostic, error) {
+	return uc.executePerformance(ctx, profile, dryRun, onProgress, false)
+}
+
+// executePerformance carries the opt-in flag for the one destructive step.
+// Package removal is the only part of this profile that removes state the
+// operator can see, so it never runs because a profile happened to include it.
+func (uc *ProvisionPerformanceUseCase) executePerformance(
+	ctx context.Context,
+	profile entity.PerformanceProfile,
+	dryRun bool,
+	onProgress PackageProgressHandler,
+	allowDebloat bool,
 ) ([]entity.Package, []entity.Diagnostic, error) {
 	platform := uc.platform()
 	if !entity.PerformanceProfileMatchesOS(profile, platform) {
@@ -254,6 +270,30 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 			return packages, diagnostics, timezoneErr
 		}
 	}
+	// Package removal is the last step and is opt-in. It is the only part of
+	// this profile that removes state the operator can see, and it runs last so
+	// everything that could still fail (sizing, privileges, re-exec) has already
+	// succeeded before anything is destroyed.
+	if allowDebloat {
+		if uc.debloat == nil {
+			return packages, diagnostics, fmt.Errorf("linux debloat was requested but no debloat manager is configured")
+		}
+		debloatSpec, specErr := uc.manifestRepo.LoadLinuxDebloatSpec()
+		if specErr != nil {
+			return packages, append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagError,
+				System:   "Debloat",
+				Target:   "linux",
+				Details:  specErr.Error(),
+			}), specErr
+		}
+		debloatDiagnostics, debloatErr := uc.debloat.Apply(ctx, debloatSpec, dryRun)
+		diagnostics = append(diagnostics, debloatDiagnostics...)
+		if debloatErr != nil {
+			return packages, diagnostics, debloatErr
+		}
+	}
+
 	return packages, diagnostics, nil
 }
 

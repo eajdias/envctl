@@ -52,6 +52,12 @@ type SwapManager interface {
 	Ensure(ctx context.Context, spec entity.SwapSpec, hw entity.HardwareState, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// LinuxDebloatManager removes declared packages after installing the guard
+// that stops a package change from restarting services under the operator.
+type LinuxDebloatManager interface {
+	Apply(ctx context.Context, spec entity.DebloatSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {
