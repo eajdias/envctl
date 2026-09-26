@@ -71,6 +71,8 @@ type PerformanceSpec struct {
 	Limits *LimitsSpec `yaml:"limits,omitempty"`
 	// ZRAM is the declared compressed-RAM swap policy.
 	ZRAM *ZRAMSpec `yaml:"zram,omitempty"`
+	// Swap is the declared disk swapfile policy.
+	Swap *SwapSpec `yaml:"swap,omitempty"`
 }
 
 type SwapDevice struct {

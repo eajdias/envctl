@@ -21,6 +21,7 @@ type ProvisionPerformanceUseCase struct {
 	journald     repository.JournaldManager
 	limits       repository.ResourceLimitsManager
 	probe        repository.HardwareProbe
+	swap         repository.SwapManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -36,6 +37,7 @@ func NewProvisionPerformanceUseCase(
 	journald repository.JournaldManager,
 	limits repository.ResourceLimitsManager,
 	probe repository.HardwareProbe,
+	swap repository.SwapManager,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -49,6 +51,7 @@ func NewProvisionPerformanceUseCase(
 		journald:     journald,
 		limits:       limits,
 		probe:        probe,
+		swap:         swap,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -140,6 +143,22 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 				tier.ID, map[bool]string{true: "would be selected", false: "selected"}[dryRun],
 				hardware.MemTotalMiB(), tier.MatchMemTotalMax),
 		})
+	}
+
+	// Swap comes before zram: the disk fallback is the tier the compressed
+	// device has to outrank, so its priority must exist first.
+	if spec.Swap != nil && spec.Swap.Enabled() {
+		if uc.swap == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a swap policy but no swap manager is configured", profile)
+		}
+		swapDiagnostics, swapErr := uc.swap.Ensure(ctx, *spec.Swap, hardware, dryRun)
+		diagnostics = append(diagnostics, swapDiagnostics...)
+		if swapErr != nil {
+			return packages, diagnostics, swapErr
+		}
+		if uc.probe != nil {
+			hardware = uc.probe.Snapshot(ctx)
+		}
 	}
 
 	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {

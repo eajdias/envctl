@@ -95,6 +95,17 @@ func (m *performanceTimezoneStub) Apply(_ context.Context, _ entity.TimezoneSpec
 // performanceProbeStub returns a fixed host so tier resolution and the derived
 // swappiness are deterministic in tests. MemTotal 974092 kB is the measured
 // vps_oracle_2 value, which selects the "tiny" band.
+type performanceSwapStub struct {
+	calls  int
+	dryRun bool
+}
+
+func (m *performanceSwapStub) Ensure(_ context.Context, _ entity.SwapSpec, _ entity.HardwareState, dryRun bool) ([]entity.Diagnostic, error) {
+	m.calls++
+	m.dryRun = dryRun
+	return nil, nil
+}
+
 type performanceProbeStub struct {
 	state entity.HardwareState
 	calls int
@@ -170,7 +181,7 @@ func newPerformanceUseCaseForTest(
 	return NewProvisionPerformanceUseCase(repo, packages, sysctl, zram, &mockLogger{}, func() entity.PlatformInfo {
 		return platform
 	}, &performanceTimezoneStub{}, &performanceJournaldStub{}, &performanceLimitsStub{},
-		&performanceProbeStub{state: newTestHardwareState()})
+		&performanceProbeStub{state: newTestHardwareState()}, &performanceSwapStub{})
 }
 
 // TestProvisionPerformanceRejectsHostBelowManifestMinimum pins the moved gate:

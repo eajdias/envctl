@@ -216,6 +216,7 @@ type performanceManifest struct {
 	Journald         *entity.JournaldSpec     `yaml:"journald,omitempty"`
 	Limits           *entity.LimitsSpec       `yaml:"limits,omitempty"`
 	ZRAM             *entity.ZRAMSpec         `yaml:"zram,omitempty"`
+	Swap             *entity.SwapSpec         `yaml:"swap,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -270,6 +271,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 		Journald:         manifest.Journald,
 		Limits:           manifest.Limits,
 		ZRAM:             manifest.ZRAM,
+		Swap:             manifest.Swap,
 	}, nil
 }
 
