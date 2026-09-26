@@ -76,6 +76,46 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Features
+
+* **linux:** add the `ubuntu-server` performance baseline with hardware-detected
+  optimization. The profile identity no longer encodes a version (the fleet runs
+  26.04, so `ubuntu-server` with `min_distro_version: "24.04"` in the manifest
+  replaces `ubuntu-24.04`), a read-only hardware probe feeds declarative memory
+  tiers, and the profile now converges a host on swap, journald, file-descriptor
+  limits and the timezone. Package removal is opt-in via `--allow-debloat`.
+* **linux:** raise the soft file-descriptor limit without pinning the host's hard
+  limit. The systemd drop-in writes `DefaultLimitNOFILE=65536:`, a form verified
+  to parse cleanly and to leave each host's own ceiling intact; the Oracle hosts
+  report 524288 and the AWS host 1048576.
+* **linux:** cap journald with a `SystemKeepFree` floor and restart the service
+  rather than stopping it, which `man 8 systemd-journald` documents as the only
+  safe verb.
+
+### Bug fixes
+
+* **linux:** stop deriving `vm.swappiness` from a pinned manifest value. The
+  profile installed `systemd-zram-generator` while declaring `10`, telling the
+  kernel not to use the device it had just created. The value is now derived from
+  the measured swap topology: 150 with compressed RAM swap active, 10 when the
+  only swap is on disk.
+* **linux:** add a `min` sysctl policy so a declared value can act as a floor.
+  `fs.file-max` is now `policy: min`, because both clouds ship it at the int64
+  ceiling and the previous manifest wrote `2097152` over it while reporting
+  success.
+
+### Breaking changes
+
+* `run all` on a Linux host that is not Ubuntu Server `>= 24.04` now exits
+  non-zero instead of warning and continuing. The owner declared Ubuntu Server 24+
+  as the only server target.
+* `ManifestRepository` gains `ListPerformanceProfiles` and
+  `LoadLinuxDebloatSpec`; the compiler enumerates every implementation and test
+  double that needs updating.
+* `run performance` gains `--no-daemon-reexec`, `--timezone`, `--allow-debloat`,
+  `--debloat-only` and `--force-reboot-pending`. No existing flag changed.
+
+
 - **Changed**: the release PR no longer waits for a maintainer to click "approve workflow". GitHub treats the release-please bot as an outside collaborator, so its `pull_request` run sat at `action_required` and every release needed a human. The CI pipeline now also runs on `push` to `release-please--**` — a push run needs no approval, and branch protection only requires that the checks reported on the head SHA — while the bot's `pull_request` run is not created at all, via `paths-ignore` on the two files it generates. Verified empirically on a throwaway `release-please--*` branch: Lint + Test on ubuntu and windows all green, no approval step.
 - **Removed**: the release pipeline no longer builds or ships darwin binaries. `release.yml` had a
   `# 3. Darwin amd64 & arm64` section feeding `envctl-darwin-amd64`, `envctl-darwin-arm64` and their tarballs into

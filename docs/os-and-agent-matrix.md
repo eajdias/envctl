@@ -218,3 +218,30 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 
 **Sempre**: `gofmt`/`go build`/`go vet`/`go test` + `golangci-lint run --new-from-rev=origin/main`
 antes do push. O `envctl-verify` cobre os sete automaticamente: findings de lint/formatação são advisories, enquanto builds, vets, testes e comandos explícitos são bloqueantes.
+
+
+## Performance profile: `ubuntu-server`
+
+The Ubuntu server profile is `ubuntu-server` and applies to Ubuntu Server
+`VERSION_ID >= 24.04`. The release floor lives in the manifest as
+`min_distro_version`, not in the profile name, because the fleet already runs
+26.04 and a name that encoded a version would be a claim nobody could maintain.
+
+| Layer | What the profile does |
+| --- | --- |
+| Packages | `systemd-zram-generator`, `tzdata` |
+| Detection | `MemTotal`, CPU affinity, root filesystem type, free space, `/proc/swaps` |
+| Tiers | `tiny` / `small` / `medium` / `large`, resolved from measured memory |
+| Sysctls | Network settings; `fs.file-max` as a floor via `policy: min`; `vm.swappiness` derived |
+| Swap | Adopts an existing swapfile, or creates a clamped one at `/swapfile.envctl` |
+| zram | Enabled per tier, refused when a second device exists |
+| journald | Capped with a `SystemKeepFree` floor, restarted not stopped |
+| Limits | Soft descriptor limit raised; the host's hard limit preserved |
+| Timezone | Verified by default; applied only with `--timezone` |
+| Debloat | Opt-in, guarded by `NEEDRESTART_MODE=l`, list from the measured fleet |
+
+Out of scope by decision, still benchmark-gated: CPU governor, I/O scheduler,
+mitigations, kernel cmdline, `crashkernel`/`kdump`, hibernation.
+
+Operating detail, measured evidence and per-item rollback:
+[`guides/ubuntu-server-baseline.md`](guides/ubuntu-server-baseline.md).
