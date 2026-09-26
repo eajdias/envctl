@@ -4,7 +4,7 @@
 # before writing, Appx packages are removed only when installed, and services
 # are touched only when they exist and are not already disabled.
 #
-# Deliberately OUT (see skill windows-debloat for manual steps):
+# Deliberately OUT (manual steps in docs/guides/windows-debloat-tier3.md):
 # - OneDrive removal (recursive user-data delete, needs confirmation)
 # - Xbox suite + MSTeams + OutlookForWindows (gaming / work comms)
 # - Machine-specific services (Dell*, AnyDesk, Firebird*, Tailscale, sshd)
@@ -309,7 +309,7 @@ tweaks:
 
   # --- Apps: remove bloatware Store packages (31 Appx) ---
   # Xbox suite + MSTeams + OutlookForWindows are excluded on purpose
-  # (gaming / work comms) — see skill windows-debloat for manual removal.
+  # (gaming / work comms) — see docs/guides/windows-debloat-tier3.md for manual removal.
   - id: "appx-microsoft-copilot"
     description: "Remove Microsoft.Copilot bloatware"
     name: "Microsoft.Copilot"
@@ -499,7 +499,7 @@ tweaks:
   # --- Services: stop & disable safe-only set (9 services) ---
   # Spooler (printing), WSearch/SysMain (perf tradeoffs), NgcSvc (Hello),
   # vendor/user services (Dell*, AnyDesk, Firebird*, Tailscale, sshd) and the
-  # Xbox suite stay out — see skill windows-debloat for manual steps.
+  # Xbox suite stay out — see docs/guides/windows-debloat-tier3.md for manual steps.
   - id: "svc-diagtrack"
     description: "Stop & disable Connected User Experiences and Telemetry"
     name: "DiagTrack"

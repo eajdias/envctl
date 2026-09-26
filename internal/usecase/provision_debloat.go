@@ -13,7 +13,8 @@ import (
 // (telemetry/privacy registry, gaming visuals, Appx removals, safe-only
 // service disables) from manifests/debloat.yaml. It never runs inside
 // `run all` or `run windows`: the caller must invoke `run debloat`
-// explicitly, and destructive Tier 3 steps stay in the windows-debloat
+// explicitly, and destructive Tier 3 steps stay in the
+// docs/guides/windows-debloat-tier3.md
 // skill as manual guidance.
 type ProvisionDebloatUseCase struct {
 	manifestRepo  repository.ManifestRepository

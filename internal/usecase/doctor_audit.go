@@ -362,7 +362,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 7.5. Audit LSP stdio handshakes (presence in PATH is not proof the
-	// server speaks LSP — see skill lsp-smoke-test).
+	// server speaks LSP: exit codes lie, so health is proven by the
+	// absence of a stdio connection error, not by the exit status).
 	uc.auditLSPHandshake(ctx, addDiag)
 
 	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
@@ -1214,7 +1215,7 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "kernel cmdline",
 				Details:  fmt.Sprintf("Missing performance parameters: %s", strings.Join(missing, ", ")),
-				FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (see skill cachyos-gaming-setup; password required)",
+				FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (password required; see docs/guides/cachyos-gaming.md)",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -1232,7 +1233,7 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "Vulkan driver",
 				Details:  "RADV not reported by vulkaninfo (Polaris must stay on RADV, never AMDVLK)",
-				FixHint:  "check 'vulkaninfo | grep RADV' (see skill cachyos-gaming-setup)",
+				FixHint:  "check 'vulkaninfo | grep RADV' (see docs/guides/cachyos-gaming.md)",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -1517,7 +1518,7 @@ func (uc *DoctorAuditUseCase) auditAgentsIdentityCoverage(addDiag func(entity.Di
 }
 
 // lspConnectionMarkers identifies a server that failed to bind its stdio
-// transport (skill lsp-smoke-test: exit codes lie — node servers exit 1 on
+// transport (exit codes lie — node servers exit 1 on
 // EOF when healthy; only the absence of a connection error proves health).
 var lspConnectionMarkers = []string{
 	"input stream is not set",

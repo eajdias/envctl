@@ -42,7 +42,7 @@ O envctl transforma o OpenCode local num **orquestrador de frotas**: cada VPS/VM
 **Fluxo completo (o agente LLM local já sabe fazer):**
 
 1. **Instalação no Windows (recomendado):** `irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex` → `envctl run all` → `envctl doctor` (Day-0 local, idempotente).
-2. **Adicionar VPS/VM nova:** peça ao agente para cadastrar a conexão SSH — ele registra seguindo os padrões (ssh-manager + inventário local `~/.config/opencode/extras/ssh_servers.md`, skill `ssh-vps`) e **roda o envctl na VPS** (`curl -fsSL .../bootstrap.sh | bash` → `envctl run all`).
+2. **Adicionar VPS/VM nova:** peça ao agente para cadastrar a conexão SSH — ele registra seguindo os padrões (ssh-manager + inventário local `~/.config/opencode/extras/ssh_servers.md`, referência `code-playbooks/references/infra.md`) e **roda o envctl na VPS** (`curl -fsSL .../bootstrap.sh | bash` → `envctl run all`).
 3. **Controle:** a VPS passa a ter o próprio OpenCode (plano **Free**) + as mesmas skills; tarefas pesadas podem ser despachadas do local por SSH, mantendo o contexto local enxuto.
 4. **Limite Free estourado na VPS:** o orquestrador **PERGUNTA** se você quer registrar um TOKEN (`opencode auth login` na VPS). **Se você não quiser, ele executa os comandos por conta própria via SSH** — a orquestração nunca fica bloqueada.
 
@@ -89,6 +89,8 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ### 📖 Guias de Execução por Sistema Operacional:
 - 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, PowerShell 7 + WSL Ubuntu.
 - 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
+- 🎮 [**Guia CachyOS Gaming**](docs/guides/cachyos-gaming.md) — Kernel cmdline, scheduler, GPU/AMD, MangoHud, Proton e emuladores (o que o `run gaming` provisiona e o que é manual).
+- 🧹 [**Guia Windows Debloat Tier 3**](docs/guides/windows-debloat-tier3.md) — OneDrive, energia, Teredo, Docker/WSL: o que é destrutivo e por isso manual.
 
 ### 🏛️ Engenharia & Especificações:
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).

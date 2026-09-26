@@ -55,8 +55,10 @@ o arquivo correspondente**.
 | `universal-test-runner` | `references/testing.md` |
 | `docs-sync` | regra no `AGENTS.md` + `references/docs-sync.md` |
 | `go-development`, `python-development`, `nextjs-standalone-deploy`, `database-ops`, `docker`, `frontend-markup`, `ssh-vps`, `tailscale`, `syncthing-ops`, `mcp-tool-design`, `api-contract-design`, `jwt-hs256-node`, `simple-feature-flag`, `lsp-smoke-test`, `headless-gui-probe`, `aur-headless-install`, `phone-e164-normalization`, `bulk-postgres-import`, `skill-miner`, `skill-generalizer`, `skill-personalizer` | `code-playbooks/references/` ou AGENTS do projeto que usa |
-| `vps-provisioning`, `cachyos-gaming-setup`, `linux-performance-tuning` | docs do repo do envctl (o global vira uma linha) |
-| `windows-admin`, `windows-debloat` | só Windows; knowledge do produto |
+| `cachyos-gaming-setup` | `docs/guides/cachyos-gaming.md` (repositório) |
+| `windows-debloat` | `docs/guides/windows-debloat-tier3.md` (repositório) |
+| `vps-provisioning`, `linux-performance-tuning` | docs do repo do envctl (o global vira uma linha) |
+| `windows-admin` | só Windows; conhecimento do produto |
 
 ## Contrato do catálogo
 
