@@ -56,7 +56,7 @@ Use semantic branch names:
 
 ```bash
 ./bootstrap.sh
-envctl run all
+envctl run vps     # servidor Ubuntu/Debian (run cachyos no desktop CachyOS)
 envctl doctor
 ```
 
@@ -64,7 +64,7 @@ envctl doctor
 
 ```powershell
 .\bootstrap.ps1
-envctl run all
+envctl run windows
 envctl doctor
 ```
 
