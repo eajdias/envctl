@@ -1058,6 +1058,26 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 // it is a Spectre/Meltdown trade-off that stays a manual, approved decision.
 var gamingKernelParams = []string{"preempt=full", "split_lock_detect=off", "zswap.enabled=0"}
 
+// gamingAMDKernelParams are the GPU parameters that only make sense on an AMD
+// host. They are required only when the amdgpu module is loaded, so an Intel
+// or NVIDIA machine never warns about them. Kept out of gamingKernelParams on
+// purpose: that list must stay hardware-agnostic.
+var gamingAMDKernelParams = []string{"amdgpu.runpm=0", "amdgpu.aspm=0", "pcie_aspm=off", "amdgpu.gpu_recovery=0"}
+
+// gamingPanicParams are the panic-stability parameters the managed
+// workstation uses (oops=panic turns an oops into a panic instead of killing
+// the process; panic=10 bounds the reboot loop). They are a deliberate
+// stability choice, not a performance prerequisite, so their absence is
+// reported as informational and never as a warning.
+var gamingPanicParams = []string{"oops=panic", "panic=10"}
+
+// amdgpuModulePresent reports whether the amdgpu kernel module is loaded, which
+// is the gate for the AMD-only cmdline parameters.
+func amdgpuModulePresent(moduleDir string) bool {
+	info, err := os.Stat(moduleDir)
+	return err == nil && info.IsDir()
+}
+
 // gamingServices are the daemons the gaming stack needs active.
 var gamingServices = []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon"}
 
@@ -1235,6 +1255,47 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "kernel cmdline",
 				Details:  "Performance parameters present (preempt, split_lock, zswap)",
+			})
+		}
+
+		// The AMD parameters are only required where the driver is present:
+		// on Intel or NVIDIA there is nothing to configure and nothing to warn
+		// about, so the check stays silent instead of reporting a false gap.
+		if amdgpuModulePresent("/sys/module/amdgpu") {
+			if missing := missingCmdlineParams(string(data), gamingAMDKernelParams); len(missing) > 0 {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagWarning,
+					System:   "Gaming",
+					Target:   "kernel cmdline (amdgpu)",
+					Details:  fmt.Sprintf("Missing AMD GPU parameters: %s", strings.Join(missing, ", ")),
+					FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (password required; see docs/guides/cachyos-gaming.md)",
+				})
+			} else {
+				addDiag(entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "Gaming",
+					Target:   "kernel cmdline (amdgpu)",
+					Details:  fmt.Sprintf("AMD GPU parameters present (%d checked)", len(gamingAMDKernelParams)),
+				})
+			}
+		}
+
+		// Informational by design: panic=10 and oops=panic bound reboot loops
+		// instead of improving performance, so a stock kernel is not a gap.
+		if missing := missingCmdlineParams(string(data), gamingPanicParams); len(missing) > 0 {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Gaming",
+				Target:   "kernel cmdline (panic)",
+				Details:  fmt.Sprintf("Optional stability parameters not set: %s", strings.Join(missing, ", ")),
+				FixHint:  "optional: oops=panic panic=10 turn an oops into a panic and bound the reboot loop; add to KERNEL_CMDLINE in /etc/default/limine if you want crash visibility",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   "kernel cmdline (panic)",
+				Details:  "Panic-stability parameters present (oops=panic, panic=10)",
 			})
 		}
 	}

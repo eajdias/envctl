@@ -641,6 +641,70 @@ func TestMissingCmdlineParams(t *testing.T) {
 	}
 }
 
+// realAMDGamingCmdline is the /proc/cmdline of the managed workstation, minus
+// mitigations=off which is deliberately never required.
+const realAMDGamingCmdline = "quiet nowatchdog splash rw rootflags=subvol=/@ root=UUID=556567b9-0e0a-4b8c-97fa-6d386b75bf07 " +
+	"mitigations=off preempt=full split_lock_detect=off amdgpu.runpm=0 amdgpu.aspm=0 pcie_aspm=off " +
+	"amdgpu.gpu_recovery=0 oops=panic panic=10 zswap.enabled=0"
+
+func TestGamingAMDKernelParams_CoversRealCmdline(t *testing.T) {
+	if missing := missingCmdlineParams(realAMDGamingCmdline, gamingAMDKernelParams); len(missing) != 0 {
+		t.Errorf("expected no missing AMD params on the real cmdline, got %v", missing)
+	}
+	if missing := missingCmdlineParams("quiet preempt=full", gamingAMDKernelParams); len(missing) != len(gamingAMDKernelParams) {
+		t.Errorf("expected all %d AMD params missing, got %v", len(gamingAMDKernelParams), missing)
+	}
+	partial := "quiet amdgpu.runpm=0 amdgpu.aspm=0 pcie_aspm=off"
+	missing := missingCmdlineParams(partial, gamingAMDKernelParams)
+	if len(missing) != 1 || missing[0] != "amdgpu.gpu_recovery=0" {
+		t.Errorf("expected only [amdgpu.gpu_recovery=0] missing, got %v", missing)
+	}
+}
+
+// TestGamingKernelParamsExcludeAMD guards the tiering: the universal list must
+// stay hardware-agnostic, or an Intel or NVIDIA host warns forever.
+func TestGamingKernelParamsExcludeAMD(t *testing.T) {
+	for _, p := range gamingKernelParams {
+		for _, amd := range gamingAMDKernelParams {
+			if p == amd {
+				t.Errorf("%q is in both the universal and the AMD list", p)
+			}
+		}
+	}
+	if strings.Contains(strings.Join(gamingKernelParams, " "), "amdgpu") {
+		t.Errorf("universal kernel params must not mention amdgpu, got %v", gamingKernelParams)
+	}
+	if strings.Contains(strings.Join(gamingAMDKernelParams, " "), "panic") {
+		t.Errorf("AMD kernel params must not include the panic-stability choice, got %v", gamingAMDKernelParams)
+	}
+}
+
+func TestGamingPanicParamsAreOptional(t *testing.T) {
+	if len(gamingPanicParams) == 0 {
+		t.Fatal("expected the panic-stability params to be reported")
+	}
+	// Absent is the normal case on a stock kernel; it must never be a warning.
+	if missing := missingCmdlineParams("quiet preempt=full", gamingPanicParams); len(missing) != len(gamingPanicParams) {
+		t.Errorf("expected all panic params reported as absent, got %v", missing)
+	}
+	if missing := missingCmdlineParams(realAMDGamingCmdline, gamingPanicParams); len(missing) != 0 {
+		t.Errorf("expected no missing panic params on the real cmdline, got %v", missing)
+	}
+}
+
+func TestAmdgpuModulePresent(t *testing.T) {
+	root := t.TempDir()
+	if amdgpuModulePresent(filepath.Join(root, "module", "amdgpu")) {
+		t.Error("expected amdgpu to be absent when the module dir is missing")
+	}
+	if err := os.MkdirAll(filepath.Join(root, "module", "amdgpu", "parameters"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !amdgpuModulePresent(filepath.Join(root, "module", "amdgpu")) {
+		t.Error("expected amdgpu to be detected once the module dir exists")
+	}
+}
+
 func TestMultilibEnabled(t *testing.T) {
 	active := "[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n"
 	if !multilibEnabled(active) {
