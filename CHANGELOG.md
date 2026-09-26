@@ -56,6 +56,7 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+- **Changed**: the release PR no longer waits for a maintainer to click "approve workflow". GitHub treats the release-please bot as an outside collaborator, so its `pull_request` run sat at `action_required` and every release needed a human. The CI pipeline now also runs on `push` to `release-please--**` — a push run needs no approval, and branch protection only requires that the checks reported on the head SHA — while the bot's `pull_request` run is not created at all, via `paths-ignore` on the two files it generates. Verified empirically on a throwaway `release-please--*` branch: Lint + Test on ubuntu and windows all green, no approval step.
 - **Removed**: the release pipeline no longer builds or ships darwin binaries. `release.yml` had a
   `# 3. Darwin amd64 & arm64` section feeding `envctl-darwin-amd64`, `envctl-darwin-arm64` and their tarballs into
   `SHA256SUMS.txt` and the release upload, so every release advertised macOS artifacts for a platform whose manifest,
