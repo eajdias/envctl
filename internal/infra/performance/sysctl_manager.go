@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
-	"sort"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,11 +17,12 @@ const sysctlDropinPath = "/etc/sysctl.d/90-envctl-performance.conf"
 
 type commandRunner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
+// effectiveValueFunc reads the value a sysctl key currently has on the host.
+type effectiveValueFunc func(key string) (string, bool)
+
 type sysctlManager struct {
-	destination string
-	run         commandRunner
-	now         func() time.Time
-	elevate     bool
+	writer *dropinWriter
+	read   effectiveValueFunc
 }
 
 // NewSysctlManager creates the production Linux sysctl adapter.
@@ -29,19 +30,28 @@ func NewSysctlManager() repository.SysctlManager {
 	return newSysctlManager(
 		sysctlDropinPath,
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).CombinedOutput()
+			return execCommand(ctx, name, args...)
 		},
 		time.Now,
 		os.Geteuid() != 0,
+		readSysctlValue,
 	)
 }
 
-func newSysctlManager(destination string, run commandRunner, now func() time.Time, elevate bool) *sysctlManager {
+func newSysctlManager(
+	destination string,
+	run commandRunner,
+	now func() time.Time,
+	elevate bool,
+	readers ...effectiveValueFunc,
+) *sysctlManager {
+	read := effectiveValueFunc(readSysctlValue)
+	if len(readers) > 0 && readers[0] != nil {
+		read = readers[0]
+	}
 	return &sysctlManager{
-		destination: destination,
-		run:         run,
-		now:         now,
-		elevate:     elevate,
+		writer: newDropinWriter(destination, run, now, elevate),
+		read:   read,
 	}
 }
 
@@ -50,174 +60,149 @@ func (m *sysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetti
 		return nil, nil
 	}
 
-	content, err := renderSysctlConfig(settings)
+	applicable, skipped, err := m.applyPolicy(settings)
 	if err != nil {
-		return []entity.Diagnostic{{
+		return skipped, err
+	}
+	if len(applicable) == 0 {
+		return skipped, nil
+	}
+
+	content, err := renderSysctlConfig(applicable)
+	if err != nil {
+		return append(skipped, entity.Diagnostic{
 			Category: entity.DiagError,
 			System:   "Performance",
-			Target:   m.destination,
+			Target:   m.writer.destination,
 			Details:  err.Error(),
-		}}, err
+		}), err
 	}
 
 	if dryRun {
-		return []entity.Diagnostic{{
+		return append(skipped, entity.Diagnostic{
 			Category: entity.DiagInfo,
 			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("would write %d sysctl setting(s) to %s", len(settings), m.destination),
-		}}, nil
+			Target:   m.writer.destination,
+			Details:  fmt.Sprintf("would write %d sysctl setting(s) to %s", len(applicable), m.writer.destination),
+		}), nil
 	}
 
-	existing, readErr := os.ReadFile(m.destination)
-	if readErr == nil && string(existing) == content {
-		return []entity.Diagnostic{{
+	changed, backup, err := m.writer.Install(content, 0o644, false)
+	if err != nil {
+		return append(skipped, entity.Diagnostic{
+			Category: entity.DiagError,
+			System:   "Performance",
+			Target:   m.writer.destination,
+			Details:  err.Error(),
+		}), err
+	}
+	if !changed {
+		return append(skipped, entity.Diagnostic{
 			Category: entity.DiagOK,
 			System:   "Performance",
-			Target:   m.destination,
+			Target:   m.writer.destination,
 			Details:  "sysctl drop-in already up to date",
-		}}, nil
-	}
-	if readErr != nil && !os.IsNotExist(readErr) {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("read existing sysctl drop-in: %v", readErr),
-		}}, readErr
+		}), nil
 	}
 
-	backupPath := ""
-	if readErr == nil {
-		backupPath = m.nextBackupPath()
-		if output, err := m.command(ctx, "cp", "-a", m.destination, backupPath); err != nil {
-			return []entity.Diagnostic{{
-				Category: entity.DiagError,
-				System:   "Performance",
-				Target:   m.destination,
-				Details:  fmt.Sprintf("backup failed: %v (%s)", err, strings.TrimSpace(string(output))),
-			}}, err
+	if out, applyErr := m.writer.command(ctx, "sysctl", "-p", m.writer.destination); applyErr != nil {
+		detail := fmt.Sprintf("apply sysctl drop-in failed: %v (%s)", applyErr, strings.TrimSpace(string(out)))
+		if backup != "" {
+			detail += fmt.Sprintf("; backup=%s", backup)
 		}
-	}
-
-	tmp, err := os.CreateTemp("", "envctl-sysctl-")
-	if err != nil {
-		return []entity.Diagnostic{{
+		return append(skipped, entity.Diagnostic{
 			Category: entity.DiagError,
 			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("create temporary sysctl file: %v", err),
-		}}, err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-
-	if _, err := tmp.WriteString(content); err != nil {
-		_ = tmp.Close()
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("write temporary sysctl file: %v", err),
-		}}, err
-	}
-	if err := tmp.Chmod(0644); err != nil {
-		_ = tmp.Close()
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("set temporary sysctl permissions: %v", err),
-		}}, err
-	}
-	if err := tmp.Close(); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("close temporary sysctl file: %v", err),
-		}}, err
-	}
-
-	tempDestination := m.nextTempPath()
-	if output, err := m.command(ctx, "install", "-m", "0644", tmpName, tempDestination); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("install temporary sysctl drop-in failed: %v (%s)", err, strings.TrimSpace(string(output))),
-		}}, err
-	}
-	// The temporary file is in the same directory as the live drop-in, so
-	// rename is atomic and readers never observe a truncated sysctl file.
-	if output, err := m.command(ctx, "mv", "-f", tempDestination, m.destination); err != nil {
-		cleanupOutput, cleanupErr := m.command(ctx, "rm", "-f", tempDestination)
-		cleanupDetail := ""
-		if cleanupErr != nil {
-			cleanupDetail = fmt.Sprintf("; temporary cleanup failed: %v (%s)", cleanupErr, strings.TrimSpace(string(cleanupOutput)))
-		}
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("atomically replace sysctl drop-in failed: %v (%s)%s", err, strings.TrimSpace(string(output)), cleanupDetail),
-		}}, err
-	}
-
-	if output, err := m.command(ctx, "sysctl", "-p", m.destination); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.destination,
-			Details:  fmt.Sprintf("apply sysctl drop-in failed: %v (%s); backup=%s", err, strings.TrimSpace(string(output)), backupPath),
-		}}, err
+			Target:   m.writer.destination,
+			Details:  detail,
+		}), applyErr
 	}
 
 	detail := "sysctl drop-in applied"
-	if backupPath != "" {
-		detail = fmt.Sprintf("sysctl drop-in applied (backup=%s)", backupPath)
+	if backup != "" {
+		detail = fmt.Sprintf("sysctl drop-in applied (backup=%s)", backup)
 	}
-	return []entity.Diagnostic{{
+	return append(skipped, entity.Diagnostic{
 		Category: entity.DiagOK,
 		System:   "Performance",
-		Target:   m.destination,
+		Target:   m.writer.destination,
 		Details:  detail,
-	}}, nil
+	}), nil
 }
 
-func (m *sysctlManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
-	if m.elevate {
-		elevatedArgs := append([]string{"-n", name}, args...)
-		return m.run(ctx, "sudo", elevatedArgs...)
-	}
-	return m.run(ctx, name, args...)
-}
-
-func (m *sysctlManager) nextBackupPath() string {
-	stamp := m.now().Format("20060102-150405")
-	candidate := fmt.Sprintf("%s.bak.%s", m.destination, stamp)
-	for i := 1; ; i++ {
-		if _, err := os.Stat(candidate); os.IsNotExist(err) {
-			return candidate
+// applyPolicy splits the declared settings into the ones this host must be
+// changed to and the ones it already satisfies. A min-policy key is never
+// lowered: the fleet ships fs.file-max at the int64 ceiling and the previous
+// manifest overwrote it with 2097152.
+func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable []entity.SysctlSetting, skipped []entity.Diagnostic, err error) {
+	applicable = make([]entity.SysctlSetting, 0, len(settings))
+	for _, setting := range settings {
+		switch setting.Policy {
+		case entity.SysctlPolicyMin, entity.SysctlPolicyMax:
+			effective, ok := m.read(setting.Key)
+			if !ok {
+				detail := fmt.Sprintf("cannot read the current value of %s; refusing to apply a %q policy blind", setting.Key, setting.Policy)
+				return nil, append(skipped, entity.Diagnostic{
+					Category: entity.DiagError,
+					System:   "Performance",
+					Target:   setting.Key,
+					Details:  detail,
+				}), fmt.Errorf("%s", detail)
+			}
+			cmp := compareSysctlValues(effective, setting.Value)
+			keep := (setting.Policy == entity.SysctlPolicyMin && cmp >= 0) ||
+				(setting.Policy == entity.SysctlPolicyMax && cmp <= 0)
+			if keep {
+				skipped = append(skipped, entity.Diagnostic{
+					Category: entity.DiagOK,
+					System:   "Performance",
+					Target:   setting.Key,
+					Details: fmt.Sprintf("host value %s is at or above the declared %s; left untouched",
+						effective, setting.Value),
+				})
+				continue
+			}
 		}
-		candidate = fmt.Sprintf("%s.bak.%s-%d", m.destination, stamp, i)
+		applicable = append(applicable, setting)
 	}
+	return applicable, skipped, nil
 }
 
-func (m *sysctlManager) nextTempPath() string {
-	stamp := m.now().Format("20060102-150405")
-	candidate := fmt.Sprintf("%s.tmp.%s", m.destination, stamp)
-	for i := 1; ; i++ {
-		if _, err := os.Stat(candidate); os.IsNotExist(err) {
-			return candidate
-		}
-		candidate = fmt.Sprintf("%s.tmp.%s-%d", m.destination, stamp, i)
+func readSysctlValue(key string) (string, bool) {
+	data, err := os.ReadFile(sysctlProcPath(key))
+	if err != nil {
+		return "", false
+	}
+	return strings.TrimSpace(string(data)), true
+}
+
+// sysctlProcPath maps a sysctl key to its procfs entry: every dot becomes a
+// directory separator.
+func sysctlProcPath(key string) string {
+	return filepath.Join("/proc/sys", strings.ReplaceAll(strings.TrimSpace(key), ".", "/"))
+}
+
+// compareSysctlValues compares two sysctl values numerically. An unparseable
+// side never compares equal, so a malformed manifest cannot look satisfied.
+func compareSysctlValues(a, b string) int {
+	av, aErr := strconv.ParseUint(strings.TrimSpace(a), 10, 64)
+	bv, bErr := strconv.ParseUint(strings.TrimSpace(b), 10, 64)
+	if aErr != nil || bErr != nil {
+		return -1
+	}
+	switch {
+	case av > bv:
+		return 1
+	case av < bv:
+		return -1
+	default:
+		return 0
 	}
 }
 
 func renderSysctlConfig(settings []entity.SysctlSetting) (string, error) {
 	ordered := append([]entity.SysctlSetting(nil), settings...)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Key < ordered[j].Key })
+	sortSysctlSettings(ordered)
 
 	var builder strings.Builder
 	builder.WriteString("# Managed by envctl; review before editing.\n")
