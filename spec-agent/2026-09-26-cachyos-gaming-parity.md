@@ -426,7 +426,11 @@ dependência antes de escrever), mas a origem do erro foi minha — parsear
 - [x] `.pacnew` pendente sai como INFO, sem introduzir WARN.
 - [x] `mitigations=off` continua fora de qualquer check (asserção de `TestMissingCmdlineParams` intacta).
 - [x] `performance_cachyos.yaml` continua com `sysctls: []`.
-- [x] Nenhum check novo é corrigido por `doctor --fix`.
+- [x] Nenhum check de tuning novo é corrigido por `doctor --fix`: os 5 passos são
+      Windows tweaks, packages, shell/configs, skills e LSPs — nenhum toca gaming nem
+      performance. Os 2 checks de **preset** (`shader cache preset`, `MangoHud preset`) são
+      remediados pelo passo 3 (`run shell`), exatamente como todo ConfigFile seeding, o que
+      é o contrato declarado de `seed_if_missing` e não tuning privilegiado.
 - [x] Guia sem `ppfeaturemask`, sem promessa de perfis embutidos, e documentando os params reais.
 - [x] `docs/os-and-agent-matrix.md` sem "38 pkgs".
 - [x] `go build`, `go vet`, `go test ./...`, `golangci-lint` e `envctl doctor` com evidência fresca.
