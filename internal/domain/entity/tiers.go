@@ -43,6 +43,7 @@ func ValidatePerformanceTiers(tiers []PerformanceTier) error {
 	if len(tiers) == 0 {
 		return fmt.Errorf("at least one performance tier is required")
 	}
+	var previous PerformanceTier
 	for i, tier := range tiers {
 		if tier.ID == "" {
 			return fmt.Errorf("performance tier %d has no id", i)
@@ -50,25 +51,24 @@ func ValidatePerformanceTiers(tiers []PerformanceTier) error {
 		if tier.Rationale == "" {
 			return fmt.Errorf("performance tier %q has no rationale; state whether it is hardware-validated or derived", tier.ID)
 		}
-		if i == 0 {
-			continue
+		if i > 0 {
+			switch {
+			case previous.MatchMemTotalMax <= 0:
+				return fmt.Errorf("performance tier %q is unbounded and must be the last entry, but %q follows it", previous.ID, tier.ID)
+			case tier.MatchMemTotalMax <= 0:
+				// An unbounded final tier is correct.
+			case tier.MatchMemTotalMax <= previous.MatchMemTotalMax:
+				// The list runs from the narrowest band to the widest, so each
+				// boundary must be strictly greater than the previous one. A
+				// repeated or smaller boundary makes two bands overlap and the
+				// first match would silently win.
+				return fmt.Errorf(
+					"performance tier %q (%d MiB) must be strictly above %q (%d MiB); overlapping or descending bands resolve ambiguously",
+					tier.ID, tier.MatchMemTotalMax, previous.ID, previous.MatchMemTotalMax,
+				)
+			}
 		}
-		previous := tiers[i-1]
-		switch {
-		case previous.MatchMemTotalMax <= 0:
-			return fmt.Errorf("performance tier %q is unbounded and must be the last entry, but %q follows it", previous.ID, tier.ID)
-		case tier.MatchMemTotalMax <= 0:
-			// An unbounded final tier is correct.
-		case tier.MatchMemTotalMax <= previous.MatchMemTotalMax:
-			// The list runs from the narrowest band to the widest, so each
-			// boundary must be strictly greater than the previous one. A
-			// repeated or smaller boundary makes two bands overlap and the
-			// first match would silently win.
-			return fmt.Errorf(
-				"performance tier %q (%d MiB) must be strictly above %q (%d MiB); overlapping or descending bands resolve ambiguously",
-				tier.ID, tier.MatchMemTotalMax, previous.ID, previous.MatchMemTotalMax,
-			)
-		}
+		previous = tier
 	}
 	return nil
 }

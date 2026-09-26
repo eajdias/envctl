@@ -19,7 +19,6 @@ type swapFixture struct {
 	spec     entity.SwapSpec
 	hw       entity.HardwareState
 	calls    [][]string
-	writer   *dropinWriter
 	existing map[string][]byte
 	failOn   map[string]error
 	// statfsValues simulates the file's existence and content.

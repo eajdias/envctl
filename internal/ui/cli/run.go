@@ -335,7 +335,7 @@ func runVPSProfile() error {
 	// silently skipping every performance change.
 	PrintSection(section(4, "Applying Ubuntu Server Performance Profile (zram + sysctl)"))
 	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
-		return fmt.Errorf("Ubuntu Server performance profile is required by `run vps`: %w", err)
+		return fmt.Errorf("the ubuntu-server performance profile is required by `run vps`: %w", err)
 	}
 
 	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))

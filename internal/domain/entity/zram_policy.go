@@ -2,10 +2,11 @@ package entity
 
 import "fmt"
 
-// zramTierPriority is the priority the generator assigns to the compressed-RAM
-// device. It only has to outrank the disk fallback, which the swap policy
-// installs at -2.
-const zramTierPriority = 100
+// ZRAMPriority is the priority systemd-zram-generator assigns to the
+// compressed-RAM device. It only has to outrank the disk fallback, which the
+// swap policy installs at -2. It is exported so the swap policy can detect a
+// device that already outranks the compressed tier.
+const ZRAMPriority = 100
 
 // ZRAM policy modes.
 const (
