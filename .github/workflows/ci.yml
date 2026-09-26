@@ -3,8 +3,10 @@ name: CI Pipeline
 on:
   push:
     branches: [ main ]
+  # Every pull request, not only the ones targeting main: a feature-branch PR is
+  # where review actually happens, and filtering on `main` left those PRs with no
+  # check at all — the exact gap that let a docs/impl drift ship unverified.
   pull_request:
-    branches: [ main ]
 
 jobs:
   lint:
