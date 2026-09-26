@@ -108,8 +108,8 @@ Set-Service -Name '<nome>' -StartupType Disabled # nunca sobe
 ```
 
 Fora do manifest de propósito: `Spooler` (impressão), serviços de acesso remoto
-(`AnyDesk`, `Firebird*`, `Tailscale`, `sshd`), `StorSvc`, `gupdate*`,
-`EasyAntiCheat*`, `NgcRingFenceSvc`.
+(`AnyDesk`, `Tailscale`, `sshd`), `StorSvc`, `gupdate*`, `EasyAntiCheat*`,
+`NgcRingFenceSvc`. `fb*` **entra** em `Manual`, logo não está nesta lista.
 
 ## 9.1 Startup entries: o que o `run debloat` remove (e o que nunca remove)
 

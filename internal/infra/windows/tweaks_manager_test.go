@@ -190,6 +190,70 @@ func TestStartupScriptsQuoteAdversarialNames(t *testing.T) {
 	}
 }
 
+// The fail-closed guards are the behaviour this whole rewrite exists for, and
+// they are only reachable with a real spawn. Pin them as pure Go so Linux CI
+// covers the decision, not just the parsing.
+func TestValidateStartupRows(t *testing.T) {
+	names := []string{"BraveSoftware", "Canva", "MicrosoftEdge"}
+
+	t.Run("complete readout is accepted", func(t *testing.T) {
+		rows := map[string]string{
+			"bravesoftware": "RUN_HKCU",
+			"canva":         "DIR_ROAMING",
+			"microsoftedge": "",
+		}
+		if err := validateStartupRows(rows, names); err != nil {
+			t.Errorf("a complete readout of known tokens must be accepted, got %v", err)
+		}
+	})
+
+	t.Run("partial readout fails instead of reading as absent", func(t *testing.T) {
+		rows := map[string]string{"bravesoftware": "RUN_HKCU"}
+		err := validateStartupRows(rows, names)
+		if err == nil {
+			t.Fatal("a short readout must fail, not certify the missing names as absent")
+		}
+		if !strings.Contains(err.Error(), "answered 1 of 3") {
+			t.Errorf("error must report the cardinality gap, got %q", err)
+		}
+	})
+
+	t.Run("unknown target fails instead of reading as absent", func(t *testing.T) {
+		rows := map[string]string{
+			"bravesoftware": "RUN_HKCU",
+			"canva":         "RUN_NOT_A_TARGET",
+			"microsoftedge": "",
+		}
+		err := validateStartupRows(rows, names)
+		if err == nil {
+			t.Fatal("a token envctl cannot resolve must fail, not read as absent")
+		}
+		if !strings.Contains(err.Error(), "RUN_NOT_A_TARGET") {
+			t.Errorf("error must name the offending token, got %q", err)
+		}
+		if !strings.Contains(err.Error(), "canva") {
+			t.Errorf("error must name the offending entry, got %q", err)
+		}
+	})
+
+	t.Run("error message is stable across map iteration order", func(t *testing.T) {
+		rows := map[string]string{
+			"bravesoftware": "BAD_ONE",
+			"canva":         "BAD_TWO",
+			"microsoftedge": "BAD_THREE",
+		}
+		first := validateStartupRows(rows, names)
+		if first == nil {
+			t.Fatal("expected an error")
+		}
+		for i := 0; i < 20; i++ {
+			if got := validateStartupRows(rows, names); got == nil || got.Error() != first.Error() {
+				t.Fatalf("error message is not stable: %v vs %v", got, first)
+			}
+		}
+	})
+}
+
 func TestStartupConforms(t *testing.T) {
 	if ok, details := startupConforms(""); !ok {
 		t.Errorf("absent entry must conform, got ok=false (%q)", details)
@@ -265,60 +329,107 @@ func TestServiceExpectedStateDefaultsToDisabled(t *testing.T) {
 	}
 }
 
-// Round-trip on a disposable Run value: the only coverage of the destructive
-// path. Creates the entry, proves the check reports drift, applies, and proves
-// the check converges — exercising probe, the escaped -Name, the removal script
-// and idempotency together. Runs in the windows-latest CI job.
+// Round-trip on disposable startup entries: the only coverage of the
+// destructive path, for both target kinds. Creates an entry, proves the check
+// reports drift, applies, proves convergence, and re-applies for idempotency —
+// exercising the probe, the escaped -Name, the removal script and the Startup
+// folder branch together. Runs in the windows-latest CI job.
 func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("skipping startup apply round-trip on non-windows platform")
 	}
-
-	const key = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`
-	const name = "EnvctlStartupRoundTripProbe"
-	psQuoteInto := func(v string) string { return "'" + psQuote(v) + "'" }
-
-	create := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-		fmt.Sprintf("New-Item -Path '%s' -Force | Out-Null; New-ItemProperty -Path '%s' -Name %s -Value 'envctl-test' -PropertyType String -Force | Out-Null",
-			key, key, psQuoteInto(name)))
-	if out, err := create.CombinedOutput(); err != nil {
-		t.Skipf("cannot create the disposable Run value (needs a writable HKCU Run key): %v: %s", err, out)
+	runPS := func(script string) ([]byte, error) {
+		return exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script).CombinedOutput()
 	}
-	t.Cleanup(func() {
-		cleanup := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-			fmt.Sprintf("Remove-ItemProperty -LiteralPath '%s' -Name %s -Force -ErrorAction SilentlyContinue", key, psQuoteInto(name)))
-		_, _ = cleanup.CombinedOutput()
-	})
 
 	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 	ctx := context.Background()
-	tweak := entity.WindowsTweak{
-		ID: "test-startup-roundtrip", Name: name, Type: "StartupItem", Category: "startup",
+
+	// A startup entry is a Run-key value or a Startup-folder file; the two take
+	// different code paths in both the probe and the removal.
+	cases := []struct {
+		label  string
+		name   string
+		create string
+		verify string
+		remove string
+	}{
+		{
+			label: "Run key value",
+			name:  "EnvctlStartupProbeRunKey",
+			create: fmt.Sprintf(
+				`New-Item -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Force | Out-Null; `+
+					`New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Value 'envctl-test' -PropertyType String -Force | Out-Null`,
+				psQuote("EnvctlStartupProbeRunKey")),
+			verify: `if ($null -eq (Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run').GetValueNames()) { exit 1 }`,
+			remove: `Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Force -ErrorAction SilentlyContinue`,
+		},
+		{
+			label: "Startup folder file",
+			name:  "EnvctlStartupProbeFolder",
+			create: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
+					`New-Item -ItemType Directory -Path $d -Force | Out-Null; `+
+					`New-Item -ItemType File -Path (Join-Path $d '%s.lnk') -Force | Out-Null`,
+				startupFolderSuffix, "EnvctlStartupProbeFolder"),
+			verify: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
+					`if (-not (Test-Path -LiteralPath (Join-Path $d '%s.lnk'))) { exit 1 }`,
+				startupFolderSuffix, "EnvctlStartupProbeFolder"),
+			remove: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
+					`Remove-Item -LiteralPath (Join-Path $d '%s.lnk') -Force -ErrorAction SilentlyContinue`,
+				startupFolderSuffix, "EnvctlStartupProbeFolder"),
+		},
 	}
 
-	ok, details, err := mgr.CheckTweak(ctx, tweak)
-	if err != nil {
-		t.Fatalf("check before apply: %v", err)
-	}
-	if ok {
-		t.Fatalf("a Run value that exists must be drift, got conforming (%q)", details)
-	}
+	for _, tc := range cases {
+		t.Run(tc.label, func(t *testing.T) {
+			// A failed setup must fail the build, not skip it: a skip here is
+			// the CI staying green without ever executing the removal.
+			if out, err := runPS(tc.create); err != nil {
+				t.Fatalf("cannot create the disposable %s: %v: %s", tc.label, err, out)
+			}
+			t.Cleanup(func() {
+				_, _ = runPS(fmt.Sprintf(tc.remove, psQuote(tc.name)))
+			})
+			if out, err := runPS(tc.verify); err != nil {
+				t.Fatalf("the disposable %s was not created: %v: %s", tc.label, err, out)
+			}
 
-	if err := mgr.ApplyTweak(ctx, tweak); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
+			tweak := entity.WindowsTweak{
+				ID: "test-startup-" + tc.name, Name: tc.name, Type: "StartupItem", Category: "startup",
+			}
 
-	ok, details, err = mgr.CheckTweak(ctx, tweak)
-	if err != nil {
-		t.Fatalf("check after apply: %v", err)
-	}
-	if !ok {
-		t.Errorf("entry must be gone after apply, still reporting drift (%q)", details)
-	}
+			ok, details, err := mgr.CheckTweak(ctx, tweak)
+			if err != nil {
+				t.Fatalf("check before apply: %v", err)
+			}
+			if ok {
+				t.Fatalf("an existing %s must be drift, got conforming (%q)", tc.label, details)
+			}
 
-	// Idempotent: a second apply on an absent entry is a no-op, not an error.
-	if err := mgr.ApplyTweak(ctx, tweak); err != nil {
-		t.Errorf("second apply on an absent entry must be a no-op, got %v", err)
+			if err := mgr.ApplyTweak(ctx, tweak); err != nil {
+				t.Fatalf("apply: %v", err)
+			}
+
+			ok, details, err = mgr.CheckTweak(ctx, tweak)
+			if err != nil {
+				t.Fatalf("check after apply: %v", err)
+			}
+			if !ok {
+				t.Errorf("%s must be gone after apply, still reporting drift (%q)", tc.label, details)
+			}
+			if out, err := runPS(tc.verify); err == nil {
+				t.Errorf("the %s still exists on disk after apply: %s", tc.label, out)
+			}
+
+			// Idempotent: a second apply on an absent entry is a no-op, not an
+			// error.
+			if err := mgr.ApplyTweak(ctx, tweak); err != nil {
+				t.Errorf("second apply on an absent entry must be a no-op, got %v", err)
+			}
+		})
 	}
 }
 

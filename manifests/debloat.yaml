@@ -525,9 +525,10 @@ tweaks:
     category: "apps"
 
   # --- Services: stop & disable safe-only set (9 services) ---
-  # Spooler (printing) and the remote-access/per-user services (AnyDesk,
-  # Firebird*, Tailscale, sshd) stay out; the Xbox suite too. See
-  # docs/guides/windows-debloat-tier3.md §9.
+  # Spooler (printing) and the remote-access services (AnyDesk, Tailscale,
+  # sshd) stay out, as do StorSvc, gupdate*, EasyAntiCheat* and
+  # NgcRingFenceSvc; the Xbox suite too. Firebird* is NOT out: it is in the
+  # Manual block below. See docs/guides/windows-debloat-tier3.md §9.
   - id: "svc-diagtrack"
     description: "Stop & disable Connected User Experiences and Telemetry"
     name: "DiagTrack"

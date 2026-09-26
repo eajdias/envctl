@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -225,6 +226,35 @@ func startupTargetsForTokens(tokens string) []startupTarget {
 	return out
 }
 
+// validateStartupRows fails closed on a probe readout envctl cannot fully
+// interpret. Both checks exist so a degraded probe can never be reported as
+// "absent", which is how the doctor would certify a convergence that never
+// happened:
+//
+//   - cardinality: a partial readout leaves names missing, and a missing name
+//     resolves to "" and then to "conforming". Same guard as the registry batch.
+//   - unknown target: the removal path refuses a token it cannot resolve, so
+//     approving one in the audit would have the two halves of the invariant
+//     disagreeing.
+func validateStartupRows(rows map[string]string, names []string) error {
+	if len(rows) != len(names) {
+		return fmt.Errorf("startup probe answered %d of %d names", len(rows), len(names))
+	}
+	// Sorted so the message is stable: map iteration order is randomized in Go
+	// and a flaky error message is a flaky CI log.
+	offenders := make([]string, 0, len(rows))
+	for name, tokens := range rows {
+		if unknown := startupUnknownTokens(tokens); len(unknown) > 0 {
+			offenders = append(offenders, fmt.Sprintf("%q reported %v", name, unknown))
+		}
+	}
+	if len(offenders) > 0 {
+		sort.Strings(offenders)
+		return fmt.Errorf("startup probe reported unknown target(s): %s", strings.Join(offenders, "; "))
+	}
+	return nil
+}
+
 func (m *TweaksManager) probeStartup(ctx context.Context, names []string) (map[string]string, error) {
 	if len(names) == 0 {
 		return map[string]string{}, nil
@@ -236,20 +266,8 @@ func (m *TweaksManager) probeStartup(ctx context.Context, names []string) (map[s
 		return nil, fmt.Errorf("failed to probe startup entries: %s (%w)", strings.TrimSpace(string(out)), err)
 	}
 	rows := parseStartupProbe(string(out))
-	// A partial readout must not read as "absent": that is how a broken probe
-	// would certify the whole category as converged. Same guard as the
-	// registry batch.
-	if len(rows) != len(names) {
-		return nil, fmt.Errorf("startup probe answered %d of %d names", len(rows), len(names))
-	}
-	// A token envctl cannot resolve means the probe and the target table
-	// disagree. The removal path refuses such a token, so treating it as
-	// "absent" here would have the audit approve what the mutation refuses —
-	// the same green-over-inconsistency this stack was rewritten to avoid.
-	for name, tokens := range rows {
-		if unknown := startupUnknownTokens(tokens); len(unknown) > 0 {
-			return nil, fmt.Errorf("startup probe reported unknown target(s) %v for %q", unknown, name)
-		}
+	if err := validateStartupRows(rows, names); err != nil {
+		return nil, err
 	}
 	return rows, nil
 }
@@ -355,11 +373,11 @@ if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.S
 		return false, fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState), nil
 
 	case "startupitem":
-		locations, err := m.probeStartupTweak(ctx, tweak.Name)
+		tokens, err := m.probeStartupTweak(ctx, tweak.Name)
 		if err != nil {
 			return false, "", err
 		}
-		ok, details := startupConforms(locations)
+		ok, details := startupConforms(tokens)
 		return ok, details, nil
 
 	default: // Registry DWord, String, Binary, etc.
