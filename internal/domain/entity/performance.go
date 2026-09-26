@@ -39,9 +39,12 @@ type PerformanceSpec struct {
 	// MinDistroVersion is the release floor declared by the manifest. It is
 	// data, not code, so raising the floor is a manifest edit rather than a
 	// code change.
-	MinDistroVersion string    `yaml:"min_distro_version,omitempty"`
-	Packages         []Package `yaml:"packages"`
-	Sysctls          []SysctlSetting
+	MinDistroVersion string          `yaml:"min_distro_version,omitempty"`
+	Packages         []Package       `yaml:"packages"`
+	Sysctls          []SysctlSetting `yaml:"sysctls"`
+	// Tiers are the memory bands the manifest declares. A host is measured
+	// and matched against them; nothing here is inferred from the machine.
+	Tiers []PerformanceTier `yaml:"tiers,omitempty"`
 }
 
 type SwapDevice struct {
