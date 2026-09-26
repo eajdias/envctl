@@ -212,6 +212,7 @@ type performanceManifest struct {
 	Packages         []entity.Package         `yaml:"packages"`
 	Sysctls          []entity.SysctlSetting   `yaml:"sysctls"`
 	Tiers            []entity.PerformanceTier `yaml:"tiers,omitempty"`
+	Timezone         *entity.TimezoneSpec     `yaml:"timezone,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -262,6 +263,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 		Packages:         manifest.Packages,
 		Sysctls:          manifest.Sysctls,
 		Tiers:            manifest.Tiers,
+		Timezone:         manifest.Timezone,
 	}, nil
 }
 

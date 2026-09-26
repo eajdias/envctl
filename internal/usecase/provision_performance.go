@@ -16,6 +16,7 @@ type ProvisionPerformanceUseCase struct {
 	packages     *ProvisionPackagesUseCase
 	sysctl       repository.SysctlManager
 	zram         repository.ZRAMManager
+	timezone     repository.TimezoneManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -27,7 +28,12 @@ func NewProvisionPerformanceUseCase(
 	zram repository.ZRAMManager,
 	logger repository.Logger,
 	platform func() entity.PlatformInfo,
+	timezones ...repository.TimezoneManager,
 ) *ProvisionPerformanceUseCase {
+	var timezone repository.TimezoneManager
+	if len(timezones) > 0 {
+		timezone = timezones[0]
+	}
 	if platform == nil {
 		platform = entity.DetectedPlatform
 	}
@@ -36,6 +42,7 @@ func NewProvisionPerformanceUseCase(
 		packages:     packages,
 		sysctl:       sysctl,
 		zram:         zram,
+		timezone:     timezone,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -101,6 +108,16 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
+		}
+	}
+	if spec.Timezone != nil {
+		if uc.timezone == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a timezone policy but no timezone manager is configured", profile)
+		}
+		timezoneDiagnostics, timezoneErr := uc.timezone.Apply(ctx, *spec.Timezone, dryRun)
+		diagnostics = append(diagnostics, timezoneDiagnostics...)
+		if timezoneErr != nil {
+			return packages, diagnostics, timezoneErr
 		}
 	}
 	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {

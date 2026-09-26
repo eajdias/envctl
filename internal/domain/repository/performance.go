@@ -25,6 +25,13 @@ type HardwareProbe interface {
 	Snapshot(ctx context.Context) entity.HardwareState
 }
 
+// TimezoneManager reports the host timezone and, only when explicitly asked to,
+// sets it. The default policy is verification.
+type TimezoneManager interface {
+	Current(ctx context.Context) (string, error)
+	Apply(ctx context.Context, spec entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

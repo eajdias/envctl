@@ -120,7 +120,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		Logger:                 fileLogger,
 		PackageManagers:        pkgManagers,
 		ProvisionPkgsUC:        packagesUC,
-		ProvisionPerformanceUC: usecase.NewProvisionPerformanceUseCase(manifestRepo, packagesUC, sysctlManager, zramManager, fileLogger, entity.DetectedPlatform),
+		ProvisionPerformanceUC: usecase.NewProvisionPerformanceUseCase(manifestRepo, packagesUC, sysctlManager, zramManager, fileLogger, entity.DetectedPlatform, performance.NewTimezoneManager()),
 		ProvisionShellUC:       usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
 		ProvisionSkillsUC:      usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
 		ProvisionLSPUC:         usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),

@@ -197,11 +197,34 @@ func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load Ubuntu performance manifest: %v", err)
 	}
-	if ubuntu.Profile != entity.PerformanceProfileUbuntuServer || len(ubuntu.Packages) != 1 || ubuntu.Packages[0].ID != "systemd-zram-generator" {
-		t.Fatalf("unexpected Ubuntu performance spec: %#v", ubuntu)
+	if ubuntu.Profile != entity.PerformanceProfileUbuntuServer {
+		t.Fatalf("Ubuntu performance spec profile = %q", ubuntu.Profile)
+	}
+	// Assert the required entries are present rather than counting packages, so
+	// adding a justified package does not break an unrelated contract.
+	requiredUbuntu := []string{"systemd-zram-generator", "tzdata"}
+	present := make(map[string]bool, len(ubuntu.Packages))
+	for _, pkg := range ubuntu.Packages {
+		present[pkg.ID] = true
+	}
+	for _, id := range requiredUbuntu {
+		if !present[id] {
+			t.Fatalf("Ubuntu performance spec is missing package %q; present: %v", id, present)
+		}
 	}
 	if len(ubuntu.Sysctls) == 0 {
 		t.Fatal("Ubuntu performance spec must contain sysctl settings")
+	}
+	// Memory-scoped sysctls belong to the tiers, not to the profile base: the
+	// base is what every memory size gets, and vfs_cache_pressure is a memory
+	// policy that each tier sets for itself.
+	for _, setting := range ubuntu.Sysctls {
+		if setting.Key == "vm.vfs_cache_pressure" {
+			t.Fatal("vm.vfs_cache_pressure must be declared per tier, not in the profile base")
+		}
+	}
+	if ubuntu.Timezone == nil || ubuntu.Timezone.Expected != "Etc/UTC" {
+		t.Fatalf("Ubuntu performance spec timezone = %#v, want the fleet's Etc/UTC", ubuntu.Timezone)
 	}
 	if ubuntu.MinDistroVersion != "24.04" {
 		t.Fatalf("Ubuntu performance spec minimum = %q, want the manifest-declared 24.04", ubuntu.MinDistroVersion)
