@@ -436,6 +436,11 @@ cleanup:
     path: "~/.local/bin/pylsp.cmd"
     category: "scripts"
     os: windows
+  - id: stale_pylsp_uv_tool
+    description: "Remove the python-lsp-server uv tool env (pyright is the Python language server; the shim alone left the env behind)"
+    path: "~/.local/share/uv/tools/python-lsp-server"
+    recursive: true
+    category: "scripts"
 
   - id: stale_pw_screenshot
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
