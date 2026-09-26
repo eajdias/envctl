@@ -13,6 +13,22 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
+// journaldService is restarted, never stopped: man 8 systemd-journald.
+const journaldService = "systemd-journald"
+
+// defaultJournaldDropin uses the 90- prefix because systemd sorts drop-ins in
+// *.conf.d/ directories lexicographically by filename and the last file wins
+// for single-value keys.
+const defaultJournaldDropin = "/etc/systemd/journald.conf.d/90-envctl-journald.conf"
+
+// nowFunc and needsElevation are the two environment facts every adapter needs.
+// They are indirections so the production values are decided in exactly one
+// place and tests never depend on the host they run on.
+var (
+	nowFunc        = time.Now
+	needsElevation = func() bool { return os.Geteuid() != 0 }
+)
+
 // execCommand is the single place this package shells out. Every call is
 // argv-based; no manager ever builds a shell string.
 func execCommand(ctx context.Context, name string, args ...string) ([]byte, error) {

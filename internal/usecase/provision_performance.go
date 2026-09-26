@@ -17,6 +17,7 @@ type ProvisionPerformanceUseCase struct {
 	sysctl       repository.SysctlManager
 	zram         repository.ZRAMManager
 	timezone     repository.TimezoneManager
+	journald     repository.JournaldManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -28,12 +29,9 @@ func NewProvisionPerformanceUseCase(
 	zram repository.ZRAMManager,
 	logger repository.Logger,
 	platform func() entity.PlatformInfo,
-	timezones ...repository.TimezoneManager,
+	timezone repository.TimezoneManager,
+	journald repository.JournaldManager,
 ) *ProvisionPerformanceUseCase {
-	var timezone repository.TimezoneManager
-	if len(timezones) > 0 {
-		timezone = timezones[0]
-	}
 	if platform == nil {
 		platform = entity.DetectedPlatform
 	}
@@ -43,6 +41,7 @@ func NewProvisionPerformanceUseCase(
 		sysctl:       sysctl,
 		zram:         zram,
 		timezone:     timezone,
+		journald:     journald,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -108,6 +107,16 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
+		}
+	}
+	if spec.Journald != nil {
+		if uc.journald == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a journald policy but no journald manager is configured", profile)
+		}
+		journaldDiagnostics, journaldErr := uc.journald.Apply(ctx, *spec.Journald, dryRun)
+		diagnostics = append(diagnostics, journaldDiagnostics...)
+		if journaldErr != nil {
+			return packages, diagnostics, journaldErr
 		}
 	}
 	if spec.Timezone != nil {

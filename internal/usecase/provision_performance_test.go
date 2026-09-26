@@ -79,6 +79,30 @@ func (m *performanceSysctlStub) Apply(_ context.Context, settings []entity.Sysct
 	return nil, nil
 }
 
+type performanceTimezoneStub struct {
+	calls  int
+	dryRun bool
+}
+
+func (m *performanceTimezoneStub) Current(context.Context) (string, error) { return "Etc/UTC", nil }
+
+func (m *performanceTimezoneStub) Apply(_ context.Context, _ entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error) {
+	m.calls++
+	m.dryRun = dryRun
+	return nil, nil
+}
+
+type performanceJournaldStub struct {
+	calls  int
+	dryRun bool
+}
+
+func (m *performanceJournaldStub) Apply(_ context.Context, _ entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error) {
+	m.calls++
+	m.dryRun = dryRun
+	return nil, nil
+}
+
 type performanceZRAMStub struct {
 	calls  int
 	dryRun bool
@@ -109,7 +133,7 @@ func newPerformanceUseCaseForTest(
 	}
 	return NewProvisionPerformanceUseCase(repo, packages, sysctl, zram, &mockLogger{}, func() entity.PlatformInfo {
 		return platform
-	})
+	}, &performanceTimezoneStub{}, &performanceJournaldStub{})
 }
 
 // TestProvisionPerformanceRejectsHostBelowManifestMinimum pins the moved gate:
