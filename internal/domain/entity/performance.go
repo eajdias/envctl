@@ -67,6 +67,8 @@ type PerformanceSpec struct {
 	Timezone *TimezoneSpec `yaml:"timezone,omitempty"`
 	// Journald is the declared journal size policy.
 	Journald *JournaldSpec `yaml:"journald,omitempty"`
+	// Limits is the declared descriptor/process limit policy.
+	Limits *LimitsSpec `yaml:"limits,omitempty"`
 }
 
 type SwapDevice struct {
@@ -161,6 +163,23 @@ type BlockScheduler struct {
 	Device    string
 	Selected  string
 	Available string
+}
+
+// LimitsSpec is the declared file-descriptor and process limit policy.
+//
+// NofileHard empty means "keep the host's own hard limit". The fleet reports
+// 524288 on Oracle and 1048576 on AWS, so a pinned hard value would lower the
+// AWS hosts.
+type LimitsSpec struct {
+	SystemDropin string `yaml:"system_dropin"`
+	PAMDropin    string `yaml:"pam_dropin"`
+	NofileSoft   int    `yaml:"nofile_soft"`
+	NofileHard   string `yaml:"nofile_hard"`
+	Nproc        int    `yaml:"nproc"`
+	// Reexec controls the PID 1 re-exec that makes the systemd drop-in
+	// effective. It is the only operation in the profile that touches PID 1, so
+	// it must be possible to turn it off from the command line.
+	Reexec bool `yaml:"daemon_reexec"`
 }
 
 // JournaldSetting is one size or retention key in the journald drop-in.

@@ -144,3 +144,27 @@ journald:
     - { key: SystemKeepFree, value: "1G" }
     - { key: RuntimeMaxUse, value: "50M" }
     - { key: MaxRetentionSec, value: "2week" }
+
+# File-descriptor and process limits.
+#
+# The soft limit is 1024 on every reachable host, which is a real EMFILE risk
+# once Docker and Node run on the box. The hard limit is NOT pinned: the fleet
+# reports 524288 on Oracle and 1048576 on AWS, so the systemd drop-in writes
+# "soft:" with an empty hard side and each host keeps the ceiling it shipped
+# with. That form was verified to parse cleanly with systemd-analyze
+# cat-config before being relied on.
+#
+# man 5 systemd.exec warns that a soft limit above 1024 breaks select(2) in
+# software that still uses it; the apply reports that caveat every run rather
+# than leaving it to be discovered in production.
+#
+# daemon_reexec is required because daemon-reload does not re-read system.conf.
+# It is the only operation here that touches PID 1, and --no-daemon-reexec
+# turns it off.
+limits:
+  system_dropin: /etc/systemd/system.conf.d/90-envctl-limits.conf
+  pam_dropin: /etc/security/limits.d/90-envctl-limits.conf
+  nofile_soft: 65536
+  nofile_hard: ""
+  nproc: 32768
+  daemon_reexec: true

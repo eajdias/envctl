@@ -39,6 +39,13 @@ type JournaldManager interface {
 	Apply(ctx context.Context, spec entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// ResourceLimitsManager installs the systemd and PAM limit drop-ins. It may
+// re-execute the service manager, which is the only privileged PID 1 operation
+// in this package and is opt-out.
+type ResourceLimitsManager interface {
+	Apply(ctx context.Context, spec entity.LimitsSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

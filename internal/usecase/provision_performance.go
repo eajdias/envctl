@@ -18,6 +18,7 @@ type ProvisionPerformanceUseCase struct {
 	zram         repository.ZRAMManager
 	timezone     repository.TimezoneManager
 	journald     repository.JournaldManager
+	limits       repository.ResourceLimitsManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -31,6 +32,7 @@ func NewProvisionPerformanceUseCase(
 	platform func() entity.PlatformInfo,
 	timezone repository.TimezoneManager,
 	journald repository.JournaldManager,
+	limits repository.ResourceLimitsManager,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -42,6 +44,7 @@ func NewProvisionPerformanceUseCase(
 		zram:         zram,
 		timezone:     timezone,
 		journald:     journald,
+		limits:       limits,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -107,6 +110,16 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
+		}
+	}
+	if spec.Limits != nil {
+		if uc.limits == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a limits policy but no limits manager is configured", profile)
+		}
+		limitDiagnostics, limitErr := uc.limits.Apply(ctx, *spec.Limits, dryRun)
+		diagnostics = append(diagnostics, limitDiagnostics...)
+		if limitErr != nil {
+			return packages, diagnostics, limitErr
 		}
 	}
 	if spec.Journald != nil {

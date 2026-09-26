@@ -16,6 +16,15 @@ import (
 // journaldService is restarted, never stopped: man 8 systemd-journald.
 const journaldService = "systemd-journald"
 
+// The 90- prefix follows the same convention systemd documents for
+// *.conf.d/ directories: files are sorted lexicographically by filename and the
+// last one wins for single-value keys, so a prefix orders the admin drop-in
+// after anything a vendor ships.
+const (
+	defaultSystemLimitsDropin = "/etc/systemd/system.conf.d/90-envctl-limits.conf"
+	defaultPAMLimitsDropin    = "/etc/security/limits.d/90-envctl-limits.conf"
+)
+
 // defaultJournaldDropin uses the 90- prefix because systemd sorts drop-ins in
 // *.conf.d/ directories lexicographically by filename and the last file wins
 // for single-value keys.
