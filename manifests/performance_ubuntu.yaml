@@ -14,9 +14,30 @@ packages:
     target_distro: ubuntu
     min_distro_version: "24.04"
     category: performance
+  - id: tzdata
+    name: tzdata (IANA timezone database for timedatectl)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: performance
+
+# The timezone is an operator's deliberate choice, not a tuning knob: it decides
+# log timestamps and scheduled job times. All three reachable hosts in the
+# fleet report Etc/UTC with NTP active, so the declared zone matches and verify
+# mode is a silent pass. A host on a different zone is reported as INFO and left
+# alone; changing it requires an explicit enforce on the command line.
+timezone:
+  mode: verify
+  expected: Etc/UTC
 
 # Conservative server baseline. Values are explicit for review/rollback and do
 # not replace workload-specific tuning for databases, storage, or networking.
+#
+# Only host-independent network settings live here. Memory-scoped values
+# (vfs_cache_pressure, and vm.swappiness once it is derived from the measured
+# swap topology) are declared per tier or computed, so the base stays the part
+# every memory size receives.
 #
 # `policy` states the direction of the change instead of a blind replacement:
 # "min" raises a value but never lowers one, which is what a host that already
@@ -25,9 +46,6 @@ sysctls:
   - key: vm.swappiness
     value: "10"
     rationale: Keep SSD/server swap pressure conservative; zram remains available under pressure.
-  - key: vm.vfs_cache_pressure
-    value: "50"
-    rationale: Retain inode/dentry cache without the low-cache pressure of aggressive server tuning.
   - key: net.core.somaxconn
     value: "65535"
     rationale: Accept large completed-connection bursts for server workloads.

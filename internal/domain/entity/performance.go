@@ -63,6 +63,8 @@ type PerformanceSpec struct {
 	// Tiers are the memory bands the manifest declares. A host is measured
 	// and matched against them; nothing here is inferred from the machine.
 	Tiers []PerformanceTier `yaml:"tiers,omitempty"`
+	// Timezone is the declared zone policy.
+	Timezone *TimezoneSpec `yaml:"timezone,omitempty"`
 }
 
 type SwapDevice struct {
@@ -157,6 +159,14 @@ type BlockScheduler struct {
 	Device    string
 	Selected  string
 	Available string
+}
+
+// TimezoneSpec declares the timezone policy. Mode defaults to "verify", which
+// only reports; writing a timezone changes log timestamps and scheduled jobs,
+// so it is never implicit.
+type TimezoneSpec struct {
+	Mode     string `yaml:"mode"`
+	Expected string `yaml:"expected"`
 }
 
 type JournaldState struct {
