@@ -1,6 +1,8 @@
 name: Release Pipeline
 
-# Builds multi-OS binaries and attaches them to the GitHub Release.
+# Builds multi-OS binaries (Windows + Linux) and attaches them to the GitHub Release.
+# macOS/darwin is not a supported target: no manifest uses it, bootstrap.sh rejects it,
+# and the `os:` lint rejects the darwin token, so no darwin binary is built or shipped.
 # Releases are created by release-please (conventional commits); this workflow
 # only builds. It never creates tags — that was the source of the 74-tag pollution.
 on:
@@ -83,17 +85,6 @@ jobs:
           tar -czf dist/envctl-linux-arm64.tar.gz -C dist envctl
           rm dist/envctl
 
-          # 3. Darwin amd64 & arm64
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-darwin-amd64 ./cmd/envctl
-          cp dist/envctl-darwin-amd64 dist/envctl
-          tar -czf dist/envctl-darwin-amd64.tar.gz -C dist envctl
-          rm dist/envctl
-
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-darwin-arm64 ./cmd/envctl
-          cp dist/envctl-darwin-arm64 dist/envctl
-          tar -czf dist/envctl-darwin-arm64.tar.gz -C dist envctl
-          rm dist/envctl
-
       - name: Generate SHA256 Checksums
         run: |
           cp bootstrap.ps1 bootstrap.sh dist/
@@ -102,8 +93,6 @@ jobs:
             envctl-windows-amd64.zip envctl-windows-arm64.zip \
             envctl-linux-amd64 envctl-linux-arm64 \
             envctl-linux-amd64.tar.gz envctl-linux-arm64.tar.gz \
-            envctl-darwin-amd64 envctl-darwin-arm64 \
-            envctl-darwin-amd64.tar.gz envctl-darwin-arm64.tar.gz \
             bootstrap.ps1 bootstrap.sh > SHA256SUMS.txt
 
       - name: Attach Assets to Release
@@ -120,10 +109,6 @@ jobs:
             dist/envctl-linux-arm64 \
             dist/envctl-linux-amd64.tar.gz \
             dist/envctl-linux-arm64.tar.gz \
-            dist/envctl-darwin-amd64 \
-            dist/envctl-darwin-arm64 \
-            dist/envctl-darwin-amd64.tar.gz \
-            dist/envctl-darwin-arm64.tar.gz \
             dist/SHA256SUMS.txt \
             bootstrap.ps1 \
             bootstrap.sh
