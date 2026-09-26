@@ -28,7 +28,7 @@
 ## OpenCode
 
 - **Config:** `~/.config/opencode/opencode.json` (padrão único, JSON — `opencode.jsonc`/`tui.json` são removidos pelo provisioning). **Regras:** `~/.config/opencode/AGENTS.md` (este arquivo), auto-carregado. **Config não é hot-reload:** reinicie o opencode e valide com `opencode debug config`.
-- **Agentes:** `review` (primary explícito), `plan` (primary built-in) e `planner` (subagent read-only de planejamento) — use `planner` para pesquisa/plano volumoso, `plan` no Tab para planejamento interativo e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
+- **Agentes:** `review` (primary explícito), `plan` (primary built-in) e 5 subagents dispatchable read-only: `planner` (pesquisa/plano volumoso), `reviewer` (segundo parecer com severidades), `verifier` (gate com evidência real), `docs-writer` (doc contra manifesto/código), `memory-keeper` (lições/patterns no fecho). `review` no Tab para revisar na mão, `reviewer` despachado pelo coordenador. Detalhe em REFERENCE.md.
 - **Plugins:** `opencode-goal-plugin` (dcp + ponytail removidos em 2026-09-19: quebram no opencode v2, ver REFERENCE.md). Detalhe em REFERENCE.md.
 - **MCP:** `context7` (docs); `ssh-manager` + `chrome-devtools` (`disabled: true` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`, `code-playbooks/references/web-automation.md`). Remoto via CLI `ssh-manager` + `code-playbooks/references/infra.md`.
 - **LSP:** binários instalados para shell/IDE; o runtime v2 ignora LSP — diagnóstico do agente via lint/typecheck.

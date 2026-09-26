@@ -1594,8 +1594,6 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 		return
 	}
 
-	reserved := map[string]bool{"explore": true, "plan": true, "review": true, "general": true}
-
 	var blocking, advisories []string
 	valid := 0
 	for _, entry := range entries {
@@ -1604,7 +1602,7 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 			continue
 		}
 		id := strings.TrimSuffix(name, ".md")
-		if reserved[id] {
+		if commandCodeReservedAgentNames[id] {
 			continue
 		}
 
