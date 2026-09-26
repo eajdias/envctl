@@ -41,9 +41,9 @@ brutas ao coordenador.
 | Situação | Subagente | Paralelizar? |
 |---|---|---|
 | Exploração de codebase sem arquivo-alvo ("onde está X", "como funciona Y") | `explore` | Sim — vários na mesma resposta, se 2+ áreas independentes |
-| Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ `context7-auto`/`WebSearch`/`WebFetch`) | Sim, se o resultado puder ser compactado |
+| Pesquisa na internet / docs de lib / versões / fatos que mudam | `general` (+ MCP `context7`/`WebSearch`/`WebFetch`) | Sim, se o resultado puder ser compactado |
 | Debug sem causa conhecida | `explore`/`general` por domínio | Não primeiro — investigue a causa raiz; paralelo só com falhas independentes |
-| Tarefa pesada multi-passo (build, suíte, crawler) | `general` ou `vps-agent-dispatch` (remoto) | Conforme independência |
+| Tarefa pesada multi-passo (build, suíte, crawler) | `general`, ou máquina remota por SSH | Conforme independência |
 | Planejamento de implementação | `planner` (OpenCode) ou `plan` (CommandCode) | Não por padrão; apenas para plano extenso |
 
 Tipos comuns: `explore` (read-only, varredura), `general` (execução/pesquisa),

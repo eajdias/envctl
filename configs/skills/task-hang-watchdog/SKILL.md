@@ -40,7 +40,7 @@ em uso.
 3. **Saída longa vira log** no scratch padrão (`ENVCTL_TEMP`), em subdir por tarefa —
    nunca no repositório.
 4. **Prompt interativo não se responde por adivinhação.** SSH, sudo com senha e TTY
-   usam a skill do runtime local (`ssh-vps`, `aur-headless-install`).
+   usam o runtime local (ver `code-playbooks/references/infra.md`).
 
 ## CommandCode
 

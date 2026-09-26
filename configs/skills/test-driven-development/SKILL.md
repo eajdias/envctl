@@ -10,7 +10,7 @@ license: MIT
 metadata:
   author: obra (superpowers)
   source: https://github.com/obra/superpowers
-  adapted: envctl — ideia (lei de ferro + red-green-refactor) adaptada; ciclo e exemplos escritos do zero para TS/PY/GO com vitest/pytest/go test e wiring com universal-test-runner + verification-before-completion
+  adapted: envctl — ideia (lei de ferro + red-green-refactor) adaptada; ciclo e exemplos escritos do zero para TS/PY/GO com vitest/pytest/go test e comandos sob demanda em code-playbooks/references/testing.md
 ---
 
 
@@ -109,7 +109,7 @@ go test ./pkg/x -run TestNome -v
 npx vitest run path/to/file.test.ts
 ```
 
-Execute o teste RED, o GREEN, a suíte relacionada e o gate completo. Use `universal-test-runner` para suíte, cobertura e comparação entre frameworks; use `verification-before-completion` antes de declarar pronto. Para cobertura, suíte completa e regressões, não substitua comandos por exemplos genéricos deste arquivo.
+Execute o teste RED, o GREEN, a suíte relacionada e o gate completo. Os comandos por ecossistema estão em `code-playbooks/references/testing.md`; a regra de evidência do `AGENTS.md` (verificação bloqueante) vale antes de declarar pronto. Para cobertura, suíte completa e regressões, não substitua comandos por exemplos genéricos deste arquivo.
 
 ## Checklist de conclusão
 
