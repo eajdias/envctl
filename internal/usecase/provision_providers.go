@@ -115,7 +115,7 @@ func lookPathInEnv(name, pathValue string) (string, error) {
 			dir = "."
 		}
 		candidate := filepath.Join(dir, name)
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
+		if isExecutableFile(candidate) {
 			return candidate, nil
 		}
 	}
