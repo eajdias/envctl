@@ -7,6 +7,19 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.8.0](https://github.com/eajdias/envctl/compare/v1.7.0...v1.8.0) (2026-09-26)
+
+
+### Features
+
+* **cli:** add windows, vps and cachyos full machine profiles ([6953f1e](https://github.com/eajdias/envctl/commit/6953f1e580e2714a6d7c45b65bfda7884a0dda12))
+
+
+### Bug Fixes
+
+* **release:** stop building and shipping darwin binaries ([#33](https://github.com/eajdias/envctl/issues/33)) ([47c691a](https://github.com/eajdias/envctl/commit/47c691a0f869dfd17684c064a61540242982c631))
+* **skills:** stamp the quarantine mtime so the recovery window is real ([#36](https://github.com/eajdias/envctl/issues/36)) ([d5143fb](https://github.com/eajdias/envctl/commit/d5143fb128a21f592efee29893f8599c20935555))
+
 ## [1.7.0](https://github.com/eajdias/envctl/compare/v1.6.0...v1.7.0) (2026-09-26)
 
 
