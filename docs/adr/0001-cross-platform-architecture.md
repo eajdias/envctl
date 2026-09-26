@@ -15,20 +15,23 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 ### 1. Clean Architecture em Go
 - **Domínio Puro**: Entidades `Package`, `ConfigFile`, `Skill`, `LSP`, `Diagnostic` e interfaces de repositório isoladas de detalhes de sistema operacional.
 - **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Pacman`, `Paru`, `Volta`, `Go` e `UV/Pip`.
-- **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`, `darwin`), com `target_distro`/`min_distro_version` para separar Ubuntu 24.04+ de outros membros da família Debian.
+- **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`), com `target_distro`/`min_distro_version` para separar Ubuntu 24.04+ de outros membros da família Debian.
 
 ### 2. Standalone Self-Contained Binary (`//go:embed`)
 - Todos os manifestos declarativos (`manifests/`), templates de configuração (`configs/`) e as **50 Skills** de agentes de IA são embutidos diretamente no binário compilado.
 - Garante instalação determinística e offline com zero dependências externas ou requisições HTTP adicionais em tempo de execução.
 
-### 3. Orquestração Distribuída via `vps-agent-dispatch`
+### 3. Orquestração Distribuída via SSH
+
+> Status 2026-09-26: a skill `vps-agent-dispatch` deixou o catálogo; o
+> conhecimento de SSH/infra agora vive em `code-playbooks/references/infra.md`.
 - A máquina local (notebook) atua como coordenadora global.
 - Tarefas pesadas (diagnóstico de contêineres, compilação de imagens, suítes de testes headless) são despachadas via SSH para instâncias remotas do OpenCode nas VPSs (`opencode run`).
 - O resultado é cristalizado e retornado para a máquina local, mantendo a janela de contexto local enxuta e de alto sinal.
 
 ### 4. CI/CD e Releases Automatizados por Push na Main
 - GitHub Actions valida compilação e suíte de testes em Linux e Windows a cada Pull Request.
-- A cada merge/push na branch `main`, é gerada uma nova Release pública no GitHub com binários pré-compilados para Windows (amd64, arm64), Linux (amd64, arm64) e macOS (amd64, arm64).
+- A cada merge/push na branch `main`, é gerada uma nova Release pública no GitHub com binários pré-compilados para Windows (amd64, arm64) e Linux (amd64, arm64).
 
 ## Consequências
 - **Positivas**:

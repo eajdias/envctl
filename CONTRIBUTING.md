@@ -52,7 +52,7 @@ Use semantic branch names:
 
 ## Development Setup
 
-### Linux / macOS
+### Linux
 
 ```bash
 ./bootstrap.sh

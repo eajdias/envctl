@@ -200,7 +200,7 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 
 // SetStrictWindowsACL restricts file/directory permissions to the current user only.
 // On Windows, it uses icacls to remove inheritance and grant full control to the user.
-// On Linux/macOS, it sets POSIX mode 0700 for directories or 0600 for files.
+// On Linux it sets POSIX mode 0700 for directories or 0600 for files.
 func (f *fsManager) SetStrictWindowsACL(path string) error {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {

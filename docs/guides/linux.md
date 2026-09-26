@@ -125,7 +125,7 @@ benchmark e aprovação.
 
 ## 🌐 5. Orquestração de Subagentes OpenCode na VPS
 
-O `envctl` transforma qualquer VPS remota em um **trabalhador autônomo de IA** via a skill `vps-agent-dispatch`:
+O `envctl` transforma qualquer VPS remota em um **trabalhador autônomo de IA** — a mesma skill tree e os mesmos agentes, via SSH:
 
 ### 1. Preparação da VPS (Executado apenas uma vez):
 ```bash

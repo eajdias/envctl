@@ -13,7 +13,7 @@ Não é um plano fechado: a ordem sugerida está no fim e nenhum item tem prazo.
 ## 1. Termux/Android como OS de primeira classe
 
 **Objetivo:** o envctl provisionar e auditar um ambiente Termux, hoje fora do escopo
-(`os:` aceita `windows`/`linux`/`darwin` + famílias `arch`/`debian`).
+(`os:` aceita `windows`/`linux` + famílias `arch`/`debian`).
 
 **O que já se sabe:**
 
