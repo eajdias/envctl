@@ -42,6 +42,9 @@ type ManifestRepository interface {
 	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
 	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
 	LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error)
+	// ListPerformanceProfiles reports every shipped profile with the release
+	// floor its manifest declares, so no caller hard-codes a version.
+	ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error)
 
 	SaveSkills(skills []entity.Skill) error
 	SaveGitConfigs(configs []entity.GitConfig) error

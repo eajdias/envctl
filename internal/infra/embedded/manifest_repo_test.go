@@ -4,9 +4,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/eajdias/envctl"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
@@ -191,22 +193,25 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
 
-	ubuntu, err := repo.LoadPerformanceSpec("ubuntu-24.04")
+	ubuntu, err := repo.LoadPerformanceSpec(entity.PerformanceProfileUbuntuServer)
 	if err != nil {
 		t.Fatalf("failed to load Ubuntu performance manifest: %v", err)
 	}
-	if ubuntu.Profile != "ubuntu-24.04" || len(ubuntu.Packages) != 1 || ubuntu.Packages[0].ID != "systemd-zram-generator" {
+	if ubuntu.Profile != entity.PerformanceProfileUbuntuServer || len(ubuntu.Packages) != 1 || ubuntu.Packages[0].ID != "systemd-zram-generator" {
 		t.Fatalf("unexpected Ubuntu performance spec: %#v", ubuntu)
 	}
 	if len(ubuntu.Sysctls) == 0 {
 		t.Fatal("Ubuntu performance spec must contain sysctl settings")
 	}
+	if ubuntu.MinDistroVersion != "24.04" {
+		t.Fatalf("Ubuntu performance spec minimum = %q, want the manifest-declared 24.04", ubuntu.MinDistroVersion)
+	}
 
-	cachyos, err := repo.LoadPerformanceSpec("cachyos")
+	cachyos, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS)
 	if err != nil {
 		t.Fatalf("failed to load CachyOS performance manifest: %v", err)
 	}
-	if cachyos.Profile != "cachyos" || len(cachyos.Packages) != 1 || cachyos.Packages[0].ID != "zram-generator" {
+	if cachyos.Profile != entity.PerformanceProfileCachyOS || len(cachyos.Packages) != 1 || cachyos.Packages[0].ID != "zram-generator" {
 		t.Fatalf("unexpected CachyOS performance spec: %#v", cachyos)
 	}
 	if len(cachyos.Sysctls) != 0 {
@@ -225,7 +230,7 @@ func TestUnreadableLocalPerformanceManifestDoesNotFallBack(t *testing.T) {
 	}
 
 	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
-	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+	if _, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS); err == nil {
 		t.Fatal("expected unreadable local manifest to fail closed")
 	}
 }
@@ -242,7 +247,7 @@ func TestLocalCachyPerformanceManifestCannotInjectSysctls(t *testing.T) {
 	}
 
 	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
-	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+	if _, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS); err == nil {
 		t.Fatal("expected local CachyOS sysctl injection to be rejected")
 	}
 }
@@ -290,6 +295,71 @@ func TestUbuntuPerformanceToolboxManifest(t *testing.T) {
 	for id, found := range required {
 		if !found {
 			t.Errorf("missing Ubuntu 24.04 performance package %q", id)
+		}
+	}
+}
+
+// TestListPerformanceProfilesReadsTheMinimumFromDisk keeps the release floor in
+// the manifest. A Go constant that encodes "24.04" is a lie once the fleet runs
+// 26.04, so discovery must report the declared minimum.
+func TestListPerformanceProfilesReadsTheMinimumFromDisk(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	metas, err := repo.ListPerformanceProfiles()
+	if err != nil {
+		t.Fatalf("ListPerformanceProfiles failed: %v", err)
+	}
+	if len(metas) != 2 {
+		t.Fatalf("performance profiles = %#v, want exactly two", metas)
+	}
+
+	byProfile := make(map[entity.PerformanceProfile]entity.PerformanceProfileMeta, len(metas))
+	for _, meta := range metas {
+		if meta.ManifestFile == "" {
+			t.Fatalf("meta %#v does not name its manifest file", meta)
+		}
+		byProfile[meta.Profile] = meta
+	}
+
+	ubuntu, ok := byProfile[entity.PerformanceProfileUbuntuServer]
+	if !ok {
+		t.Fatalf("ubuntu-server profile is not discoverable: %#v", metas)
+	}
+	if ubuntu.MinDistroVersion != "24.04" {
+		t.Fatalf("ubuntu-server minimum = %q, want 24.04", ubuntu.MinDistroVersion)
+	}
+	if ubuntu.ManifestFile != "performance_ubuntu.yaml" {
+		t.Fatalf("ubuntu-server manifest file = %q", ubuntu.ManifestFile)
+	}
+
+	cachyos, ok := byProfile[entity.PerformanceProfileCachyOS]
+	if !ok {
+		t.Fatalf("cachyos profile is not discoverable: %#v", metas)
+	}
+	if cachyos.MinDistroVersion != "" {
+		t.Fatalf("cachyos minimum = %q, want empty for a rolling release", cachyos.MinDistroVersion)
+	}
+}
+
+// TestPerformanceManifestsDoNotDeclareAVersionedProfileName is the lint that
+// keeps the old identity from coming back through a manifest edit.
+func readManifestFixture(t *testing.T, filename string) (string, error) {
+	t.Helper()
+	data, err := fs.ReadFile(envctl.EmbeddedFS, "manifests/"+filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func TestPerformanceManifestsDoNotDeclareAVersionedProfileName(t *testing.T) {
+	for _, filename := range []string{"performance_ubuntu.yaml", "performance_cachyos.yaml"} {
+		data, err := readManifestFixture(t, filename)
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if strings.Contains(data, "ubuntu-24.04") {
+			t.Fatalf("%s still declares the versioned profile identity ubuntu-24.04", filename)
 		}
 	}
 }

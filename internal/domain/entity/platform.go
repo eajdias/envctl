@@ -165,6 +165,18 @@ func MatchesPackage(pkg Package) bool {
 	return PackageMatchesPlatform(pkg, DetectedPlatform())
 }
 
+// MatchesDistroMinimum reports whether a detected VERSION_ID satisfies a
+// declared minimum. An empty minimum accepts every version, which keeps a
+// profile without an explicit floor reachable. A version that is absent or
+// unparseable (for example a rolling release against a numeric minimum) does
+// not satisfy the minimum: the profile declares a floor it cannot prove.
+func MatchesDistroMinimum(versionID, minimum string) bool {
+	if minimum == "" {
+		return true
+	}
+	return compareDistroVersions(versionID, minimum) >= 0
+}
+
 func compareDistroVersions(current, minimum string) int {
 	currentParts, currentOK := parseDistroVersion(current)
 	minimumParts, minimumOK := parseDistroVersion(minimum)
