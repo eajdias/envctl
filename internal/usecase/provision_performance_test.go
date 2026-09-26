@@ -425,7 +425,7 @@ func TestProvisionPerformanceDebloatIsOptIn(t *testing.T) {
 	// The opt-in run reaches the debloat manager. Its outcome depends on the
 	// loaded spec, which the repository stub does not populate; what matters
 	// here is that the call happens at all.
-	if _, _, err := uc.executePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil, true); err != nil {
+	if _, _, err := uc.executePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil, true, false, ""); err != nil {
 		t.Fatalf("opt-in run failed: %v", err)
 	}
 	if debloat.calls != 1 {

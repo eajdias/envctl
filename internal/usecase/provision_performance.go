@@ -69,7 +69,19 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	dryRun bool,
 	onProgress PackageProgressHandler,
 ) ([]entity.Package, []entity.Diagnostic, error) {
-	return uc.executePerformance(ctx, profile, dryRun, onProgress, false)
+	return uc.executePerformance(ctx, profile, dryRun, onProgress, false, false, "")
+}
+
+// ExecutePerformanceWithOptions is the command-line entry point. It folds the
+// flag decisions into the declared specs before anything is applied, so a flag
+// and its effect are covered by the same tests.
+func (uc *ProvisionPerformanceUseCase) ExecutePerformanceWithOptions(
+	ctx context.Context,
+	profile entity.PerformanceProfile,
+	opts PerformanceOptions,
+	onProgress PackageProgressHandler,
+) ([]entity.Package, []entity.Diagnostic, error) {
+	return uc.executePerformance(ctx, profile, opts.DryRun, onProgress, opts.AllowDebloat || opts.DebloatOnly, opts.NoDaemonReexec, opts.Timezone)
 }
 
 // executePerformance carries the opt-in flag for the one destructive step.
@@ -81,6 +93,8 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 	dryRun bool,
 	onProgress PackageProgressHandler,
 	allowDebloat bool,
+	optionsNoReexec bool,
+	optionsTimezone string,
 ) ([]entity.Package, []entity.Diagnostic, error) {
 	platform := uc.platform()
 	if !entity.PerformanceProfileMatchesOS(profile, platform) {
@@ -107,6 +121,22 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 	}
 	if err := validatePerformanceSpec(spec, profile, platform); err != nil {
 		return nil, nil, err
+	}
+	if spec.Limits != nil {
+		limits := *spec.Limits
+		if spec.Timezone != nil {
+			tz := *spec.Timezone
+			PerformanceOptions{NoDaemonReexec: optionsNoReexec, Timezone: optionsTimezone}.applyTo(&limits, &tz)
+			spec.Limits = &limits
+			spec.Timezone = &tz
+		} else {
+			PerformanceOptions{NoDaemonReexec: optionsNoReexec}.applyTo(&limits, nil)
+			spec.Limits = &limits
+		}
+	} else if spec.Timezone != nil {
+		tz := *spec.Timezone
+		PerformanceOptions{Timezone: optionsTimezone}.applyTo(nil, &tz)
+		spec.Timezone = &tz
 	}
 	if uc.packages == nil {
 		return nil, nil, fmt.Errorf("performance package provisioner is not configured")

@@ -114,17 +114,30 @@ func newRunCmd() *cobra.Command {
 
 	performanceCmd := &cobra.Command{
 		Use:   "performance",
-		Short: "Apply the exact Ubuntu 24.04+ or CachyOS performance profile",
+		Short: "Apply the exact Ubuntu Server 24+ or CachyOS performance profile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dryRun, err := cmd.Flags().GetBool("dry-run")
-			if err != nil {
+			flags := cmd.Flags()
+			opts := usecase.PerformanceOptions{
+				DryRun:             mustBool(flags, "dry-run"),
+				NoDaemonReexec:     mustBool(flags, "no-daemon-reexec"),
+				Timezone:           mustString(flags, "timezone"),
+				AllowDebloat:       mustBool(flags, "allow-debloat"),
+				DebloatOnly:        mustBool(flags, "debloat-only"),
+				ForceRebootPending: mustBool(flags, "force-reboot-pending"),
+			}
+			if err := opts.Validate(); err != nil {
 				return err
 			}
 			PrintBanner()
-			return runPerformanceProvisioning(cmd.Context(), dryRun)
+			return runPerformanceProvisioning(cmd.Context(), opts)
 		},
 	}
 	performanceCmd.Flags().Bool("dry-run", false, "Show the exact OS profile and changes without applying them")
+	performanceCmd.Flags().Bool("no-daemon-reexec", false, "Write the limits drop-ins without re-executing PID 1 (the new defaults then apply on the next reboot)")
+	performanceCmd.Flags().String("timezone", "", "Enforce an IANA timezone instead of only verifying the host's (for example America/Sao_Paulo)")
+	performanceCmd.Flags().Bool("allow-debloat", false, "Also remove the packages listed in manifests/debloat_linux.yaml (opt-in: this destroys installed packages)")
+	performanceCmd.Flags().Bool("debloat-only", false, "Run only the package removal, skipping every other step")
+	performanceCmd.Flags().Bool("force-reboot-pending", false, "Proceed even though /var/run/reboot-required exists")
 	cmd.AddCommand(performanceCmd)
 
 	cmd.AddCommand(&cobra.Command{
@@ -321,7 +334,7 @@ func runVPSProfile() error {
 	// outside the manifest's declared minimum must fail loudly instead of
 	// silently skipping every performance change.
 	PrintSection(section(4, "Applying Ubuntu Server Performance Profile (zram + sysctl)"))
-	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
+	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
 		return fmt.Errorf("Ubuntu Server performance profile is required by `run vps`: %w", err)
 	}
 
@@ -362,7 +375,7 @@ func runCachyOSProfile() {
 	runGamingProvisioning()
 
 	PrintSection(section(5, "Applying CachyOS Performance Profile (zram)"))
-	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
+	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
 		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
 	}
 
