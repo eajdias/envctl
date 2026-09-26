@@ -147,6 +147,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected exactly %d debloat tweaks, got %d", expectedDebloat, len(debloat))
 	}
 
+	seenStartup := map[string]bool{}
 	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true, "StartupItem": true}
 	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true, "startup": true}
 	seen := map[string]bool{}
@@ -156,7 +157,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		}
 		seen[tw.ID] = true
 		if !validTypes[tw.Type] {
-			t.Errorf("debloat tweak %q has unsupported type %q (want DWord/String/Appx/Service)", tw.ID, tw.Type)
+			t.Errorf("debloat tweak %q has unsupported type %q (want DWord/String/Appx/Service/StartupItem)", tw.ID, tw.Type)
 		}
 		if !validCats[tw.Category] {
 			t.Errorf("debloat tweak %q has unknown category %q", tw.ID, tw.Category)
@@ -174,8 +175,18 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 				t.Errorf("debloat Service tweak %q must declare Disabled/Manual, got %v", tw.ID, tw.Value)
 			}
 		case "StartupItem":
-			// A startup entry is identified by the Win32_StartupCommand name
-			// only: no registry path, and no value (removal has no target state).
+			// A startup entry is identified by name only: no registry path,
+			// and no value (removal has no target state).
+			//
+			// The name must be unique across the family: the probe indexes its
+			// readout by lowercased name, so two entries sharing one would
+			// collapse into a single row and surface as a bogus
+			// "answered N of M names" probe error.
+			key := strings.ToLower(tw.Name)
+			if seenStartup[key] {
+				t.Errorf("duplicate debloat StartupItem name %q (tweak %q)", tw.Name, tw.ID)
+			}
+			seenStartup[key] = true
 			if tw.Path != "" {
 				t.Errorf("debloat StartupItem tweak %q must have empty path, got %q", tw.ID, tw.Path)
 			}

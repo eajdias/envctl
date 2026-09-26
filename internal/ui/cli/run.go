@@ -622,7 +622,7 @@ func runWindowsProvisioning() {
 
 func runDebloatProvisioning() {
 	runTweakStack(
-		"Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services)...",
+		"Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services/startup)...",
 		"Failed debloat provisioning: %v",
 		"Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services/startup)",
 		appCtx.ProvisionDebloatUC,

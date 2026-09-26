@@ -46,105 +46,134 @@ func psValue(v any) string {
 	}
 }
 
-// Startup entries are probed and removed against the two Run keys and the two
-// Startup folders directly, NOT through Win32_StartupCommand. Two reasons:
-//   - That class is a CIM_Setting whose published MOF lists properties only,
-//     so the legacy tool's `$_.Delete()` does not exist.
-//   - Its `Location` is inconsistent (registry key, the literal strings
-//     "Startup"/"Common Startup", HKU\<SID>\...), which forced a fragile
-//     classifier that silently matched nothing and left the doctor green.
+// Startup entries are probed and removed against a closed set: the two Run keys
+// and the two Startup folders. NOT via Win32_StartupCommand, for two reasons
+// confirmed against its published MOF and docs:
+//   - it is a CIM_Setting whose MOF lists properties only, so the legacy tool's
+//     `$_.Delete()` does not exist;
+//   - its `Location` is inconsistent (registry key, the bare literals
+//     "Startup"/"Common Startup", HKU\<SID>\...), which is what forced a
+//     fragile classifier that matched nothing and left the doctor green.
 //
 // Reading the exact locations makes "never touches a service" structural: a
-// service cannot be a value in a Run key nor a file in a Startup folder, so
-// there is nothing left to misclassify.
-var (
-	startupRunKeys = []string{
-		`HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`,
-		`HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`,
-	}
+// service is neither a Run-key value nor a Startup-folder file.
+type startupTarget struct {
+	token string // what the probe reports; a path never crosses the boundary
+	kind  string
+	path  string // registry only: ASCII literal, safe to embed
+	env   string // folder only: [Environment]::GetFolderPath argument
+}
+
+const (
 	startupKindRegistry = "registry"
 	startupKindDir      = "dir"
 )
 
-// startupProbeScript reports, for each wanted name, the `;`-joined list of
-// locations where it was found (empty when absent). Names are compared with
-// -eq against enumerated values, never with -Filter, so a name carrying
-// PowerShell wildcard characters stays inert.
+var startupTargets = []startupTarget{
+	{token: "RUN_HKCU", kind: startupKindRegistry, path: `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`},
+	{token: "RUN_HKLM", kind: startupKindRegistry, path: `HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`},
+	{token: "DIR_ROAMING", kind: startupKindDir, env: "ApplicationData"},
+	{token: "DIR_PROGRAMDATA", kind: startupKindDir, env: "CommonApplicationData"},
+}
+
+const startupFolderSuffix = `Microsoft\Windows\Start Menu\Programs\Startup`
+
+// startupTargetForToken resolves a probe token. An unknown token is refused, so
+// a name that somehow probes outside the closed set can never reach a deletion.
+func startupTargetForToken(token string) (startupTarget, bool) {
+	for _, tgt := range startupTargets {
+		if tgt.token == token {
+			return tgt, true
+		}
+	}
+	return startupTarget{}, false
+}
+
+// startupTargetsTable renders the PowerShell hashtable a script needs, so
+// probe and apply cannot disagree about what a target is. Only the requested
+// targets are rendered: a registry-only removal must not resolve a Startup
+// folder it will never touch. The Startup folders resolve through GetFolderPath
+// rather than %APPDATA%/%ProgramData%: those are absent in non-interactive
+// contexts (service, scheduled task), and a folder path never travels back
+// through the console code page.
+func startupTargetsTable(targets []startupTarget) string {
+	rows := make([]string, 0, len(targets))
+	for _, tgt := range targets {
+		var path string
+		if tgt.kind == startupKindDir {
+			path = fmt.Sprintf("(Join-Path ([Environment]::GetFolderPath('%s')) '%s')", tgt.env, startupFolderSuffix)
+		} else {
+			path = "'" + psQuote(tgt.path) + "'"
+		}
+		rows = append(rows, fmt.Sprintf("  '%s' = @{ Kind = '%s'; Path = %s }", tgt.token, tgt.kind, path))
+	}
+	// No trailing comma: `@( @{...}, )` is a parse error in powershell 5.1.
+	return "@{\n" + strings.Join(rows, "\n") + "\n}"
+}
+
+// startupProbeScript reports, for each wanted name, the `,`-joined tokens of
+// the targets it was found in (empty when absent). Registry keys are read with
+// GetValueNames() and compared with -contains, and folders with BaseName, so a
+// name carrying wildcard characters is never handed to a wildcard matcher.
 func startupProbeScript(names []string) string {
 	quoted := make([]string, 0, len(names))
 	for _, n := range names {
 		quoted = append(quoted, "'"+psQuote(n)+"'")
 	}
 	return fmt.Sprintf(`
-$keys = @(%s)
-$dirs = @(
-  (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'),
-  (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Startup'))
+$targets = %s
+$keyNames = @{}
+$dirNames = @{}
+foreach ($tk in $targets.Keys) {
+  $p = $targets[$tk].Path
+  if ($targets[$tk].Kind -eq '%s') {
+    if (Test-Path -LiteralPath $p) { $keyNames[$tk] = @((Get-Item -LiteralPath $p).GetValueNames()) } else { $keyNames[$tk] = @() }
+  } else {
+    if (Test-Path -LiteralPath $p) {
+      $dirNames[$tk] = @(Get-ChildItem -LiteralPath $p -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.PSIsContainer } | ForEach-Object { $_.BaseName })
+    } else { $dirNames[$tk] = @() }
+  }
+}
 foreach ($n in @(%s)) {
   $found = @()
-  foreach ($k in $keys) {
-    if ($null -ne (Get-ItemProperty -Path $k -Name $n -ErrorAction SilentlyContinue)) { $found += $k }
-  }
-  foreach ($d in $dirs) {
-    if (Test-Path -LiteralPath $d) {
-      $hit = @(Get-ChildItem -LiteralPath $d -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -eq $n })
-      if ($hit.Count -gt 0) { $found += $d }
-    }
-  }
-  Write-Output ("DEBLOATSTARTUP|||" + $n + "|||" + ($found -join ';'))
+  foreach ($tk in $keyNames.Keys) { if (@($keyNames[$tk]) -contains $n) { $found += $tk } }
+  foreach ($tk in $dirNames.Keys) { if (@($dirNames[$tk]) -contains $n) { $found += $tk } }
+  Write-Output ("DEBLOATSTARTUP|||" + $n + "|||" + ($found -join ','))
 }
-`, psJoin(startupRunKeys), strings.Join(quoted, ","))
+`, startupTargetsTable(startupTargets), startupKindRegistry, strings.Join(quoted, ","))
 }
 
-// startupRemovalScript deletes one name from the given locations. Registry
-// locations go through Remove-ItemProperty (the System Registry Provider route
-// the WMI docs point at); folder locations go through Remove-Item on the
-// enumerated file, which is how a Startup-folder shortcut is really removed.
-func startupRemovalScript(name string, locations []string) string {
+// startupRemovalScript deletes one name from the given targets. Registry
+// targets go through Remove-ItemProperty — the System Registry Provider route
+// the WMI docs point at — with the name escaped because -Name is always a
+// WildcardPattern there. Folder targets go through the enumerated file, since
+// a Startup-folder entry is a file with an extension.
+func startupRemovalScript(name string, targets []startupTarget) string {
 	var b strings.Builder
-	for _, loc := range locations {
-		switch startupTargetKind(loc) {
-		case startupKindRegistry:
-			fmt.Fprintf(&b, "Remove-ItemProperty -LiteralPath '%s' -Name '%s' -Force -ErrorAction Stop\n",
-				psQuote(loc), psQuote(name))
-		case startupKindDir:
-			fmt.Fprintf(&b, "Get-ChildItem -LiteralPath '%s' -ErrorAction Stop | Where-Object { $_.BaseName -eq '%s' } | Remove-Item -Force -ErrorAction Stop\n",
-				psQuote(loc), psQuote(name))
+	b.WriteString("\n$targets = " + startupTargetsTable(targets) + "\n")
+	for _, tgt := range targets {
+		if tgt.kind == startupKindRegistry {
+			fmt.Fprintf(&b, `$p = $targets['%s'].Path
+if ((Test-Path -LiteralPath $p) -and (@((Get-Item -LiteralPath $p).GetValueNames()) -contains '%s')) {
+  Remove-ItemProperty -LiteralPath $p -Name ([WildcardPattern]::Escape('%s')) -Force -ErrorAction Stop
+}
+`, tgt.token, psQuote(name), psQuote(name))
+		} else {
+			fmt.Fprintf(&b, `$p = $targets['%s'].Path
+if (Test-Path -LiteralPath $p) {
+  Get-ChildItem -LiteralPath $p -ErrorAction Stop |
+    Where-Object { -not $_.PSIsContainer -and $_.BaseName -eq '%s' } |
+    Remove-Item -Force -ErrorAction Stop
+}
+`, tgt.token, psQuote(name))
 		}
 	}
 	return b.String()
 }
 
-// startupTargetKind classifies a probed location. Anything outside the closed
-// set the probe emits returns "", and the removal script then skips it.
-func startupTargetKind(location string) string {
-	loc := strings.TrimSpace(location)
-	if loc == "" {
-		return ""
-	}
-	for _, key := range startupRunKeys {
-		if strings.EqualFold(loc, key) {
-			return startupKindRegistry
-		}
-	}
-	// A Startup folder is a filesystem path; a registry key never is.
-	if len(loc) > 1 && loc[1] == ':' {
-		return startupKindDir
-	}
-	return ""
-}
-
-// psJoin renders a []string as PowerShell array elements.
-func psJoin(values []string) string {
-	quoted := make([]string, 0, len(values))
-	for _, v := range values {
-		quoted = append(quoted, "'"+psQuote(v)+"'")
-	}
-	return strings.Join(quoted, ",")
-}
-
-// parseStartupProbe indexes the probe readout by lowercased name. An entry the
-// probe reported with an empty location list is absent, not missing data.
+// parseStartupProbe indexes the probe readout by lowercased name. A name
+// reported with no token is absent, not missing data.
 func parseStartupProbe(out string) map[string]string {
 	rows := make(map[string]string)
 	for _, line := range strings.Split(out, "\n") {
@@ -157,21 +186,40 @@ func parseStartupProbe(out string) map[string]string {
 	return rows
 }
 
-// startupConforms maps a probed location list to the tweak verdict. Conforming
-// = the probe found nothing to remove.
-func startupConforms(locations string) (bool, string) {
-	if strings.TrimSpace(locations) == "" {
+// startupConforms maps a probe token list to the tweak verdict. Conforming =
+// nothing envctl is able to remove, so the doctor never claims drift it cannot
+// resolve. probeStartup has already rejected unknown tokens, so an empty list
+// here really means "not present in any target".
+func startupConforms(tokens string) (bool, string) {
+	if len(startupTargetsForTokens(tokens)) == 0 {
 		return true, "No removable startup entry"
 	}
 	return false, "Startup entry present (will be removed on apply)"
 }
 
-// startupSplitLocations turns the probe's `;`-joined list back into a slice.
-func startupSplitLocations(locations string) []string {
+// startupUnknownTokens returns the tokens the probe emitted that envctl did not
+// generate. Anything here is a probe/table disagreement, never "absent".
+func startupUnknownTokens(tokens string) []string {
 	var out []string
-	for _, loc := range strings.Split(locations, ";") {
-		if loc = strings.TrimSpace(loc); loc != "" {
-			out = append(out, loc)
+	for _, tok := range strings.Split(tokens, ",") {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			if _, ok := startupTargetForToken(tok); !ok {
+				out = append(out, tok)
+			}
+		}
+	}
+	return out
+}
+
+// startupTargetsForTokens resolves the probe tokens, dropping any unknown one.
+// Callers reach it only through probeStartup, which already rejected unknowns.
+func startupTargetsForTokens(tokens string) []startupTarget {
+	var out []startupTarget
+	for _, tok := range strings.Split(tokens, ",") {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			if tgt, ok := startupTargetForToken(tok); ok {
+				out = append(out, tgt)
+			}
 		}
 	}
 	return out
@@ -181,13 +229,29 @@ func (m *TweaksManager) probeStartup(ctx context.Context, names []string) (map[s
 	if len(names) == 0 {
 		return map[string]string{}, nil
 	}
-	//nolint:gosec // G204: names come from the embedded manifest (same trust level as the package tables) and reach PowerShell only as single-quoted literals via psQuote; no expansion, no shell. Asserted by TestStartupScriptsQuoteAdversarialNames.
+	//nolint:gosec // G204: names come from the embedded manifest (same trust level as the package tables) and reach PowerShell only as single-quoted literals via psQuote; no shell, no expansion. Asserted by TestStartupScriptsQuoteAdversarialNames.
 	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupProbeScript(names))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("failed to probe startup entries: %s (%w)", strings.TrimSpace(string(out)), err)
 	}
-	return parseStartupProbe(string(out)), nil
+	rows := parseStartupProbe(string(out))
+	// A partial readout must not read as "absent": that is how a broken probe
+	// would certify the whole category as converged. Same guard as the
+	// registry batch.
+	if len(rows) != len(names) {
+		return nil, fmt.Errorf("startup probe answered %d of %d names", len(rows), len(names))
+	}
+	// A token envctl cannot resolve means the probe and the target table
+	// disagree. The removal path refuses such a token, so treating it as
+	// "absent" here would have the audit approve what the mutation refuses —
+	// the same green-over-inconsistency this stack was rewritten to avoid.
+	for name, tokens := range rows {
+		if unknown := startupUnknownTokens(tokens); len(unknown) > 0 {
+			return nil, fmt.Errorf("startup probe reported unknown target(s) %v for %q", unknown, name)
+		}
+	}
+	return rows, nil
 }
 
 func (m *TweaksManager) probeStartupTweak(ctx context.Context, name string) (string, error) {
@@ -654,20 +718,22 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 
 	case "startupitem":
 		// Re-probe with the same script the check uses, then delete only from
-		// the locations it reported. The closed set (two Run keys, two Startup
-		// folders) is what keeps a service out of reach, not a classifier.
-		locations, err := m.probeStartupTweak(ctx, tweak.Name)
+		// the targets it reported. The closed set is what keeps a service out
+		// of reach, not a classifier over a free-form Location.
+		tokens, err := m.probeStartupTweak(ctx, tweak.Name)
 		if err != nil {
 			return err
 		}
-		targets := startupSplitLocations(locations)
+		targets := startupTargetsForTokens(tokens)
 		if len(targets) == 0 {
-			return nil // nothing of ours to remove: idempotent no-op
+			// Converged by someone else between the two probes. Not an error:
+			// the desired end state holds, so returning nil keeps `run debloat`
+			// idempotent. Logged so the trace is not read as "we removed it".
+			m.logger.Info("Startup entry %s no longer present at apply time; nothing to remove", tweak.Name)
+			return nil
 		}
 		startupScript := startupRemovalScript(tweak.Name, targets)
-		if strings.TrimSpace(startupScript) == "" {
-			return nil // every probed location fell outside the closed set
-		}
+		//nolint:gosec // G204: the name comes from the embedded manifest (same trust level as the package tables) and reaches PowerShell only as a single-quoted literal via psQuote, then through [WildcardPattern]::Escape; paths are the fixed Run keys or GetFolderPath results. No shell, no expansion. Asserted by TestStartupScriptsQuoteAdversarialNames and TestStartupScriptsNeutralizeWildcardNames.
 		startupCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupScript)
 		startupOut, startupErr := startupCmd.CombinedOutput()
 		exitCode := 0

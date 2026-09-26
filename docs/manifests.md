@@ -245,20 +245,31 @@ tweaks:
 
   - id: "startup-microsoftedge"       # 4 startup entries
     name: "MicrosoftEdge"             # conforme = ausente; sem path e sem value
-    type: "StartupItem"               # aplica delete no Run key / pasta Startup
+    type: "StartupItem"               # remove o valor/atalho do Run key / pasta Startup
     category: "startup"
 ```
 
 `StartupItem` sonda e remove contra um conjunto **fechado**: as duas Run keys
-(`HKCU`/`HKLM ...\CurrentVersion\Run`) e as duas pastas `Startup` (`%APPDATA%`
-e `%ProgramData%`). Não passa por `Win32_StartupCommand` — essa classe é uma
-`CIM_Setting` cujo MOF publicado lista só properties (não existe `Delete`) e o
-`Location` dela é inconsistente entre formatos. Ler os locais diretamente torna
-a garantia estrutural: um serviço não é um valor em Run key nem um arquivo em
-pasta `Startup`, então não há o que classificar errado. `startupTargetKind()`
-roteia cada local para o cmdlet certo (`Remove-ItemProperty` na Run key,
-`Remove-Item` na pasta) e check, batch e apply passam todos por `probeStartup`,
-de modo que auditoria e mutação não divergem.
+(`HKCU`/`HKLM ...\CurrentVersion\Run`) e as duas pastas `Startup`
+(`ApplicationData` e `CommonApplicationData`). Não passa por
+`Win32_StartupCommand` — essa classe é uma `CIM_Setting` cujo MOF publicado lista
+só properties (não existe `Delete`) e o `Location` dela é inconsistente entre
+formatos. Ler os locais diretamente torna a garantia estrutural: um serviço não
+é um valor em Run key nem um arquivo em pasta `Startup`, então não há o que
+classificar errado.
+
+A sonda reporta um **token** por alvo (`RUN_HKCU`, `DIR_PROGRAMDATA`, ...), nunca
+um path: nenhum caminho atravessa a fronteira do processo (um `%APPDATA%` não
+ASCII é corrompido pelo code page do console) e nenhum separador consegue
+truncar. `startupTargetForToken()` recusa token desconhecido, então um alvo fora
+do conjunto não chega a uma remoção. As pastas resolvem por
+`[Environment]::GetFolderPath()`, não por `%APPDATA%`/`%ProgramData%`, que
+sumem em contexto não interativo (serviço, tarefa agendada). O nome da Run key
+é escapado com `[WildcardPattern]::Escape()` porque `-Name` do provider de
+registro **sempre** é wildcard — sem isso, um nome com `*` apagaria vários
+valores. Check, batch e apply passam todos por `probeStartup`, e uma sonda
+parcial vira erro em vez de "ausente" (senão o doctor certificaria convergência
+inexistente).
 
 O `doctor` audita uma linha agregada por categoria (`Debloat / category <nome>`):
 `OK` quando aplicada, `INFO` com `run 'envctl run debloat'` quando há drift — nunca

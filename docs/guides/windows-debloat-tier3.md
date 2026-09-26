@@ -73,7 +73,7 @@ Copy-Item "$env:USERPROFILE\.wslconfig" "$env:USERPROFILE\.wslconfig.bak.$(Get-D
 Set-Content -Path "$env:USERPROFILE\.wslconfig" -Value "[wsl2]`nmemory=4GB`nprocessors=2" -Force
 ```
 
-## 7. Copilot / Recall / Widgets (fora do Appx automático)
+## 7. Copilot / Recall / Widgets (o que o Appx automático **não** faz)
 
 ```powershell
 Get-AppxPackage -AllUsers '*Copilot*' | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
@@ -116,7 +116,17 @@ Fora do manifest de propósito: `Spooler` (impressão), serviços de acesso remo
 O manifest remove 4 entradas de startup — `BraveSoftware`, `Canva`,
 `MicrosoftEdge`, `SecurityHealth`. O escopo é um conjunto fechado: as duas Run
 keys (`HKCU`/`HKLM ...\CurrentVersion\Run`) e as duas pastas `Startup`
-(`%APPDATA%` e `%ProgramData%`).
+(`ApplicationData` e `CommonApplicationData`).
+
+Duas armadilhas já pagas:
+
+- **A sonda nunca manda um path de volta.** Ela emite um *token* por alvo
+  (`RUN_HKCU`, `DIR_PROGRAMDATA`, ...). Um path que atravessa o code page do
+  console volta corrompido se tiver acento, e um path com `;` (legal no NTFS)
+  seria truncado por qualquer separador.
+- **As pastas resolvem por `[Environment]::GetFolderPath()`**, não por
+  `%APPDATA%`/`%ProgramData%`: em contexto não interativo (serviço, tarefa
+  agendada) essas variáveis não existem.
 
 **Não é `Win32_StartupCommand`, de propósito.** Duas Razões, ambas
 confirmadas na doc oficial da classe:
@@ -136,7 +146,14 @@ Ler os locais diretamente torna a garantia **estrutural**: um serviço não é u
 valor em Run key nem um arquivo em pasta `Startup`, então não há o que
 classificar errado.
 
-Duas exclusões deliberadas:
+Cobertura: a Run key de 64 bits. Uma entrada de app 32-bit gravada em
+`Wow6432Node` **não** é coberta por este conjunto.
+
+O nome é escapado com `[WildcardPattern]::Escape()` no `Remove-ItemProperty`,
+porque `-Name` do provider de registro é sempre um wildcard — sem o escape, um
+nome com `*` apagaria vários valores da Run key.
+
+Exclusão deliberada:
 
 - **Serviços de áudio ficaram de fora**: `WavesSvc` e `RtkAuduService` são
   drivers e desligá-los pode quebrar o áudio da máquina.
@@ -144,20 +161,25 @@ Duas exclusões deliberadas:
 Auditando antes de aplicar:
 
 ```powershell
-Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' |
-    Select-Object -ExcludeProperty PS*
-Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
+$startup = @(
+  'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run',
+  'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run')
+foreach ($k in $startup) { (Get-Item -LiteralPath $k).GetValueNames() }
+foreach ($f in 'ApplicationData', 'CommonApplicationData') {
+  Join-Path ([Environment]::GetFolderPath($f)) 'Microsoft\Windows\Start Menu\Programs\Startup'
+}
 ```
 
 Removendo uma entrada à mão:
 
 ```powershell
-# Run key
-Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'SecurityHealth' -Force
+# Run key — o nome é literal, então escapa se tiver wildcard
+$name = [WildcardPattern]::Escape('SecurityHealth')
+Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name $name -Force
 # Pasta Startup (o atalho tem extensão, por isso o BaseName)
-Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup" |
-    Where-Object { $_.BaseName -eq 'Brave' } |
+$dir = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Microsoft\Windows\Start Menu\Programs\Startup'
+Get-ChildItem -LiteralPath $dir |
+    Where-Object { -not $_.PSIsContainer -and $_.BaseName -eq 'BraveSoftware' } |
     Remove-Item -Force
 ```
 

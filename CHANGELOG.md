@@ -19,7 +19,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   fechado (2 Run keys + 2 pastas `Startup`) em vez de `Win32_StartupCommand`:
   essa classe é uma `CIM_Setting` cujo MOF lista só properties (o `Delete()` do
   `windows11-clean` não existe) e o `Location` dela é inconsistente entre
-  formatos, o que fazia um classificador sobre ele casar com a forma errada.
+  formatos, o que fazia um classificador sobre ele casar com a forma errada e o
+  doctor reportar convergência inexistente. A sonda emite tokens (nunca paths),
+  recusa token desconhecido, escapa o nome para `-Name` (que é wildcard no
+  provider de registro) e trata sonda parcial como erro.
 
 ---
 

@@ -54,34 +54,56 @@ value name / Startup-folder file base name). Xbox suite stays out — gaming.
 
 ### `internal/infra/windows/tweaks_manager.go`
 
-- `startupRunKeys` — the closed set of two Run keys; `startupKindRegistry` /
-  `startupKindDir` classify a probed location.
-- `startupProbeScript(names)` — one spawn answering every wanted name with its
-  `;`-joined locations. Names are compared with `-eq` against enumerated
-  values, never via `-Filter`, so a name carrying PowerShell wildcard
-  characters stays inert.
-- `startupTargetKind(location)` — pure Go classifier, unit-testable off
-  Windows. Returns `""` for anything outside the closed set, and the removal
-  script then skips it.
-- `startupRemovalScript(name, locations)` — `Remove-ItemProperty` for Run
-  keys, `Get-ChildItem | Remove-Item` for Startup folders. No WMI method.
+- `startupTargets` — the closed set, as `{token, kind, path|env}` records. The
+  probe reports a **token**, never a path: a path crossing the process boundary
+  is mangled by the console code page (non-ASCII `%APPDATA%`), and no separator
+  can truncate it (`;` is legal in an NTFS name). `startupTargetForToken()`
+  refuses anything unknown, so a target outside the set never reaches a
+  deletion.
+- `startupTargetsTable()` — renders the PowerShell hashtable both scripts
+  share, so probe and apply cannot disagree about a target. Folders resolve via
+  `[Environment]::GetFolderPath()` (absent `%APPDATA%`/`%ProgramData%` do not
+  exist in non-interactive contexts).
+- `startupProbeScript(names)` — one spawn answering every name with its
+  `,`-joined tokens. Registry keys are read with `GetValueNames()` and folders
+  with `BaseName`, compared with `-contains`/`-eq`, never through a wildcard
+  matcher or `-Filter`.
+- `startupRemovalScript(name, targets)` — `Remove-ItemProperty` for Run keys
+  with the name escaped via `[WildcardPattern]::Escape()` (`-Name` is *always* a
+  `WildcardPattern` in the registry provider, so an unescaped `*` would delete
+  several values), `Get-ChildItem | Remove-Item` for Startup folders, skipping
+  containers. No WMI method.
 - `CheckTweak` case `startupitem` / `CheckBatch` new `startupIdx` family /
   `ApplyTweak` case `startupitem` — all three route through `probeStartup`, so
   the audit and the mutation cannot drift. Apply is a no-op when the probe
   reports nothing.
+- `probeStartup` **fails on a partial readout** (answered != requested), the
+  same guard `checkRegistryBatch` has: a truncated probe must not read as
+  "absent" and certify the category as converged.
 - `serviceExpectedState(tweak)` — extracted so check, batch and apply resolve
   the target `StartType` the same way (the ternary was duplicated in all three).
 
 ### Tests
 
-- `tweaks_manager_test.go`: `startupTargetKind` table, `parseStartupProbe`,
-  `startupRemovalScript` (asserts it never emits `.Delete()`/`Invoke-CimMethod`
-  and routes each kind to the right cmdlet), `startupScriptsQuoteAdversarialNames`
-  (asserts `psQuote` and no `-Filter`), `startupConforms`, plus a `StartupItem`
-  entry in the existing batch-vs-single parity test. All run on Linux, unlike
-  the pre-existing Windows-only tests.
+- `tweaks_manager_test.go`: `startupTokenIsClosedSet`,
+  `startupTargetForTokenRejectsUnknown`, `startupScriptsEmbedLiteralRegistryPaths`,
+  `parseStartupProbe`, `startupUnknownTokens`, `startupConforms`,
+  `startupRemovalScriptAvoidsMissingWmiMethod` (asserts it never emits
+  `.Delete()`/`Invoke-CimMethod`, routes each kind to the right cmdlet, skips
+  containers and uses `-LiteralPath`),
+  `startupScriptsNeutralizeWildcardNames` (asserts
+  `[WildcardPattern]::Escape` on the removal, `-contains` on the probe, no
+  `Get-ItemProperty -Name` and no `-Filter`), `startupScriptsQuoteAdversarialNames`,
+  a `StartupItem` entry in the existing batch-vs-single parity test, and
+  `TestWindowsTweaksManager_StartupItemRoundTrip` — the only coverage of the
+  destructive path: it creates a disposable HKCU Run value, proves the check
+  reports drift, applies, proves convergence and re-applies for idempotency.
+  The pure tables and script renderers run on Linux; the round-trip and the
+  parity test skip off Windows and are exercised by the `windows-latest` CI job.
 - `manifest_repo_test.go`: `expectedDebloat` 76 → 94, the `StartupItem` shape,
-  and a guard that no `-manual` id regressed to `Disabled`.
+  unique lowercased `StartupItem` names (a duplicate would collapse in the
+  probe readout and surface as a bogus "answered N of M" error), and a guard that
+  no `-manual` id regressed to `Disabled`.
 
 ### Docs
 
