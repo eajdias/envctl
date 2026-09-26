@@ -22,15 +22,13 @@
 - **Regra de ouro do catálogo:** carregue `code-playbooks` e leia `references/<tema>.md` antes de seguir convenção de stack.
 - **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
 - Nunca hardcode segredos. ACLs restritas em `~/.ssh`.
-- **Worktree criado = sessão movida.** Criou worktree para isolar trabalho? A PRÓXIMA ação é `opencode.session_move` para ele — não siga na árvore antiga nem prefixe `cd` em cada comando. Criar o worktree e continuar no diretório original é o erro mais caro aqui: você edita a árvore compartilhada, `git status` enche de arquivo de outra sessão e o `git add` sequestra o trabalho alheio. Antes de criar: `git worktree list` (branch em um worktree só) e base explícita `origin/main`. Checklist na skill `git-workflow`.
-- **Sessão paralela no mesmo repo:** nunca assuma a árvore só sua. Build/vet/test quebrado com `undefined` em arquivo que você não tocou = outra sessão editando ao vivo. Prove com `git status --short` + `ls -la --time-style=full-iso <arquivo>` antes de reportar como bug seu; arquivo modificado DEPOIS do seu último build é a prova. Nunca `git add -A` — use `git add -- <caminho>`.
 - Delegue o trabalho barulhento (varredura ampla, output volumoso) para preservar o contexto; o critério completo está na skill `subagent-routing`.
 - **Ambiguidade alta** (o alvo, o escopo ou o critério de pronto não estão claros)? **Pergunte antes de agir** — a skill `clarify-before-acting` mede isso de 0 a 100. Melhor perguntar a mais do que executar errado e ter que desfazer.
 
 ## OpenCode
 
 - **Config:** `~/.config/opencode/opencode.json` (padrão único, JSON — `opencode.jsonc`/`tui.json` são removidos pelo provisioning). **Regras:** `~/.config/opencode/AGENTS.md` (este arquivo), auto-carregado. **Config não é hot-reload:** reinicie o opencode e valide com `opencode debug config`.
-- **Agentes:** `review` (primary explícito), `plan` (primary built-in) e `planner` (subagent read-only de planejamento) — use `planner` para pesquisa/plano volumoso, `plan` no Tab para planejamento interativo e `review` antes de concluir/commitar. Detalhe em REFERENCE.md.
+- **Agentes:** `review` (primary explícito), `plan` (primary built-in) e 5 subagents dispatchable read-only: `planner` (pesquisa/plano volumoso), `reviewer` (segundo parecer com severidades), `verifier` (gate com evidência real), `docs-writer` (doc contra manifesto/código), `memory-keeper` (lições/patterns no fecho). `review` no Tab para revisar na mão, `reviewer` despachado pelo coordenador. Detalhe em REFERENCE.md.
 - **Plugins:** `opencode-goal-plugin` (dcp + ponytail removidos em 2026-09-19: quebram no opencode v2, ver REFERENCE.md). Detalhe em REFERENCE.md.
 - **MCP:** `context7` (docs); `ssh-manager` + `chrome-devtools` (`disabled: true` — habilite com `/mcp`); automação determinística via `pw` no shell (wrapper versionado de `playwright-cli`, `code-playbooks/references/web-automation.md`). Remoto via CLI `ssh-manager` + `code-playbooks/references/infra.md`.
 - **LSP:** binários instalados para shell/IDE; o runtime v2 ignora LSP — diagnóstico do agente via lint/typecheck.
