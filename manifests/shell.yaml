@@ -158,6 +158,27 @@ config_files:
     strict_acl: false
     category: "commandcode"
 
+  - id: commandcode_agent_verifier
+    description: "CommandCode verifier agent (read-only, roda o gate e devolve a saida real; nunca corrige codigo para fazer o gate passar)"
+    source: "configs/commandcode/agents/verifier.md"
+    destination: "~/.commandcode/agents/verifier.md"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agent_docs_writer
+    description: "CommandCode docs-writer agent (manifesto/codigo vencem a doc; CHANGELOG.md pertence ao release-please)"
+    source: "configs/commandcode/agents/docs-writer.md"
+    destination: "~/.commandcode/agents/docs-writer.md"
+    strict_acl: false
+    category: "commandcode"
+
+  - id: commandcode_agent_memory_keeper
+    description: "CommandCode memory-keeper agent (classifica licao vs pattern antes de gravar, dedupe, sem segredo)"
+    source: "configs/commandcode/agents/memory-keeper.md"
+    destination: "~/.commandcode/agents/memory-keeper.md"
+    strict_acl: false
+    category: "commandcode"
+
   - id: user_package_json
     description: "User root package.json for agent automation libs (axios, cheerio, papaparse)"
     source: "configs/user-package.json"

@@ -36,6 +36,16 @@ func TestValidateOpenCodeConfigShape(t *testing.T) {
 			config: `{"agents":{"review":{"mode":"primary","description":"review","permissions":[{"action":"shell","resource":"*","effect":"ask"}]},"planner":{"mode":"subagent","description":"plan","permissions":[{"action":"edit","resource":"*","effect":"deny"}]}}}`,
 		},
 		{
+			// request.body is the V2 home for per-agent sampling knobs, so a
+			// nested temperature must not be mistaken for the legacy field.
+			name:   "native request body is not legacy",
+			config: `{"agents":{"review":{"mode":"primary","description":"review","steps":25,"request":{"body":{"temperature":0.1,"top_p":0.9}},"permissions":[{"action":"edit","resource":"*","effect":"deny"}]}}}`,
+		},
+		{
+			name:   "native disabled and hidden are not legacy",
+			config: `{"agents":{"reviewer":{"mode":"subagent","description":"review","hidden":true,"disabled":true}}}`,
+		},
+		{
 			name:        "legacy agent root",
 			config:      `{"agent":{"build":{"prompt":"legacy"}}}`,
 			wantProblem: "agent",
@@ -54,6 +64,41 @@ func TestValidateOpenCodeConfigShape(t *testing.T) {
 			name:        "subagent without description",
 			config:      `{"agents":{"planner":{"mode":"subagent","permissions":[]}}}`,
 			wantProblem: "description",
+		},
+		{
+			name:        "legacy prompt field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","prompt":"You are a reviewer"}}}`,
+			wantProblem: "prompt",
+		},
+		{
+			name:        "legacy agent permission object",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","permission":{"edit":"deny"}}}}`,
+			wantProblem: "permission",
+		},
+		{
+			name:        "legacy tools field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","tools":{"write":false}}}}`,
+			wantProblem: "tools",
+		},
+		{
+			name:        "legacy temperature field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","temperature":0.1}}}`,
+			wantProblem: "temperature",
+		},
+		{
+			name:        "legacy top_p field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","top_p":0.9}}}`,
+			wantProblem: "top_p",
+		},
+		{
+			name:        "legacy disable field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","disable":true}}}`,
+			wantProblem: "disable",
+		},
+		{
+			name:        "legacy maxSteps field",
+			config:      `{"agents":{"reviewer":{"mode":"subagent","description":"review","maxSteps":10}}}`,
+			wantProblem: "maxSteps",
 		},
 		{
 			name:        "invalid json",

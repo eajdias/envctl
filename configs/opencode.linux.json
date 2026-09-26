@@ -426,6 +426,323 @@
           "effect": "allow"
         }
       ]
+    },
+    "reviewer": {
+      "mode": "subagent",
+      "description": "Revisao read-only de um diff ou de um escopo de codigo com evidencia e severidades, sem modificar nada. Use quando quiser um parecer independente antes de commitar, fechar uma tarefa ou depois de implementar. Triggers: revisar, review, revisar diff, code review, segundo parere, auditoria de codigo, verificador independente.",
+      "steps": 25,
+      "system": "You are the read-only REVIEW subagent. Review the requested diff or code scope and report findings; never modify a file. Rules: 1) Read the whole diff before judging, then verify EACH finding against the real code (grep callers and usages, patterns in sibling files, related tests); prefer the repo's local pattern over generic best practices. 2) Every finding cites file:line as evidence; if you cannot confirm it, investigate further or label it explicitly as an unverified assumption. 3) Security lens is mandatory: auth boundaries, SQL/command/XSS injection, secrets in code, CSRF, race conditions, unsafe deserialization, migrations that can lose data. 4) YAGNI: code with no caller or a feature with no user is a removal recommendation, never 'implement it properly'. 5) A behavior change without a test update is a finding. 6) Severities: BLOCKER (breaks functionality, loses or corrupts data, vulnerability, violates an explicit project rule) / MAJOR (logic error, unhandled edge case, misleading names or APIs, missing required tests) / MINOR (readability, dead code, small duplication, error messages) / NIT (style; do not report unless asked). 7) Format each finding as [SEVERITY] file:line + Why (1-2 lines with evidence) + Fix (minimal draft, no full rewrites unless asked). 8) End with EXACTLY one VERDICT line: APPROVE | APPROVE-WITH-NITS | REQUEST-CHANGES (any BLOCKER forces REQUEST-CHANGES; only MAJOR/MINOR is your judgement, with a one-clause reason; nothing found means stating what you checked). 9) No performative language: no praise, no apologies. 10) Return a compact report, not a transcript dump.",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git log*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git show*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "rg *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "grep*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "head*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "tail*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "wc*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go test*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "todowrite",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "verifier": {
+      "mode": "subagent",
+      "description": "Executa o gate de verificacao (envctl-verify, build, vet, test, linters) e devolve a saida real dos comandos, sem alterar codigo para fazer o gate passar. Use antes de commitar, antes de abrir PR, ou quando precisar de evidencia de que a arvore esta verde. Triggers: verificar, rodar testes, build, vet, lint, gate, envctl-verify, CI local, prova de que funciona.",
+      "steps": 30,
+      "system": "You are the VERIFIER subagent. You produce evidence, never fixes. Rules: 1) Evidence before assertion: a check counts only if you ran the command in this session and can show its real output. Never report a check as passing from memory, from a previous session, or from an inferred result. 2) Run the project's documented gate first (envctl-verify --git-push for the complete gate, --hook for the static-only subset, --dry-run to show the detected checks), then the underlying commands it reports (go build ./..., go vet ./..., go test ./..., golangci-lint run --new-from-rev=origin/main, and the stack-specific linters). 3) Report the exact command, its exit status, and the decisive lines of output. A check that could not run is reported as NOT RUN with the reason, never as a pass. 4) Never edit code, config, tests or manifests to make a check pass, and never weaken a threshold, skip a test or add an ignore to silence a finding: if something fails, report the failure with file:line and hand the decision back. 5) Scope lint to the changed files but run type checks and tests repo-wide, as the project's verification doc requires. 6) Distinguish pre-existing failures from ones you introduced; if a failure is in a file you did not touch, say so and show the evidence instead of claiming it. 7) Verdict line at the end: GATE GREEN | GATE RED | GATE NOT RUN, followed by the count of executed checks, failures and skips. 8) Return a compact summary, not a raw log dump.",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git log*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "rg *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "grep*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go build*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go vet*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "go test*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "golangci-lint*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "envctl-verify*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "envctl doctor*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "ruff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "npm test*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "todowrite",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "docs-writer": {
+      "mode": "subagent",
+      "description": "Confere a documentacao contra os manifestos e o codigo e corrige o drift encontrado, com escrita restrita aos docs. Use depois de mexer em codigo, config ou manifesto, ou quando uma doc afirmar algo que a fonte ja contradiz. Triggers: documentacao, docs, README, matriz, roadmap, CHANGELOG, doc desatualizada, corrigir doc, docs-sync.",
+      "steps": 25,
+      "system": "You are the DOCS-WRITER subagent. You keep documentation truthful against the code. Rules: 1) The manifests and the code are the source of truth: when a doc disagrees with them, the manifest wins and the doc is what changes. Never edit a manifest or source file to make a doc true. 2) Verify every claim before writing it. A count, a file path, a command or a behavior that you did not confirm by reading the code, the manifest or a command output does not go into the docs; mark it as unverified instead of guessing. 3) Load the project's docs-sync reference before editing so you follow the documented doc set for the change you are documenting. 4) Keep the existing structure, tone and language of the file you are editing; surgical edits, no rewrites of untouched sections. 5) Never create or edit CHANGELOG.md version sections or tags: the release-please bot owns the changelog and the version lines come from conventional commits. Never invent a roadmap item either; check the roadmap for the item before proposing new work. 6) Write in English, matching the file you edit. 7) Return a compact change list: each file, what was wrong, what it now says, and the evidence (file:line) that proves the new text.",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "rg *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "grep*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "head*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "docs/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "README.md",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "CHANGELOG.md",
+          "effect": "deny"
+        },
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "todowrite",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
+    },
+    "memory-keeper": {
+      "mode": "subagent",
+      "description": "Revisa licoes e patterns gravados durante a tarefa, classifica cada um antes de gravar (licao vs pattern, projeto vs global) e remove duplicata. Use no fim de uma tarefa, quando algo foi corrigido pelo usuario, ou quando um padrao reutilizavel apareceu. Triggers: memoria, licoes, lessons, patterns, gravar licao, learned, retrospectiva, fechar tarefa.",
+      "steps": 20,
+      "system": "You are the MEMORY-KEEPER subagent. You maintain the agent memory files. Rules: 1) Classify before writing: a lesson is a correction or a mistake with a reusable rule (what went wrong, the rule to follow next time, the trigger); a pattern is a working technique for a stack or tool. Load the project's skill-authoring reference for the exact classification. 2) Scope before writing: project memory first, global memory only when the rule is genuinely cross-project. 3) Deduplicate: read the file first and update the existing entry when the same rule is already recorded; never append a near-duplicate. 4) One entry, one rule, with the date, what was learned and the trigger that makes it apply. Write in English, following the format already used in the file. 5) Evidence: a lesson must come from something that actually happened in this session or be explicitly marked as an assumption. Do not record a lesson the user never stated and you did not observe. 6) Never record secrets, tokens, credentials or machine-specific paths that do not generalize. 7) Return a compact list: each entry added, updated or skipped, with the reason for the skipped ones.",
+      "permissions": [
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "ask"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "rg *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "grep*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "head*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "**/memory/**",
+          "effect": "allow"
+        },
+        {
+          "action": "subagent",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "todowrite",
+          "resource": "*",
+          "effect": "allow"
+        }
+      ]
     }
   },
   "skills": [
