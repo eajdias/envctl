@@ -32,6 +32,13 @@ envctl doctor
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
+   - **Quarentena com janela de recuperação**: diretório de skill que saiu do manifesto é
+     **movido** (nunca apagado) para `~/.config/opencode/.envctl-trash/skills/<nome>-<stamp>`,
+     irmão da árvore de skills — então não é re-varrido, re-podado nem contado pelo doctor.
+     Entradas com mais de **30 dias** são removidas no deploy seguinte, para que o caminho de
+     recuperação não vire armazenamento permanente. Sem esse limite a árvore crescia 1 diretório
+     por skill removida, para sempre (39 diretórios por runtime na máquina em que o catálogo foi
+     de 50 para 12). Arquivos soltos no trash não são tocados: a árvore não é exclusivamente nossa.
 7. **Agentes & Config do OpenCode**:
    - `Config shape` (read-only): valida o formato V2 nativo do `~/.config/opencode/opencode.json` —
      sem `agent`/`permission` de V1, sem ações de permissão `bash`/`task`, `mode` em

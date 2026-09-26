@@ -390,14 +390,15 @@ func runShellProvisioning(categories ...string) {
 }
 
 // runSkillsForTarget deploys the manifest skills to one target directory and
-// returns how many were deployed and how many stale ones were quarantined.
-func runSkillsForTarget(label, targetBaseDir string) (deployed int, quarantined int) {
+// returns how many were deployed, how many stale ones were quarantined, and how
+// many quarantined entries aged out of the recovery window.
+func runSkillsForTarget(label, targetBaseDir string) (deployed int, quarantined int, expired int) {
 	ctx := context.Background()
 
-	results, prunedNames, err := appCtx.ProvisionSkillsUC.Execute(ctx, targetBaseDir)
+	results, prunedNames, expiredNames, err := appCtx.ProvisionSkillsUC.Execute(ctx, targetBaseDir)
 	if err != nil {
 		pterm.Error.Printf("  • [%s] skills deployment failed: %v\n", label, err)
-		return 0, 0
+		return 0, 0, 0
 	}
 
 	for _, r := range results {
@@ -410,16 +411,20 @@ func runSkillsForTarget(label, targetBaseDir string) (deployed int, quarantined 
 	for _, name := range prunedNames {
 		pterm.Info.Printf("  • [%s] quarantined stale skill: %s\n", label, name)
 	}
-	return deployed, len(prunedNames)
+	for _, name := range expiredNames {
+		pterm.Info.Printf("  • [%s] expired quarantined skill (past the recovery window): %s\n", label, name)
+	}
+	return deployed, len(prunedNames), len(expiredNames)
 }
 
 func runSkillsProvisioning() {
 	pterm.Info.Println("Deploying agent skills to OpenCode & CommandCode...")
 
-	deployedOC, prunedOC := runSkillsForTarget("OpenCode", "")
-	deployedCC, prunedCC := runSkillsForTarget("CommandCode", "~/.commandcode/skills")
+	deployedOC, prunedOC, expiredOC := runSkillsForTarget("OpenCode", "")
+	deployedCC, prunedCC, expiredCC := runSkillsForTarget("CommandCode", "~/.commandcode/skills")
 
-	pterm.Success.Printf("Deployed %d skills to OpenCode, %d to CommandCode (quarantined %d/%d stale)\n", deployedOC, deployedCC, prunedOC, prunedCC)
+	pterm.Success.Printf("Deployed %d skills to OpenCode, %d to CommandCode (quarantined %d/%d stale, expired %d/%d)\n",
+		deployedOC, deployedCC, prunedOC, prunedCC, expiredOC, expiredCC)
 }
 
 // runAgentProvisioning provisions a single agent end to end — its config files,
@@ -431,10 +436,10 @@ func runAgentProvisioning(category, label, skillsTarget string) {
 	runShellProvisioning(category)
 
 	PrintSection(fmt.Sprintf("Deploying %s skills", label))
-	deployed, pruned := runSkillsForTarget(label, skillsTarget)
+	deployed, pruned, expired := runSkillsForTarget(label, skillsTarget)
 
 	pterm.Println()
-	pterm.Success.Printf("%s provisioning complete (%d skills deployed, %d pruned). Run 'envctl doctor' to verify.", label, deployed, pruned)
+	pterm.Success.Printf("%s provisioning complete (%d skills deployed, %d quarantined, %d expired). Run 'envctl doctor' to verify.", label, deployed, pruned, expired)
 }
 
 func runLSPProvisioning() {
