@@ -7,6 +7,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **docs:** point contributing setup at the per-machine run profiles ([a2a2379](https://github.com/eajdias/envctl/commit/a2a237997eda16874f7764ef334f7a7586bbe99c))
+
 ## [1.8.0](https://github.com/eajdias/envctl/compare/v1.7.0...v1.8.0) (2026-09-26)
 
 
