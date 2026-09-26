@@ -175,13 +175,26 @@ func pruneStaleSkills(baseDir string, wanted map[string]bool, logger repository.
 // quarantineSkill moves a stale skill directory out of the deployment tree.
 // The trash tree is a sibling of the skills directory, never inside it, so
 // quarantined skills are not rescanned, re-pruned, or counted by the doctor.
+//
+// A rename preserves the mtime of the moved tree, so the entry would keep
+// carrying the age of the skill's last write. That age is what expireQuarantinedSkills
+// reads, and for a skill untouched for longer than the TTL it made the very
+// deploy that quarantined it also delete it. The mtime is therefore restamped to
+// the moment of the move, which is the age the TTL is defined against.
 func quarantineSkill(baseDir, name string) (string, error) {
 	dest := filepath.Join(filepath.Dir(baseDir), ".envctl-trash", "skills",
 		fmt.Sprintf("%s-%s", name, time.Now().Format("20060102-150405")))
 	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
 		return "", err
 	}
-	return dest, os.Rename(filepath.Join(baseDir, name), dest)
+	if err := os.Rename(filepath.Join(baseDir, name), dest); err != nil {
+		return "", err
+	}
+	now := time.Now()
+	if err := os.Chtimes(dest, now, now); err != nil {
+		return dest, fmt.Errorf("quarantined %q but could not stamp its age: %w", name, err)
+	}
+	return dest, nil
 }
 
 // staleSkillQuarantineTTL bounds how long a quarantined skill stays recoverable.
@@ -192,9 +205,10 @@ const staleSkillQuarantineTTL = 30 * 24 * time.Hour
 
 // expireQuarantinedSkills removes quarantined skills older than ttl, so the
 // recovery path cannot become permanent storage. Age comes from the directory
-// mtime — the filesystem's own answer to when the entry was quarantined, and
-// unchanged since a quarantined tree is never written to. Non-directory entries
-// are left alone: the trash tree is not exclusively ours. Missing tree is a no-op.
+// mtime, which quarantineSkill stamps at the moment of the move, so it answers
+// "since when is this quarantined" rather than "since when was this last
+// written". Non-directory entries are left alone: the trash tree is not
+// exclusively ours. Missing tree is a no-op.
 func expireQuarantinedSkills(trashDir string, ttl time.Duration) ([]string, error) {
 	entries, err := os.ReadDir(trashDir)
 	if err != nil {
