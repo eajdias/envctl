@@ -44,6 +44,39 @@ func TestAuditLinuxPerformanceDoesNotWarnOnOptionalState(t *testing.T) {
 	}
 }
 
+// TestAuditLinuxPerformancePacnewIsNeverWarning pins the severity: a pending
+// .pacnew is advisory. This workstation has one, and a warning here would
+// break the 0 WARN/0 ERROR contract for a non-defect.
+func TestAuditLinuxPerformancePacnewIsNeverWarning(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux performance audit is Linux-only")
+	}
+
+	uc := &DoctorAuditUseCase{
+		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
+			ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Algorithm: "zstd", SizeBytes: 22_400_000_000},
+		}},
+	}
+	var diagnostics []entity.Diagnostic
+	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+		diagnostics = append(diagnostics, diagnostic)
+	})
+
+	found := false
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Target != "pacnew" {
+			continue
+		}
+		found = true
+		if diagnostic.Category == entity.DiagWarning || diagnostic.Category == entity.DiagError {
+			t.Errorf("pacnew must never be %s: %s", diagnostic.Category, diagnostic.Details)
+		}
+	}
+	if !found {
+		t.Fatalf("expected a pacnew diagnostic, got %d diagnostics in total", len(diagnostics))
+	}
+}
+
 func TestAuditLinuxPerformanceReportsActiveZRAM(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux performance audit is Linux-only")

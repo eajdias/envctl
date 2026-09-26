@@ -15,6 +15,27 @@ func (uc *DoctorAuditUseCase) auditLinuxPerformance(ctx context.Context, addDiag
 	}
 
 	snapshot := uc.performanceInspector.Snapshot(ctx)
+
+	// A pending .pacnew means a packaged config differs from the one on disk.
+	// Informational on purpose: it is not a performance defect and not every
+	// pending file deserves action, so warning would be noise.
+	if pending := pendingPacnewFiles("/etc"); len(pending) > 0 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Performance",
+			Target:   "pacnew",
+			Details:  fmt.Sprintf("%d pending .pacnew file(s): %s", len(pending), strings.Join(pending, ", ")),
+			FixHint:  "review with 'pacdiff', then merge or delete each file; leaving them is safe but the packaged change never lands",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Performance",
+			Target:   "pacnew",
+			Details:  "no pending .pacnew files",
+		})
+	}
+
 	if len(snapshot.Swap) == 0 {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagInfo,

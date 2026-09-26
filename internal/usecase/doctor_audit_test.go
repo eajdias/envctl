@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -783,6 +784,47 @@ func TestDoctorAudit_GamingTuningAcceptsBothShaderCacheKeys(t *testing.T) {
 	overlay := findGamingDiag(diags, "MangoHud preset")
 	if overlay == nil || overlay.Category != entity.DiagOK {
 		t.Errorf("expected OK for the present MangoHud preset, got %+v", overlay)
+	}
+}
+
+func TestPendingPacnewFiles(t *testing.T) {
+	root := t.TempDir()
+	if got := pendingPacnewFiles(root); len(got) != 0 {
+		t.Errorf("expected no pending .pacnew in an empty tree, got %v", got)
+	}
+
+	if err := os.MkdirAll(filepath.Join(root, "pacman.d"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{
+		filepath.Join("pacman.conf.pacnew"),
+		filepath.Join("limine-snapper-sync.conf.pacnew"),
+		filepath.Join("pacman.d", "cachyos-mirrorlist.pacnew"),
+		filepath.Join("pacman.d", "not-a-pacnew.txt"),
+		filepath.Join("pacman.conf"),
+	} {
+		if err := os.WriteFile(filepath.Join(root, rel), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := pendingPacnewFiles(root)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 pending .pacnew files, got %d: %v", len(got), got)
+	}
+	want := map[string]bool{
+		"pacman.conf.pacnew":                 true,
+		"limine-snapper-sync.conf.pacnew":    true,
+		"pacman.d/cachyos-mirrorlist.pacnew": true,
+	}
+	for _, p := range got {
+		if !want[p] {
+			t.Errorf("unexpected file reported: %q", p)
+		}
+	}
+	// Sorted, so the diagnostic is stable between runs.
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("expected sorted output, got %v", got)
 	}
 }
 

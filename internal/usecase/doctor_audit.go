@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -1080,6 +1081,32 @@ func amdgpuModulePresent(moduleDir string) bool {
 
 // gamingServices are the daemons the gaming stack needs active.
 var gamingServices = []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon"}
+
+// pendingPacnewFiles returns the .pacnew files under an /etc tree, relative to
+// it and sorted. pacman writes these when a package ships a config the admin
+// edited, so their presence means the file on disk differs from the packaged
+// one. pacman.d is included because mirrorlist and the repo files live there.
+func pendingPacnewFiles(etcRoot string) []string {
+	var found []string
+	for _, dir := range []string{etcRoot, filepath.Join(etcRoot, "pacman.d")} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".pacnew") {
+				continue
+			}
+			rel, err := filepath.Rel(etcRoot, filepath.Join(dir, entry.Name()))
+			if err != nil {
+				rel = entry.Name()
+			}
+			found = append(found, filepath.ToSlash(rel))
+		}
+	}
+	sort.Strings(found)
+	return found
+}
 
 // mangoHudPresetPath is the MangoHud configuration seeded by `run shell`.
 const mangoHudPresetPath = "~/.config/MangoHud/MangoHud.conf"
