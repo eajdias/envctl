@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -45,9 +46,9 @@ type SkillDeployResult struct {
 
 // Execute deploys the manifest skills into targetBaseDir and removes any skill
 // directory that is no longer in the manifest, so the target always mirrors the
-// manifest. It returns the per-skill deploy results and the names of the pruned
-// (stale) skill directories.
-func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir string) ([]SkillDeployResult, []string, error) {
+// manifest. It returns the per-skill deploy results, the names of the pruned
+// (stale) skill directories, and the quarantined entries that aged out.
+func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir string) ([]SkillDeployResult, []string, []string, error) {
 	if targetBaseDir == "" {
 		targetBaseDir = "~/.config/opencode/skills"
 	}
@@ -57,7 +58,7 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		if uc.logger != nil {
 			uc.logger.Error("Failed to load skills manifest: %v", err)
 		}
-		return nil, nil, fmt.Errorf("failed to load skills manifest: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to load skills manifest: %w", err)
 	}
 
 	if uc.logger != nil {
@@ -114,13 +115,24 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 	}
 
 	var pruned []string
+	var expired []string
 	if base, expandErr := uc.fsManager.ExpandUserPath(targetBaseDir); expandErr == nil {
 		pruned = pruneStaleSkills(base, wanted, uc.logger)
+		// The trash tree is a sibling of the skills directory (see quarantineSkill).
+		trashDir := filepath.Join(filepath.Dir(base), ".envctl-trash", "skills")
+		aged, expireErr := expireQuarantinedSkills(trashDir, staleSkillQuarantineTTL)
+		if expireErr != nil && uc.logger != nil {
+			uc.logger.Warn("Could not expire quarantined skills in '%s': %v", trashDir, expireErr)
+		}
+		if len(aged) > 0 && uc.logger != nil {
+			uc.logger.Info("[SKILLS-QUARANTINE] expired %d entr(ies) older than %s in %s", len(aged), staleSkillQuarantineTTL, trashDir)
+		}
+		expired = aged
 	} else if uc.logger != nil {
 		uc.logger.Warn("Could not expand skills target '%s' for pruning: %v", targetBaseDir, expandErr)
 	}
 
-	return results, pruned, nil
+	return results, pruned, expired, nil
 }
 
 // pruneStaleSkills removes directories directly under baseDir whose names are
@@ -170,4 +182,43 @@ func quarantineSkill(baseDir, name string) (string, error) {
 		return "", err
 	}
 	return dest, os.Rename(filepath.Join(baseDir, name), dest)
+}
+
+// staleSkillQuarantineTTL bounds how long a quarantined skill stays recoverable.
+// The quarantine exists for "envctl removed a skill I still wanted", which is a
+// recovery window measured in days; without a bound the tree grows by one
+// directory per removed skill forever.
+const staleSkillQuarantineTTL = 30 * 24 * time.Hour
+
+// expireQuarantinedSkills removes quarantined skills older than ttl, so the
+// recovery path cannot become permanent storage. Age comes from the directory
+// mtime — the filesystem's own answer to when the entry was quarantined, and
+// unchanged since a quarantined tree is never written to. Non-directory entries
+// are left alone: the trash tree is not exclusively ours. Missing tree is a no-op.
+func expireQuarantinedSkills(trashDir string, ttl time.Duration) ([]string, error) {
+	entries, err := os.ReadDir(trashDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	cutoff := time.Now().Add(-ttl)
+	var expired []string
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
+			continue
+		}
+		path := filepath.Join(trashDir, entry.Name())
+		info, err := entry.Info()
+		if err != nil || !info.ModTime().Before(cutoff) {
+			continue
+		}
+		if err := os.RemoveAll(path); err != nil {
+			return expired, err
+		}
+		expired = append(expired, entry.Name())
+	}
+	sort.Strings(expired)
+	return expired, nil
 }

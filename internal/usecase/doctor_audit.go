@@ -276,6 +276,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditOpenCodeFileRefs(addDiag)
 	uc.auditRemovedMCPEntries(addDiag)
 	uc.auditAgentsIdentityCoverage(addDiag, configFiles)
+	uc.auditOpenCodeConfigShape(addDiag)
 	uc.auditOpenCodeVersionSkew(ctx, addDiag)
 
 	// 5. Audit Packages
@@ -329,6 +330,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// report a healthy tree while the agent sees nothing.
 	if skillsDir, expandErr := uc.fsManager.ExpandUserPath("~/.config/opencode/skills"); expandErr == nil {
 		uc.auditSkillTree("Skills", skillsDir, addDiag)
+		if catalogSkills, err := uc.manifestRepo.LoadSkills(); err == nil {
+			uc.auditSkillCatalogBudget(catalogSkills, addDiag)
+		}
 	}
 
 	// 7. Audit LSPs
@@ -358,7 +362,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 7.5. Audit LSP stdio handshakes (presence in PATH is not proof the
-	// server speaks LSP — see skill lsp-smoke-test).
+	// server speaks LSP: exit codes lie, so health is proven by the
+	// absence of a stdio connection error, not by the exit status).
 	uc.auditLSPHandshake(ctx, addDiag)
 
 	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
@@ -416,11 +421,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				break
 			}
 		}
-	} else if runtime.GOOS == "darwin" {
-		c := "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-		if uc.fsManager.Exists(c) {
-			chromePath = c
-		}
 	} else {
 		candidates := []string{
 			"/usr/bin/google-chrome",
@@ -445,9 +445,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	if chromePath == "" {
 		fixHint := "install Google Chrome (winget install Google.Chrome / apt install google-chrome-stable)"
-		if runtime.GOOS == "darwin" {
-			fixHint = "install Google Chrome (brew install --cask google-chrome)"
-		}
 		category := entity.DiagWarning
 		system := "Browser"
 		details := "Google Chrome not detected (recommended for chrome-devtools-mcp)"
@@ -564,7 +561,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Target:   "git worktree",
 			Details:  "git worktree supported (command not run: current directory is not inside a git repository)",
 		})
-	} else if _, err := exec.CommandContext(ctx, "git", "worktree", "list").CombinedOutput(); err != nil {
+	} else if out, err := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain").CombinedOutput(); err != nil {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "Git",
@@ -579,6 +576,21 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Target:   "git worktree",
 			Details:  "Worktree command supported and active",
 		})
+
+		worktrees, parseErr := parseWorktreeListPorcelain(string(out))
+		if parseErr != nil {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Git",
+				Target:   "worktree report",
+				Details:  fmt.Sprintf("Could not parse 'git worktree list --porcelain': %v", parseErr),
+				FixHint:  "inspect the worktree list manually; do not prune or remove entries automatically",
+			})
+		} else {
+			for _, diagnostic := range worktreeFindings(worktrees) {
+				addDiag(diagnostic)
+			}
+		}
 	}
 
 	// 10.5 Audit the local verification wiring: the same gates run by the
@@ -1203,7 +1215,7 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "kernel cmdline",
 				Details:  fmt.Sprintf("Missing performance parameters: %s", strings.Join(missing, ", ")),
-				FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (see skill cachyos-gaming-setup; password required)",
+				FixHint:  "edit KERNEL_CMDLINE in /etc/default/limine, run 'limine-update' and reboot (password required; see docs/guides/cachyos-gaming.md)",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -1221,7 +1233,7 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "Vulkan driver",
 				Details:  "RADV not reported by vulkaninfo (Polaris must stay on RADV, never AMDVLK)",
-				FixHint:  "check 'vulkaninfo | grep RADV' (see skill cachyos-gaming-setup)",
+				FixHint:  "check 'vulkaninfo | grep RADV' (see docs/guides/cachyos-gaming.md)",
 			})
 		} else {
 			addDiag(entity.Diagnostic{
@@ -1506,7 +1518,7 @@ func (uc *DoctorAuditUseCase) auditAgentsIdentityCoverage(addDiag func(entity.Di
 }
 
 // lspConnectionMarkers identifies a server that failed to bind its stdio
-// transport (skill lsp-smoke-test: exit codes lie — node servers exit 1 on
+// transport (exit codes lie — node servers exit 1 on
 // EOF when healthy; only the absence of a connection error proves health).
 var lspConnectionMarkers = []string{
 	"input stream is not set",
@@ -1583,6 +1595,9 @@ func (uc *DoctorAuditUseCase) auditLSPHandshake(ctx context.Context, addDiag fun
 
 // auditCommandCodeAgents validates every custom agent definition under
 // <ccConfigDir>/agents, so a broken file cannot silently disable delegation.
+// Two failure shapes are covered: a file that does not load at all (missing or
+// mismatched frontmatter name) and a file that loads with a schema value the
+// runtime will ignore, which quietly strips the agent of capabilities.
 // Reserved names are skipped: CommandCode owns those and ignores a custom file.
 func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag func(entity.Diagnostic)) {
 	agentsDir := filepath.Join(ccConfigDir, "agents")
@@ -1593,8 +1608,8 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 
 	reserved := map[string]bool{"explore": true, "plan": true, "review": true, "general": true}
 
+	var blocking, advisories []string
 	valid := 0
-	var broken []string
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() || !strings.HasSuffix(name, ".md") {
@@ -1607,24 +1622,44 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 
 		content, readErr := os.ReadFile(filepath.Join(agentsDir, name))
 		if readErr != nil {
-			broken = append(broken, name+" (unreadable)")
+			blocking = append(blocking, name+" (unreadable)")
 			continue
 		}
-		fm, ok := parseSkillFrontmatter(content)
-		if !ok || strings.TrimSpace(fm.Name) != id {
-			broken = append(broken, name+" (frontmatter 'name' missing or different from the filename)")
+		block, blockOK := skillFrontmatterBlock(content)
+		fm, fmOK := parseSkillFrontmatter(content)
+		if !blockOK || !fmOK || strings.TrimSpace(fm.Name) != id {
+			blocking = append(blocking, name+" (frontmatter 'name' missing or different from the filename)")
 			continue
+		}
+		for _, issue := range validateCommandCodeAgentFrontmatter(block) {
+			problem := fmt.Sprintf("%s (%s: %s)", name, issue.Field, issue.Problem)
+			if issue.Status == entity.DiagWarning {
+				blocking = append(blocking, problem)
+				continue
+			}
+			advisories = append(advisories, problem)
 		}
 		valid++
 	}
 
-	if len(broken) > 0 {
+	if len(blocking) > 0 {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "CommandCode",
 			Target:   "Agents",
-			Details:  fmt.Sprintf("%d agent file(s) will not load: %s", len(broken), strings.Join(broken, "; ")),
-			FixHint:  "Fix the frontmatter or remove the stale file, then run 'envctl run shell'",
+			Details:  fmt.Sprintf("%d agent problem(s) that block loading or silently change behavior: %s", len(blocking), strings.Join(blocking, "; ")),
+			FixHint:  "Fix the reported frontmatter fields (or remove the stale file), then run 'envctl commandcode'",
+		})
+		return
+	}
+
+	if len(advisories) > 0 {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "CommandCode",
+			Target:   "Agents",
+			Details:  fmt.Sprintf("%d note(s) on otherwise valid agents: %s", len(advisories), strings.Join(advisories, "; ")),
+			FixHint:  "informational: compare with the installed CommandCode version before changing anything",
 		})
 		return
 	}

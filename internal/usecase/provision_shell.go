@@ -510,47 +510,69 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	return result, nil
 }
 
+// isProvisioningBackup reports whether name is a `<name>.bak.YYYYMMDD-HHMMSS`
+// file produced by the atomic writer. Shared by the prune and the reverse
+// snapshot so a backup is never treated as curated content in either direction.
+func isProvisioningBackup(name string) bool {
+	idx := strings.Index(name, ".bak.")
+	return idx >= 0 && validBackupSuffix(name[idx+len(".bak."):])
+}
+
 // pruneTimestampedBackups removes `<name>.bak.YYYYMMDD-HHMMSS` files inside dir,
-// keeping the newest keep per original file. Returns the removed file names.
+// keeping the newest keep per original file. The walk is recursive: the agent
+// skill trees are nested (`skills/<name>/SKILL.md`), and a top-level-only scan
+// left one backup per redeploy accumulating forever inside them. Returns the
+// removed paths, relative to dir.
 func pruneTimestampedBackups(dir string, keep int) ([]string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	groups := make(map[string][]os.DirEntry)
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
+	groups := make(map[string][]string)
+	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
-		name := e.Name()
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !isProvisioningBackup(name) {
+			return nil
+		}
 		idx := strings.Index(name, ".bak.")
-		if idx < 0 || !validBackupSuffix(name[idx+len(".bak."):]) {
-			continue
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			rel = path
 		}
-		key := name[:idx]
-		groups[key] = append(groups[key], e)
+		// Group by the original file's path so two files with the same base name
+		// in different directories never compete for the same keep slot.
+		groups[filepath.Join(filepath.Dir(rel), name[:idx])] = append(
+			groups[filepath.Join(filepath.Dir(rel), name[:idx])], rel)
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
 	}
 	var removed []string
 	for _, files := range groups {
 		if len(files) <= keep {
 			continue
 		}
+		// Newest first; a filesystem that refuses to stat falls back to the
+		// timestamped name, which sorts chronologically for a fixed-width format.
 		sort.Slice(files, func(i, j int) bool {
-			ii, iErr := files[i].Info()
-			jj, jErr := files[j].Info()
+			ii, iErr := os.Stat(filepath.Join(dir, files[i]))
+			jj, jErr := os.Stat(filepath.Join(dir, files[j]))
 			if iErr != nil || jErr != nil {
-				return files[i].Name() > files[j].Name()
+				return files[i] > files[j]
 			}
 			if ii.ModTime().Equal(jj.ModTime()) {
-				return files[i].Name() > files[j].Name()
+				return files[i] > files[j]
 			}
 			return ii.ModTime().After(jj.ModTime())
 		})
 		for _, f := range files[keep:] {
-			if err := os.Remove(filepath.Join(dir, f.Name())); err != nil {
+			if err := os.Remove(filepath.Join(dir, f)); err != nil {
 				return removed, err
 			}
-			removed = append(removed, f.Name())
+			removed = append(removed, f)
 		}
 	}
 	sort.Strings(removed)

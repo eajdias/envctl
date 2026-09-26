@@ -74,7 +74,7 @@ func TestManifestOSLint(t *testing.T) {
 	}
 
 	allowed := map[string]bool{
-		"windows": true, "linux": true, "darwin": true,
+		"windows": true, "linux": true,
 		"arch": true, "archlinux": true, "cachyos": true,
 		"debian": true, "ubuntu": true,
 	}
@@ -99,7 +99,7 @@ func TestManifestOSLint(t *testing.T) {
 				if token == "linux" {
 					t.Errorf("%s: bare `os: linux` is banned (use arch,cachyos / debian,ubuntu / explicit 4-list / omit os:); got %q", filepath.Base(mf), filter)
 				} else if !allowed[token] {
-					t.Errorf("%s: unknown os token %q in %q (closed set: windows, arch, archlinux, cachyos, debian, ubuntu; darwin/linux legacy only)", filepath.Base(mf), token, filter)
+					t.Errorf("%s: unknown os token %q in %q (closed set: windows, arch, archlinux, cachyos, debian, ubuntu)", filepath.Base(mf), token, filter)
 				}
 			}
 		}

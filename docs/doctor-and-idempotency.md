@@ -30,12 +30,38 @@ envctl doctor
 4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de Skills por OS (46 Win / 46 Ubuntu / 48 CachyOS, + espelho CommandCode)**:
+6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
-7. **Performance Linux (read-only)**:
+   - **Quarentena com janela de recuperação**: diretório de skill que saiu do manifesto é
+     **movido** (nunca apagado) para `~/.config/opencode/.envctl-trash/skills/<nome>-<stamp>`,
+     irmão da árvore de skills — então não é re-varrido, re-podado nem contado pelo doctor.
+     Entradas com mais de **30 dias** são removidas no deploy seguinte, para que o caminho de
+     recuperação não vire armazenamento permanente. Sem esse limite a árvore crescia 1 diretório
+     por skill removida, para sempre (39 diretórios por runtime na máquina em que o catálogo foi
+     de 50 para 12). Arquivos soltos no trash não são tocados: a árvore não é exclusivamente nossa.
+7. **Agentes & Config do OpenCode**:
+   - `Config shape` (read-only): valida o formato V2 nativo do `~/.config/opencode/opencode.json` —
+     sem `agent`/`permission` de V1, sem ações de permissão `bash`/`task`, `mode` em
+     `primary|subagent|all` e `description` obrigatória em agente dispatchable. `OK` no shape
+     nativo, `WARN` nomeando cada problema (config inválida passava pelo doctor verde).
+   - `Agents` do CommandCode: valida cada `~/.commandcode/agents/*.md` em duas camadas —
+     carga (`name` == nome do arquivo, nomes reservados ignorados) e **schema documentado**
+     (docs/agents): `tools`/`disallowedTools` (aceita `"a, b"`, lista YAML ou `"*"`; id
+     fora do catálogo = `INFO`, `agent`/`agent_output` = `WARN` porque nunca podem ser
+     concedidos), `permissionMode` no conjunto válido, `maxTurns` inteiro positivo,
+     `background`/`showOutput` booleanos, `model`/`reasoningEffort` não vazios. `WARN` nomeia
+     o campo, porque o runtime **ignora** valor inválido em silêncio e o agente carrega com
+     menos capacidades do que o frontmatter pede; chave desconhecida não gera diagnóstico
+     (o runtime também a ignora).
+   - `git worktree`: parse de `git worktree list --porcelain` — entrada `prunable` vira `WARN`
+     com hint de `git worktree prune` **após revisão manual**; entrada `locked` vira `INFO`
+     (trabalho intencional). Vale para worktrees do OpenCode **e** do CommandCode
+     (`~/.commandcode/worktrees/`), porque ambas são `git worktree` do mesmo repo. O
+     `doctor` nunca poda, destrava ou remove worktree.
+8. **Performance Linux (read-only)**:
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
-8. **Verificação Local (`Verify`)**:
+9. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 
 ---
@@ -69,7 +95,20 @@ Antes de tocar em qualquer arquivo no disco:
 2. Se os hashes forem idênticos, a operação é pulada (`[IDEMPOTENT-SKIP]`), evitando tocar na data de modificação (`mtime`) ou gerar I/O desnecessário.
 3. Se houver divergência real de conteúdo, o arquivo original é renomeado para `<nome>.bak.YYYYMMDD-HHMMSS` antes de gravar o novo conteúdo.
 
-### 2. Idempotência em Gerenciadores de Pacotes
+### 2. Poda de Backups (`keep_newest`)
+O backup atômico é ilimitado por padrão, então cada execução que diverge deixa um arquivo. Itens de manifest com `keep_newest: N` podam esse histórico:
+
+- A poda é **recursiva**: as árvores de skills são aninhadas (`~/.config/opencode/skills/<skill>/SKILL.md`), e uma varredura só do topo nunca as alcançava — o resultado era 1 backup por redeploy acumulando indefinidamente.
+- O agrupamento é por **caminho do arquivo original**, não por nome base: dois `SKILL.md` em diretórios diferentes não disputam o mesmo slot de `keep_newest`.
+- Aplicada em `~/.config/opencode` e `~/.commandcode` com `keep_newest: 1` (um backup por arquivo, o suficiente para rollback de edição manual).
+- Arquivos com conteúdo **idêntico** não geram backup nenhum (diff-gate por hash), então redeploy sem mudança não deixa rastro.
+
+### 3. Backups Nunca Entram no Repositório
+O `snapshot` é sync **reverso** (máquina → repo) e copia a árvore de skills implantada para `configs/skills/`. Backup de provisionamento é histórico local da máquina, nunca conteúdo curado:
+
+- `copyDir` **ignora** qualquer `<nome>.bak.YYYYMMDD-HHMMSS` ao sincronizar. Sem isso, um snapshot levaria texto stale (ex.: a descrição antiga das 50 skills) para o repo, e o próximo deploy distribuiria esse conteúdo para toda máquina nova.
+
+### 4. Idempotência em Gerenciadores de Pacotes
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.

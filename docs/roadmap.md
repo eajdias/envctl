@@ -13,7 +13,7 @@ Não é um plano fechado: a ordem sugerida está no fim e nenhum item tem prazo.
 ## 1. Termux/Android como OS de primeira classe
 
 **Objetivo:** o envctl provisionar e auditar um ambiente Termux, hoje fora do escopo
-(`os:` aceita `windows`/`linux`/`darwin` + famílias `arch`/`debian`).
+(`os:` aceita `windows`/`linux` + famílias `arch`/`debian`).
 
 **O que já se sabe:**
 
@@ -149,7 +149,7 @@ whitelist segura.
   Explorer/tema + Developer Mode~~ **resolvido 2026-09-24**: `run debloat` opt-in (76 tweaks em
   `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços;
   tipos novos `Appx`/`Service` no TweaksManager; `doctor` agrega por categoria em `INFO`,
-  nunca `--fix`) + skill `windows-debloat` (Tier 3 manual: OneDrive, hibernação, power
+  nunca `--fix`) + guia `docs/guides/windows-debloat-tier3.md` (Tier 3 manual: OneDrive, hibernação, power
   plan, Teredo, `.wslconfig`, Copilot/Recall).
 
 ---

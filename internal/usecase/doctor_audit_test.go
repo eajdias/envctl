@@ -126,7 +126,7 @@ func TestDoctorAudit_GoogleChromeDetection(t *testing.T) {
 		existingPaths: map[string]bool{
 			// Windows candidates (used when runtime.GOOS == "windows").
 			`C:\Program Files\Google\Chrome\Application\chrome.exe`: true,
-			// Linux/macOS candidates (used on other platforms).
+			// Linux candidates (used on other platforms).
 			`/usr/bin/google-chrome`:  true,
 			`node_modules/playwright`: true,
 		},
@@ -499,12 +499,12 @@ func TestDoctorAudit_RemovedMCPEntriesClean(t *testing.T) {
 
 func TestDoctorAudit_AgentsIdentityCoverageGap(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("fixtures assume a linux host (windows/darwin must not match)")
+		t.Skip("fixtures assume a linux host (windows must not match)")
 	}
 	uc := staleMCPUseCase(t.TempDir())
 	files := []entity.ConfigFile{
 		{Destination: "~/.config/opencode/AGENTS.md", OS: "windows"},
-		{Destination: "~/.config/opencode/AGENTS.md", OS: "darwin"},
+		{Destination: "~/.config/opencode/AGENTS.md", OS: "windows"},
 	}
 
 	var diags []entity.Diagnostic

@@ -1,257 +1,68 @@
+# Skills provisionadas pelo envctl.
+#
+# Regra de entrada no catalogo: so entra aqui o que o modelo NAO faria sozinho
+# (preferencia do usuario, procedimento nao-obvio, armadilha ja paga). Conhecimento de
+# ferramenta, receita de projeto e regra obrigatoria vao para `references/` do
+# code-playbooks ou para o AGENTS.md. Editar aqui exige atualizar
+# docs/skills.md, os SKILL-INDEX e a contagem em internal/infra/embedded/manifest_repo_test.go.
 skills:
-    - name: bulk-postgres-import
-      description: Importar/upsert em massa no PostgreSQL (batch multi-VALUES, ON CONFLICT, dedupe de listas)
-      source: configs/skills/bulk-postgres-import
-      target_dir: ""
-      enabled: true
-    - name: docker
-      description: Docker (local + VPS) — containers, compose, build local/transporte de imagem (VPS fraca), restart WSL2, Hub
-      source: configs/skills/docker
-      target_dir: ""
-      enabled: true
-    - name: jwt-hs256-node
-      description: Implementar JWT HS256 sem dependências em Node.js (createHmac + timingSafeEqual com hash duplo)
-      source: configs/skills/jwt-hs256-node
-      target_dir: ""
-      enabled: true
-    - name: lsp-smoke-test
-      description: Smoke test de LSP servers (--stdio com stdin fechado; nunca confiar em --version)
-      source: configs/skills/lsp-smoke-test
-      target_dir: ""
-      enabled: true
-    - name: nextjs-standalone-deploy
-      description: Deploy Next.js com output standalone + migração v16 (Dockerfile multi-stage, NEXT_PUBLIC no build, public/)
-      source: configs/skills/nextjs-standalone-deploy
-      target_dir: ""
-      enabled: true
-    - name: phone-e164-normalization
-      description: Normalizar telefones BR para E.164 (DDI 55, ambiguidade DDD 55 RS, descarte de malformados)
-      source: configs/skills/phone-e164-normalization
-      target_dir: ""
-      enabled: true
-    - name: playwright-prod-regression
-      description: Regressão Playwright contra produção sem mutar dados reais (empty states, timing, filtro de 401 esperados)
-      source: configs/skills/playwright-prod-regression
-      target_dir: ""
-      enabled: true
-    - name: simple-feature-flag
-      description: Implementar feature flags simples e auditáveis (tabela app_config + API JWT + leitura no início do ciclo)
-      source: configs/skills/simple-feature-flag
-      target_dir: ""
-      enabled: true
-    - name: web-dashboard-automation
-      description: Automatizar dashboards/SPAs autenticados (interceptar request via Playwright, CSRF token, replicar chamadas)
-      source: configs/skills/web-dashboard-automation
-      target_dir: ""
-      enabled: true
     - name: agent-memory
-      description: Memória persistente de lições e patterns do agente (load no início da tarefa, save ao aprender)
+      description: "Memoria persistente de licoes e padroes do agente por tier, com fluxo LOAD-ACT-SAVE-REFLECT e promocao de processo a skill"
       source: configs/skills/agent-memory
       target_dir: ""
       enabled: true
-    - name: aur-headless-install
-      description: Instalar pacotes AUR de shells não-interativos (makepkg como usuário + sudo pacman -U; sem retries de senha)
-      source: configs/skills/aur-headless-install
+    - name: clarify-before-acting
+      description: "Mede a ambiguidade do pedido (0-100) e pergunta o minimo antes de executar; tambem quando o alvo e o plano, nao o pedido"
+      source: configs/skills/clarify-before-acting
       target_dir: ""
       enabled: true
-      os: arch,cachyos
-    - name: api-contract-design
-      description: Design, validação e governança de contratos de API (OpenAPI/Swagger, GraphQL SDL, gRPC/Protobuf, breaking changes)
-      source: configs/skills/api-contract-design
+    - name: code-playbooks
+      description: "Conhecimento por stack e ferramenta (Go, Python, Node/Next, SQL, testes, Docker, infra, frontend, MCP/API, docs): indice e leia o arquivo do tema"
+      source: configs/skills/code-playbooks
       target_dir: ""
       enabled: true
-    - name: ask-questions-if-underspecified
-      description: Esclarecer requisitos antes de implementar quando o pedido está ambíguo ou incompleto
-      source: configs/skills/ask-questions-if-underspecified
+    - name: envctl
+      description: "Operar o envctl: auditar a maquina (doctor), provisionar PC ou VPS, instalar skills/configs de agente"
+      source: configs/skills/envctl
       target_dir: ""
       enabled: true
-    - name: context7-auto
-      description: Buscar documentação atualizada de libs/frameworks via Context7 antes de escrever código
-      source: configs/skills/context7-auto
-      target_dir: ""
-      enabled: true
-    - name: cachyos-gaming-setup
-      description: Tune CachyOS para games/emulação (kernel, scheduler, GPU, Steam, emuladores, BIOS, perfis)
-      source: configs/skills/cachyos-gaming-setup
-      target_dir: ""
-      enabled: true
-      os: arch,cachyos
-    - name: database-ops
-      description: Operações multi-banco (PostgreSQL, MySQL, Firebird, MongoDB, SQLite), migrations e DBs em Docker
-      source: configs/skills/database-ops
-      target_dir: ""
-      enabled: true
-    - name: linux-performance-tuning
-      description: Auditar e tuning de performance Linux por OS (Ubuntu Server 24.04+, CachyOS), zram, sysctl, swap, journald, scheduler, governor e rollback
-      source: configs/skills/linux-performance-tuning
-      target_dir: ""
-      enabled: true
-      os: arch,cachyos,debian,ubuntu
     - name: git-workflow
-      description: Git & GitHub CLI — branches semânticas, conventional commits, PR lifecycle e resolução de conflitos
+      description: "Fluxo seguro de Git/GitHub: status, diff, branches, commits convencionais, PR, rebase, merge, stash, tags e worktrees"
       source: configs/skills/git-workflow
       target_dir: ""
       enabled: true
-    - name: grill-me
-      description: Porteiro de ambiguidade (0-100) — mede a clareza do pedido e pergunta ANTES de executar quando a nota é alta
-      source: configs/skills/grill-me
-      target_dir: ""
-      enabled: true
-    - name: grilling
-      description: Arguir o usuário sobre plano/decisão/ideia até as premissas caírem
-      source: configs/skills/grilling
-      target_dir: ""
-      enabled: true
-    - name: handoff
-      description: Compactar a conversa atual em um documento de handoff autocontido para a próxima sessão
-      source: configs/skills/handoff
-      target_dir: ""
-      enabled: true
-    - name: headless-gui-probe
-      description: Gerar configs e validar apps GUI sem display (offscreen/dummy, timeout -k, log scraping, disciplina de PIDs)
-      source: configs/skills/headless-gui-probe
-      target_dir: ""
-      enabled: true
-      os: arch,cachyos,debian,ubuntu
-    - name: memory-promotion
-      description: Promover aprendizados (memórias) a skills reutilizáveis; classificar entradas de lessons/patterns ao gravar; remover entrada da memória após promoção
-      source: configs/skills/memory-promotion
-      target_dir: ""
-      enabled: true
-    - name: receiving-code-review
-      description: Avaliar e aplicar feedback de code review com raciocínio crítico, sem concordar por reflexo
-      source: configs/skills/receiving-code-review
-      target_dir: ""
-      enabled: true
-    - name: skill-generalizer
-      description: Preparar skills locais/privadas para publicação (portabilidade, metadados, licenciamento)
-      source: configs/skills/skill-generalizer
-      target_dir: ""
-      enabled: true
-    - name: skill-miner
-      description: Minerar histórico de sessões de agentes para descobrir skills candidatas
-      source: configs/skills/skill-miner
-      target_dir: ""
-      enabled: true
-    - name: skill-personalizer
-      description: Auditar e adaptar skills recém-criadas/baixadas às preferências e ao ambiente do usuário
-      source: configs/skills/skill-personalizer
-      target_dir: ""
-      enabled: true
-    - name: ssh-vps
-      description: Operar VPS/servidores remotos via SSH e ssh-manager — monitorar, diagnosticar e recuperar serviços
-      source: configs/skills/ssh-vps
-      target_dir: ""
-      enabled: true
-    - name: stop-slop
-      description: Remover vícios de escrita de IA (clichês, hedging, enchimento) de textos
-      source: configs/skills/stop-slop
-      target_dir: ""
-      enabled: true
-    - name: systematic-debugging
-      description: Investigar a causa raiz antes de propor correção (teste que falha primeiro)
-      source: configs/skills/systematic-debugging
-      target_dir: ""
-      enabled: true
-    - name: universal-test-runner
-      description: Executar testes e cobertura multi-stack (Go, Python, Node/TS, .NET, Rust) com loop TDD
-      source: configs/skills/universal-test-runner
-      target_dir: ""
-      enabled: true
     - name: subagent-routing
-      description: Roteamento e delegação de subagentes (quando delegar, qual tipo, paralelo vs sequencial)
+      description: "Roteamento de subagentes: quando delegar (inline e o padrao), qual tipo, despacho paralelo no repo e integracao"
       source: configs/skills/subagent-routing
       target_dir: ""
       enabled: true
-    - name: verification-before-completion
-      description: Exigir evidência empírica (build/test/lint) antes de declarar uma tarefa concluída
-      source: configs/skills/verification-before-completion
-      target_dir: ""
-      enabled: true
-    - name: vps-agent-dispatch
-      description: Orquestrar e despachar tarefas e subagentes do OpenCode em servidores remotos (VPS Ubuntu/Debian) via SSH
-      source: configs/skills/vps-agent-dispatch
-      target_dir: ""
-      enabled: true
-    - name: vps-provisioning
-      description: Provisionar/manter VPS/VM remotas com envctl (bootstrap 1 linha + run all + doctor; nunca configurar manualmente; Day-0/Day-2 idempotente)
-      source: configs/skills/vps-provisioning
-      target_dir: ""
-      enabled: true
-    - name: windows-admin
-      description: Administração local do Windows 11 — serviços, registro, tarefas agendadas, firewall e winget
-      source: configs/skills/windows-admin
-      target_dir: ""
-      enabled: true
-      os: windows
-    - name: windows-debloat
-      description: Debloat opt-in do Windows 11 (Tier 3 manual — OneDrive, hibernação, power plan, Teredo, .wslconfig, Copilot/Recall)
-      source: configs/skills/windows-debloat
-      target_dir: ""
-      enabled: true
-      os: windows
-    - name: writing-plans
-      description: Escrever especificações e planos de implementação passo a passo antes de codar
-      source: configs/skills/writing-plans
-      target_dir: ""
-      enabled: true
-    - name: task-hang-watchdog
-      description: Prevenir/recuperar terminais travados e tarefas autônomas presas (background, timeout, kill, monitor)
-      source: configs/skills/task-hang-watchdog
-      target_dir: ""
-      enabled: true
     - name: subagent-supervision
-      description: Coordenador monitora subagentes paralelos e mata os que alucinam/loopam/travam (agent_output kill)
+      description: "Vigiar subagentes: status, coleta, interrupcao e retry, com o vocabulary correto de cada runtime"
       source: configs/skills/subagent-supervision
       target_dir: ""
       enabled: true
-    - name: test-driven-development
-      description: Desenvolver em ciclo TDD red-green-refactor em TS/Node, Python ou Go (teste falhando primeiro, código mínimo depois)
-      source: configs/skills/test-driven-development
+    - name: systematic-debugging
+      description: "Depuracao sistematica em 4 fases: achar a causa raiz antes de propor correcao, e depois procurar as variantes"
+      source: configs/skills/systematic-debugging
       target_dir: ""
       enabled: true
-    - name: docs-sync
-      description: Auditar ou atualizar a documentação contra a implementação real (gaps, incorreções, docstrings TS/PY/GO)
-      source: configs/skills/docs-sync
-      target_dir: ""
-      enabled: true
-    - name: variant-analysis
-      description: Caçar as outras instâncias de um bug já encontrado — variantes da mesma causa raiz no resto do código
-      source: configs/skills/variant-analysis
-      target_dir: ""
-      enabled: true
-    - name: tailscale
-      description: Tailscale tailnet — status/inventário via JSON, up/down, exit nodes, ACL, expor porta local (serve/funnel) e teardown
-      source: configs/skills/tailscale
-      target_dir: ""
-      enabled: true
-    - name: syncthing-ops
-      description: Syncthing via REST API — status de pastas/devices, adicionar pastas, rescan, conflitos; nunca editar config.xml na mão
-      source: configs/skills/syncthing-ops
-      target_dir: ""
-      enabled: true
-    - name: go-development
-      description: Desenvolvimento Go idiomático — APIs, erros, context, concorrência, portabilidade e verificação
-      source: configs/skills/go-development
-      target_dir: ""
-      enabled: true
-    - name: python-development
-      description: Desenvolvimento Python — ambiente, módulos, tipos, async, packaging, testes e lint
-      source: configs/skills/python-development
-      target_dir: ""
-      enabled: true
-    - name: mcp-tool-design
-      description: Design e revisão de servidores MCP — tools, resources, prompts, schemas, segurança e compatibilidade
-      source: configs/skills/mcp-tool-design
+    - name: task-hang-watchdog
+      description: "Prevenir e recuperar comando travado: timeout, execucao em background, log persistente e interrupcao pelo id do runtime"
+      source: configs/skills/task-hang-watchdog
       target_dir: ""
       enabled: true
     - name: technical-research
-      description: Pesquisa técnica verificável com fontes primárias, versões, contradições e citações
+      description: "Verificar resposta tecnica com fonte atual, versao explicita e citacao, separando fato, inferencia e desconhecido"
       source: configs/skills/technical-research
       target_dir: ""
       enabled: true
-    - name: frontend-markup
-      description: HTML, CSS e SCSS semânticos, acessíveis, responsivos e verificados no navegador
-      source: configs/skills/frontend-markup
+    - name: test-driven-development
+      description: "Ciclo TDD red-green-refactor: teste falhando primeiro, codigo minimo depois, em Go, TS/Node ou Python"
+      source: configs/skills/test-driven-development
+      target_dir: ""
+      enabled: true
+    - name: writing-plans
+      description: "Especificacao e plano passo a passo antes de tocar producao: arquivos afetados, riscos, rollback e verificacao"
+      source: configs/skills/writing-plans
       target_dir: ""
       enabled: true

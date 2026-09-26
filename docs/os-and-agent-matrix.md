@@ -12,7 +12,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | :--- | :--- | :--- |
 | **Windows 11** (workstations/notebooks) | Trabalho — apps de cliente exigem o OS | WSL é usado para containers Docker; PowerShell 7 como shell |
 | **Arch / CachyOS** (desktops/notebooks) | Pessoal | fish como shell; jogos (stack `gaming`); Cursor como IDE |
-| **Ubuntu Server** (VPS/VM) | Administração, sem GUI | Sem Cursor/IDE (servidor, sem GUI) — binários LSP seguem instalados (shell/IDE), mas o bloco `lsp` do `opencode.json` foi removido: o runtime do opencode v2 ignora LSP; alvo do `vps-agent-dispatch` |
+| **Ubuntu Server** (VPS/VM) | Administração, sem GUI | Sem Cursor/IDE (servidor, sem GUI) — binários LSP seguem instalados (shell/IDE), mas o bloco `lsp` do `opencode.json` foi removido: o runtime do opencode v2 ignora LSP; alvo de trabalho remoto por SSH |
 | **Termux (Android)** | Celulares | Ainda **não padronizado** no repo; planejado controle via SSH |
 
 ---
@@ -31,7 +31,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
 | LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
-| Skills por agente | **46** (44 + 2 só-Windows) | **46** (44 + `headless-gui-probe` + `linux-performance-tuning`) | **48** (44 + `aur-headless-install` + `cachyos-gaming-setup` + `headless-gui-probe` + `linux-performance-tuning`) |
+| Skills por agente | **12** (portáteis) | **12** (portáteis) | **12** (portáteis) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat opt-in **`run debloat`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
@@ -63,7 +63,7 @@ cópia envctl user-local é arquivada antes de usar `pacman`; no Ubuntu/Debian, 
 v1 legado em `/usr/bin` é substituído pelo v2 user-local, porque a configuração
 V2 não funciona com v1. Uma cópia local nunca deve vencer o pacote do Arch.
 
-**Famílias de distro:** o campo `os:` aceita, além de `windows`/`linux`/`darwin`, as famílias
+**Famílias de distro:** o campo `os:` aceita, além de `windows`/`linux`, as famílias
 `arch`/`cachyos` e `debian`/`ubuntu` (via `entity.MatchOS`). Perfis novos usam
 `target_distro` + `min_distro_version` para separar Ubuntu 24.04+ de Debian/Ubuntu
 antigos e CachyOS de Arch genérico. Exemplo real: `cursor-bin` é `os: arch` com
@@ -87,11 +87,11 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | Plugins | 1 (goal-plugin only; `dcp.jsonc` removido do provisioning em 2026-09-22 — YAGNI) | — |
 | Contexto / pruning | nativo (`compaction` do v2; DCP removido) | — |
 | Memória | seeds `lessons.md` + `patterns.md`, dir `memory` | — (memória vive no `AGENTS.md`; dir `memory` é limpo) |
-| Agentes custom | `review`, `plan` (no JSON) | `agents/code-reviewer.md` |
+| Agentes custom | `review` (primary), `planner` (subagent dispatchable), `plan` (regra de `spec-agent/**` no built-in) | `agents/code-reviewer.md` |
 | Permissões | no `opencode.json` | `settings.json`: 12 allow · 6 ask · 4 deny |
 | Hooks | — | `Stop` → `envctl-verify --hook` |
 | Skills (destino) | `~/.config/opencode/skills` | `~/.commandcode/skills` |
-| Validação de skill no doctor | **frontmatter + contagem vs manifesto** | **frontmatter + contagem vs manifesto** |
+| Validação de skill no doctor | **frontmatter + contagem vs manifesto + orçamento do catálogo** | **frontmatter + contagem vs manifesto + orçamento do catálogo** |
 | Diretórios criados | 4 (skills, memory, secrets 0700, extras) | 2 (skills, agents) |
 | Cleanup dedicado | 4 entradas | 6 entradas |
 | IDE integration | — (diagnósticos via lint/typecheck no v2; sem runtime LSP) | VS Code / Cursor / Windsurf via `/ide` |
@@ -100,9 +100,9 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 
 | Provedor | Checks |
 | :--- | :--- |
-| OpenCode | `AGENTS.md (global rules)` · `Config file references` (refs `{file:...}` do `opencode.json`) · `Database` (tamanho + páginas livres do `opencode.db`) · `Tool Output` (diretório) · `Skills` (frontmatter + contagem) |
-| CommandCode | `CommandCode CLI` · `~/.commandcode/` · `Settings` (JSON válido) · `MCP config` (JSON válido) · `Agents` (frontmatter) · `Skills` (frontmatter + contagem) |
-| Ambos | `LSP` (binário no PATH) · `Verify` (verificador + pre-push) · `Git` · `TempFolder` |
+| OpenCode | `AGENTS.md (global rules)` · `Config file references` (refs `{file:...}` do `opencode.json`) · `Config shape` (V2: sem `agent`/`permission` legacy, sem ações `bash`/`task`, subagent com `description`) · `Database` (tamanho + páginas livres do `opencode.db`) · `Tool Output` (diretório) · `Skills` (frontmatter + contagem) |
+| CommandCode | `CommandCode CLI` · `~/.commandcode/` · `Settings` (JSON válido) · `MCP config` (JSON válido) · `Agents` (frontmatter `name` == arquivo **e** schema documentado: `tools`/`disallowedTools`, `permissionMode`, `maxTurns`, `background`, `showOutput`, `model`; `agent`/`agent_output` em `tools` = WARN) · `Skills` (frontmatter + contagem) |
+| Ambos | `LSP` (binário no PATH) · `Verify` (verificador + pre-push) · `Git` · `git worktree` (parse de `--porcelain`: `prunable` = WARN, `locked` = INFO, nunca auto-poda) · `TempFolder` |
 
 ---
 
@@ -127,6 +127,12 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | 15 | `taplo` tem dois canais (`taplo-cli` via pacman + `@taplo/cli` via npm) e o `run lsp` prefere o npm mesmo no Arch | **Exceção intencional** — mesmo dono nos dois canais, sem sombreamento entre gerenciadores. Revisitar só com skew de versão observado |
 | 16 | opencode v2 ignora runtime LSP (`lsp` aceito mas inerte), `subagent_depth` top-level (WARN `omitted unsupported legacy setting`) e `instructions` (aceito, não carregado) | **Resolvido 2026-09-22** — bloco `lsp`, `subagent_depth` e `instructions` removidos dos dois configs (formato nativo V2: `agents`/`permissions[]`/`plugins`/`skills[]`/`mcp.servers`); `review` com `mode: primary` explícito, `plan` sem `mode` (preserva o built-in — customs só com IDs novos); binários LSP seguem provisionados p/ shell/IDE e o `doctor` os audita como toolchain |
 | 17 | Retorno do runtime LSP no opencode v2 (hoje: config validada, nenhum servidor inicia, zero diagnósticos — [docs](https://dev.opencode.ai/v2/docs/lsp/)) passa batido sem monitoramento | **Monitoramento mensal** — conferir `pacman -Si opencode` (versão no `extra`) + changelog upstream; quando o runtime voltar: re-testar bloco `lsp` per-project (template em `patterns.md`), re-adicionar via `lsp.yaml` → JSON, sem plugin V2 antes da API sair de beta |
+| 18 | O `plan` do envctl é `primary`, portanto **não** aparece no catálogo de subagentes do OpenCode: a skill `subagent-routing` mandava despachar `plan` via task tool e o `review` só podia cair um nível (`review` → `explore`/`general`) | **Resolvido 2026-09-25** — novo custom `planner` com `mode: subagent` (ID novo, `description` obrigatória, boundary read-only igual ao `plan`, sem subagentes aninhados) nos dois configs; `plan` continua `primary` para o Tab. Contrato travado por `TestOpenCodeConfigTemplates` + `doctor` (`Config shape`) |
+| 19 | O `doctor` rodava `git worktree list` e **descartava a saída**: worktree `prunable` (gitdir apagado) ou `locked` ficava invisível, e o `CHANGELOG` antigo prometia um "worktree integrity audit" que não existia no código | **Resolvido 2026-09-25** — parser puro de `git worktree list --porcelain` + findings (`prunable` = WARNING com hint de `git worktree prune`; `locked` = INFO preservado); nenhuma remoção/auto-fix. Convenção de path fixada em `.worktrees/<type>-<slug>` (`.opencode/opencode.json` + `.gitignore`) |
+| 20 | A skill `subagent-supervision` orquestrava tools que não existem nos **dois** runtimes da forma que o texto afirmava, e a correção seguinte (2026-09-25) overcorrigiu: removeu `agent_output`/`agent_id`/`kill_shell` do arquivo inteiro, quebrando o CommandCode, que **tem** essas tools nativamente | **Resolvido 2026-09-25 (2 tempos)** — (1) o texto virou o lifecycle do OpenCode V2 (`sessionID` + `opencode api`), o que é correto só lá; (2) pesquisa na doc oficial do CommandCode (docs/agents, docs/background-tasks, docs/worktrees) + grep no bundle instalado 1.65.0 provou que o CommandCode tem `agent`+`run_in_background` → `agent_id`, `agent_output({action:"wait"|"status"|"kill"})`, `shell_output`/`task_output`/`kill_shell`/`monitor_command`, e **não** tem `mode` nem `sessionID`. Skill compartilhada passou a ter **uma seção por runtime** (`## OpenCode V2` e `## CommandCode`) e o teste de conteúdo valida cada coluna isoladamente (term exigida numa, termo proibido na outra) — `TestSubagentSupervisionIsRuntimeAware` / `TestTaskHangWatchdogIsRuntimeAware` |
+| 21 | O `doctor` só checava `name == filename` nos agentes do CommandCode: um valor de schema errado (tool inexistente, `permissionMode` inválido, `maxTurns` não-numérico, `agent` em `tools`) é **ignorado em silêncio** pelo runtime, e o agent continuava "válido" no doctor com capacidades diferentes das pretendidas — o mesmo modo de falha que o check `Config shape` eliminou no lado OpenCode | **Resolvido 2026-09-26** — `validateCommandCodeAgentFrontmatter` valida o schema documentado (docs/agents, conferido no bundle 1.65.0) e reporta **o campo** no check `Agents`: `WARN` para valor que muda comportamento ou impede carga, `INFO` para id de tool fora do catálogo (para um upgrade do CommandCode não deixar o doctor vermelho para sempre), e nada para chave desconhecida (o runtime também ignora). `tools`/`disallowedTools` aceitam `"a, b"`, lista YAML e `"*"`; `agent`/`agent_output` são sempre `WARN` (delegação tem um nível) |
+| 22 | Convenção de worktree do repo (`.worktrees/`) não é alcançável no CommandCode: lá não existe chave de diretório em `settings.json` e o default é `~/.commandcode/worktrees/<repo>-<hash>/<name>` (fora do repo) | **Documentado 2026-09-26, sem config nova** — as duas rotas são `git worktree` de verdade, então o check `git worktree` do `doctor` já enxerga ambas; a ponte para a convenção do projeto é `cmdc -w "$PWD/.worktrees/<slug>"` (path absoluto é usado verbatim), registrada na skill `git-workflow` e nos `AGENTS` do CommandCode. `/worktree` e `enter_worktree` continuam no dir gerenciado — não há como redirecioná-los, e fingir convergência seria errado |
+| 23 | A doc do CommandCode anuncia `when_to_use` como gatilho extra p/ auto-invocação, e o bundle confirma que ele existe — mas o teste no runtime mostrou que ele **nunca chegava ao modelo**: o catálogo é `description + "\n\n" + when_to_use` cortado em **249 caracteres**, e sem `COMMANDCODE_SKILL_CATALOG_CHAR_BUDGET` o modelo recebe **só nome + location**, sem description nenhuma | **Resolvido 2026-09-26 por medição** — 5 probes `cmdc -p` (budget unset → nomes; 20000 → nomes; 60000 → description truncada, `when_to_use` fora do corte; redesenho → ambos completos). As 7 skills de roteamento foram **redesenhadas**: description curta (o quê + quando, 102–123 chars), `when_to_use` com o gatilho em linguagem natural (98–122 chars) e a lista extendida movida para o corpo (`## Triggers`, lida só depois do load). Contrato travado em `TestWhenToUseFitsCommandCodeCatalog`: `description + 2 + when_to_use ≤ 247` **caracteres** (runes, não bytes — `String.slice` do JS conta caracteres). Ganho de contexto no catálogo do OpenCode: −1.9k chars/turn |
 
 ---
 
@@ -153,7 +159,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Cursor IDE | Windows (winget) · Arch (paru) | — (é o editor padronizado; habilita `/ide` + `get_diagnostics`) |
 | RAG / automações | libs de agente (`requests`, `bs4`, `pypdf`, `openpyxl`, `lxml`, `docx`, `yaml`) | libs de RAG pertencem ao venv do projeto (`uv`) |
 | N8N | — | npm-based: pertence ao projeto (`bunx`/`npx`) |
-| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · skill `cachyos-gaming-setup` (tuning root/reboot) · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) + `run debloat` opt-in (76 tweaks Windows: telemetria/privacidade/gaming/Appx/serviços; `doctor` agrega por categoria em `INFO`, nunca `--fix`) · skill `windows-debloat` (Tier 3: OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) | — |
+| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · tuning root/reboot documentado no repo · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) + `run debloat` opt-in (76 tweaks Windows: telemetria/privacidade/gaming/Appx/serviços; `doctor` agrega por categoria em `INFO`, nunca `--fix`) · Tier 3 manual (OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) documentado no repo | — |
 
 **Fora da stack (removidos):** `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`), Visual Studio Code
 (+ `vscode_settings`), Termius, WinSCP, GitHub Desktop, Rust/Oh-My-Posh (remoção anterior).
@@ -185,6 +191,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 **Agente custom** → `agents` no `configs/opencode*.json`
 1. SEMPRE ID novo — nunca sobrescrever built-ins (`build`/`plan`/`general`/`explore`): única exceção documentada é o `plan` do envctl, reduzido a 1 regra (`edit spec-agent/** allow`) que estende o built-in por merge (efetivo `primary`).
 2. `mode: primary` explícito no custom novo, `system` (nunca `prompt`), `permissions[]` nativas (`shell`/`subagent`, nunca `bash`/`task`).
+3. Para ser **dispatchable**, `mode: subagent` + `description` não vazia (o pai escolhe pela description) + boundary read-only explícito; `planner` é o exemplo de referência e `TestOpenCodeConfigTemplates` + o check `Config shape` do `doctor` cobrem o contrato.
 
 **LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.

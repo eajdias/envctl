@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# bootstrap.sh - Universal bootstrap installer for envctl on Linux & macOS
+# bootstrap.sh - Universal bootstrap installer for envctl on Linux
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash -s -- run all
@@ -30,7 +30,7 @@ case "${ARCH}" in
     ;;
 esac
 
-if [ "${OS}" != "linux" ] && [ "${OS}" != "darwin" ]; then
+if [ "${OS}" != "linux" ]; then
   echo "[-] Unsupported operating system: ${OS}. Use bootstrap.ps1 on Windows." >&2
   exit 1
 fi

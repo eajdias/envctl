@@ -1,12 +1,26 @@
 ---
 name: git-workflow
 description: >-
-  Fluxo seguro com Git e GitHub CLI: inspeção de status, arquivos não rastreados, staged e unstaged diff, branches, commits convencionais, pull requests, rebase, merge, stashes, conflitos, releases, tags e worktrees. Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash, conflict, conflito, untracked, staged, unstaged, diff, changelog, tag, release, worktree, isolar workspace.
+  Fluxo seguro de Git/GitHub: status, diff, branches, commits convencionais, PR, rebase, merge,
+  stash, tags e worktrees.
+when_to_use: >-
+  Pedido explícito ou implícito de Git: commitar, abrir PR, branch, rebase, conflito, worktree,
+  tag, release.
 license: MIT
 ---
 
+
 # Git e GitHub CLI
 
+
+## Triggers (lista estendida)
+
+Viva na lista de catálogo do OpenCode, truncada em 249 caracteres pelo CommandCode — por isso o
+resumo da description acima é curto. Quando a skill carregar, use esta lista para casar o pedido:
+
+Triggers: git, commit, commits, pull request, pr, gh pr, branch, branches, rebase, merge, stash,
+conflict, conflito, untracked, staged, unstaged, diff, changelog, tag, release, worktree, isolar
+workspace.
 ## Quando usar
 
 Use para investigar, preparar ou executar um fluxo Git. O estado real do repositório vem antes de qualquer plano: um `status` resumido, uma lista de branches ou um log antigo não substituem a leitura do índice, da árvore de trabalho e dos arquivos não rastreados.
@@ -157,6 +171,23 @@ Para changelog narrativo, derive fatos de `git log` e dos diffs, não de nomes d
 
 ## Worktrees
 
+A convenção do repositório é `.worktrees/<type>-<slug>` (por exemplo,
+`.worktrees/feat-agent-skills`). Um branch fica em apenas um worktree; dois
+agentes não dividem a mesma árvore. **Cada agente chega lá por um caminho
+diferente:**
+
+| | OpenCode V2 | CommandCode |
+|---|---|---|
+| config | `.opencode/opencode.json` → `worktree.directory: .worktrees` | não existe chave de diretório em `settings.json` |
+| rota da nossa convenção | worktree nativo do projeto | `cmdc -w "$PWD/.worktrees/<slug>"` (path absoluto é usado verbatim) |
+| rota default do runtime | — | `~/.commandcode/worktrees/<repo>-<hash>/<name>` (fora do repo), via `/worktree` e `enter_worktree` |
+| `.gitignore` | `/.worktrees/` (obrigatório, é dentro do repo) | desnecessário (dir gerenciado é externo) |
+
+As duas rotas do CommandCode servem: a ponte por `-w` mantém a convenção do
+projeto; `/worktree` e `enter_worktree` usam o diretório gerenciado. Ambas são
+`git worktree` de verdade, então `envctl doctor` enxerga as duas (entradas
+`prunable` viram WARN, `locked` viram INFO).
+
 Detecte antes de criar outro workspace:
 
 ```bash
@@ -165,15 +196,23 @@ GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 git rev-parse --show-superproject-working-tree
 ```
 
-Se `GIT_DIR` e `GIT_COMMON` forem diferentes e não for um submodule, já existe um linked worktree. Confirme branch, path e alterações antes de continuar. Se for necessário criar um, peça consentimento, escolha um path fora do repositório principal quando possível, verifique se o path está dentro do repositório e faça o baseline antes da implementação:
+Se `GIT_DIR` e `GIT_COMMON` forem diferentes e não for um submodule, já existe um linked worktree. Confirme branch, path e alterações antes de continuar. Se for necessário criar um, peça consentimento, use o path da convenção, verifique que está ignorado e faça o baseline antes da implementação:
 
 ```bash
-git worktree list
-git check-ignore -q <path> || true
-git worktree add <path> -b <branch>
+git worktree list --porcelain
+git check-ignore -q .worktrees/<name> || true
+git worktree add .worktrees/<name> -b <branch> <base-ref>
 ```
 
-O comando de criação muda o estado do repositório. Não remova worktrees com `--force` enquanto houver alterações não salvas.
+O branch deve ser criado a partir de uma base explícita (normalmente
+`origin/main`) e carregado no prompt do agente. `git worktree` isola arquivos,
+não containers, portas, volumes ou serviços externos; esses recursos precisam de
+nomes separados quando houver concorrência.
+
+O comando de criação muda o estado do repositório. Não remova worktrees com
+`--force` enquanto houver alterações não salvas. Use `git worktree prune` somente
+depois de revisar cada entrada `prunable`; entradas `locked` são trabalho
+intencional e devem ser preservadas.
 
 ## Verificação de uma operação
 
