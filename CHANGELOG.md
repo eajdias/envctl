@@ -7,6 +7,25 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.9.0](https://github.com/eajdias/envctl/compare/v1.8.1...v1.9.0) (2026-09-26)
+
+
+### Features
+
+* **agents:** add reviewer, verifier, docs-writer and memory-keeper subagents ([ffa78cd](https://github.com/eajdias/envctl/commit/ffa78cd56b3d24686ef71f85c0328f10882fba96))
+* **doctor:** audit RADV_PERFTEST and the MangoHud preset ([1af5d08](https://github.com/eajdias/envctl/commit/1af5d087d097c349db61e8b0aaab4880faa3890c))
+* **doctor:** audit the AMD GPU and panic-stability kernel params ([d619662](https://github.com/eajdias/envctl/commit/d619662b7aa795e762ecbfc9cb1574fad446a62a))
+* **doctor:** report pending .pacnew files as info ([2807d77](https://github.com/eajdias/envctl/commit/2807d775b6ae9edae3574503cea601011abcf477))
+* **doctor:** warn when ananicy runs without a ruleset ([e79b294](https://github.com/eajdias/envctl/commit/e79b29469525ab690cdf3f644ec7ff97f82f7c4c))
+* **gaming:** declare the 6 runtime packages the real stack needs ([108fa8a](https://github.com/eajdias/envctl/commit/108fa8af66b3f32522b2517f3b6207f533680f01))
+
+
+### Bug Fixes
+
+* **arch:** restore the worktree and parallel-session rules in the source ([95423d7](https://github.com/eajdias/envctl/commit/95423d7abf2a38936adfad201236be6b97cb2189))
+* **doctor:** reject legacy V1 agent fields in the OpenCode config shape ([e2ed67e](https://github.com/eajdias/envctl/commit/e2ed67eab718932ad8c7a5b3545e77c363283d25))
+* **skills:** route review and the new subagents per runtime ([9365d74](https://github.com/eajdias/envctl/commit/9365d74549d6d7c9eb08aa86e6f4c0972ab8a61c))
+
 ## [Unreleased]
 
 ### Adicionado
