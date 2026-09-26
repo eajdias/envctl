@@ -71,24 +71,52 @@ packages:
 
 ## 📄 2. `manifests/performance_ubuntu.yaml` e `performance_cachyos.yaml`
 
-Perfis de performance são aplicados pelos perfis `envctl run vps`
-(Ubuntu >= 24.04) e `envctl run cachyos` (CachyOS), ou pelo comando standalone
-`envctl run performance`; eles não fazem parte de `doctor --fix`. O seletor exige o ID e a versão exatos do sistema:
+Perfis de performance são aplicados pelo perfil `envctl run vps`
+(Ubuntu Server 24+) e `envctl run cachyos` (CachyOS), ou pelo comando
+standalone `envctl run performance`; eles não fazem parte de `doctor --fix`.
 
-- Ubuntu `>= 24.04` usa `performance_ubuntu.yaml`;
+A identidade do perfil **não carrega versão**: é `ubuntu-server`, e o piso de
+release vive no manifesto como `min_distro_version`. A frota já roda Ubuntu
+26.04, então um nome que codificasse "24.04" seria mentira. Seletor:
+
+- Ubuntu Server com `VERSION_ID >= min_distro_version` usa `performance_ubuntu.yaml`;
 - CachyOS usa `performance_cachyos.yaml`;
-- Debian, Ubuntu antigo e Arch genérico são rejeitados.
+- Debian, Ubuntu antigo e Arch genérico são rejeitados — `run vps` **falha**
+  com o motivo, em vez de seguir e pular o tuning em silêncio.
 
-Entradas Ubuntu 24.04+ no `packages.yaml` podem usar
-`target_distro: ubuntu` e `min_distro_version: "24.04"` para impedir bleed entre
-distribuições. O perfil Ubuntu pode instalar `systemd-zram-generator` e gravar
-`/etc/sysctl.d/90-envctl-performance.conf`; o perfil CachyOS apenas garante o
-pacote `zram-generator` quando ausente. Nenhum dos dois cria swapfile ou altera
-journald, scheduler, governor, serviços, kernel cmdline ou mitigations.
+Entradas Ubuntu 24+ no `packages.yaml` podem usar `target_distro: ubuntu` e
+`min_distro_version: "24.04"` para impedir bleed entre distribuições.
+
+### Seções do perfil `ubuntu-server`
+
+| Seção | O que faz | Onde escreve |
+| --- | --- | --- |
+| `packages` | `systemd-zram-generator`, `tzdata` | gerenciador de pacotes |
+| `sysctls` | rede, com `policy: min` onde o valor é um piso | `/etc/sysctl.d/90-envctl-performance.conf` |
+| `tiers` | bandas de RAM detectadas; `vfs_cache_pressure` por banda | resolvido em runtime |
+| `swap` | adota um swapfile existente ou cria um clampado | `/swapfile.envctl` + `/etc/fstab` |
+| `zram` | liga ou desliga o zram conforme a banda | `dev-zram0.swap` |
+| `journald` | teto com piso de espaço livre | `/etc/systemd/journald.conf.d/90-envctl-journald.conf` |
+| `limits` | soft de descritores, preservando o hard do host | `system.conf.d/` e `security/limits.d/` |
+| `timezone` | verifica por padrão; aplicar é opt-in | `timedatectl` |
+
+`vm.swappiness` **não** é declarado: é derivado da topologia de swap medida
+(150 com zram ativo, 10 só em disco). `fs.file-max` usa `policy: min`, então o
+nunca rebaixa um teto que o host já tem melhor.
+
+O perfil **não** toca governor de CPU, scheduler de I/O, mitigations, kernel
+cmdline, `crashkernel` nem serviços sem relação — todos continuam atrás de
+benchmark e aprovação explícita.
+
+A remoção de pacotes é a única etapa destrutiva e é **opt-in**
+(`--allow-debloat`), com a lista em `manifests/debloat_linux.yaml` e a guarda
+`NEEDRESTART_MODE=l` escrita antes do primeiro purge. Detalhes e rollback em
+[`docs/guides/ubuntu-server-baseline.md`](guides/ubuntu-server-baseline.md).
 
 ```bash
 envctl run performance --dry-run
 envctl run performance
+envctl run performance --allow-debloat   # inclui a remoção de pacotes
 ```
 
 ---

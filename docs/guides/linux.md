@@ -1,6 +1,14 @@
-# Guia de Execução & Provisionamento: Linux (Ubuntu / Debian / VPS)
+# Guia de Execução & Provisionamento: Linux (Ubuntu Server / VPS)
 
-Este guia orienta o uso do `envctl` em distribuições **Ubuntu (20.04 / 22.04 / 24.04 LTS)**, **Debian (11 / 12)**, **WSL2** ou instâncias de nuvem **AWS EC2 / Oracle Cloud Infrastructure**.
+Este guia orienta o uso do `envctl` em **Ubuntu Server 24 ou superior**
+(inclusive 26.04 LTS) em instâncias de nuvem como **Oracle Cloud Infrastructure**
+e **AWS EC2**.
+
+O alvo do perfil de servidor é **exatamente Ubuntu Server `VERSION_ID >= 24`**.
+Ubuntu 20.04/22.04, Debian e WSL2 **não são suportados** por esse perfil: o
+`min_distro_version` vive no manifesto, e `envctl run vps` falha com o motivo
+em vez de seguir e pular o tuning em silêncio. Para'Arquitectura desktop, veja
+[`cachyos-gaming.md`](cachyos-gaming.md).
 
 ---
 
@@ -16,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run vps` (perfil Ubuntu/Debian: apt + performance + Volta/Node + LSPs + 12 skills de IA).
+4. Executa `envctl run vps` (perfil Ubuntu Server 24+: apt + performance + Volta/Node + LSPs + 12 skills de IA).
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -105,21 +113,35 @@ O comando `run performance` seleciona um perfil exato e nunca mistura Ubuntu
 com CachyOS:
 
 ```bash
-# Ubuntu Server 24.04+ ou CachyOS: mostra o plano sem alterar o host
+# Ubuntu Server 24+ ou CachyOS: mostra o plano sem alterar o host
 envctl run performance --dry-run
 
 # Aplica somente o perfil do sistema detectado
 envctl run performance
+
+# Flags que mudam o que é escrito no host
+envctl run performance --no-daemon-reexec      # não re-executa o PID 1
+envctl run performance --timezone Etc/UTC       # aplica, em vez de só verificar
+envctl run performance --allow-debloat          # inclui a remoção de pacotes
 ```
 
-Ubuntu 24.04+ pode instalar `systemd-zram-generator`, carregar o módulo `zram`,
-recarregar as units e ativar `dev-zram0.swap` quando necessário, além de
-gerenciar o drop-in `/etc/sysctl.d/90-envctl-performance.conf`. CachyOS garante o
-`zram-generator` quando ausente e preserva o tuning já existente. O comando não
-cria swapfile, não altera journald, scheduler, governor, serviços de tuning,
-kernel parameters ou mitigations; o único lifecycle de serviço permitido é o
-gerador do zram. Esses pontos restantes ficam em auditoria/skill e exigem
-benchmark e aprovação.
+O perfil `ubuntu-server` mede o host antes de decidir: banda de RAM, tipo de
+filesystem, espaço livre e topologia de swap vêm do probe, e o manifesto declara
+o resto. Ele instala `systemd-zram-generator` e `tzdata`, cria o swapfile quando
+não existe algum, limita o journald, eleva o soft de descritores de arquivo
+preservando o hard do host, e grava o drop-in de sysctl.
+
+`vm.swappiness` é **derivado** da topologia medida (150 com zram ativo, 10 só em
+disco) em vez de declarado — é a correção da contradição anterior, em que o perfil
+instalava zram e fixava 10, dizendo ao kernel para não usar o dispositivo criado.
+
+CachyOS garante o pacote `zram-generator` quando ausente e preserva o tuning já
+existente. Nenhum dos perfis toca governor, scheduler, mitigations, kernel
+cmdline ou serviços sem relação; remoção de pacotes é **opt-in**
+(`--allow-debloat`) e usa a lista medida em `manifests/debloat_linux.yaml`.
+
+Detalhes por item, evidência que justifica cada valor e o comando exato de
+reversão: [`ubuntu-server-baseline.md`](ubuntu-server-baseline.md).
 
 ---
 
