@@ -151,7 +151,11 @@ whitelist segura.
   (pacman, `os: arch,cachyos`); `ncu`/`xh` seguem pendentes.
 - **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
   nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
-- **`ty`** (Astral) como segundo type checker Python, ao lado do mypy (ver §4 da matriz).
+- ~~`ty` (Astral)~~ — **descartado 2026-09-26:** seria um terceiro type checker no mesmo
+  eixo (`pyright` já é LSP + tipos, `ruff` é da mesma casa e é lint). Se um dia `ty` entrar,
+  ele **substitui** o `pyright` ou o type checker do projeto — não se soma. O `mypy` também
+  saiu do manifesto: type checker estrito é decisão do projeto, e o `envctl-verify` só o roda
+  onde existe config `[mypy]` e binário (venv/`uv`/PATH).
 - **Windows:** validar o tipo `PSModule` (PSScriptAnalyzer + Pester). **Status 2026-09-26:** o
   blocker deixou de ser máquina Windows — o CI já roda `windows-latest` com `go vet`, `go test` e
   `go build`, mas **nenhum** workflow invoca PSScriptAnalyzer/Pester e o tipo `PSModule`

@@ -427,6 +427,16 @@ cleanup:
     path: "~/.commandcode/memory"
     category: "commandcode"
     recursive: true
+  - id: stale_pylsp_binary
+    description: "Remove the pylsp binary (pyright is the Python language server; pylsp duplicated it)"
+    path: "~/.local/bin/pylsp"
+    category: "scripts"
+  - id: stale_pylsp_cmd
+    description: "Remove the pylsp.cmd wrapper (pyright is the Python language server)"
+    path: "~/.local/bin/pylsp.cmd"
+    category: "scripts"
+    os: windows
+
   - id: stale_pw_screenshot
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-screenshot"
