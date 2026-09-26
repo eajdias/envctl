@@ -34,6 +34,34 @@ timezone:
 # Conservative server baseline. Values are explicit for review/rollback and do
 # not replace workload-specific tuning for databases, storage, or networking.
 #
+# Swapfile policy.
+#
+# Both Oracle hosts already ship a hand-created 8 GB swapfile at /swapfile with
+# priority -1, so adoption is the common case there and must be a complete
+# no-op. The AWS host has no swap at all. The declared path is deliberately NOT
+# the conventional /swapfile, so a swapfile the operator created is never
+# mistaken for one this tool manages.
+#
+# Size is MemTotal clamped to [1G, 8G] and then refused unless the root
+# filesystem has that plus a 5G reserve. The clamps are the safety: the measured
+# 951 MiB host is raised to the 1 GB floor and the 15783 MiB host is pulled down
+# to the 8 GB ceiling.
+#
+# btrfs is refused by default: its documentation calls a root-filesystem
+# swapfile "especially discouraged" because an active one makes balance and scrub
+# skip block groups.
+swap:
+  policy: auto
+  file: /swapfile.envctl
+  priority: -2
+  size_of: mem_total
+  size_min: 1G
+  size_max: 8G
+  disk_reserve: 5G
+  fs_allow: [ext4, xfs]
+  fs_btrfs: refuse
+  fs_deny: [zfs, overlay, tmpfs]
+
 # vm.swappiness is deliberately NOT declared here. It used to be pinned to 10
 # while the same profile installed zram-generator, which told the kernel not to
 # use the device the profile had just created. It is now derived at run time from

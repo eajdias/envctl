@@ -263,6 +263,22 @@ func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	if ubuntu.ZRAM == nil || ubuntu.ZRAM.Policy != entity.ZRAMPolicyTier {
 		t.Fatalf("zram policy = %#v, want tier", ubuntu.ZRAM)
 	}
+	// The declared swap path must not be the conventional /swapfile: both
+	// Oracle hosts already ship a hand-created swapfile there, and reusing the
+	// path would make the tool's own state indistinguishable from the
+	// operator's.
+	if ubuntu.Swap == nil {
+		t.Fatal("Ubuntu performance spec must declare a swap policy")
+	}
+	if ubuntu.Swap.File == "/swapfile" {
+		t.Fatal("the declared swap path must not be /swapfile, which the operator may already own")
+	}
+	if ubuntu.Swap.Priority >= 0 {
+		t.Fatalf("swap priority = %d, want a negative value so the zram tier outranks the disk fallback", ubuntu.Swap.Priority)
+	}
+	if err := entity.ValidateSwapSpec(*ubuntu.Swap); err != nil {
+		t.Fatalf("the declared swap spec is invalid: %v", err)
+	}
 	for _, tier := range ubuntu.Tiers {
 		if !tier.ZRAMEnabled() && tier.ID == "tiny" {
 			t.Fatal("the tiny tier must enable zram: the fleet's memory-constrained hosts need it")

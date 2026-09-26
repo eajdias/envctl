@@ -46,6 +46,12 @@ type ResourceLimitsManager interface {
 	Apply(ctx context.Context, spec entity.LimitsSpec, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// SwapManager adopts an existing swap device or creates one. Adoption must be a
+// complete no-op: a device the tool did not create is reported and left alone.
+type SwapManager interface {
+	Ensure(ctx context.Context, spec entity.SwapSpec, hw entity.HardwareState, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

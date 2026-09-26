@@ -13,6 +13,10 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
+// zramService is the swap unit systemd-zram-generator emits. The generator
+// creates it; the tool only starts it when the device is absent.
+const zramService = "dev-zram0.swap"
+
 // journaldService is restarted, never stopped: man 8 systemd-journald.
 const journaldService = "systemd-journald"
 
@@ -97,6 +101,15 @@ func (w *dropinWriter) Install(content string, mode os.FileMode, dryRun bool) (c
 		}
 	}
 
+	// The drop-in directory does not exist on a clean host: Ubuntu ships
+	// journald.conf only as a single file, with no journald.conf.d/, and
+	// system.conf.d/ is absent unless something created it. The temporary file
+	// must share the destination's directory for the rename to be atomic, so
+	// the directory has to exist first.
+	if err := w.ensureParentDir(context.Background()); err != nil {
+		return false, backup, err
+	}
+
 	tmp, err := os.CreateTemp(filepath.Dir(w.destination), ".envctl-dropin-")
 	if err != nil {
 		return false, backup, fmt.Errorf("create temporary drop-in next to %s: %w", w.destination, err)
@@ -131,6 +144,18 @@ func (w *dropinWriter) Install(content string, mode os.FileMode, dryRun bool) (c
 		return false, backup, fmt.Errorf("replace %s failed: %v (%s)", w.destination, err, strings.TrimSpace(string(out)))
 	}
 	return true, backup, nil
+}
+
+// ensureParentDir creates the drop-in's directory when it is missing.
+func (w *dropinWriter) ensureParentDir(ctx context.Context) error {
+	dir := filepath.Dir(w.destination)
+	if _, err := os.Stat(dir); err == nil {
+		return nil
+	}
+	if out, err := w.command(ctx, "mkdir", "-p", dir); err != nil {
+		return fmt.Errorf("create drop-in directory %s failed: %v (%s)", dir, err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }
 
 func (w *dropinWriter) command(ctx context.Context, name string, args ...string) ([]byte, error) {
