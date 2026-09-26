@@ -48,6 +48,25 @@ func TestSubagentRoutingPrefersInlineExecution(t *testing.T) {
 	}
 }
 
+// TestSubagentRoutingNamesEveryDispatchableAgent keeps the routing table honest:
+// an agent envctl provisions but the table does not mention is unroutable, so the
+// coordinator either never delegates to it or delegates to the wrong one. The two
+// runtimes name their reviewer differently, and both names must be present.
+func TestSubagentRoutingNamesEveryDispatchableAgent(t *testing.T) {
+	content := readEmbeddedSkill(t, "subagent-routing")
+
+	requireTerms(t, "subagent-routing/agents", content,
+		"explore",
+		"general",
+		"planner",
+		"reviewer",
+		"code-reviewer",
+		"verifier",
+		"docs-writer",
+		"memory-keeper",
+	)
+}
+
 // markdownSection returns the body of the `## <prefix>` section, stopping at the
 // next level-2 heading. Shared skills document one runtime per section, so the
 // contracts below assert vocabulary per runtime instead of per file.

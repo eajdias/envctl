@@ -45,11 +45,24 @@ brutas ao coordenador.
 | Debug sem causa conhecida | `explore`/`general` por domínio | Não primeiro — investigue a causa raiz; paralelo só com falhas independentes |
 | Tarefa pesada multi-passo (build, suíte, crawler) | `general`, ou máquina remota por SSH | Conforme independência |
 | Planejamento de implementação | `planner` (OpenCode) ou `plan` (CommandCode) | Não por padrão; apenas para plano extenso |
+| Revisão de código/diff com severidades e veredito (segundo parecer) | `reviewer` (OpenCode) ou `code-reviewer` (CommandCode) | Não — um por vez, no fim da tarefa |
+| Prova de que a árvore está verde (gate: build, vet, test, lint) | `verifier` (OpenCode e CommandCode) | Não — é um gate sequencial |
+| Sincronizar docs contra manifesto/código | `docs-writer` (OpenCode e CommandCode) | Não — um por vez, depois que o código parou |
+| Fechar lições e patterns na memória | `memory-keeper` (OpenCode e CommandCode) | Não — fecho da tarefa |
 
 Tipos comuns: `explore` (read-only, varredura), `general` (execução/pesquisa),
-`planner` (OpenCode, planejamento dispatchável). No CommandCode `plan` é built-in
-dispatchável; no OpenCode o `planner` é a variante dispatchável e o `plan` nativo
-continua sendo o agente primary.
+`planner` (OpenCode, planejamento dispatchável), `reviewer`/`code-reviewer`
+(revisão read-only), `verifier` (gate), `docs-writer` (drift de doc) e
+`memory-keeper` (memória). No CommandCode `plan` é built-in dispatchável; no
+OpenCode o `planner` é a variante dispatchável e o `plan` nativo continua sendo
+o agente primary.
+
+**Os dois runtimes nomeiam o reviewer diferente, e isso é intencional:** no
+CommandCode o agente se chama `code-reviewer`; no OpenCode, `review` é
+`mode: primary` e por isso **não** aparece no catálogo de subagentes (mesma
+semântica que excluiu o `plan`), então o dispatchável se chama `reviewer`.
+Despeje o `reviewer` no Tab do OpenCode quando quiser revisar na mão — é o mesmo
+corpo de prompt do `review`.
 
 **Por que não existe `planner` no CommandCode:** o `plan` de lá já é dispatchável
 (built-in, `tools: ["read_file"]`) e read-only. Um agente custom que gravasse a
