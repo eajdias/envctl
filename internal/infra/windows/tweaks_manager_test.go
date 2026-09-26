@@ -351,8 +351,12 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 		label  string
 		name   string
 		create string
-		verify string
-		remove string
+		// present reports whether the entry is still on disk: exit 0 = present.
+		// It must test THIS name, not the container: GetValueNames() returns
+		// every value in the Run key, so a bare non-null check would report
+		// "present" for entries the apply never touched.
+		present string
+		remove  string
 	}{
 		{
 			label: "Run key value",
@@ -361,7 +365,10 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 				`New-Item -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Force | Out-Null; `+
 					`New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Value 'envctl-test' -PropertyType String -Force | Out-Null`,
 				psQuote("EnvctlStartupProbeRunKey")),
-			verify: `if ($null -eq (Get-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run').GetValueNames()) { exit 1 }`,
+			present: fmt.Sprintf(
+				`$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; `+
+					`if (Test-Path -LiteralPath $k) { if (@((Get-Item -LiteralPath $k).GetValueNames()) -contains %s) { exit 0 } }; exit 1`,
+				psQuote("EnvctlStartupProbeRunKey")),
 			remove: `Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Force -ErrorAction SilentlyContinue`,
 		},
 		{
@@ -372,9 +379,9 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 					`New-Item -ItemType Directory -Path $d -Force | Out-Null; `+
 					`New-Item -ItemType File -Path (Join-Path $d '%s.lnk') -Force | Out-Null`,
 				startupFolderSuffix, "EnvctlStartupProbeFolder"),
-			verify: fmt.Sprintf(
+			present: fmt.Sprintf(
 				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
-					`if (-not (Test-Path -LiteralPath (Join-Path $d '%s.lnk'))) { exit 1 }`,
+					`if (Test-Path -LiteralPath (Join-Path $d '%s.lnk')) { exit 0 }; exit 1`,
 				startupFolderSuffix, "EnvctlStartupProbeFolder"),
 			remove: fmt.Sprintf(
 				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
@@ -393,7 +400,7 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 			t.Cleanup(func() {
 				_, _ = runPS(fmt.Sprintf(tc.remove, psQuote(tc.name)))
 			})
-			if out, err := runPS(tc.verify); err != nil {
+			if out, err := runPS(tc.present); err != nil {
 				t.Fatalf("the disposable %s was not created: %v: %s", tc.label, err, out)
 			}
 
@@ -420,7 +427,7 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 			if !ok {
 				t.Errorf("%s must be gone after apply, still reporting drift (%q)", tc.label, details)
 			}
-			if out, err := runPS(tc.verify); err == nil {
+			if out, err := runPS(tc.present); err == nil {
 				t.Errorf("the %s still exists on disk after apply: %s", tc.label, out)
 			}
 
