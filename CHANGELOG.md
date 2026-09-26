@@ -7,6 +7,26 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.7.0](https://github.com/eajdias/envctl/compare/v1.6.0...v1.7.0) (2026-09-26)
+
+
+### Features
+
+* **linux:** add OS-specific performance baseline ([#27](https://github.com/eajdias/envctl/issues/27)) ([786296e](https://github.com/eajdias/envctl/commit/786296ec22842d80267ca56e58ec8030d820c945))
+* **opencode:** add dispatchable planner subagent and worktree safety checks ([8a80924](https://github.com/eajdias/envctl/commit/8a80924304186eb40f494d5f3b5f0739aace8246))
+* **opencode:** dispatchable planner subagent, runtime-aware supervision, and a 12-skill catalog ([01b0ed0](https://github.com/eajdias/envctl/commit/01b0ed07998aa76d16ce631cbfb236c9e0cafca6))
+* **skills:** expand engineering playbooks ([#30](https://github.com/eajdias/envctl/issues/30)) ([3f68d21](https://github.com/eajdias/envctl/commit/3f68d21f6cba8b746ca68823082fd3b9c2d0e976))
+
+
+### Bug Fixes
+
+* **backup:** prune nested backups recursively and keep them out of the snapshot ([f4f0f0f](https://github.com/eajdias/envctl/commit/f4f0f0ff553d6888072fe900a29ba91fcc388a30))
+* **docs:** recover the gaming and debloat knowledge the catalog cut dropped ([2ec12d9](https://github.com/eajdias/envctl/commit/2ec12d9bdc473d38a2b685169cbf0581c9f26b2c))
+* **skills:** bound the stale-skill quarantine with a recovery window ([e5f37be](https://github.com/eajdias/envctl/commit/e5f37be5ad46761d8f9d3cdf1190e3e311db88a4))
+* **skills:** make supervision guidance runtime-aware per agent ([30b6edb](https://github.com/eajdias/envctl/commit/30b6edbe49e55ef784b56b552d91687156ceeee1))
+* **skills:** restore the variant-analysis phase and re-point removed skills ([8e06582](https://github.com/eajdias/envctl/commit/8e0658282682addbd476d707e4d54da08cc5a709))
+* **verify:** make inferred checks advisory ([#29](https://github.com/eajdias/envctl/issues/29)) ([c34613a](https://github.com/eajdias/envctl/commit/c34613a486ccd50ae0a24bd14c11762e6335af94))
+
 ## [1.6.0](https://github.com/eajdias/envctl/compare/v1.5.0...v1.6.0) (2026-09-24)
 
 
