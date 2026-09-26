@@ -55,7 +55,7 @@ func newRunCmd() *cobra.Command {
 		Use:   "vps",
 		Short: "Ubuntu Server 24+ profile (providers + bootstrap + apt + performance + shell + skills + LSPs)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runVPSProfile()
+			return runVPSProfile(usecase.PerformanceOptions{Umbrella: true})
 		},
 	})
 
@@ -244,7 +244,7 @@ func runAllProvisioning() error {
 		runCachyOSProfile()
 		return nil
 	default:
-		return runVPSProfile()
+		return runVPSProfile(usecase.PerformanceOptions{Umbrella: true})
 	}
 }
 
@@ -309,7 +309,7 @@ func runWindowsProfile() {
 	finishProfile("All Windows workstation components, debloat, toolchains, skills, and shell configurations have been applied.")
 }
 
-func runVPSProfile() error {
+func runVPSProfile(perfOpts usecase.PerformanceOptions) error {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Ubuntu/Debian Server (VPS) Provisioning")
 
@@ -334,7 +334,7 @@ func runVPSProfile() error {
 	// outside the manifest's declared minimum must fail loudly instead of
 	// silently skipping every performance change.
 	PrintSection(section(4, "Applying Ubuntu Server Performance Profile (zram + sysctl)"))
-	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
+	if err := runPerformanceProvisioning(context.Background(), perfOpts); err != nil {
 		return fmt.Errorf("the ubuntu-server performance profile is required by `run vps`: %w", err)
 	}
 
@@ -375,7 +375,7 @@ func runCachyOSProfile() {
 	runGamingProvisioning()
 
 	PrintSection(section(5, "Applying CachyOS Performance Profile (zram)"))
-	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
+	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{Umbrella: true}); err != nil {
 		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
 	}
 

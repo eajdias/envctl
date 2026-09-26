@@ -165,6 +165,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   replaces `ubuntu-24.04`), a read-only hardware probe feeds declarative memory
   tiers, and the profile now converges a host on swap, journald, file-descriptor
   limits and the timezone. Package removal is opt-in via `--allow-debloat`.
+* **linux:** an umbrella run (`run all`, `run vps`, `run cachyos`) now reports a
+  pending reboot and continues, instead of aborting. A pending kernel update is
+  the norm on a long-lived server, and the phases after the performance one are
+  valid regardless; aborting made those servers impossible to bootstrap. The
+  dedicated `run performance` command still refuses, and `--force-reboot-pending`
+  still overrides. Found by running `run all` on a host with three pending kernel
+  images: the run died at the performance phase and phases 5-7 never ran.
 * **linux:** raise the soft file-descriptor limit without pinning the host's hard
   limit. The systemd drop-in writes `DefaultLimitNOFILE=65536:`, a form verified
   to parse cleanly and to leave each host's own ceiling intact; the Oracle hosts

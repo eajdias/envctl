@@ -229,10 +229,16 @@ nomeando o guard. Isso mantém o doctor em 0 WARN num host convergido.
 ## Precondição: reboot pendente
 
 `/var/run/reboot-required` gera um único `DiagWarning` **antes** de qualquer
-escrita, e o run aborta com saída não-zero. Ajustar performance em cima de um
-runtime que o host vai substituir descreve um estado que não existirá depois do
-boot. `--force-reboot-pending` contorna; o `vps_oracle_2` está com reboot pendente
-no momento da escrita deste documento.
+escrita. Ajustar performance em cima de um runtime que o host vai substituir
+descreve um estado que não existirá depois do boot.
+
+O **escopo** do bloqueio importa e foi corrigido depois de medir: o comando
+dedicado `run performance` **aborta** com saída não-zero, mas os comandos de
+perfil completo (`run all`, `run vps`, `run cachyos`) apenas **avisam** e seguem.
+Kernel pendente é a regra em servidor de vida longa, e abortar impedia o
+bootstrap — o `run all` na `vps_oracle_2` morria na fase de performance e as fases
+de shell/config, skills e LSPs nunca rodavam. `--force-reboot-pending` contorna o
+abort do comando dedicado.
 
 ## O que este perfil nunca toca
 

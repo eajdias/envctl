@@ -95,3 +95,36 @@ func TestDoctorJournaldUsesThePolicyAssessment(t *testing.T) {
 		t.Fatal("the detail must explain the risk")
 	}
 }
+
+// A pending reboot must not block the umbrella run.
+//
+// This was found by running `envctl run all` on a live host with three pending
+// kernel images: the run aborted at the performance phase and phases 5-7
+// (shell/config, skills, LSPs) never ran. That makes bootstrapping impossible on
+// any long-lived server, since pending kernel updates are the norm there.
+//
+// The hard abort belongs to the dedicated `run performance` command, where
+// performance is the whole point. In `run all` the remaining phases are valid
+// regardless, and the reboot is more urgent than the tuning anyway.
+func TestRebootPendingIsForcedByTheUmbrellaProfiles(t *testing.T) {
+	pending := ProbeRebootPending(func(string) bool { return true })
+	clean := ProbeRebootPending(func(string) bool { return false })
+
+	if err := ValidateRebootPolicy(PerformanceOptions{}, pending); err == nil {
+		t.Fatal("the dedicated run must refuse a pending reboot by default")
+	}
+	if err := ValidateRebootPolicy(PerformanceOptions{ForceRebootPending: true}, pending); err != nil {
+		t.Fatalf("the opt-out must be accepted: %v", err)
+	}
+	// A pending reboot is never an error in the umbrella profiles.
+	if err := ValidateRebootPolicy(PerformanceOptions{Umbrella: true}, pending); err != nil {
+		t.Fatalf("an umbrella run must proceed and only warn: %v", err)
+	}
+	if err := ValidateRebootPolicy(PerformanceOptions{Umbrella: true, ForceRebootPending: true}, pending); err != nil {
+		t.Fatalf("an umbrella run must proceed regardless: %v", err)
+	}
+	// A clean host never blocks anything.
+	if err := ValidateRebootPolicy(PerformanceOptions{}, clean); err != nil {
+		t.Fatalf("a clean host must not block the dedicated run: %v", err)
+	}
+}

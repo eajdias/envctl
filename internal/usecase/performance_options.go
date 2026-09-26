@@ -61,6 +61,22 @@ type PerformanceOptions struct {
 	AllowDebloat       bool
 	DebloatOnly        bool
 	ForceRebootPending bool
+	// Umbrella marks a whole-profile run (`run all`, `run vps`, `run windows`,
+	// `run cachyos`) rather than the dedicated `run performance`. An umbrella
+	// run reports a pending reboot and continues, because the phases after the
+	// performance one are valid regardless and aborting would make a server with
+	// pending kernel updates impossible to bootstrap.
+	Umbrella bool
+}
+
+// ValidateRebootPolicy decides whether a pending reboot blocks the run. The
+// state is supplied rather than probed so the rule is a pure function of the
+// options.
+func ValidateRebootPolicy(opts PerformanceOptions, state RebootPendingState) error {
+	if opts.Umbrella || opts.ForceRebootPending || !state.Pending {
+		return nil
+	}
+	return fmt.Errorf("a reboot is pending: %s", state.Detail)
 }
 
 // applyTo folds the options into the specs the managers receive, so the mapping

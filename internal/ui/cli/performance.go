@@ -44,17 +44,19 @@ func runPerformanceProvisioning(ctx context.Context, opts usecase.PerformanceOpt
 	pterm.DefaultHeader.WithFullWidth().Println(
 		fmt.Sprintf("Performance profile: %s (%s %s)", profile, platform.ID, platform.VersionID),
 	)
-	// A pending reboot is a precondition, not advice: applying tuning on top of
-	// a runtime the host is about to replace describes a state that will not
-	// exist after the next boot.
-	if state := usecase.ProbeRebootPending(nil); state.Pending {
-		if opts.ForceRebootPending {
-			pterm.Warning.Printf("Proceeding despite a pending reboot: %s\n", state.Detail)
-		} else {
-			pterm.Error.Printf("Refusing to apply the performance profile: %s\n", state.Detail)
+	// A pending reboot is a precondition for the dedicated performance command,
+	// not for a whole-profile run: phases after this one are valid regardless,
+	// and aborting would make a server with pending kernel updates impossible to
+	// bootstrap. That was found by running `run all` on a host with three
+	// pending kernel images.
+	reboot := usecase.ProbeRebootPending(nil)
+	if reboot.Pending {
+		if err := usecase.ValidateRebootPolicy(opts, reboot); err != nil {
+			pterm.Error.Printf("Refusing to apply the performance profile: %s\n", reboot.Detail)
 			pterm.Info.Println("Reboot first, or re-run with --force-reboot-pending to proceed anyway.")
-			return fmt.Errorf("performance profile aborted: a reboot is pending")
+			return err
 		}
+		pterm.Warning.Printf("Proceeding despite a pending reboot: %s\n", reboot.Detail)
 	}
 
 	packages, diagnostics, err := appCtx.ProvisionPerformanceUC.ExecutePerformanceWithOptions(
