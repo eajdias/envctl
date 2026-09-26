@@ -64,11 +64,20 @@ Auditoria por subsistema:
 de ACL; e `cloudflared` (criar/listar túneis, `tunnel route dns`, rodar como serviço com
 credenciais 0600).
 
-- **Status 2026-09-24:** skill `tailscale` absorvida do inventário CachyOS (portátil, sem PII);
-  `cloudflared` segue pendente.
+- **Status 2026-09-26:** o conhecimento foi absorvido como **seção de referência**, não como
+  skill: `configs/skills/code-playbooks/references/infra.md` tem `## Tailscale` e `## Syncthing`,
+  incluindo as regras que evitam erro (exit node muda o roteamento da máquina toda → documentar e
+  reverter; nunca editar `config.xml` à mão → usar a REST API; segredo vai para arquivo de secrets
+  na máquina alvo, não para o comando). **Decisão:** não viram skill porque o catálogo é
+  carregado a cada turno nos dois runtimes, e nem `tailscale` nem `syncthing` são provisionados
+  pelo envctl (uso esporádico, ficam por fora do manifesto) — as outras 12 skills são workflow do
+  agente ou do próprio envctl. `cloudflared` segue pendente.
 
-- Onde: `configs/skills/<nome>/` + `manifests/skills.yaml` (checklist na §5 da matriz).
-- Hoje a camada de rede **não** tem skill; o acesso remoto existe pelo skill de SSH/ssh-manager.
+- Onde, se `cloudflared` entrar: `configs/skills/<nome>/` + `manifests/skills.yaml` (checklist na
+  §5 da matriz) — mas reavalie o custo de catálogo antes; a alternativa é mais uma seção em
+  `references/infra.md`.
+- Hoje a camada de rede **não** tem skill; o acesso remoto existe pelo skill de SSH/ssh-manager e
+  pela referência de infra.
 - Receita que vale documentar: "expor uma porta local para o tailnet **ou** para a internet
   com segurança, e como derrubar depois".
 - Segredos (auth key, credencial de túnel) **nunca** no repositório: documentar o armazenamento
@@ -143,8 +152,11 @@ whitelist segura.
 - **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
   nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
 - **`ty`** (Astral) como segundo type checker Python, ao lado do mypy (ver §4 da matriz).
-- **Windows:** rodar `envctl run windows` numa sessão Windows para validar o tipo `PSModule`
-  (PSScriptAnalyzer + Pester) — pendente de máquina Windows.
+- **Windows:** validar o tipo `PSModule` (PSScriptAnalyzer + Pester). **Status 2026-09-26:** o
+  blocker deixou de ser máquina Windows — o CI já roda `windows-latest` com `go vet`, `go test` e
+  `go build`, mas **nenhum** workflow invoca PSScriptAnalyzer/Pester e o tipo `PSModule`
+  (`internal/infra/windows/tweaks_manager.go`) não tem teste. Falta escrever a validação, não
+  hardware.
 
 ---
 
