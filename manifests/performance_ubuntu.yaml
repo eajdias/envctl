@@ -1,6 +1,10 @@
-# Ubuntu Server 24.04+ performance profile.
-# This file is selected only on exact Ubuntu >= 24.04 hosts by `run performance`.
-profile: ubuntu-24.04
+# Ubuntu Server performance profile.
+# The identity is version-free: the fleet already runs Ubuntu 26.04, so the
+# release floor lives here as data and is evaluated with MatchesDistroMinimum.
+# Selected only on hosts whose /etc/os-release reports ID=ubuntu inside the
+# Debian family and whose VERSION_ID satisfies min_distro_version.
+profile: ubuntu-server
+min_distro_version: "24.04"
 
 packages:
   - id: systemd-zram-generator

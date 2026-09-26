@@ -51,9 +51,9 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	onProgress PackageProgressHandler,
 ) ([]entity.Package, []entity.Diagnostic, error) {
 	platform := uc.platform()
-	if !entity.PerformanceProfileMatchesPlatform(profile, platform) {
+	if !entity.PerformanceProfileMatchesOS(profile, platform) {
 		return nil, nil, fmt.Errorf(
-			"performance profile %q is unsupported on %s %s (family=%s); use an exact supported OS",
+			"performance profile %q targets a different OS than this host (%s %s, family=%s)",
 			profile, platform.ID, platform.VersionID, platform.Family,
 		)
 	}
@@ -65,7 +65,15 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	if spec.Profile != profile {
 		return nil, nil, fmt.Errorf("performance manifest returned profile %q, expected %q", spec.Profile, profile)
 	}
-	if err := validatePerformanceSpec(spec, profile); err != nil {
+	// The release floor is manifest data, so it is evaluated after the spec is
+	// loaded and never hard-coded here.
+	if !entity.MatchesDistroMinimum(platform.VersionID, spec.MinDistroVersion) {
+		return nil, nil, fmt.Errorf(
+			"performance profile %q requires %s >= %s; this host is %s",
+			profile, platform.ID, spec.MinDistroVersion, platform.VersionID,
+		)
+	}
+	if err := validatePerformanceSpec(spec, profile, platform); err != nil {
 		return nil, nil, err
 	}
 	if uc.packages == nil {
@@ -109,18 +117,19 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	return packages, diagnostics, nil
 }
 
-func validatePerformanceSpec(spec entity.PerformanceSpec, profile entity.PerformanceProfile) error {
+// validatePerformanceSpec checks profile-internal consistency and package
+// scoping. The platform is supplied by the caller so the check runs against the
+// real host instead of a synthesized one: a synthetic VERSION_ID would hide a
+// package whose min_distro_version no longer matches the fleet.
+func validatePerformanceSpec(spec entity.PerformanceSpec, profile entity.PerformanceProfile, platform entity.PlatformInfo) error {
 	if profile == entity.PerformanceProfileCachyOS && len(spec.Sysctls) > 0 {
 		return fmt.Errorf("CachyOS performance profile cannot contain sysctl settings")
 	}
 
-	platform := entity.PlatformInfo{GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04"}
-	if profile == entity.PerformanceProfileCachyOS {
-		platform = entity.PlatformInfo{GOOS: "linux", Family: entity.DistroArch, ID: "cachyos", VersionID: "rolling"}
-	}
 	for _, pkg := range spec.Packages {
 		if !entity.PackageMatchesPlatform(pkg, platform) {
-			return fmt.Errorf("performance package %q is not scoped to profile %q", pkg.ID, profile)
+			return fmt.Errorf("performance package %q is not applicable to %s %s in profile %q",
+				pkg.ID, platform.ID, platform.VersionID, profile)
 		}
 	}
 	return nil

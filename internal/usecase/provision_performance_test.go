@@ -16,6 +16,14 @@ type performanceRepoStub struct {
 	loadErr   error
 }
 
+func (m *performanceRepoStub) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
+	return []entity.PerformanceProfileMeta{{
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: m.spec.MinDistroVersion,
+		ManifestFile:     "performance_ubuntu.yaml",
+	}}, nil
+}
+
 func (m *performanceRepoStub) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	m.loadCalls++
 	if m.loadErr != nil {
@@ -104,25 +112,77 @@ func newPerformanceUseCaseForTest(
 	})
 }
 
-func TestProvisionPerformanceRejectsWrongExactProfile(t *testing.T) {
-	repo := &performanceRepoStub{}
+// TestProvisionPerformanceRejectsHostBelowManifestMinimum pins the moved gate:
+// the release floor lives in the manifest, so the spec is loaded first and the
+// host is rejected against the declared minimum before any package work.
+func TestProvisionPerformanceRejectsHostBelowManifestMinimum(t *testing.T) {
+	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: "24.04",
+	}}
 	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{}}
 	uc := newPerformanceUseCaseForTest(repo, manager, &performanceSysctlStub{}, entity.PlatformInfo{
 		GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "22.04",
 	})
 
-	_, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntu, false, nil)
+	_, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil)
 	if err == nil {
 		t.Fatal("expected Ubuntu 22.04 to be rejected")
 	}
-	if repo.loadCalls != 0 {
-		t.Fatalf("profile rejection loaded manifest %d time(s), want 0", repo.loadCalls)
+	if repo.loadCalls != 1 {
+		t.Fatalf("spec was loaded %d time(s), want 1: the minimum comes from the manifest", repo.loadCalls)
+	}
+	if manager.installCalls != 0 {
+		t.Fatalf("rejected host installed %d package(s)", manager.installCalls)
+	}
+}
+
+// TestProvisionPerformanceAcceptsFleetReleaseAboveMinimum is the 26.04 case
+// from the live fleet: the floor is a minimum, not an exact match.
+func TestProvisionPerformanceAcceptsFleetReleaseAboveMinimum(t *testing.T) {
+	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: "24.04",
+		Packages: []entity.Package{{
+			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
+			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
+		}},
+		Sysctls: []entity.SysctlSetting{{Key: "vm.swappiness", Value: "10"}},
+	}}
+	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{"systemd-zram-generator": "1.2.1-2"}}
+	sysctl := &performanceSysctlStub{}
+	uc := newPerformanceUseCaseForTest(repo, manager, sysctl, entity.PlatformInfo{
+		GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "26.04",
+	})
+
+	if _, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil); err != nil {
+		t.Fatalf("Ubuntu 26.04 rejected: %v", err)
+	}
+	if sysctl.calls != 1 {
+		t.Fatalf("sysctl applied %d time(s) on 26.04, want 1", sysctl.calls)
+	}
+}
+
+// TestProvisionPerformanceRejectsMissingManifestMinimum: a spec with no
+// declared floor and a numeric host version must not silently pass.
+func TestProvisionPerformanceRejectsSpecWithoutMinimumForNumericHost(t *testing.T) {
+	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
+		Profile: entity.PerformanceProfileUbuntuServer,
+	}}
+	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{}}
+	uc := newPerformanceUseCaseForTest(repo, manager, &performanceSysctlStub{}, entity.PlatformInfo{
+		GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04",
+	})
+
+	if _, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil); err != nil {
+		t.Fatalf("an empty minimum must accept any version: %v", err)
 	}
 }
 
 func TestProvisionPerformanceDryRunDoesNotInstallOrApply(t *testing.T) {
 	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
-		Profile: entity.PerformanceProfileUbuntu,
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: "24.04",
 		Packages: []entity.Package{{
 			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
 			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
@@ -136,7 +196,7 @@ func TestProvisionPerformanceDryRunDoesNotInstallOrApply(t *testing.T) {
 		GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04",
 	}, zram)
 
-	packages, diags, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntu, true, nil)
+	packages, diags, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, true, nil)
 	if err != nil {
 		t.Fatalf("dry-run failed: %v", err)
 	}
@@ -164,7 +224,8 @@ func TestProvisionPerformanceDryRunDoesNotInstallOrApply(t *testing.T) {
 
 func TestProvisionPerformanceStopsBeforeSysctlWhenPackageFails(t *testing.T) {
 	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
-		Profile: entity.PerformanceProfileUbuntu,
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: "24.04",
 		Packages: []entity.Package{{
 			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
 			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
@@ -180,7 +241,7 @@ func TestProvisionPerformanceStopsBeforeSysctlWhenPackageFails(t *testing.T) {
 		GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04",
 	})
 
-	_, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntu, false, nil)
+	_, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil)
 	if err == nil {
 		t.Fatal("expected package failure")
 	}

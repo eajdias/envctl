@@ -11,7 +11,11 @@ import (
 
 func runPerformanceProvisioning(ctx context.Context, dryRun bool) error {
 	platform := entity.DetectedPlatform()
-	profile, err := selectPerformanceProfile(platform)
+	metas, err := appCtx.ManifestRepo.ListPerformanceProfiles()
+	if err != nil {
+		return fmt.Errorf("failed to discover performance profiles: %w", err)
+	}
+	profile, err := selectPerformanceProfile(platform, metas)
 	if err != nil {
 		return err
 	}
@@ -55,15 +59,30 @@ func runPerformanceProvisioning(ctx context.Context, dryRun bool) error {
 	return nil
 }
 
-func selectPerformanceProfile(platform entity.PlatformInfo) (entity.PerformanceProfile, error) {
-	if entity.PerformanceProfileMatchesPlatform(entity.PerformanceProfileUbuntu, platform) {
-		return entity.PerformanceProfileUbuntu, nil
+// selectPerformanceProfile picks the profile this host satisfies. The release
+// floor comes from each manifest, so no version is hard-coded here and raising
+// the floor is a manifest edit.
+func selectPerformanceProfile(
+	platform entity.PlatformInfo,
+	metas []entity.PerformanceProfileMeta,
+) (entity.PerformanceProfile, error) {
+	required := ""
+	for _, meta := range metas {
+		if entity.PerformanceProfileSatisfiedBy(meta.Profile, platform, meta.MinDistroVersion) {
+			return meta.Profile, nil
+		}
+		if meta.MinDistroVersion != "" && (required == "" || meta.MinDistroVersion > required) {
+			required = meta.MinDistroVersion
+		}
 	}
-	if entity.PerformanceProfileMatchesPlatform(entity.PerformanceProfileCachyOS, platform) {
-		return entity.PerformanceProfileCachyOS, nil
+	if required != "" {
+		return "", fmt.Errorf(
+			"this host (%s %s, family=%s) does not satisfy any performance profile; the declared minimum release is %s",
+			platform.ID, platform.VersionID, platform.Family, required,
+		)
 	}
 	return "", fmt.Errorf(
-		"no performance profile is available for %s %s (family=%s); supported profiles are Ubuntu >= 24.04 and CachyOS",
+		"no performance profile is available for %s %s (family=%s); no manifest declared a release minimum",
 		platform.ID, platform.VersionID, platform.Family,
 	)
 }
