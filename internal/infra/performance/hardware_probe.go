@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -120,31 +119,6 @@ func filesystemTypeName(magic int64) string {
 	// policy refuses anything outside its allowlist, so a wrong guess here
 	// would create a swapfile the policy meant to prevent.
 	return "unknown-" + strconv.FormatInt(magic, 16)
-}
-
-// positiveInt64 narrows a signed kernel-reported value to uint64 after checking
-// the sign, so a negative value becomes zero rather than wrapping.
-func positiveInt64(value int64) uint64 {
-	if value <= 0 {
-		return 0
-	}
-	return uint64(value)
-}
-
-// statfsRoot reports the filesystem type and available bytes of a path.
-func statfsRoot(path string) (fsStat, error) {
-	var stat syscall.Statfs_t
-	if err := syscall.Statfs(path, &stat); err != nil {
-		return fsStat{}, err
-	}
-	// Bsize is signed and Bavail is unsigned, with the exact widths varying by
-	// architecture. Both are narrowed through positiveInt64 so a negative or
-	// absurd kernel value cannot wrap into a huge unsigned one and defeat the
-	// swapfile size clamp.
-	return fsStat{
-		Type:      filesystemTypeName(stat.Type),
-		FreeBytes: stat.Bavail * positiveInt64(stat.Bsize),
-	}, nil
 }
 
 // runtimeCPUCount reports the CPUs this process may actually run on, which is
