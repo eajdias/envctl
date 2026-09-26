@@ -7,6 +7,16 @@
 version: "1.0"
 
 packages:
+  # CachyOS base tuning. Ships /usr/bin/game-performance (the wrapper the
+  # gaming guide puts in Steam launch options), the CachyOS modprobe/sysctl/
+  # modules-load defaults, and owns cachyos-ananicy-rules. Declared because
+  # nothing else pulls it and the guide references game-performance directly.
+  - id: cachyos-settings
+    name: CachyOS system defaults (game-performance wrapper, modprobe/sysctl/modules-load defaults, owns cachyos-ananicy-rules)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
   # Steam + runtime
   - id: steam
     name: Steam launcher (multilib)
@@ -67,6 +77,18 @@ packages:
 
   - id: retroarch
     name: RetroArch frontend
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: retroarch-assets-ozone
+    name: RetroArch Ozone menu assets
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: retroarch-assets-xmb
+    name: RetroArch XMB menu assets
     type: pacman
     os: arch,cachyos
     category: gaming
@@ -164,6 +186,12 @@ packages:
     os: arch,cachyos
     category: gaming
 
+  - id: protontricks
+    name: protontricks (per-game Proton/Wine runtime tweaks)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
   # CPU / scheduler / power tuning
   - id: scx-tools
     name: sched_ext loader (scx_loader service)
@@ -178,7 +206,13 @@ packages:
     category: gaming
 
   - id: ananicy-cpp
-    name: ananicy-cpp auto-nice daemon (never combine with gamemode)
+    name: ananicy-cpp auto-nice daemon (never combine with gamemode; requires cachyos-ananicy-rules, the daemon alone ships zero rules)
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: cachyos-ananicy-rules
+    name: ananicy ruleset for CachyOS (owns /etc/ananicy.d; without it the daemon runs with no rules)
     type: pacman
     os: arch,cachyos
     category: gaming
@@ -230,6 +264,12 @@ packages:
 
   - id: xf86-input-libinput
     name: libinput X.Org input driver
+    type: pacman
+    os: arch,cachyos
+    category: gaming
+
+  - id: xf86-video-amdgpu
+    name: X.Org AMDGPU driver (required by the X11 session on Polaris; nothing else pulls it)
     type: pacman
     os: arch,cachyos
     category: gaming

@@ -24,6 +24,43 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   recusa token desconhecido, escapa o nome para `-Name` (que é wildcard no
   provider de registro) e trata sonda parcial como erro.
 
+### Corrigido
+
+- Paridade do perfil CachyOS com o ambiente real: `gaming.yaml` vai de 38 para
+  44 pacotes. Faltavam `cachyos-settings` (que traz `/usr/bin/game-performance`,
+  o wrapper que o próprio guia manda usar nos launch options do Steam, e os
+  defaults em `modprobe.d`/`sysctl.d`/`modules-load.d`), `cachyos-ananicy-rules`
+  (dono de `/etc/ananicy.d` — o daemon `ananicy-cpp` sobe com zero regras sem
+  ele), `xf86-video-amdgpu` (driver do quarteto X11), os assets de menu do
+  RetroArch e `protontricks`. `steam-devices` foi avaliado e descartado: `steam`
+  já o puxa.
+- `doctor` acusava o stack de jogos como saudável com o ananicy inerte: a
+  auditoria checava `is-active` e não a existência de regras. Passa a checar um
+  arquivo que só o ruleset possui, o que também pega o caso de pacote
+  instalado com as regras removidas.
+- `doctor` auditava 3 dos 10 parâmetros de kernel que a workstation usa. Os 4 da
+  GPU AMD (`amdgpu.runpm=0`, `amdgpu.aspm=0`, `pcie_aspm=off`,
+  `amdgpu.gpu_recovery=0`) passam a ser exigidos **apenas** com `amdgpu`
+  carregado, e `oops=panic`/`panic=10` saem em `INFO` — são escolha de
+  estabilidade, não pré-requisito de performance. `mitigations=off` segue fora
+  de propósito.
+- O check do preset `gaming.conf` aceitava qualquer arquivo que mencionasse
+  `MESA_SHADER_CACHE_MAX_SIZE`, então remover `RADV_PERFTEST` passava
+  despercebido; linha comentada agora conta como ausente. O preset
+  `MangoHud.conf`, que o `run shell` também planta, não era auditado.
+- Guia de gaming com 3 contradições: `amdgpu.ppfeaturemask=0xffffffff`
+  documentado e ausente do `/proc/cmdline` real; "10 perfis X360 embutidos na
+  skill" quando não existe `profiles/` no repo (a skill foi removida em
+  2026-09-26 e a máquina tem 2 perfis feitos à mão); e `game-performance` /
+  `ananicy-cpp` citados sem os pacotes que os fornecem.
+- `.pacnew` pendentes visíveis no `doctor` (seção Performance, em `INFO` — não é
+  defeito e cada um merece um julgamento; esta workstation tinha
+  `limine-snapper-sync.conf.pacnew` invisível).
+- As duas regras de worktree e de sessão paralela já presentes no manifesto
+  global foram sincronizadas para `configs/AGENTS.arch.md`, a fonte. Era o único
+  WARNING do `doctor`; a fonte ficou igual à máquina em vez de o deploy ser
+  sobrescrito.
+
 ---
 
 ## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)

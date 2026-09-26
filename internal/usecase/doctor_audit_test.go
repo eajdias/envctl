@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -641,6 +642,192 @@ func TestMissingCmdlineParams(t *testing.T) {
 	}
 }
 
+// realAMDGamingCmdline is the /proc/cmdline of the managed workstation, minus
+// mitigations=off which is deliberately never required.
+const realAMDGamingCmdline = "quiet nowatchdog splash rw rootflags=subvol=/@ root=UUID=556567b9-0e0a-4b8c-97fa-6d386b75bf07 " +
+	"mitigations=off preempt=full split_lock_detect=off amdgpu.runpm=0 amdgpu.aspm=0 pcie_aspm=off " +
+	"amdgpu.gpu_recovery=0 oops=panic panic=10 zswap.enabled=0"
+
+func TestGamingAMDKernelParams_CoversRealCmdline(t *testing.T) {
+	if missing := missingCmdlineParams(realAMDGamingCmdline, gamingAMDKernelParams); len(missing) != 0 {
+		t.Errorf("expected no missing AMD params on the real cmdline, got %v", missing)
+	}
+	if missing := missingCmdlineParams("quiet preempt=full", gamingAMDKernelParams); len(missing) != len(gamingAMDKernelParams) {
+		t.Errorf("expected all %d AMD params missing, got %v", len(gamingAMDKernelParams), missing)
+	}
+	partial := "quiet amdgpu.runpm=0 amdgpu.aspm=0 pcie_aspm=off"
+	missing := missingCmdlineParams(partial, gamingAMDKernelParams)
+	if len(missing) != 1 || missing[0] != "amdgpu.gpu_recovery=0" {
+		t.Errorf("expected only [amdgpu.gpu_recovery=0] missing, got %v", missing)
+	}
+}
+
+// TestGamingKernelParamsExcludeAMD guards the tiering: the universal list must
+// stay hardware-agnostic, or an Intel or NVIDIA host warns forever.
+func TestGamingKernelParamsExcludeAMD(t *testing.T) {
+	for _, p := range gamingKernelParams {
+		for _, amd := range gamingAMDKernelParams {
+			if p == amd {
+				t.Errorf("%q is in both the universal and the AMD list", p)
+			}
+		}
+	}
+	if strings.Contains(strings.Join(gamingKernelParams, " "), "amdgpu") {
+		t.Errorf("universal kernel params must not mention amdgpu, got %v", gamingKernelParams)
+	}
+	if strings.Contains(strings.Join(gamingAMDKernelParams, " "), "panic") {
+		t.Errorf("AMD kernel params must not include the panic-stability choice, got %v", gamingAMDKernelParams)
+	}
+}
+
+func TestGamingPanicParamsAreOptional(t *testing.T) {
+	if len(gamingPanicParams) == 0 {
+		t.Fatal("expected the panic-stability params to be reported")
+	}
+	// Absent is the normal case on a stock kernel; it must never be a warning.
+	if missing := missingCmdlineParams("quiet preempt=full", gamingPanicParams); len(missing) != len(gamingPanicParams) {
+		t.Errorf("expected all panic params reported as absent, got %v", missing)
+	}
+	if missing := missingCmdlineParams(realAMDGamingCmdline, gamingPanicParams); len(missing) != 0 {
+		t.Errorf("expected no missing panic params on the real cmdline, got %v", missing)
+	}
+}
+
+func TestAmdgpuModulePresent(t *testing.T) {
+	root := t.TempDir()
+	if amdgpuModulePresent(filepath.Join(root, "module", "amdgpu")) {
+		t.Error("expected amdgpu to be absent when the module dir is missing")
+	}
+	if err := os.MkdirAll(filepath.Join(root, "module", "amdgpu", "parameters"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !amdgpuModulePresent(filepath.Join(root, "module", "amdgpu")) {
+		t.Error("expected amdgpu to be detected once the module dir exists")
+	}
+}
+
+func TestMissingGamingConfKeys(t *testing.T) {
+	both := []byte("MESA_SHADER_CACHE_MAX_SIZE=12G\nRADV_PERFTEST=gpl\n")
+	if missing := missingGamingConfKeys(both); len(missing) != 0 {
+		t.Errorf("expected no missing keys, got %v", missing)
+	}
+	onlyCache := []byte("MESA_SHADER_CACHE_MAX_SIZE=12G\n")
+	if missing := missingGamingConfKeys(onlyCache); len(missing) != 1 || missing[0] != "RADV_PERFTEST=" {
+		t.Errorf("expected only RADV_PERFTEST= missing, got %v", missing)
+	}
+	if missing := missingGamingConfKeys(nil); len(missing) != len(gamingConfRequiredKeys) {
+		t.Errorf("expected all %d keys missing for an empty file, got %v", len(gamingConfRequiredKeys), missing)
+	}
+	// A commented-out line is not a setting; the audit must not accept it.
+	commented := []byte("# MESA_SHADER_CACHE_MAX_SIZE=12G\n#RADV_PERFTEST=gpl\n")
+	if missing := missingGamingConfKeys(commented); len(missing) != len(gamingConfRequiredKeys) {
+		t.Errorf("expected commented keys to count as missing, got %v", missing)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksMangoHudPreset(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// run shell seeds both presets; MangoHud.conf missing is a real gap the
+	// audit did not report at all.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "MangoHud preset")
+	if got == nil {
+		t.Fatalf("expected a MangoHud preset diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING when the preset is absent, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.FixHint, "run shell") {
+		t.Errorf("expected the FixHint to point at run shell, got %q", got.FixHint)
+	}
+}
+
+func TestDoctorAudit_GamingTuningAcceptsBothShaderCacheKeys(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	// game-performance plus the MangoHud preset on disk. The mock expands no
+	// path, so the read key is the literal tilde form.
+	existing := map[string]bool{mangoHudPresetPath: true}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, existing)
+	uc.fsManager.(*mockFSManager).fileContents[gamingConfPath] =
+		[]byte("MESA_SHADER_CACHE_MAX_SIZE=12G\nRADV_PERFTEST=gpl\n")
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	cache := findGamingDiag(diags, "shader cache preset")
+	if cache == nil {
+		t.Fatalf("expected a shader cache diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if cache.Category != entity.DiagOK {
+		t.Errorf("expected OK with both keys present, got %v: %s", cache.Category, cache.Details)
+	}
+	overlay := findGamingDiag(diags, "MangoHud preset")
+	if overlay == nil || overlay.Category != entity.DiagOK {
+		t.Errorf("expected OK for the present MangoHud preset, got %+v", overlay)
+	}
+}
+
+func TestPendingPacnewFiles(t *testing.T) {
+	root := t.TempDir()
+	if got := pendingPacnewFiles(root); len(got) != 0 {
+		t.Errorf("expected no pending .pacnew in an empty tree, got %v", got)
+	}
+
+	if err := os.MkdirAll(filepath.Join(root, "pacman.d"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{
+		filepath.Join("pacman.conf.pacnew"),
+		filepath.Join("limine-snapper-sync.conf.pacnew"),
+		filepath.Join("pacman.d", "cachyos-mirrorlist.pacnew"),
+		filepath.Join("pacman.d", "not-a-pacnew.txt"),
+		filepath.Join("pacman.conf"),
+	} {
+		if err := os.WriteFile(filepath.Join(root, rel), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := pendingPacnewFiles(root)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 pending .pacnew files, got %d: %v", len(got), got)
+	}
+	want := map[string]bool{
+		"pacman.conf.pacnew":                 true,
+		"limine-snapper-sync.conf.pacnew":    true,
+		"pacman.d/cachyos-mirrorlist.pacnew": true,
+	}
+	for _, p := range got {
+		if !want[p] {
+			t.Errorf("unexpected file reported: %q", p)
+		}
+	}
+	// Sorted, so the diagnostic is stable between runs.
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("expected sorted output, got %v", got)
+	}
+}
+
 func TestMultilibEnabled(t *testing.T) {
 	active := "[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n"
 	if !multilibEnabled(active) {
@@ -680,15 +867,140 @@ func (m *mockGamingPackageManager) ListInstalled(ctx context.Context) ([]entity.
 }
 
 func gamingStackUseCase(gamingPkgs []entity.Package, managers map[entity.PackageType]repository.PackageManager) *DoctorAuditUseCase {
+	return gamingStackUseCaseWithFS(gamingPkgs, managers, nil)
+}
+
+func gamingStackUseCaseWithFS(gamingPkgs []entity.Package, managers map[entity.PackageType]repository.PackageManager, existingPaths map[string]bool) *DoctorAuditUseCase {
+	if existingPaths == nil {
+		existingPaths = map[string]bool{}
+	}
 	return NewDoctorAuditUseCase(
 		&mockManifestRepo{gamingPkgs: gamingPkgs},
-		&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}},
+		&mockFSManager{existingPaths: existingPaths, fileContents: map[string][]byte{}},
 		&mockEnvManager{},
 		nil,
 		nil,
 		managers,
 		&mockLogger{},
 	)
+}
+
+// findGamingDiag returns the first Gaming diagnostic for target, if any.
+func findGamingDiag(diags []entity.Diagnostic, target string) *entity.Diagnostic {
+	for i := range diags {
+		if diags[i].System == "Gaming" && diags[i].Target == target {
+			return &diags[i]
+		}
+	}
+	return nil
+}
+
+func TestDoctorAudit_GamingTuningWarnsWhenAnanicyHasNoRuleset(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "ananicy-cpp", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "cachyos-ananicy-rules", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{
+				"steam":                 "1.0.0.87-3",
+				"ananicy-cpp":           "1.1.1-1",
+				"cachyos-ananicy-rules": "1:1.1.49-1",
+			},
+		},
+	}
+
+	// The ruleset package is installed but /etc/ananicy.d holds no rules: the
+	// service audit passes and the daemon stays inert. The package loop cannot
+	// see this, so the tuning audit has to.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected an ananicy-rules diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for a missing ananicy ruleset, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.FixHint, "cachyos-ananicy-rules") {
+		t.Errorf("expected the FixHint to name the ruleset package, got %q", got.FixHint)
+	}
+}
+
+func TestDoctorAudit_GamingTuningReportsAnanicyRulesetPresent(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "ananicy-cpp", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"steam": "1.0.0.87-3", "ananicy-cpp": "1.1.1-1"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{ananicyTypesMarker: true})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected an ananicy-rules diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagOK {
+		t.Errorf("expected OK when the ruleset is present, got %v: %s", got.Category, got.Details)
+	}
+}
+
+// TestDoctorAudit_GamingStackAuditsAnanicyRulesPackage guards the T1 wiring:
+// declaring the ruleset in the manifest is what makes the package audit cover
+// the "fresh machine has no rules at all" case.
+func TestDoctorAudit_GamingStackAuditsAnanicyRulesPackage(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "cachyos-ananicy-rules", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "cachyos-ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected the package loop to audit cachyos-ananicy-rules, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for the uninstalled ruleset package, got %v", got.Category)
+	}
+}
+
+func gamingTargets(diags []entity.Diagnostic) []string {
+	var targets []string
+	for _, d := range diags {
+		if d.System == "Gaming" {
+			targets = append(targets, d.Target)
+		}
+	}
+	return targets
 }
 
 func TestDoctorAudit_GamingStackSkippedWithoutManager(t *testing.T) {
