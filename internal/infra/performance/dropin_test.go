@@ -371,3 +371,63 @@ func TestCompareSysctlValues(t *testing.T) {
 		t.Fatal("an unparseable value must not silently compare equal")
 	}
 }
+
+// The content scratch file must NOT be created next to the destination. This
+// process is normally not root, so a direct create under /etc fails with EACCES
+// and the whole write is refused. Found by running the profile on a real host:
+// the sysctl drop-in failed with "open /etc/sysctl.d/.envctl-dropin-...:
+// permission denied".
+//
+// The assertion is on the recorded argv rather than on a filesystem effect,
+// because the privileged `install` and `mv` are what touch the destination
+// directory and cannot be emulated by an unprivileged test process.
+func TestDropinWriterKeepsTheScratchFileOutOfTheDestinationDirectory(t *testing.T) {
+	destination := filepath.Join(t.TempDir(), "etc", "sysctl.d", "90-envctl-performance.conf")
+
+	var calls [][]string
+	writer := newDropinWriter(destination, func(_ context.Context, name string, args ...string) ([]byte, error) {
+		calls = append(calls, append([]string{name}, args...))
+		return nil, nil
+	}, func() time.Time { return time.Unix(1, 0) }, false)
+
+	// A missing destination is the interesting case: the writer must not need
+	// to create anything itself before the elevated commands run.
+	changed, _, err := writer.Install("vm.swappiness = 150\n", 0o644, false)
+	if err != nil {
+		t.Fatalf("Install failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("Install reported no change")
+	}
+
+	var installCall []string
+	for _, call := range calls {
+		if call[0] == "install" {
+			installCall = call
+		}
+	}
+	if installCall == nil {
+		t.Fatalf("commands = %#v, want an install stage", calls)
+	}
+	scratch := installCall[len(installCall)-2]
+	staged := installCall[len(installCall)-1]
+
+	// The scratch file must live outside the destination tree.
+	if strings.HasPrefix(scratch, filepath.Dir(destination)) {
+		t.Fatalf("scratch file %q is inside the destination directory %q; an unprivileged create would fail with EACCES", scratch, filepath.Dir(destination))
+	}
+	// The staged copy must live inside it, or the rename is not atomic.
+	if filepath.Dir(staged) != filepath.Dir(destination) {
+		t.Fatalf("staged copy %q is not in the destination directory %q", staged, filepath.Dir(destination))
+	}
+	// The directory itself is created by an elevated mkdir, not by the process.
+	sawMkdir := false
+	for _, call := range calls {
+		if call[0] == "mkdir" && len(call) >= 2 && call[1] == "-p" {
+			sawMkdir = true
+		}
+	}
+	if !sawMkdir {
+		t.Fatalf("commands = %#v, want an elevated mkdir -p for the drop-in directory", calls)
+	}
+}

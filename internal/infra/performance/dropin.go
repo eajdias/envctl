@@ -110,9 +110,14 @@ func (w *dropinWriter) Install(content string, mode os.FileMode, dryRun bool) (c
 		return false, backup, err
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(w.destination), ".envctl-dropin-")
+	// The content scratch file lives in the system temp directory, not next to
+	// the destination: this process is usually not root, so creating a file
+	// directly under /etc fails with EACCES. The staged copy that the elevated
+	// `install` writes into the destination directory is what makes the
+	// following rename atomic, and that step is the one that runs privileged.
+	tmp, err := os.CreateTemp("", "envctl-dropin-")
 	if err != nil {
-		return false, backup, fmt.Errorf("create temporary drop-in next to %s: %w", w.destination, err)
+		return false, backup, fmt.Errorf("create temporary drop-in content file: %w", err)
 	}
 	tmpName := tmp.Name()
 	cleanup := func() { _ = os.Remove(tmpName) }
