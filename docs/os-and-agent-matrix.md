@@ -33,15 +33,15 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **15** (14 + `pwsh`) | **14** | **14** |
 | Skills por agente | **12** (portáteis) | **12** (portáteis) | **12** (portáteis) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
-| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat opt-in **`run debloat`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
+| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat no perfil **`run windows`** (76 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços; Tier 3 manual na skill `windows-debloat`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, ananicy, X11 trio) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
 | Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
-**Escopo por subsistema:** `run winget`/`run windows` são Windows-only; `run apt` é
+**Escopo por subsistema:** `run winget`/`run tweaks`/`run debloat` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
 (Windows usa winget/volta). `run providers` é portável e roda **antes de tudo** dentro de
-`run all` (fase 0). `run all` despacha por OS e pula o que não é da plataforma.
+perfis `run windows`/`run vps`/`run cachyos` (fase 0). `run all` detecta o OS e despacha para o perfil da máquina.
 
 ### Fase 0 — `run providers`
 
@@ -68,7 +68,7 @@ V2 não funciona com v1. Uma cópia local nunca deve vencer o pacote do Arch.
 `target_distro` + `min_distro_version` para separar Ubuntu 24.04+ de Debian/Ubuntu
 antigos e CachyOS de Arch genérico. Exemplo real: `cursor-bin` é `os: arch` com
 `type: paru`, então só é tocado em Arch — em Ubuntu o gerenciador paru nem é consultado.
-O comando `run performance` é opt-in: Ubuntu 24.04+ pode instalar zram e aplicar o
+O comando `run performance` é aplicado pelos perfis `run vps`/`run cachyos` (standalone continua disponível): Ubuntu 24.04+ pode instalar zram e aplicar o
 sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tuning existente.
 
 ---
@@ -159,7 +159,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Cursor IDE | Windows (winget) · Arch (paru) | — (é o editor padronizado; habilita `/ide` + `get_diagnostics`) |
 | RAG / automações | libs de agente (`requests`, `bs4`, `pypdf`, `openpyxl`, `lxml`, `docx`, `yaml`) | libs de RAG pertencem ao venv do projeto (`uv`) |
 | N8N | — | npm-based: pertence ao projeto (`bunx`/`npx`) |
-| Gaming / debloat | `run gaming` (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · tuning root/reboot documentado no repo · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) + `run debloat` opt-in (76 tweaks Windows: telemetria/privacidade/gaming/Appx/serviços; `doctor` agrega por categoria em `INFO`, nunca `--fix`) · Tier 3 manual (OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) documentado no repo | — |
+| Gaming / debloat | perfil `run cachyos` inclui gaming (38 pkgs: Steam, Proton CachyOS, gamescope, MangoHud + GOverlay, emuladores, Heroic/Lutris, Sunshine, scraper/tools, `lact`, scx, ananicy, X11 trio) · presets `gaming.conf`/`MangoHud.conf` (seed) · `doctor` seção Gaming (opt-in via Steam: pacotes + 4 serviços + `sched_ext` + cmdline + RADV + multilib) · tuning root/reboot documentado no repo · 8 tweaks Windows (6 DWord + 2 módulos PowerShell) + perfil `run windows` inclui debloat (76 tweaks Windows: telemetria/privacidade/gaming/Appx/serviços; `doctor` agrega por categoria em `INFO`, nunca `--fix`) · Tier 3 manual (OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) documentado no repo | — |
 
 **Fora da stack (removidos):** `.NET SDK 8`, `csharp-ls` (+ LSP `csharp`), Visual Studio Code
 (+ `vscode_settings`), Termius, WinSCP, GitHub Desktop, Rust/Oh-My-Posh (remoção anterior).
@@ -197,7 +197,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
 2. NÃO espelhe entrada no `opencode.json`: o runtime v2 ignora o bloco `lsp` (assimetria #16) — foi removido dos dois configs em 2026-09-22.
 
-**Debloat (opt-in, Windows)** → `manifests/debloat.yaml` (`run debloat` + `doctor` seção Debloat)
+**Debloat (Windows)** → `manifests/debloat.yaml` (perfil `run windows` + standalone `run debloat` + `doctor` seção Debloat)
 1. Reusa o schema de `windows.yaml` (`id`, `description`, `path`/`name`/`value`/`type`, `category`); tipos novos: `Appx` (conforme = ausente, `path` vazio) e `Service` (`value` = `Disabled`/`Manual`, conforme = `StartType`).
 2. Categorias fechadas: `telemetry`, `privacy`, `gaming`, `apps`, `services` (o `doctor` agrega 1 linha por categoria, `INFO` em drift — nunca `WARN`, nunca `--fix`).
 3. Listas curadas e conservadoras: Xbox/Teams/Outlook, serviços de máquina (`Dell*`, `AnyDesk`, `Firebird*`, `Tailscale`, `sshd`), `Spooler`/`WSearch`/`SysMain`/`NgcSvc` e tudo do Tier 3 (OneDrive, hibernação, power plan, Teredo, `Binary`, `.wslconfig`) ficam FORA — Tier 3 vive na skill `windows-debloat` (`os: windows`).

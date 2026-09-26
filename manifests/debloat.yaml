@@ -1,6 +1,6 @@
-# debloat.yaml - Opt-in Windows 11 debloat absorbed from windows11-clean.
-# Provisioned via `envctl run debloat` ONLY (never part of `run all` or
-# `run windows`). Every entry is idempotent: registry values are checked
+# debloat.yaml - Windows 11 debloat absorbed from windows11-clean.
+# Provisioned via `envctl run windows` (full workstation profile) or standalone
+# via `envctl run debloat`. Every entry is idempotent: registry values are checked
 # before writing, Appx packages are removed only when installed, and services
 # are touched only when they exist and are not already disabled.
 #

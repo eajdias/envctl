@@ -71,9 +71,9 @@ packages:
 
 ## 📄 2. `manifests/performance_ubuntu.yaml` e `performance_cachyos.yaml`
 
-Perfis de performance são carregados somente pelo comando explícito
-`envctl run performance`; eles não fazem parte de `run all` nem de
-`doctor --fix`. O seletor exige o ID e a versão exatos do sistema:
+Perfis de performance são aplicados pelos perfis `envctl run vps`
+(Ubuntu >= 24.04) e `envctl run cachyos` (CachyOS), ou pelo comando standalone
+`envctl run performance`; eles não fazem parte de `doctor --fix`. O seletor exige o ID e a versão exatos do sistema:
 
 - Ubuntu `>= 24.04` usa `performance_ubuntu.yaml`;
 - CachyOS usa `performance_cachyos.yaml`;
@@ -211,8 +211,8 @@ tweaks:
 
 ## 📄 7. `manifests/debloat.yaml`
 
-Debloat opt-in do Windows 11 absorvido do `windows11-clean` — **só** via `envctl run debloat`
-(nunca no `run all`/`run windows`). Reusa o schema de `windows.yaml` com dois tipos extras:
+Debloat do Windows 11 absorvido do `windows11-clean` — aplicado pelo perfil
+`envctl run windows` ou standalone via `envctl run debloat`. Reusa o schema de `windows.yaml` com dois tipos extras:
 
 ```yaml
 tweaks:
