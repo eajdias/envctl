@@ -69,6 +69,8 @@ type PerformanceSpec struct {
 	Journald *JournaldSpec `yaml:"journald,omitempty"`
 	// Limits is the declared descriptor/process limit policy.
 	Limits *LimitsSpec `yaml:"limits,omitempty"`
+	// ZRAM is the declared compressed-RAM swap policy.
+	ZRAM *ZRAMSpec `yaml:"zram,omitempty"`
 }
 
 type SwapDevice struct {
