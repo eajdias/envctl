@@ -92,6 +92,31 @@ func (m *performanceTimezoneStub) Apply(_ context.Context, _ entity.TimezoneSpec
 	return nil, nil
 }
 
+// performanceProbeStub returns a fixed host so tier resolution and the derived
+// swappiness are deterministic in tests. MemTotal 974092 kB is the measured
+// vps_oracle_2 value, which selects the "tiny" band.
+type performanceProbeStub struct {
+	state entity.HardwareState
+	calls int
+}
+
+func (m *performanceProbeStub) Snapshot(context.Context) entity.HardwareState {
+	m.calls++
+	return m.state
+}
+
+func testTiers() []entity.PerformanceTier {
+	zramOn := true
+	return []entity.PerformanceTier{
+		{ID: "tiny", MatchMemTotalMax: 1536, EnableZRAM: &zramOn, Rationale: "test band"},
+		{ID: "large", MatchMemTotalMax: 0, Rationale: "test band"},
+	}
+}
+
+func newTestHardwareState() entity.HardwareState {
+	return entity.NewHardwareState(974092, 2, "ext4", 34_000_000_000, nil)
+}
+
 type performanceLimitsStub struct {
 	calls  int
 	dryRun bool
@@ -144,7 +169,8 @@ func newPerformanceUseCaseForTest(
 	}
 	return NewProvisionPerformanceUseCase(repo, packages, sysctl, zram, &mockLogger{}, func() entity.PlatformInfo {
 		return platform
-	}, &performanceTimezoneStub{}, &performanceJournaldStub{}, &performanceLimitsStub{})
+	}, &performanceTimezoneStub{}, &performanceJournaldStub{}, &performanceLimitsStub{},
+		&performanceProbeStub{state: newTestHardwareState()})
 }
 
 // TestProvisionPerformanceRejectsHostBelowManifestMinimum pins the moved gate:
@@ -182,7 +208,8 @@ func TestProvisionPerformanceAcceptsFleetReleaseAboveMinimum(t *testing.T) {
 			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
 			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
 		}},
-		Sysctls: []entity.SysctlSetting{{Key: "vm.swappiness", Value: "10"}},
+		Sysctls: []entity.SysctlSetting{{Key: "net.core.somaxconn", Value: "65535"}},
+		Tiers:   testTiers(),
 	}}
 	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{"systemd-zram-generator": "1.2.1-2"}}
 	sysctl := &performanceSysctlStub{}
@@ -222,7 +249,8 @@ func TestProvisionPerformanceDryRunDoesNotInstallOrApply(t *testing.T) {
 			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
 			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
 		}},
-		Sysctls: []entity.SysctlSetting{{Key: "vm.swappiness", Value: "10"}},
+		Sysctls: []entity.SysctlSetting{{Key: "net.core.somaxconn", Value: "65535"}},
+		Tiers:   testTiers(),
 	}}
 	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{}}
 	sysctl := &performanceSysctlStub{}
@@ -238,8 +266,8 @@ func TestProvisionPerformanceDryRunDoesNotInstallOrApply(t *testing.T) {
 	if len(packages) != 1 || packages[0].Status != entity.StatusMissing {
 		t.Fatalf("dry-run package result = %#v, want one missing package", packages)
 	}
-	if len(diags) != 3 {
-		t.Fatalf("dry-run diagnostics = %#v, want package, sysctl, and zram diagnostics", diags)
+	if len(diags) != 4 {
+		t.Fatalf("dry-run diagnostics = %#v, want package, tier, zram, and sysctl diagnostics", diags)
 	}
 	for _, diagnostic := range diags {
 		if diagnostic.Category != entity.DiagInfo {
@@ -265,7 +293,8 @@ func TestProvisionPerformanceStopsBeforeSysctlWhenPackageFails(t *testing.T) {
 			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
 			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
 		}},
-		Sysctls: []entity.SysctlSetting{{Key: "vm.swappiness", Value: "10"}},
+		Sysctls: []entity.SysctlSetting{{Key: "net.core.somaxconn", Value: "65535"}},
+		Tiers:   testTiers(),
 	}}
 	manager := &performancePackageManager{
 		packageType: entity.PackageTypeApt, available: true, installed: map[string]string{},

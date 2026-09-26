@@ -34,6 +34,14 @@ timezone:
 # Conservative server baseline. Values are explicit for review/rollback and do
 # not replace workload-specific tuning for databases, storage, or networking.
 #
+# vm.swappiness is deliberately NOT declared here. It used to be pinned to 10
+# while the same profile installed zram-generator, which told the kernel not to
+# use the device the profile had just created. It is now derived at run time from
+# the measured swap topology: 150 when compressed RAM swap is active, 10 when the
+# only swap is on disk. See DeriveSwappiness.
+zram:
+  policy: tier
+
 # Only host-independent network settings live here. Memory-scoped values
 # (vfs_cache_pressure, and vm.swappiness once it is derived from the measured
 # swap topology) are declared per tier or computed, so the base stays the part
@@ -43,9 +51,6 @@ timezone:
 # "min" raises a value but never lowers one, which is what a host that already
 # ships a better value needs. Omitting it means always write.
 sysctls:
-  - key: vm.swappiness
-    value: "10"
-    rationale: Keep SSD/server swap pressure conservative; zram remains available under pressure.
   - key: net.core.somaxconn
     value: "65535"
     rationale: Accept large completed-connection bursts for server workloads.

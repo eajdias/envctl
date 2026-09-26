@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -19,6 +20,7 @@ type ProvisionPerformanceUseCase struct {
 	timezone     repository.TimezoneManager
 	journald     repository.JournaldManager
 	limits       repository.ResourceLimitsManager
+	probe        repository.HardwareProbe
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -33,6 +35,7 @@ func NewProvisionPerformanceUseCase(
 	timezone repository.TimezoneManager,
 	journald repository.JournaldManager,
 	limits repository.ResourceLimitsManager,
+	probe repository.HardwareProbe,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -45,6 +48,7 @@ func NewProvisionPerformanceUseCase(
 		timezone:     timezone,
 		journald:     journald,
 		limits:       limits,
+		probe:        probe,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -102,11 +106,100 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 			}
 		}
 	}
-	if len(spec.Sysctls) > 0 {
+	// The host is measured, never assumed: both the memory band and the swap
+	// topology come from the probe, and both feed the settings applied below.
+	hardware := entity.HardwareState{}
+	if uc.probe != nil {
+		hardware = uc.probe.Snapshot(ctx)
+	}
+
+	// Tier resolution is optional: a profile that declares no memory bands (the
+	// CachyOS profile) has no band policy to apply, and forcing one would
+	// invent a memory model the profile does not have.
+	var tier entity.PerformanceTier
+	if len(spec.Tiers) > 0 {
+		selected, tierErr := entity.SelectPerformanceTier(hardware, spec.Tiers)
+		if tierErr != nil {
+			return packages, append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagError,
+				System:   "Performance",
+				Target:   "tier",
+				Details:  tierErr.Error(),
+			}), tierErr
+		}
+		tier = selected
+		tierCategory := entity.DiagOK
+		if dryRun {
+			tierCategory = entity.DiagInfo
+		}
+		diagnostics = append(diagnostics, entity.Diagnostic{
+			Category: tierCategory,
+			System:   "Performance",
+			Target:   "tier",
+			Details: fmt.Sprintf("tier %q %s for %d MiB of detected memory (band ceiling %d MiB)",
+				tier.ID, map[bool]string{true: "would be selected", false: "selected"}[dryRun],
+				hardware.MemTotalMiB(), tier.MatchMemTotalMax),
+		})
+	}
+
+	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {
+		policy := entity.ZRAMPolicyTier
+		switch {
+		case spec.ZRAM != nil:
+			policy = spec.ZRAM.Policy
+		case len(spec.Tiers) == 0:
+			// No bands means no band policy, so there is nothing to gate on and
+			// the profile's zram package is provisioned unconditionally.
+			policy = entity.ZRAMPolicyAlways
+		}
+		run, reason := entity.ResolvedZRAMPolicy(policy, tier, hardware)
+		switch {
+		case run && uc.zram == nil:
+			return packages, diagnostics, fmt.Errorf("performance profile %q requires a zram manager", profile)
+		case run:
+			zramDiagnostics, zramErr := uc.zram.Ensure(ctx, dryRun)
+			diagnostics = append(diagnostics, zramDiagnostics...)
+			if zramErr != nil {
+				return packages, diagnostics, zramErr
+			}
+			// Re-read the host: bringing zram up changes the swap topology, and
+			// the derived swappiness depends on the topology that exists AFTER
+			// the device is live, not on the state before it.
+			if uc.probe != nil {
+				hardware = uc.probe.Snapshot(ctx)
+			}
+		default:
+			diagnostics = append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Performance",
+				Target:   "zram",
+				Details:  reason,
+			})
+		}
+	}
+
+	// vm.swappiness is derived last and therefore always wins. It is a function
+	// of the measured swap topology, so a value pinned in the manifest would be
+	// a claim about a host nobody measured. This is also what removes the old
+	// contradiction of shipping zram together with a pinned value of 10.
+	settings := mergeTierSysctls(spec.Sysctls, tier.Sysctls)
+	// Only a profile that declares memory bands opts into topology-derived
+	// tuning. The CachyOS profile declares none and must never receive a
+	// sysctl apply, so deriving a value for it would be an unrequested change.
+	if uc.probe != nil && len(spec.Tiers) > 0 {
+		value, rationale := entity.DeriveSwappiness(hardware)
+		settings = upsertSysctl(settings, entity.SysctlSetting{
+			Key:       "vm.swappiness",
+			Value:     strconv.Itoa(value),
+			Policy:    entity.SysctlPolicySet,
+			Rationale: rationale,
+		})
+	}
+	if len(settings) > 0 {
 		if uc.sysctl == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q requires a sysctl manager", profile)
 		}
-		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, spec.Sysctls, dryRun)
+		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, settings, dryRun)
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
@@ -142,17 +235,6 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 			return packages, diagnostics, timezoneErr
 		}
 	}
-	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {
-		if uc.zram == nil {
-			return packages, diagnostics, fmt.Errorf("performance profile %q requires a zram manager", profile)
-		}
-		zramDiagnostics, zramErr := uc.zram.Ensure(ctx, dryRun)
-		diagnostics = append(diagnostics, zramDiagnostics...)
-		if zramErr != nil {
-			return packages, diagnostics, zramErr
-		}
-	}
-
 	return packages, diagnostics, nil
 }
 
@@ -160,6 +242,36 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 // scoping. The platform is supplied by the caller so the check runs against the
 // real host instead of a synthesized one: a synthetic VERSION_ID would hide a
 // package whose min_distro_version no longer matches the fleet.
+// mergeTierSysctls layers a tier's sysctls over the profile's unconditional
+// ones, so a band can override a base value without the base being repeated in
+// every tier.
+func mergeTierSysctls(base, tier []entity.SysctlSetting) []entity.SysctlSetting {
+	merged := make(map[string]entity.SysctlSetting, len(base)+len(tier))
+	order := make([]string, 0, len(base)+len(tier))
+	for _, setting := range append(append([]entity.SysctlSetting(nil), base...), tier...) {
+		if _, seen := merged[setting.Key]; !seen {
+			order = append(order, setting.Key)
+		}
+		merged[setting.Key] = setting
+	}
+	out := make([]entity.SysctlSetting, 0, len(order))
+	for _, key := range order {
+		out = append(out, merged[key])
+	}
+	return out
+}
+
+// upsertSysctl replaces a key in place or appends it.
+func upsertSysctl(settings []entity.SysctlSetting, setting entity.SysctlSetting) []entity.SysctlSetting {
+	for i, existing := range settings {
+		if existing.Key == setting.Key {
+			settings[i] = setting
+			return settings
+		}
+	}
+	return append(settings, setting)
+}
+
 func validatePerformanceSpec(spec entity.PerformanceSpec, profile entity.PerformanceProfile, platform entity.PlatformInfo) error {
 	if profile == entity.PerformanceProfileCachyOS && len(spec.Sysctls) > 0 {
 		return fmt.Errorf("CachyOS performance profile cannot contain sysctl settings")

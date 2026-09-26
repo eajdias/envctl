@@ -215,6 +215,7 @@ type performanceManifest struct {
 	Timezone         *entity.TimezoneSpec     `yaml:"timezone,omitempty"`
 	Journald         *entity.JournaldSpec     `yaml:"journald,omitempty"`
 	Limits           *entity.LimitsSpec       `yaml:"limits,omitempty"`
+	ZRAM             *entity.ZRAMSpec         `yaml:"zram,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -268,6 +269,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 		Timezone:         manifest.Timezone,
 		Journald:         manifest.Journald,
 		Limits:           manifest.Limits,
+		ZRAM:             manifest.ZRAM,
 	}, nil
 }
 

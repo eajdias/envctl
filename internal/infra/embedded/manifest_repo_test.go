@@ -252,6 +252,17 @@ func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	if fileMax.Policy != entity.SysctlPolicyMin {
 		t.Fatalf("fs.file-max policy = %q, want min so the host ceiling is never lowered", fileMax.Policy)
 	}
+	// vm.swappiness must NOT be declared: it is derived from the measured swap
+	// topology at run time, and pinning it is what produced the original defect
+	// of shipping zram together with a value of 10.
+	for _, setting := range ubuntu.Sysctls {
+		if setting.Key == "vm.swappiness" {
+			t.Fatal("vm.swappiness must be derived from the swap topology, not declared in the manifest")
+		}
+	}
+	if ubuntu.ZRAM == nil || ubuntu.ZRAM.Policy != entity.ZRAMPolicyTier {
+		t.Fatalf("zram policy = %#v, want tier", ubuntu.ZRAM)
+	}
 	for _, tier := range ubuntu.Tiers {
 		if !tier.ZRAMEnabled() && tier.ID == "tiny" {
 			t.Fatal("the tiny tier must enable zram: the fleet's memory-constrained hosts need it")
