@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -346,6 +347,12 @@ func TestSysctlManagerMinPolicyUnreadableValueIsAnError(t *testing.T) {
 }
 
 func TestSysctlProcPath(t *testing.T) {
+	// /proc/sys is a POSIX path, so the expected form only holds where the
+	// kernel interface exists. On Windows filepath.Join would produce
+	// backslashes, and the performance profile is Linux-only anyway.
+	if runtime.GOOS != "linux" {
+		t.Skipf("sysctl procfs paths are Linux-only; this host is %s", runtime.GOOS)
+	}
 	if got := sysctlProcPath("vm.swappiness"); got != "/proc/sys/vm/swappiness" {
 		t.Fatalf("sysctlProcPath = %q", got)
 	}
