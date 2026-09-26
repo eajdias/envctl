@@ -1,9 +1,10 @@
 # Guia: Windows Debloat — Tier 3 (manual, opt-in)
 
 A parte automatizada e idempotente mora no `envctl run debloat` (`manifests/debloat.yaml`:
-registro de telemetria/privacidade, visuais de gaming, 31 Appx, 9 serviços seguros).
-Tudo abaixo é **destrutivo, exige admin/reboot ou decisão caso a caso** — por isso é
-manual, nunca auto-fix. Rode cada bloco só com aprovação explícita do dono.
+registro de telemetria/privacidade, visuais de gaming, 34 Appx, 9 serviços `Disabled`,
+11 serviços `Manual` e 4 startup entries — 94 tweaks). Tudo abaixo é **destrutivo,
+exige admin/reboot ou decisão caso a caso** — por isso é manual, nunca auto-fix.
+Rode cada bloco só com aprovação explícita do dono.
 
 > Este guia substituiu a skill global `windows-debloat`, removida do catálogo de agentes
 > em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao tier global.
@@ -81,28 +82,65 @@ Disable-WindowsOptionalFeature -FeatureName Recall -Online -NoRestart -ErrorActi
 Get-Process *Widget* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 ```
 
-## 8. Excluídos do automático (Xbox / Teams / Outlook)
+## 8. Excluído do automático: só o Xbox suite
 
-Fora do `debloat.yaml` de propósito (gaming / comunicação de trabalho):
+`MSTeams`, `OutlookForWindows` e o provider do Windows AI já entraram no
+`debloat.yaml` (Tier 2, 2026-09-26). O que fica de fora é o **Xbox suite**, por
+ser gaming:
 
 ```powershell
 Get-AppxPackage -Name 'Microsoft.GamingApp' -AllUsers | Remove-AppxPackage -AllUsers
 Get-AppxPackage -Name 'Microsoft.XboxApp' -AllUsers | Remove-AppxPackage -AllUsers
-Get-AppxPackage -Name 'MSTeams' -AllUsers | Remove-AppxPackage -AllUsers
-Get-AppxPackage -Name 'Microsoft.OutlookForWindows' -AllUsers | Remove-AppxPackage -AllUsers
+Get-AppxPackage -Name 'Microsoft.XboxGamingOverlay' -AllUsers | Remove-AppxPackage -AllUsers
 ```
 
-## 9. Serviços manuais / excluídos
+## 9. Serviços: `Manual` no automático, `Disabled` só manual
 
-Modelo para pôr um serviço em `Manual` (ex.: `sshd`, `Tailscale`, `StorSvc`):
+`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*` e `fb*` já
+entram no `debloat.yaml` com `value: "Manual"` — o serviço ainda sobe sob demanda
+e nada do que a máquina depende quebra. Para o comportamento do legado
+(`windows11-clean`, que desliga em vez de relaxar), troque `value` para
+`"Disabled"` no manifest ou:
 
 ```powershell
-Set-Service -Name '<nome>' -StartupType Manual
+Set-Service -Name '<nome>' -StartupType Manual   # sobe sob demanda
+Set-Service -Name '<nome>' -StartupType Disabled # nunca sobe
 ```
 
-Nunca desabilitar sem checar dependentes: `Spooler` (impressão), `WSearch`/`SysMain`
-(tradeoff SSD/HDD), `NgcSvc` (Windows Hello), `wbengine` (backup), vendor
-(`Dell*`, `AnyDesk`, `Firebird*`).
+Fora do manifest de propósito: `Spooler` (impressão), serviços de acesso remoto
+(`AnyDesk`, `Firebird*`, `Tailscale`, `sshd`), `StorSvc`, `gupdate*`,
+`EasyAntiCheat*`, `NgcRingFenceSvc`.
+
+## 9.1 Startup entries: o que o `run debloat` remove (e o que nunca remove)
+
+O manifest remove 4 entradas de startup — `BraveSoftware`, `Canva`,
+`MicrosoftEdge`, `SecurityHealth` — via `Win32_StartupCommand`. O predicado
+`startupLocationRemovable()` limita o escopo a **Run keys e pasta Startup**.
+
+Duas exclusões deliberadas:
+
+- **Serviços nunca são tocados.** A mesma classe `Win32_StartupCommand` também
+  enumera serviços; apagar a linha errada quebraria o serviço. Uma linha cujo
+  `Location` é `...\Services\...` conta como conforme (verde no doctor) e o apply
+  é no-op.
+- **Serviços de áudio ficaram de fora**: `WavesSvc` e `RtkAuduService` são
+  drivers e desligá-los pode quebrar o áudio da máquina.
+
+Para auditar antes de aplicar:
+
+```powershell
+Get-CimInstance -ClassName Win32_StartupCommand |
+    Select-Object Name, Location, Command |
+    Format-Table -AutoSize
+```
+
+Removendo uma entrada à mão:
+
+```powershell
+Get-CimInstance -ClassName Win32_StartupCommand |
+    Where-Object { $_.Name -eq 'SecurityHealth' } |
+    ForEach-Object { $_.Delete() }
+```
 
 ## 10. Telemetria fora do registro
 

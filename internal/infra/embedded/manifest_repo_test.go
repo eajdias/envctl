@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/eajdias/envctl"
@@ -141,13 +142,13 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Fatalf("failed to load debloat manifest: %v", err)
 	}
 
-	const expectedDebloat = 76
+	const expectedDebloat = 94
 	if len(debloat) != expectedDebloat {
 		t.Errorf("expected exactly %d debloat tweaks, got %d", expectedDebloat, len(debloat))
 	}
 
-	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true}
-	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true}
+	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true, "StartupItem": true}
+	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true, "startup": true}
 	seen := map[string]bool{}
 	for _, tw := range debloat {
 		if seen[tw.ID] {
@@ -172,10 +173,34 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 			if s, ok := tw.Value.(string); !ok || (s != "Disabled" && s != "Manual") {
 				t.Errorf("debloat Service tweak %q must declare Disabled/Manual, got %v", tw.ID, tw.Value)
 			}
+		case "StartupItem":
+			// A startup entry is identified by the Win32_StartupCommand name
+			// only: no registry path, and no value (removal has no target state).
+			if tw.Path != "" {
+				t.Errorf("debloat StartupItem tweak %q must have empty path, got %q", tw.ID, tw.Path)
+			}
+			if tw.Name == "" {
+				t.Errorf("debloat StartupItem tweak %q must name the startup command", tw.ID)
+			}
+			if tw.Value != nil {
+				t.Errorf("debloat StartupItem tweak %q must not declare a value, got %v", tw.ID, tw.Value)
+			}
 		default: // registry
 			if tw.Path == "" || tw.Name == "" {
 				t.Errorf("debloat registry tweak %q needs path and name", tw.ID)
 			}
+		}
+	}
+
+	// The Manual service set must never regress to Disabled: the owner chose
+	// the non-destructive startup type so nothing the machine depends on
+	// breaks (WSearch/SysMain/NgcSvc/wbengine/OneSyncSvc/Dell*/fb*).
+	for _, tw := range debloat {
+		if tw.Type != "Service" || tw.ID == "" {
+			continue
+		}
+		if strings.HasSuffix(tw.ID, "-manual") && tw.Value != "Manual" {
+			t.Errorf("debloat tweak %q is declared -manual but has value %v", tw.ID, tw.Value)
 		}
 	}
 

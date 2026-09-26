@@ -7,6 +7,20 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [Unreleased]
+
+### Adicionado
+
+- Debloat Tier 2: fecha o gap do `windows11-clean` — 3 Appx (`MSTeams`,
+  `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
+  (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e
+  4 startup entries. `debloat.yaml` vai de 76 para 94 tweaks.
+- Novo tipo de tweak `StartupItem` (Run keys + pasta Startup), com predicado
+  `startupLocationRemovable()` como fonte única: `Win32_StartupCommand` também
+  enumera serviços e nunca são removidos.
+
+---
+
 ## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)
 
 

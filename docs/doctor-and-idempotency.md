@@ -17,7 +17,7 @@ envctl doctor
 1. **Ambiente & Sistema Operacional**:
    - Detecção de SO, arquitetura, privilégios de execução.
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
-   - Debloat opt-in (`debloat.yaml`): 5 linhas agregadas por categoria (`Debloat / category <nome>`),
+   - Debloat opt-in (`debloat.yaml`): 6 linhas agregadas por categoria (`Debloat / category <nome>`),
      `OK` quando aplicada, `INFO` quando há drift com `run 'envctl run debloat'` — nunca `WARN`/`ERROR`,
      nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:

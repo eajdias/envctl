@@ -46,6 +46,80 @@ func psValue(v any) string {
 	}
 }
 
+// startupCIMQuery lists every Win32_StartupCommand row as
+// `DEBLOATSTARTUP|||<name>|||<location>`. One spawn answers the whole family.
+const startupCIMQuery = `Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction SilentlyContinue | ForEach-Object { Write-Output ("DEBLOATSTARTUP|||" + $_.Name + "|||" + $_.Location) }`
+
+// serviceExpectedState reads the declared target startup type, defaulting to
+// Disabled when the manifest omits it. Shared by the check, batch-check and
+// apply paths so all three agree on the target.
+func serviceExpectedState(tweak entity.WindowsTweak) string {
+	if s, ok := tweak.Value.(string); ok && s != "" {
+		return s
+	}
+	return "Disabled"
+}
+
+// startupLocationRemovable reports whether a Win32_StartupCommand Location is
+// a user startup entry (Run key or Startup folder) rather than a service.
+// The class also enumerates services, and deleting one of those rows breaks a
+// service, so anything outside those two shapes is not ours to touch.
+//
+// Single source of truth on purpose: CheckTweak, CheckBatch and ApplyTweak all
+// route through it, so the audit and the mutation cannot drift apart.
+func startupLocationRemovable(location string) bool {
+	loc := strings.ToLower(strings.TrimSpace(location))
+	if loc == "" {
+		return false
+	}
+	// Startup folder, per-user and all-users, on any drive.
+	if strings.Contains(loc, `\start menu\programs\startup\`) {
+		return true
+	}
+	// Run key under a real hive, including the WOW6432Node redirected view.
+	// Suffix match (not Contains) so RunOnce/RunBackup are not swept in.
+	for _, hive := range []string{`hkey_current_user\`, `hkey_local_machine\`, `hkcu:\`, `hklm:\`} {
+		if strings.HasPrefix(loc, hive) {
+			return strings.HasSuffix(strings.TrimPrefix(loc, hive), `\currentversion\run`)
+		}
+	}
+	return false
+}
+
+// parseStartupRows indexes the CIM readout by lowercased name so lookups do
+// not depend on the casing Windows reports.
+func parseStartupRows(out string) map[string]string {
+	rows := make(map[string]string)
+	for _, line := range strings.Split(out, "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), "|||", 3)
+		if len(parts) != 3 || parts[0] != "DEBLOATSTARTUP" || parts[1] == "" {
+			continue
+		}
+		rows[strings.ToLower(parts[1])] = parts[2]
+	}
+	return rows
+}
+
+// startupConforms maps one row set to the tweak verdict. Conforming = no entry
+// of ours to remove, which includes a same-named row living somewhere we do
+// not touch (a service): the doctor stays green and apply is a no-op.
+func startupConforms(rows map[string]string, name string) (bool, string) {
+	loc, found := rows[strings.ToLower(name)]
+	if !found || !startupLocationRemovable(loc) {
+		return true, "No removable startup entry"
+	}
+	return false, "Startup entry present (will be removed on apply)"
+}
+
+func (m *TweaksManager) queryStartupRows(ctx context.Context) (map[string]string, error) {
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupCIMQuery)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate startup commands: %w", err)
+	}
+	return parseStartupRows(string(out)), nil
+}
+
 func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error) {
 	if runtime.GOOS != "windows" {
 		return true, "Skipped on non-Windows platform", nil
@@ -108,10 +182,7 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		// Conforming = StartType matches the declared state (default
 		// Disabled). A service missing from the machine is conforming too:
 		// there is nothing to disable.
-		expectedState := "Disabled"
-		if s, ok := tweak.Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweak)
 		svcScript := fmt.Sprintf(`
 $s = Get-Service -Name '%s' -ErrorAction SilentlyContinue
 if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.StartType.ToString()) }
@@ -130,6 +201,14 @@ if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.S
 			return true, fmt.Sprintf("Service startup type is %s", actualState), nil
 		}
 		return false, fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState), nil
+
+	case "startupitem":
+		rows, err := m.queryStartupRows(ctx)
+		if err != nil {
+			return false, "", err
+		}
+		ok, details := startupConforms(rows, tweak.Name)
+		return ok, details, nil
 
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
@@ -178,8 +257,9 @@ func matchRegistryValue(actualVal, expectedStr string) (bool, string) {
 }
 
 // CheckBatch checks many tweaks with one PowerShell spawn per family
-// (registry, Appx, services) instead of one per tweak. Feature/PSModule
-// tweaks keep the single-check path. Results are order-preserving.
+// (registry, Appx, services, startup entries) instead of one per tweak.
+// Feature/PSModule tweaks keep the single-check path. Results are
+// order-preserving.
 func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult {
 	results := make([]entity.TweakCheckResult, len(tweaks))
 	for i, tw := range tweaks {
@@ -193,13 +273,15 @@ func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsT
 		return results
 	}
 
-	var regIdx, appxIdx, svcIdx, singleIdx []int
+	var regIdx, appxIdx, svcIdx, startupIdx, singleIdx []int
 	for i, tw := range tweaks {
 		switch strings.ToLower(tw.Type) {
 		case "appx":
 			appxIdx = append(appxIdx, i)
 		case "service":
 			svcIdx = append(svcIdx, i)
+		case "startupitem":
+			startupIdx = append(startupIdx, i)
 		case "feature", "psmodule":
 			singleIdx = append(singleIdx, i)
 		default: // registry DWord, String, QWord, Binary
@@ -210,6 +292,7 @@ func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsT
 	m.checkRegistryBatch(ctx, tweaks, regIdx, results)
 	m.checkAppxBatch(ctx, tweaks, appxIdx, results)
 	m.checkServiceBatch(ctx, tweaks, svcIdx, results)
+	m.checkStartupBatch(ctx, tweaks, startupIdx, results)
 	for _, i := range singleIdx {
 		ok, details, err := m.CheckTweak(ctx, tweaks[i])
 		results[i].OK = ok
@@ -347,10 +430,7 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 		states[strings.ToLower(parts[1])] = parts[2]
 	}
 	for _, i := range idx {
-		expectedState := "Disabled"
-		if s, ok := tweaks[i].Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweaks[i])
 		actualState, present := states[strings.ToLower(tweaks[i].Name)]
 		switch {
 		case !present || actualState == "NOT_PRESENT":
@@ -362,6 +442,24 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 		default:
 			results[i].Details = fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState)
 		}
+	}
+}
+
+// checkStartupBatch enumerates Win32_StartupCommand once and answers every
+// startup tweak from that map (conforming = no removable entry).
+func (m *TweaksManager) checkStartupBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
+	if len(idx) == 0 {
+		return
+	}
+	rows, err := m.queryStartupRows(ctx)
+	if err != nil {
+		for _, i := range idx {
+			results[i].Err = err
+		}
+		return
+	}
+	for _, i := range idx {
+		results[i].OK, results[i].Details = startupConforms(rows, tweaks[i].Name)
 	}
 }
 
@@ -440,10 +538,7 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 	case "service":
 		// Stop is best-effort (already stopped is fine); the startup-type
 		// change is strict so elevation problems surface.
-		expectedState := "Disabled"
-		if s, ok := tweak.Value.(string); ok && s != "" {
-			expectedState = s
-		}
+		expectedState := serviceExpectedState(tweak)
 		var svcScript string
 		switch strings.ToLower(expectedState) {
 		case "disabled":
@@ -462,6 +557,33 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		m.logger.LogCommand("powershell.exe", []string{"-Command", svcScript}, exitCode, string(svcOut), svcErr)
 		if svcErr != nil {
 			return fmt.Errorf("failed to set service %s to %s: %s (%w)", tweak.Name, expectedState, string(svcOut), svcErr)
+		}
+		return nil
+
+	case "startupitem":
+		// Re-enumerate and filter with the same predicate the check uses, then
+		// delete by Name AND Location so a same-named service row can never be
+		// hit even if the enumeration changed between check and apply.
+		rows, err := m.queryStartupRows(ctx)
+		if err != nil {
+			return err
+		}
+		loc, found := rows[strings.ToLower(tweak.Name)]
+		if !found || !startupLocationRemovable(loc) {
+			return nil // nothing of ours to remove: idempotent no-op
+		}
+		startupScript := fmt.Sprintf(
+			`Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq '%s' -and $_.Location -eq '%s' } | ForEach-Object { $_.Delete() }`,
+			psQuote(tweak.Name), psQuote(loc))
+		startupCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupScript)
+		startupOut, startupErr := startupCmd.CombinedOutput()
+		exitCode := 0
+		if startupCmd.ProcessState != nil {
+			exitCode = startupCmd.ProcessState.ExitCode()
+		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", startupScript}, exitCode, string(startupOut), startupErr)
+		if startupErr != nil {
+			return fmt.Errorf("failed to remove startup entry %s: %s (%w)", tweak.Name, string(startupOut), startupErr)
 		}
 		return nil
 

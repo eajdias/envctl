@@ -212,7 +212,10 @@ tweaks:
 ## 📄 7. `manifests/debloat.yaml`
 
 Debloat do Windows 11 absorvido do `windows11-clean` — aplicado pelo perfil
-`envctl run windows` ou standalone via `envctl run debloat`. Reusa o schema de `windows.yaml` com dois tipos extras:
+`envctl run windows` ou standalone via `envctl run debloat`. São **94 tweaks**
+(36 registro + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4
+startup entries) em 6 categorias. Reusa o schema de `windows.yaml` com três
+tipos extras:
 
 ```yaml
 tweaks:
@@ -223,20 +226,38 @@ tweaks:
     value: 0
     category: "telemetry"
 
-  - id: "appx-microsoft-copilot"      # 31 remoções (Xbox/Teams/Outlook excluídos)
+  - id: "appx-microsoft-copilot"      # 34 remoções (só o Xbox suite fica de fora)
     name: "Microsoft.Copilot"
     type: "Appx"                      # conforme = ausente; aplica Remove-AppxPackage -AllUsers
     category: "apps"
 
-  - id: "svc-diagtrack"               # 9 serviços safe-only (Spooler/WSearch/NgcSvc fora)
+  - id: "svc-diagtrack"               # 9 serviços -> Disabled
     name: "DiagTrack"
     type: "Service"                   # conforme = StartType; value Disabled/Manual
     value: "Disabled"
     category: "services"
+
+  - id: "svc-wsearch-manual"          # 11 serviços -> Manual (WSearch, SysMain, NgcSvc,
+    name: "WSearch"                   #   wbengine, OneSyncSvc, Dell*, fb*)
+    type: "Service"
+    value: "Manual"
+    category: "services"
+
+  - id: "startup-microsoftedge"       # 4 startup entries
+    name: "MicrosoftEdge"             # conforme = ausente; sem path e sem value
+    type: "StartupItem"               # aplica delete no Run key / pasta Startup
+    category: "startup"
 ```
+
+`StartupItem` remove a entrada só quando o `Location` do
+`Win32_StartupCommand` é uma Run key ou a pasta Startup. A mesma classe também
+enumera **serviços**, e apagar uma dessas linhas quebraria o serviço — o
+predicado `startupLocationRemovable()` é a fonte única (check, batch e apply
+passam por ele) e o apply apaga por `Name` **e** `Location`.
 
 O `doctor` audita uma linha agregada por categoria (`Debloat / category <nome>`):
 `OK` quando aplicada, `INFO` com `run 'envctl run debloat'` quando há drift — nunca
 `WARN`/`ERROR` e nunca no `--fix`. Checks usam `CheckBatch` (1 spawn PowerShell por
-família: registro, Appx, serviços) em vez de 1 por tweak. O Tier 3 destrutivo (OneDrive, hibernação, power
-plan, Teredo, `.wslconfig`, Copilot/Recall) vive na skill `windows-debloat`.
+família: registro, Appx, serviços, startup) em vez de 1 por tweak. O Tier 3 destrutivo
+(OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) é manual e
+vive em `docs/guides/windows-debloat-tier3.md`.
