@@ -100,3 +100,58 @@ func TestOpenCodeConfigTemplates(t *testing.T) {
 		})
 	}
 }
+
+// TestOpenCodeDispatchableAgentsAreBounded locks the read-only family invariant
+// on every dispatchable agent, not just planner: a new `mode: subagent` entry
+// that ships without a description, a system prompt, a step cap, a shell default
+// of ask, a nested-dispatch deny or a scoped write boundary would load fine and
+// quietly break the contract the routing skill depends on.
+func TestOpenCodeDispatchableAgentsAreBounded(t *testing.T) {
+	for _, path := range []string{
+		"configs/opencode.json",
+		"configs/opencode.linux.json",
+	} {
+		t.Run(path, func(t *testing.T) {
+			data, err := envctl.EmbeddedFS.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", path, err)
+			}
+
+			var config openCodeTemplateConfig
+			if err := json.Unmarshal(data, &config); err != nil {
+				t.Fatalf("parse %s: %v", path, err)
+			}
+
+			dispatchable := 0
+			for name, agent := range config.Agents {
+				if agent.Mode != "subagent" && agent.Mode != "all" {
+					continue
+				}
+				dispatchable++
+
+				if agent.Description == "" {
+					t.Errorf("dispatchable agent %q needs a description: the parent model selects by it", name)
+				}
+				if agent.System == "" {
+					t.Errorf("dispatchable agent %q needs a non-empty system prompt", name)
+				}
+				if agent.Steps <= 0 {
+					t.Errorf("dispatchable agent %q steps = %d, want a positive cap", name, agent.Steps)
+				}
+				if !hasPermission(agent.Permissions, "shell", "*", "ask") {
+					t.Errorf("dispatchable agent %q must default shell to ask", name)
+				}
+				if !hasPermission(agent.Permissions, "subagent", "*", "deny") {
+					t.Errorf("dispatchable agent %q must not dispatch nested subagents", name)
+				}
+				if !hasPermission(agent.Permissions, "edit", "*", "deny") {
+					t.Errorf("dispatchable agent %q must deny edits by default and re-allow a scope explicitly", name)
+				}
+			}
+
+			if dispatchable < 5 {
+				t.Errorf("dispatchable agents = %d, want at least planner, reviewer, verifier, docs-writer and memory-keeper", dispatchable)
+			}
+		})
+	}
+}
