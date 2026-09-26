@@ -18,6 +18,13 @@ type ZRAMManager interface {
 	Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// HardwareProbe returns the detected, read-only description of the host. A
+// missing source is reported as a zero value, never as an error: the caller
+// resolves policy against what could be measured.
+type HardwareProbe interface {
+	Snapshot(ctx context.Context) entity.HardwareState
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

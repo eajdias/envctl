@@ -1,5 +1,10 @@
 package entity
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // PerformanceProfile identifies an OS-specific performance manifest. Profiles
 // are intentionally separate so Ubuntu server tuning can never be applied to
 // CachyOS, or vice versa. The identity never encodes a version: the fleet
@@ -55,6 +60,76 @@ type ZRAMState struct {
 	DataBytes  uint64
 	TotalBytes uint64
 	Priority   int
+}
+
+// NoDiskSwapPriority is the sentinel for "this host has no disk swap". It sits
+// below every value swapon(8) can assign, including the -2 default and the -1
+// the Oracle images ship, so a caller can compare against it directly.
+const NoDiskSwapPriority = -1 << 31
+
+// HardwareState is the detected, read-only description of the host that the
+// declarative performance policy resolves against. Nothing here is a declared
+// value: everything is measured, so a manifest never has to carry a machine
+// number.
+type HardwareState struct {
+	MemTotalKB    uint64
+	CPUCount      int
+	RootFSType    string
+	DiskFreeBytes uint64
+	Swap          []SwapDevice
+	HasZRAM       bool
+	ZRAMPriority  int
+	// DiskSwapTopPri is the highest priority among non-zram swap devices, or
+	// NoDiskSwapPriority when there is none.
+	DiskSwapTopPri int
+}
+
+// NewHardwareState derives the swap topology from a raw swap table. It is pure
+// so the zram-first and disk-fallback decisions are unit testable without a
+// procfs fixture.
+func NewHardwareState(memTotalKB uint64, cpuCount int, rootFSType string, diskFreeBytes uint64, devices []SwapDevice) HardwareState {
+	state := HardwareState{
+		MemTotalKB:     memTotalKB,
+		CPUCount:       cpuCount,
+		RootFSType:     rootFSType,
+		DiskFreeBytes:  diskFreeBytes,
+		Swap:           append([]SwapDevice(nil), devices...),
+		DiskSwapTopPri: NoDiskSwapPriority,
+	}
+	for _, device := range devices {
+		if filepath.Base(device.Name) == "zram0" {
+			state.HasZRAM = true
+			state.ZRAMPriority = device.Priority
+			continue
+		}
+		if !IsDiskSwapDevice(device.Name) {
+			continue
+		}
+		if device.Priority > state.DiskSwapTopPri {
+			state.DiskSwapTopPri = device.Priority
+		}
+	}
+	return state
+}
+
+// MemTotalMiB converts the kernel's kilobyte report to MiB. Callers must size
+// tiers against this and never against a nominal instance size: the fleet
+// reports 974092 kB (951 MiB) for a "1 GB" shape and 16162396 kB (15783 MiB)
+// for a "16 GB" one.
+func (h HardwareState) MemTotalMiB() uint64 {
+	return h.MemTotalKB / 1024
+}
+
+// HasDiskSwap reports whether a real disk-backed swap device is active, which
+// is the signal to adopt rather than create.
+func (h HardwareState) HasDiskSwap() bool {
+	return h.DiskSwapTopPri != NoDiskSwapPriority
+}
+
+// IsDiskSwapDevice reports whether a swap path is disk-backed. Compressed RAM
+// devices are not: they are the fast tier, not the fallback.
+func IsDiskSwapDevice(name string) bool {
+	return !strings.HasPrefix(filepath.Base(name), "zram")
 }
 
 type BlockScheduler struct {
