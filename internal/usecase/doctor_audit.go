@@ -1081,6 +1081,38 @@ func amdgpuModulePresent(moduleDir string) bool {
 // gamingServices are the daemons the gaming stack needs active.
 var gamingServices = []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon"}
 
+// mangoHudPresetPath is the MangoHud configuration seeded by `run shell`.
+const mangoHudPresetPath = "~/.config/MangoHud/MangoHud.conf"
+
+// gamingConfPath is the systemd user environment preset seeded by `run shell`.
+const gamingConfPath = "~/.config/environment.d/gaming.conf"
+
+// gamingConfRequiredKeys are the settings the gaming environment preset must
+// carry. Both are written by `envctl run shell` (seed_if_missing), and both
+// change observable behaviour: the shader cache size avoids recompiling
+// gigabytes of cache every boot, and RADV_PERFTEST pins the GPL pipeline
+// library instead of leaving it to the Mesa default.
+var gamingConfRequiredKeys = []string{"MESA_SHADER_CACHE_MAX_SIZE=", "RADV_PERFTEST="}
+
+// missingGamingConfKeys returns the required keys the preset does not set.
+// Commented-out lines do not count: a commented setting is not in effect.
+func missingGamingConfKeys(data []byte) []string {
+	var missing []string
+	for _, key := range gamingConfRequiredKeys {
+		found := false
+		for _, line := range strings.Split(string(data), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), key) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			missing = append(missing, key)
+		}
+	}
+	return missing
+}
+
 // ananicyTypesMarker is a file owned solely by the ananicy ruleset package
 // (cachyos-ananicy-rules). The ananicy-cpp daemon only creates /etc/ananicy.d
 // and ships no file in it, so the service can be active with no rules at all.
@@ -1317,13 +1349,22 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 			})
 		}
 	}
-	if gamingConf, err := uc.fsManager.ExpandUserPath("~/.config/environment.d/gaming.conf"); err == nil && gamingConf != "" {
-		if data, err := uc.fsManager.ReadFile(gamingConf); err != nil || !strings.Contains(string(data), "MESA_SHADER_CACHE_MAX_SIZE=") {
+	if gamingConf, err := uc.fsManager.ExpandUserPath(gamingConfPath); err == nil && gamingConf != "" {
+		data, readErr := uc.fsManager.ReadFile(gamingConf)
+		if readErr != nil {
 			addDiag(entity.Diagnostic{
 				Category: entity.DiagWarning,
 				System:   "Gaming",
 				Target:   "shader cache preset",
-				Details:  "~/.config/environment.d/gaming.conf misses MESA_SHADER_CACHE_MAX_SIZE",
+				Details:  fmt.Sprintf("Cannot read %s", gamingConf),
+				FixHint:  "run 'envctl run shell' to seed the gaming environment preset, then relog",
+			})
+		} else if missing := missingGamingConfKeys(data); len(missing) > 0 {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagWarning,
+				System:   "Gaming",
+				Target:   "shader cache preset",
+				Details:  fmt.Sprintf("~/.config/environment.d/gaming.conf misses %s", strings.Join(missing, ", ")),
 				FixHint:  "run 'envctl run shell' to seed the gaming environment preset, then relog",
 			})
 		} else {
@@ -1331,9 +1372,25 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				Category: entity.DiagOK,
 				System:   "Gaming",
 				Target:   "shader cache preset",
-				Details:  "gaming.conf shader cache configured",
+				Details:  fmt.Sprintf("gaming.conf configured (%s)", strings.Join(gamingConfRequiredKeys, ", ")),
 			})
 		}
+	}
+	if !uc.fsManager.Exists(mangoHudPresetPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Gaming",
+			Target:   "MangoHud preset",
+			Details:  "~/.config/MangoHud/MangoHud.conf missing (no overlay metrics, no F12 toggle)",
+			FixHint:  "run 'envctl run shell' to seed the MangoHud preset (goverlay can edit it afterwards)",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "MangoHud preset",
+			Details:  "MangoHud preset present",
+		})
 	}
 	if !uc.fsManager.Exists("/usr/bin/X") {
 		addDiag(entity.Diagnostic{

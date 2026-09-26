@@ -705,6 +705,87 @@ func TestAmdgpuModulePresent(t *testing.T) {
 	}
 }
 
+func TestMissingGamingConfKeys(t *testing.T) {
+	both := []byte("MESA_SHADER_CACHE_MAX_SIZE=12G\nRADV_PERFTEST=gpl\n")
+	if missing := missingGamingConfKeys(both); len(missing) != 0 {
+		t.Errorf("expected no missing keys, got %v", missing)
+	}
+	onlyCache := []byte("MESA_SHADER_CACHE_MAX_SIZE=12G\n")
+	if missing := missingGamingConfKeys(onlyCache); len(missing) != 1 || missing[0] != "RADV_PERFTEST=" {
+		t.Errorf("expected only RADV_PERFTEST= missing, got %v", missing)
+	}
+	if missing := missingGamingConfKeys(nil); len(missing) != len(gamingConfRequiredKeys) {
+		t.Errorf("expected all %d keys missing for an empty file, got %v", len(gamingConfRequiredKeys), missing)
+	}
+	// A commented-out line is not a setting; the audit must not accept it.
+	commented := []byte("# MESA_SHADER_CACHE_MAX_SIZE=12G\n#RADV_PERFTEST=gpl\n")
+	if missing := missingGamingConfKeys(commented); len(missing) != len(gamingConfRequiredKeys) {
+		t.Errorf("expected commented keys to count as missing, got %v", missing)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksMangoHudPreset(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// run shell seeds both presets; MangoHud.conf missing is a real gap the
+	// audit did not report at all.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "MangoHud preset")
+	if got == nil {
+		t.Fatalf("expected a MangoHud preset diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING when the preset is absent, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.FixHint, "run shell") {
+		t.Errorf("expected the FixHint to point at run shell, got %q", got.FixHint)
+	}
+}
+
+func TestDoctorAudit_GamingTuningAcceptsBothShaderCacheKeys(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	// game-performance plus the MangoHud preset on disk. The mock expands no
+	// path, so the read key is the literal tilde form.
+	existing := map[string]bool{mangoHudPresetPath: true}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, existing)
+	uc.fsManager.(*mockFSManager).fileContents[gamingConfPath] =
+		[]byte("MESA_SHADER_CACHE_MAX_SIZE=12G\nRADV_PERFTEST=gpl\n")
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	cache := findGamingDiag(diags, "shader cache preset")
+	if cache == nil {
+		t.Fatalf("expected a shader cache diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if cache.Category != entity.DiagOK {
+		t.Errorf("expected OK with both keys present, got %v: %s", cache.Category, cache.Details)
+	}
+	overlay := findGamingDiag(diags, "MangoHud preset")
+	if overlay == nil || overlay.Category != entity.DiagOK {
+		t.Errorf("expected OK for the present MangoHud preset, got %+v", overlay)
+	}
+}
+
 func TestMultilibEnabled(t *testing.T) {
 	active := "[core]\nInclude = /etc/pacman.d/mirrorlist\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n"
 	if !multilibEnabled(active) {
