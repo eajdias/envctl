@@ -13,7 +13,6 @@ const (
 	DistroArch    = "arch"
 	DistroDebian  = "debian"
 	DistroWindows = "windows"
-	DistroDarwin  = "darwin"
 	DistroUnknown = ""
 )
 
@@ -114,7 +113,7 @@ func parseOSRelease(data string) (id, idLike, version string) {
 // MatchOS reports whether an `os:` manifest filter applies to a platform.
 //
 // Accepted values: "" (portable — every platform), the Go platform names
-// ("windows", "linux", "darwin"), and the Linux distro families ("arch",
+// ("windows", "linux"), and the Linux distro families ("arch",
 // "cachyos", "debian", "ubuntu"). A distro family only matches when the host
 // actually runs that family, so `os: arch` is skipped on Debian and vice
 // versa. Comma/space separated lists are accepted too ("arch,cachyos").

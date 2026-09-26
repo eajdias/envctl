@@ -82,7 +82,7 @@ type ConfigFile struct {
 	Destination   string    `yaml:"destination"` // target path with env vars expanded (e.g. ~ / %USERPROFILE%)
 	StrictACL     bool      `yaml:"strict_acl"`  // Restrict to current user only (for SSH/keys)
 	Category      string    `yaml:"category"`
-	OS            string    `yaml:"os,omitempty"`              // "windows", "linux", "darwin", distro family ("arch"/"debian") or empty for all
+	OS            string    `yaml:"os,omitempty"`              // "windows", "linux", distro family ("arch"/"debian") or empty for all
 	SeedIfMissing bool      `yaml:"seed_if_missing,omitempty"` // write baseline only when destination does not exist (e.g. agent memory templates)
 	Merge         MergeMode `yaml:"merge,omitempty"`           // non-destructive merge with the existing user content
 	// RuntimeManaged marks a file the agent itself writes to while it runs

@@ -1,7 +1,11 @@
 ---
 name: systematic-debugging
 description: >-
-  Depurar sistematicamente: achar a causa raiz antes de propor correção. 4 fases — (1) investigar a causa, (2) analisar padrões, (3) hipótese e teste mínimo, (4) correção guiada por teste. Use automaticamente em qualquer bug, teste vermelho, erro intermitente ou comportamento inesperado. Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
+  Depuração sistemática em 4 fases: achar a causa raiz antes de propor correção (investigação →
+  padrão → hipótese → teste).
+when_to_use: >-
+  Bug, erro, teste vermelho, exceção, intermitência ou comportamento inesperado — antes de tentar
+  corrigir qualquer coisa.
 license: MIT
 metadata:
   author: obra (superpowers)
@@ -9,8 +13,16 @@ metadata:
   adapted: envctl — reescrito e enxuto (de ~289 para ~80 ln); metodologia preservada
 ---
 
+
 # Systematic Debugging
 
+
+## Triggers (lista estendida)
+
+Viva na lista de catálogo do OpenCode, truncada em 249 chars pelo CommandCode — por isso o resumo
+acima é curto. Quando a skill carregar, use esta lista para casar o pedido:
+
+Triggers: bug, erro, falha, não funciona, quebrou, teste falhando, stack trace, exceção, comportamento inesperado, causa raiz, reproduzir, regressão, investigar.
 **Lei de ferro:** `SEM CORREÇÃO SEM INVESTIGAÇÃO DE CAUSA RAIZ PRIMEIRO.` Se não completou a Fase 1, não proponha correção.
 
 ## Fase 1 — Causa raiz (antes de qualquer correção)

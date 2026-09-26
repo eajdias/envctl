@@ -100,7 +100,7 @@ packages:
     check_command: yq --version
 
   # ============================================================================
-  # Agent Runtime Helpers (Windows only — Linux/macOS stays isolated: uv/venv)
+  # Agent Runtime Helpers (Windows only — Linux stays isolated: uv/venv)
   # ============================================================================
   - id: Oven-sh.Bun
     name: Bun JS/TS runtime (fast agent scripts & bunx)

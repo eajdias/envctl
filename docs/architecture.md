@@ -1,6 +1,6 @@
 # Arquitetura de Software do envctl
 
-O `envctl` foi projetado utilizando os preceitos fundamentais da **Clean Architecture** (Arquitetura Limpa), visando desacoplamento total entre regras de negócio/domínio e as complexidades específicas de cada sistema operacional (Windows, Linux, macOS) e gerenciadores de pacotes.
+O `envctl` foi projetado utilizando os preceitos fundamentais da **Clean Architecture** (Arquitetura Limpa), visando desacoplamento total entre regras de negócio/domínio e as complexidades específicas de cada sistema operacional (Windows, Linux) e gerenciadores de pacotes.
 
 ---
 
@@ -69,7 +69,7 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
 - **`ProvisionSkillsUseCase`**: Extrai as 50 Skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
 - **`ProvisionLSPsUseCase`**: Garante a presença dos 15 binários de language server p/ shell/IDE (sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
-- **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux/macOS).
+- **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux).
 - **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
 - **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
 

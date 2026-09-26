@@ -1,9 +1,14 @@
 ---
 name: task-hang-watchdog
 description: >-
-  Prevenir e recuperar terminais travados e tarefas autônomas presas. Use ao rodar comandos de shell longos ou não interativos (build, teste, migração, servidor, watch), despachar agentes em background, ou quando uma tarefa simplesmente não prossegue. O mecanismo muda por runtime: CommandCode usa run_in_background/shell_output/kill_shell/monitor_command; OpenCode V2 usa timeout da tool e interrupção de sessão. Triggers: terminal travou, comando não responde, tarefa presa, processo hung, demorou demais, background, travamento, não interativo, input prompt, kill processo.
+  Prevenir e recuperar comando travado ou tarefa presa: timeout, execução em background, log
+  persistente e interrupção pelo id do runtime.
+when_to_use: >-
+  Comando longo ou não interativo, servidor, watcher, build longo, ou algo que simplesmente parou
+  de responder.
 license: MIT
 ---
+
 
 # Task & Terminal Hang Watchdog
 

@@ -30,16 +30,27 @@ envctl doctor
 4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de Skills por OS (46 Win / 46 Ubuntu / 48 CachyOS, + espelho CommandCode)**:
+6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
 7. **Agentes & Config do OpenCode**:
    - `Config shape` (read-only): valida o formato V2 nativo do `~/.config/opencode/opencode.json` —
      sem `agent`/`permission` de V1, sem ações de permissão `bash`/`task`, `mode` em
      `primary|subagent|all` e `description` obrigatória em agente dispatchable. `OK` no shape
      nativo, `WARN` nomeando cada problema (config inválida passava pelo doctor verde).
+   - `Agents` do CommandCode: valida cada `~/.commandcode/agents/*.md` em duas camadas —
+     carga (`name` == nome do arquivo, nomes reservados ignorados) e **schema documentado**
+     (docs/agents): `tools`/`disallowedTools` (aceita `"a, b"`, lista YAML ou `"*"`; id
+     fora do catálogo = `INFO`, `agent`/`agent_output` = `WARN` porque nunca podem ser
+     concedidos), `permissionMode` no conjunto válido, `maxTurns` inteiro positivo,
+     `background`/`showOutput` booleanos, `model`/`reasoningEffort` não vazios. `WARN` nomeia
+     o campo, porque o runtime **ignora** valor inválido em silêncio e o agente carrega com
+     menos capacidades do que o frontmatter pede; chave desconhecida não gera diagnóstico
+     (o runtime também a ignora).
    - `git worktree`: parse de `git worktree list --porcelain` — entrada `prunable` vira `WARN`
      com hint de `git worktree prune` **após revisão manual**; entrada `locked` vira `INFO`
-     (trabalho intencional). O `doctor` nunca poda, destrava ou remove worktree.
+     (trabalho intencional). Vale para worktrees do OpenCode **e** do CommandCode
+     (`~/.commandcode/worktrees/`), porque ambas são `git worktree` do mesmo repo. O
+     `doctor` nunca poda, destrava ou remove worktree.
 8. **Performance Linux (read-only)**:
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.

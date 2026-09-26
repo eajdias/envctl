@@ -1,9 +1,14 @@
 ---
 name: agent-memory
 description: >-
-  Memória persistente de lições e padrões para o agente. Use para evitar repetir erros passados e aplicar preferências que já funcionaram (estilo "Taste" do Command Code). Aciona ao: iniciar tarefa (ler memória antes), cometer/descobrir um erro (gravar lição), ser corrigido pelo usuário (gravar), descobrir um padrão que funciona (gravar), ou quando algo já falhou antes ("lição", "memória", "aprendizado", "não repita", "isso já deu errado", "já tentamos isso").
+  Memória persistente de lições e padrões do agente por tier, com fluxo LOAD→ACT→SAVE→REFLECT e
+  promoção de processo a skill.
+when_to_use: >-
+  No início de toda tarefa, ao errar, ao ser corrigido, ou quando algo que já falhou antes
+  reaparece.
 license: MIT
 ---
+
 
 # Agent Memory — Lessons & Working Patterns
 

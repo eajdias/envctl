@@ -1,7 +1,11 @@
 ---
 name: test-driven-development
 description: >-
-  Desenvolver em ciclo TDD red-green-refactor: teste falhando primeiro, código mínimo depois. Use automaticamente em feature nova, bugfix, refatoração ou mudança de comportamento em TS/Node, Python ou Go. Triggers: tdd, red green refactor, teste primeiro, failing test, ciclo tdd, disciplina tdd, teste antes do código.
+  Ciclo TDD red-green-refactor: teste falhando primeiro, código mínimo depois, em Go, TS/Node ou
+  Python.
+when_to_use: >-
+  Vai entrar código novo ou mudar comportamento: feature, bugfix, refatoração, mudança de contrato
+  — antes da implementação.
 license: MIT
 metadata:
   author: obra (superpowers)
@@ -9,8 +13,16 @@ metadata:
   adapted: envctl — ideia (lei de ferro + red-green-refactor) adaptada; ciclo e exemplos escritos do zero para TS/PY/GO com vitest/pytest/go test e wiring com universal-test-runner + verification-before-completion
 ---
 
+
 # Test-Driven Development
 
+
+## Triggers (lista estendida)
+
+Viva na lista de catálogo do OpenCode, truncada em 249 chars pelo CommandCode — por isso o resumo
+acima é curto. Quando a skill carregar, use esta lista para casar o pedido:
+
+Triggers: tdd, red green refactor, teste primeiro, failing test, ciclo tdd, disciplina tdd, teste antes do código.
 **Regra:** não escreva código de produção sem antes observar um teste falhar pelo motivo certo. “Acho que cobre” não é evidência.
 
 Use TDD em feature, bugfix, refatoração e qualquer mudança de comportamento. Para protótipo descartável, código gerado ou configuração, pergunte antes de abrir uma exceção.

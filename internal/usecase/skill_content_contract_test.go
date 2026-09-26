@@ -3,8 +3,10 @@ package usecase
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/eajdias/envctl"
+	"gopkg.in/yaml.v3"
 )
 
 const proactiveSkillRule = "Se a descrição de uma skill casar com a tarefa, carregue-a com a tool `skill` antes de agir"
@@ -157,16 +159,84 @@ func TestTaskHangWatchdogIsRuntimeAware(t *testing.T) {
 	forbidTerms(t, "task-hang-watchdog/CommandCode", commandCode, "opencode api")
 }
 
-func TestVPSDispatchDescriptionUsesTriggerContract(t *testing.T) {
-	data, err := envctl.EmbeddedFS.ReadFile("configs/skills/vps-agent-dispatch/SKILL.md")
+// The CommandCode catalog is built as `description + "\n\n" + when_to_use` and
+// truncated to the first 249 chars, so a skill whose combined text is longer is
+// advertised with a cut description and loses the trigger entirely. The
+// OpenCode catalog is not truncated at all, so the same text serves both
+// runtimes: the summary is what both see, and the long trigger list lives in
+// the body where it is only read after the skill loads.
+const commandCodeCatalogBudget = 247
+
+// whenToUseSkills is the routing/process set where trigger matching actually
+// decides whether the skill gets loaded at all.
+var whenToUseSkills = map[string]bool{
+	"agent-memory":            true,
+	"clarify-before-acting":   true,
+	"code-playbooks":          true,
+	"git-workflow":            true,
+	"subagent-routing":        true,
+	"subagent-supervision":    true,
+	"systematic-debugging":    true,
+	"task-hang-watchdog":      true,
+	"technical-research":      true,
+	"test-driven-development": true,
+	"writing-plans":           true,
+}
+
+type catalogFrontmatter struct {
+	Description string `yaml:"description"`
+	WhenToUse   string `yaml:"when_to_use"`
+}
+
+func TestWhenToUseFitsCommandCodeCatalog(t *testing.T) {
+	entries, err := envctl.EmbeddedFS.ReadDir("configs/skills")
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := string(data)
-	if !strings.Contains(content, "description: >-") {
-		t.Error("vps-agent-dispatch description must use the folded YAML form")
+
+	seen := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		data, readErr := envctl.EmbeddedFS.ReadFile("configs/skills/" + name + "/SKILL.md")
+		if readErr != nil {
+			t.Fatalf("read skill %s: %v", name, readErr)
+		}
+		content := string(data)
+
+		block, ok := skillFrontmatterBlock(data)
+		if !ok {
+			t.Fatalf("skill %s has no parseable frontmatter", name)
+		}
+		var fm catalogFrontmatter
+		if err := yaml.Unmarshal(block, &fm); err != nil {
+			t.Fatalf("skill %s frontmatter does not parse: %v", name, err)
+		}
+
+		if !whenToUseSkills[name] {
+			if strings.TrimSpace(fm.WhenToUse) != "" {
+				t.Errorf("skill %q declares when_to_use but is not part of the routing set (scope creep)", name)
+			}
+			continue
+		}
+		seen++
+
+		if !strings.Contains(content, "when_to_use: >-") {
+			t.Errorf("skill %q must declare when_to_use as a folded block (a plain scalar with \": \" breaks the YAML)", name)
+		}
+		combined := utf8.RuneCountInString(fm.Description) + 2 + utf8.RuneCountInString(fm.WhenToUse)
+		if combined > commandCodeCatalogBudget {
+			t.Errorf("skill %q catalog text is %d characters; CommandCode truncates at 249 with JS slice() semantics, so keep description+2+when_to_use <= %d (shorten the summary, move the trigger list into the body)",
+				name, combined, commandCodeCatalogBudget)
+		}
+		if strings.TrimSpace(fm.Description) == "" {
+			t.Errorf("skill %q lost its description", name)
+		}
 	}
-	if !strings.Contains(content, "Triggers:") {
-		t.Error("vps-agent-dispatch description must expose explicit triggers")
+
+	if seen != len(whenToUseSkills) {
+		t.Errorf("%d skill(s) declare when_to_use, want %d (the routing set)", seen, len(whenToUseSkills))
 	}
 }

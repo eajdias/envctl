@@ -60,4 +60,4 @@ docs disagrees with a manifest, the manifest wins — fix the doc.
   — a change to it must keep them passing because the hook wiring depends on it.
 - **Skills are the default method:** when a skill description matches the task, load it with the `skill` tool before acting; use `SKILL-INDEX.md` only to break ties.
 - **Worktrees:** `.worktrees/<type>-<slug>` (project config in `.opencode/opencode.json`, ignored by git), one branch per worktree, never `remove --force`; `envctl doctor` reports `prunable`/`locked` entries. Skill `git-workflow` holds the checklist.
-- **Agents:** `planner` (dispatchable subagent) for bulky research/plans, the `plan` Tab for interactive planning, `review` before concluding — see `docs/os-and-agent-matrix.md` §2/§3.
+- **Agents:** `planner` (dispatchable subagent) for bulky research/plans, the `plan` Tab for interactive planning, `review` before concluding — see `docs/os-and-agent-matrix.md` §2/§3. In CommandCode there is no `planner`: its built-in `plan` is already dispatchable and read-only, and the coordinator materializes the spec.

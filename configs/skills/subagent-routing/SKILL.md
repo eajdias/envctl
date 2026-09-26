@@ -1,12 +1,25 @@
 ---
 name: subagent-routing
 description: >-
-  Roteamento e despacho de subagentes: QUANDO delegar (explore/general/planner), COMO despachar em paralelo na mesma resposta (dispatch múltiplo), roteiro por situação, isolamento de contexto, integração final e quando NÃO delegar. A execução inline é o padrão; use subagente apenas quando o contexto bruto da pesquisa/planejamento for volumoso e o resultado puder ser compactado. Inclui mecânica de despacho paralelo e orquestração no mesmo repositório (fronteiras disjuntas, base comum). Use automaticamente para decidir se o isolamento de contexto compensa. Triggers: subagente, delegar, despachar, dispatch, paralelo, mesmo repositório, orquestrador, fronteira, contexto isolado, integrar, inline, preservar contexto.
+  Roteamento de subagentes: quando delegar (inline é o padrão), qual tipo, despacho paralelo no
+  repo e integração.
+when_to_use: >-
+  Tarefa bulky (pesquisa, varredura, plano extenso) ou o usuário pede delegar, paralelizar,
+  dividir, economizar contexto.
 license: MIT
 ---
 
+
 # Subagent Routing (Roteamento & Despacho de Subagentes)
 
+
+## Triggers (lista estendida)
+
+Viva na lista de catálogo do OpenCode, truncada em 249 caracteres pelo CommandCode — por isso o
+resumo da description acima é curto. Quando a skill carregar, use esta lista para casar o pedido:
+
+Triggers: subagente, delegar, despachar, dispatch, paralelo, mesmo repositório, orquestrador,
+fronteira, contexto isolado, integrar, inline, preservar contexto.
 Suba trabalho para **preservar o contexto do coordenador** e **paralelizar domínios
 independentes**. Cada subagente recebe contexto isolado e autocontido — nunca herda a
 sessão. O coordenador gasta o seu contexto integrando e verificando, não varrendo tudo.
@@ -37,6 +50,13 @@ Tipos comuns: `explore` (read-only, varredura), `general` (execução/pesquisa),
 `planner` (OpenCode, planejamento dispatchável). No CommandCode `plan` é built-in
 dispatchável; no OpenCode o `planner` é a variante dispatchável e o `plan` nativo
 continua sendo o agente primary.
+
+**Por que não existe `planner` no CommandCode:** o `plan` de lá já é dispatchável
+(built-in, `tools: ["read_file"]`) e read-only. Um agente custom que gravasse a
+spec precisaria de `write_file`/`edit_file` **sem escopo de path** — não existe
+`Edit(spec-agent/**)` naquele runtime, e `permissionMode: plan` esconde as write
+tools. Trocar boundary forte por convenience de escrita não compensa: o `plan`
+planeja e o **coordenador** materializa `spec-agent/`.
 
 ## Mecânica do despacho paralelo
 

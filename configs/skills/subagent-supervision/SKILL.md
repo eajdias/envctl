@@ -1,9 +1,14 @@
 ---
 name: subagent-supervision
 description: >-
-  Supervisionar subagentes que podem demorar, repetir tool calls, ficar sem progresso ou produzir conclusões sem evidência. Use quando houver subagente em background, task longa, loop, timeout, resultado suspeito ou necessidade de interromper e retentar com escopo refinado. A forma de interromper muda por runtime: CommandCode usa agent_output/agent_id e kill_shell; OpenCode V2 usa sessionID + opencode api. Triggers: subagente não retorna, loop de tool calls, alucinação, sem progresso, demorou demais, interromper subagente, cancelar sessão, matar processo, retry, escalar, supervisor, background agent.
+  Vigiar subagentes: status, coleta, interrupção e retry, com o vocabulary correto de cada runtime
+  (OpenCode V2 e CommandCode).
+when_to_use: >-
+  Subagente em background que demora, repete tool call, fica sem progresso ou precisa ser
+  interrompido e retomado.
 license: MIT
 ---
+
 
 # Subagent Supervision (o coordenador vigia os subagentes)
 

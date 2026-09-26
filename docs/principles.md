@@ -26,7 +26,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 ## 2. Ordem de Precedência do Provisionamento
 
 1. **Bootstrap & Checagem de Ambiente:**
-   - Detecção de OS (`windows`, `linux`, `darwin`) e arquitetura (`amd64`, `arm64`).
+   - Detecção de OS (`windows`, `linux`) e arquitetura (`amd64`, `arm64`).
    - Validação de privilégios e permissões.
 2. **Infraestrutura Base de Pacotes:**
    - Windows: Instalação dos pacotes essenciais via `Winget` e `Pacman`.

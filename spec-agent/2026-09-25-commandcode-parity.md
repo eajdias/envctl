@@ -164,14 +164,45 @@ otimização, não gap.
 
 Sem código. Sem config nova. Doc precisa dizer explicitamente que
 `~/.commandcode/worktrees/` é o default do runtime e que a ponte para a nossa
-convenção é o path absoluto em `-w`.
+convenção é o path absoluto em `-w`.### Task 3 (executada 2026-09-26) — `when_to_use`: medida, revertida, REAPLICADA com redesenho
 
-### Task 3 (bloqueada) — `when_to_use` nas skills de roteamento
+**Encadeamento real:** (1) apliquei nas 7 skills → (2) medi no runtime → (3) descobri que
+era no-op → (4) revertido → (5) o dono pediu resumo dentro de 247 → (6) redesenho
+aplicado e **provado funcionando**.
 
-Pré-requisito: teste empírico de 1 skill (adicionar `when_to_use` localmente,
-boot do OpenCode, procurar warning de loader, rodar `envctl doctor`). Se o
-OpenCode reclamar → abortar e registrar. Se tolerar → aplicar só nas skills de
-roteamento e medir o custo de prompt.
+**Medição (5 probes `cmdc -p`):**
+
+| Probe | `COMMANDCODE_SKILL_CATALOG_CHAR_BUDGET` | O que o modelo recebeu |
+|---|---|---|
+| A | (unset) | só `<name>` + `<location>` — nenhuma description |
+| B | 20000 | idem (orçamento insuficiente → só nomes) |
+| C | 60000 | description truncada em ~249, `when_to_use` **fora** do corte |
+| D | 60000 (outra skill) | idem — corte confirmado em outra skill |
+| **E** | 60000, **após redesenho** | **description + `when_to_use` completos, sem corte** |
+| **F** | 30000, **após redesenho** | **description + `when_to_use` completos** (valor recomendado) |
+| **G** | 15000, após redesenho | description truncada ~140 chars, **sem** `when_to_use` |
+
+**Default e limiar:** `Gs=8e3` = **8.000** chars (não 8 — scientific notation; uma regex frouxa leu só o `8`), piso `zs=20`, teto `Vs=250`. Catálogo "names only" das 48 skills = 6.910 chars (medido com o template real e os paths reais), logo o default já cai para nomes. Limiar p/ descrição completa nas 48 = `6.910 + 48×(142+249)` ≈ **25.700**; probes F/G confirmam 15.000 (truncado) e 30.000 (completo). Acima de ~26k o budget não muda nada porque o teto é 249/skill. Custo do valor recomendado: ~25.7k chars ≈ **6.4k tokens/turn** no CommandCode.
+
+**Causa do no-op:** `truncateCatalogText(e.whenToUse ? desc + "\n\n" + whenToUse : desc, 250)`
+com `(s, n) => s.length > n ? s.slice(0, n-1) + "…" : s`. O `when_to_use` entra depois
+da description e o corte fica no início → inalcançável com description ≥ ~247 chars
+(as 7 tinham 317–738).
+
+**Redesenho (o que foi feito):**
+- `description` = o quê + quando, 102–123 chars (era 317–738);
+- `when_to_use` = gatilho em linguagem natural, 98–122 chars (campo exclusivo do
+  CommandCode, ignorado pelo OpenCode sem custo);
+- lista extendida de gatilhos → corpo, em `## Triggers` (lida só **depois** do load,
+  portanto grátis no catálogo);
+- contrato travado: `TestWhenToUseFitsCommandCodeCatalog` exige
+  `description + 2 + when_to_use ≤ 247` **caracteres** (runes — `String.slice` do JS
+  conta caracteres, e `len()` em Go contaria bytes: o teste daria 263 em vez de 243
+  em `systematic-debugging`, o que foi exatamente o bug encontrado).
+
+**Ganho de contexto (OpenCode, por turno):** catálogo das 7 cai de 3.648 para 1.607
+chars (−479 tokens/turn). No CommandCode, as 7 passam a carregar description **e**
+gatilho — o que antes era impossível.
 
 ## Verificação (ao final de cada task)
 
@@ -187,10 +218,17 @@ git diff --check
 
 ## Definition of Done
 
-- [ ] Frontmatter de agente do CommandCode validado no `doctor`, com o campo culpado nomeado.
-- [ ] `plan` documentado como subagent de planejamento do CommandCode, sem `planner` custom e sem alargar permissão.
-- [ ] Duas rotas de worktree documentadas, com a ponte `cmdc -w <abs>`.
-- [ ] Tabela de controles de visibilidade de skill por plataforma no REFERENCE.
-- [ ] Matriz/doctor docs sincronizados; suíte, lint, cross-build e `git diff --check` com evidência fresca.
-- [ ] `when_to_use` decidido com teste empírico (aplicado ou abortado com registro).
-- [ ] Nenhuma mudança no lado OpenCode exceto o mínimo compartilhado, por seção por runtime.
+- [x] Frontmatter de agente do CommandCode validado no `doctor`, com o campo culpado nomeado. — `internal/usecase/commandcode_agent_schema.go` + integração em `auditCommandCodeAgents`; prova end-to-end quebrando o `~/.commandcode/agents/code-reviewer.md` deployado (WARN nomeando `tools`) e restaurando (OK).
+- [x] `plan` documentado como subagent de planejamento do CommandCode, sem `planner` custom e sem alargar permissão. — justificativa em `subagent-routing` ("por que não existe `planner` no CommandCode") e nos 3 `AGENTS` do CommandCode.
+- [x] Duas rotas de worktree documentadas, com a ponte `cmdc -w <abs>`. — tabela em `git-workflow`, linha de worktree nos 3 `AGENTS` do CommandCode, seção do REFERENCE.
+- [x] Tabela de controles de visibilidade de skill por plataforma no REFERENCE. — `autoinvoke` ↔ `disable-model-invocation`, `slash` ↔ `user-invocable`, `when_to_use` com o custo de prompt.
+- [x] Matriz/doctor docs sincronizados; suíte, lint, cross-build e `git diff --check` com evidência fresca. — matriz #21/#22, `docs/doctor-and-idempotency.md`, CHANGELOG; `gofmt` limpo · build/vet ok · `go test ./...` sem FAIL · `golangci-lint` 0 issues · cross-build ok · `diff --check` limpo · `envctl doctor` 207/207 0 WARN 0 ERROR.
+- [x] `when_to_use` decidido com teste empírico (aplicado ou abortado com registro). — **2026-09-26: APLICADO, MEDIDO, REVERTIDO e REAPLICADO COM REDESENHO** (Task 3). As 7 skills de roteamento têm `description + 2 + when_to_use ≤ 247` caracteres, com a lista extendida no corpo; probe `cmdc -p` confirma os dois campos chegando ao modelo sem corte.
+- [x] Nenhuma mudança no lado OpenCode exceto o mínimo compartilhado, por seção por runtime. — **exceção registrada**: `configs/REFERENCE.md` (arquivo do OpenCode) recebeu as tabelas comparativas de worktree e visibilidade, porque é a referência operacional do OpenCode e ficaria incompleta sem elas. Nenhuma mudança de config, agente, permissão ou runtime do OpenCode. O `doctor` detectou o drift sozinho e `envctl opencode` sincronizou. **Ponto aberto para o dono**: manter assim ou mover a comparação para outro arquivo.
+
+## Estado de execução (2026-09-26)
+
+- Tasks 1 e 2: implementadas e verificadas em `feat/commandcode-parity` (filha de `feat/subagent-orchestration-worktrees`).
+- Task 3: executada — aplicada, medida no runtime e revertida por ser no-op (ver acima).
+- **Nada commitado nesta branch ainda** — 12 arquivos modificados + 2 novos, aguardando confirmação do dono.
+- Divergência deliberada de escopo registrada: o `doctor` foi reprovisionado nas duas camadas (`envctl commandcode` e depois `envctl opencode`) porque o REFERENCE é arquivo do OpenCode.

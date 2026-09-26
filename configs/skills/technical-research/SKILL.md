@@ -1,9 +1,14 @@
 ---
 name: technical-research
 description: >-
-  Verificar respostas técnicas com fontes atuais, versões explícitas e citações, separando fato, inferência e desconhecido. Use ao pesquisar comportamento de sistemas, compatibilidade, regressões, releases ou decisões técnicas. Triggers: pesquisa técnica, verificar fonte, fonte primária, documentação atual, release notes, changelog, comportamento esperado, comparação de versões, research, evidence, fact check.
+  Verificar resposta técnica com fonte atual, versão explícita e citação, separando fato,
+  inferência e desconhecido.
+when_to_use: >-
+  Pesquisa de comportamento de sistema, compatibilidade, regressão, release, versão de API ou
+  decisão de arquitetura.
 license: MIT
 ---
+
 
 # Technical Research
 

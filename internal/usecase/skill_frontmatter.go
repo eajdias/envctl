@@ -27,32 +27,40 @@ type skillFrontmatter struct {
 	Description string `yaml:"description"`
 }
 
-// parseSkillFrontmatter decodes the leading `---` YAML block of a SKILL.md file.
-// ok is false when the block is missing, unterminated or not valid YAML. The
-// closing delimiter must be a line of its own, so a `---` inside the body (or a
-// stray `----`) never truncates the block early.
-func parseSkillFrontmatter(content []byte) (skillFrontmatter, bool) {
-	var fm skillFrontmatter
-
+// skillFrontmatterBlock returns the raw YAML inside the leading `---` block of a
+// SKILL.md file. ok is false when the block is missing, unterminated or not
+// valid YAML. The closing delimiter must be a line of its own, so a `---` inside
+// the body (or a stray `----`) never truncates the block early.
+func skillFrontmatterBlock(content []byte) ([]byte, bool) {
 	text := strings.ReplaceAll(string(content), "\r\n", "\n")
 	text = strings.TrimPrefix(text, "\ufeff")
 	if !strings.HasPrefix(text, "---\n") {
-		return fm, false
+		return nil, false
 	}
 
 	lines := strings.Split(text[len("---\n"):], "\n")
-	closing := -1
 	for i, line := range lines {
 		if strings.TrimRight(line, " \t") == "---" {
-			closing = i
-			break
+			block := []byte(strings.Join(lines[:i], "\n"))
+			var probe any
+			if err := yaml.Unmarshal(block, &probe); err != nil {
+				return nil, false
+			}
+			return block, true
 		}
 	}
-	if closing < 0 {
+	return nil, false
+}
+
+// parseSkillFrontmatter decodes the leading `---` YAML block of a SKILL.md file.
+func parseSkillFrontmatter(content []byte) (skillFrontmatter, bool) {
+	var fm skillFrontmatter
+
+	block, ok := skillFrontmatterBlock(content)
+	if !ok {
 		return fm, false
 	}
-
-	if err := yaml.Unmarshal([]byte(strings.Join(lines[:closing], "\n")), &fm); err != nil {
+	if err := yaml.Unmarshal(block, &fm); err != nil {
 		return fm, false
 	}
 	return fm, true

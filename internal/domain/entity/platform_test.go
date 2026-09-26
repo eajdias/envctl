@@ -23,7 +23,6 @@ func TestMatchOS(t *testing.T) {
 		{"comma list matches any member", "arch,cachyos", "linux", DistroArch, true},
 		{"comma list with no match", "arch,debian", "linux", DistroUnknown, false},
 		{"unknown distro ignores distro families", "arch", "linux", DistroUnknown, false},
-		{"darwin scoping", "darwin", "darwin", DistroDarwin, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -43,7 +42,7 @@ func TestParseOSRelease(t *testing.T) {
 
 func TestDetectedDistroIsAKnownValue(t *testing.T) {
 	switch got := DetectedDistro(); got {
-	case DistroArch, DistroDebian, DistroWindows, DistroDarwin, DistroUnknown:
+	case DistroArch, DistroDebian, DistroWindows, DistroUnknown:
 	default:
 		t.Errorf("DetectedDistro() returned unexpected value %q", got)
 	}

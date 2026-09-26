@@ -1,7 +1,11 @@
 ---
 name: writing-plans
 description: >-
-  Escrever especificação e plano de implementação passo a passo antes de tocar no código. Use automaticamente em tarefa multi-passo ou multi-arquivo, feature nova, refatoração ampla, ou quando o usuário pedir plano/design/estratégia. Produz tarefas pequenas, ordenadas e verificáveis. Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
+  Especificação e plano passo a passo antes de tocar produção: arquivos afetados, riscos, rollback
+  e comandos de verificação.
+when_to_use: >-
+  Tarefa multi-passo ou multi-arquivo, escopo ambíguo, ou pedido de plano, spec, design,
+  estratégia, roadmap.
 license: MIT
 metadata:
   author: obra (superpowers)
@@ -9,8 +13,16 @@ metadata:
   adapted: envctl — descricao/triggers em PT-BR; planos vao para spec-agent/ (o upstream usava docs/superpowers/plans/)
 ---
 
+
 # Escrita de planos
 
+
+## Triggers (lista estendida)
+
+Viva na lista de catálogo do OpenCode, truncada em 249 chars pelo CommandCode — por isso o resumo
+acima é curto. Quando a skill carregar, use esta lista para casar o pedido:
+
+Triggers: plano, planejar, planejamento, especificação, spec, design da implementação, passo a passo, antes de codar, tarefa grande, quebrar em etapas, roadmap.
 Escreva um plano executável antes de modificar produção. O objetivo não é produzir um relatório bonito: é deixar claro o que muda, por quê, em qual ordem, como provar e como desfazer.
 
 **Anuncie no início:** “Estou usando a skill `writing-plans` para criar o plano de implementação.”
