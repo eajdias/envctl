@@ -88,7 +88,20 @@ Antes de tocar em qualquer arquivo no disco:
 2. Se os hashes forem idênticos, a operação é pulada (`[IDEMPOTENT-SKIP]`), evitando tocar na data de modificação (`mtime`) ou gerar I/O desnecessário.
 3. Se houver divergência real de conteúdo, o arquivo original é renomeado para `<nome>.bak.YYYYMMDD-HHMMSS` antes de gravar o novo conteúdo.
 
-### 2. Idempotência em Gerenciadores de Pacotes
+### 2. Poda de Backups (`keep_newest`)
+O backup atômico é ilimitado por padrão, então cada execução que diverge deixa um arquivo. Itens de manifest com `keep_newest: N` podam esse histórico:
+
+- A poda é **recursiva**: as árvores de skills são aninhadas (`~/.config/opencode/skills/<skill>/SKILL.md`), e uma varredura só do topo nunca as alcançava — o resultado era 1 backup por redeploy acumulando indefinidamente.
+- O agrupamento é por **caminho do arquivo original**, não por nome base: dois `SKILL.md` em diretórios diferentes não disputam o mesmo slot de `keep_newest`.
+- Aplicada em `~/.config/opencode` e `~/.commandcode` com `keep_newest: 1` (um backup por arquivo, o suficiente para rollback de edição manual).
+- Arquivos com conteúdo **idêntico** não geram backup nenhum (diff-gate por hash), então redeploy sem mudança não deixa rastro.
+
+### 3. Backups Nunca Entram no Repositório
+O `snapshot` é sync **reverso** (máquina → repo) e copia a árvore de skills implantada para `configs/skills/`. Backup de provisionamento é histórico local da máquina, nunca conteúdo curado:
+
+- `copyDir` **ignora** qualquer `<nome>.bak.YYYYMMDD-HHMMSS` ao sincronizar. Sem isso, um snapshot levaria texto stale (ex.: a descrição antiga das 50 skills) para o repo, e o próximo deploy distribuiria esse conteúdo para toda máquina nova.
+
+### 4. Idempotência em Gerenciadores de Pacotes
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.

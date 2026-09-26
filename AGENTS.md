@@ -49,7 +49,8 @@ docs disagrees with a manifest, the manifest wins — fix the doc.
 ## Conventions
 
 - Code, comments and commits in English; conversation with the user in PT-BR.
-- Idempotent operations with atomic backup (`.bak.YYYYMMDD-HHMMSS`); never
+- Idempotent operations with atomic backup (`.bak.YYYYMMDD-HHMMSS`), pruned by
+  `keep_newest` (1 per file, recursive); never
   overwrite user-owned content — declare a `merge:` mode or `seed_if_missing`.
 - Verify with `go build ./...`, `go vet ./...`, `go test ./...` and
   `golangci-lint run --new-from-rev=origin/main`, or run `envctl-verify

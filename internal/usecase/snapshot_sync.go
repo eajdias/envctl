@@ -319,6 +319,12 @@ func (uc *SnapshotSyncUseCase) copyDir(src, dst string) error {
 		if info.IsDir() {
 			return os.MkdirAll(target, 0755)
 		}
+		// A provisioning backup is machine-local history, not curated content.
+		// Syncing it into the repo would commit stale skill text and ship it to
+		// every machine on the next deploy.
+		if isProvisioningBackup(info.Name()) {
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
