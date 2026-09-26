@@ -8,6 +8,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 type paruManager struct {
@@ -43,15 +44,9 @@ func (m *paruManager) IsAvailable(ctx context.Context) bool {
 }
 
 func (m *paruManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	// If custom check command is provided, try that first
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		if len(parts) > 0 {
-			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				return true, strings.TrimSpace(string(out)), nil
-			}
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/logger"
 )
 
 func TestPSQuoteDoublesSingleQuotes(t *testing.T) {
@@ -54,7 +55,7 @@ func TestWindowsTweaksManager_CheckTweak(t *testing.T) {
 		t.Skip("skipping Windows registry tweak tests on non-windows platform")
 	}
 
-	mgr := NewWindowsTweaksManager(nil)
+	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 
 	// Check a well-known Windows registry key (e.g. CurrentVersion or Explorer)
 	tweak := entity.WindowsTweak{
@@ -78,7 +79,7 @@ func TestWindowsTweaksManager_CheckAppxAbsent(t *testing.T) {
 		t.Skip("skipping Appx check tests on non-windows platform")
 	}
 
-	mgr := NewWindowsTweaksManager(nil)
+	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 
 	// Read-only: a package name that cannot exist is conforming (absent).
 	ok, details, err := mgr.CheckTweak(context.Background(), entity.WindowsTweak{
@@ -98,7 +99,7 @@ func TestWindowsTweaksManager_CheckBatchMatchesSingle(t *testing.T) {
 		t.Skip("skipping batch consistency tests on non-windows platform")
 	}
 
-	mgr := NewWindowsTweaksManager(nil)
+	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 	ctx := context.Background()
 
 	// One tweak per family: real registry value, absent Appx, present
@@ -140,7 +141,7 @@ func TestWindowsTweaksManager_CheckServiceReadOnly(t *testing.T) {
 		t.Skip("skipping service check tests on non-windows platform")
 	}
 
-	mgr := NewWindowsTweaksManager(nil)
+	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 
 	// Read-only: StartType probe only, no state change. Spooler ships with
 	// Windows 11 and is not Disabled, so the check must report drift.

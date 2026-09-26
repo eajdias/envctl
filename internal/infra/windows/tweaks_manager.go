@@ -375,13 +375,11 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName '%s' -NoRestart -ErrorAction Stop`, psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if cmd.ProcessState != nil {
-				exitCode = cmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
 		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		if err != nil {
 			return fmt.Errorf("failed to enable feature %s: %s (%w)", tweak.Name, string(out), err)
 		}
@@ -413,13 +411,11 @@ if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
 Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if cmd.ProcessState != nil {
-				exitCode = cmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
 		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		if err != nil {
 			return fmt.Errorf("failed to install PowerShell module %s: %s (%w)", tweak.Name, string(out), err)
 		}
@@ -431,13 +427,11 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		appxScript := fmt.Sprintf(`Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction Stop`, psQuote(tweak.Name))
 		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
 		appxOut, appErr := appxCmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if appxCmd.ProcessState != nil {
-				exitCode = appxCmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", appxScript}, exitCode, string(appxOut), appErr)
+		exitCode := 0
+		if appxCmd.ProcessState != nil {
+			exitCode = appxCmd.ProcessState.ExitCode()
 		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", appxScript}, exitCode, string(appxOut), appErr)
 		if appErr != nil {
 			return fmt.Errorf("failed to remove Appx package %s: %s (%w)", tweak.Name, string(appxOut), appErr)
 		}
@@ -461,13 +455,11 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		}
 		svcCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", svcScript)
 		svcOut, svcErr := svcCmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if svcCmd.ProcessState != nil {
-				exitCode = svcCmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", svcScript}, exitCode, string(svcOut), svcErr)
+		exitCode := 0
+		if svcCmd.ProcessState != nil {
+			exitCode = svcCmd.ProcessState.ExitCode()
 		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", svcScript}, exitCode, string(svcOut), svcErr)
 		if svcErr != nil {
 			return fmt.Errorf("failed to set service %s to %s: %s (%w)", tweak.Name, expectedState, string(svcOut), svcErr)
 		}
@@ -490,13 +482,11 @@ Set-ItemProperty -Path $path -Name $name -Value $val -Type $type -Force | Out-Nu
 `, psQuote(tweak.Path), psQuote(tweak.Name), psValue(tweak.Value), psQuote(valType))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
-		if m.logger != nil {
-			exitCode := 0
-			if cmd.ProcessState != nil {
-				exitCode = cmd.ProcessState.ExitCode()
-			}
-			m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
 		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", psScript}, exitCode, string(out), err)
 		if err != nil {
 			return fmt.Errorf("failed to set registry %s\\%s: %s (%w)", tweak.Path, tweak.Name, string(out), err)
 		}
@@ -514,9 +504,7 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 
 		ok, details, err := m.CheckTweak(ctx, tw)
 		if err != nil {
-			if m.logger != nil {
-				m.logger.Error("Windows tweak check failed for %s: %v", targetName, err)
-			}
+			m.logger.Error("Windows tweak check failed for %s: %v", targetName, err)
 			diags = append(diags, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "Windows11",
@@ -527,9 +515,7 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 		}
 
 		if ok {
-			if m.logger != nil {
-				m.logger.LogIdempotency("Windows11", targetName, true, "Already configured correctly: "+details)
-			}
+			m.logger.LogIdempotency("Windows11", targetName, true, "Already configured correctly: "+details)
 			diags = append(diags, entity.Diagnostic{
 				Category: entity.DiagOK,
 				System:   "Windows11",
@@ -540,13 +526,9 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 		}
 
 		// Needs application
-		if m.logger != nil {
-			m.logger.Info("Applying Windows tweak %s (current: %s)", targetName, details)
-		}
+		m.logger.Info("Applying Windows tweak %s (current: %s)", targetName, details)
 		if err := m.ApplyTweak(ctx, tw); err != nil {
-			if m.logger != nil {
-				m.logger.Error("Failed to apply Windows tweak %s: %v", targetName, err)
-			}
+			m.logger.Error("Failed to apply Windows tweak %s: %v", targetName, err)
 			diags = append(diags, entity.Diagnostic{
 				Category: entity.DiagError,
 				System:   "Windows11",
@@ -555,9 +537,7 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 				FixHint:  "Run terminal as Administrator if required for HKLM settings",
 			})
 		} else {
-			if m.logger != nil {
-				m.logger.LogIdempotency("Windows11", targetName, false, "Applied successfully")
-			}
+			m.logger.LogIdempotency("Windows11", targetName, false, "Applied successfully")
 			diags = append(diags, entity.Diagnostic{
 				Category: entity.DiagOK,
 				System:   "Windows11",

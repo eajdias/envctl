@@ -34,15 +34,11 @@ func NewProvisionPackagesUseCase(
 func (uc *ProvisionPackagesUseCase) Execute(ctx context.Context, filterType entity.PackageType, onProgress PackageProgressHandler) ([]entity.Package, error) {
 	allPkgs, err := uc.manifestRepo.LoadPackages()
 	if err != nil {
-		if uc.logger != nil {
-			uc.logger.Error("Failed to load package manifests: %v", err)
-		}
+		uc.logger.Error("Failed to load package manifests: %v", err)
 		return nil, fmt.Errorf("failed to load package manifests: %w", err)
 	}
 
-	if uc.logger != nil {
-		uc.logger.Info("Starting package provisioning (Total: %d manifests, Filter: '%s')", len(allPkgs), filterType)
-	}
+	uc.logger.Info("Starting package provisioning (Total: %d manifests, Filter: '%s')", len(allPkgs), filterType)
 
 	return uc.provisionList(ctx, allPkgs, filterType, onProgress)
 }
@@ -52,15 +48,11 @@ func (uc *ProvisionPackagesUseCase) Execute(ctx context.Context, filterType enti
 func (uc *ProvisionPackagesUseCase) ExecuteGaming(ctx context.Context, onProgress PackageProgressHandler) ([]entity.Package, error) {
 	gamingPkgs, err := uc.manifestRepo.LoadGamingPackages()
 	if err != nil {
-		if uc.logger != nil {
-			uc.logger.Error("Failed to load gaming manifests: %v", err)
-		}
+		uc.logger.Error("Failed to load gaming manifests: %v", err)
 		return nil, fmt.Errorf("failed to load gaming manifests: %w", err)
 	}
 
-	if uc.logger != nil {
-		uc.logger.Info("Starting gaming provisioning (Total: %d manifests)", len(gamingPkgs))
-	}
+	uc.logger.Info("Starting gaming provisioning (Total: %d manifests)", len(gamingPkgs))
 
 	if entity.DetectedDistro() != entity.DistroArch && runtime.GOOS == "linux" {
 		return nil, fmt.Errorf("gaming stack is Arch/CachyOS-only (this host: %q); refusing to install Steam/GUI packages on a server", entity.DetectedDistro())
@@ -115,9 +107,7 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 			pkg.Status = entity.StatusSkipped
 			pkg.Error = fmt.Sprintf("unsupported package manager: %s", pkg.Type)
 			results = append(results, pkg)
-			if uc.logger != nil {
-				uc.logger.Warn("Unsupported package manager '%s' for package '%s'", pkg.Type, pkg.ID)
-			}
+			uc.logger.Warn("Unsupported package manager '%s' for package '%s'", pkg.Type, pkg.ID)
 			if onProgress != nil {
 				onProgress(pkg, "unsupported manager", nil)
 			}
@@ -128,9 +118,7 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 			pkg.Status = entity.StatusSkipped
 			pkg.Error = fmt.Sprintf("package manager %s is not available on this system", pkg.Type)
 			results = append(results, pkg)
-			if uc.logger != nil {
-				uc.logger.Warn("Package manager '%s' is not available for package '%s'", pkg.Type, pkg.ID)
-			}
+			uc.logger.Warn("Package manager '%s' is not available for package '%s'", pkg.Type, pkg.ID)
 			if onProgress != nil {
 				onProgress(pkg, "manager not available", nil)
 			}
@@ -143,18 +131,14 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 		probePkg := packageOwnershipProbe(pkg)
 		isInstalled, info, probeErr := mgr.IsInstalled(ctx, probePkg)
 		if probeErr != nil {
-			if uc.logger != nil {
-				uc.logger.Warn("Package manager '%s' could not query '%s': %v", pkg.Type, pkg.ID, probeErr)
-			}
+			uc.logger.Warn("Package manager '%s' could not query '%s': %v", pkg.Type, pkg.ID, probeErr)
 			isInstalled = false
 		}
 		if isInstalled {
 			pkg.Status = entity.StatusInstalled
 			pkg.Version = info
 			results = append(results, pkg)
-			if uc.logger != nil {
-				uc.logger.LogIdempotency("Package", pkg.ID, true, fmt.Sprintf("already installed (%s)", info))
-			}
+			uc.logger.LogIdempotency("Package", pkg.ID, true, fmt.Sprintf("already installed (%s)", info))
 			if onProgress != nil {
 				onProgress(pkg, fmt.Sprintf("already installed (%s)", info), nil)
 			}
@@ -171,9 +155,7 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 		}
 
 		// Install package
-		if uc.logger != nil {
-			uc.logger.LogIdempotency("Package", pkg.ID, false, fmt.Sprintf("triggering installation via %s", pkg.Type))
-		}
+		uc.logger.LogIdempotency("Package", pkg.ID, false, fmt.Sprintf("triggering installation via %s", pkg.Type))
 		if onProgress != nil {
 			onProgress(pkg, "installing...", nil)
 		}
@@ -182,18 +164,14 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 			pkg.Status = entity.StatusFailed
 			pkg.Error = err.Error()
 			results = append(results, pkg)
-			if uc.logger != nil {
-				uc.logger.Error("Failed to install package '%s' (%s): %v", pkg.ID, pkg.Type, err)
-			}
+			uc.logger.Error("Failed to install package '%s' (%s): %v", pkg.ID, pkg.Type, err)
 			if onProgress != nil {
 				onProgress(pkg, "failed", err)
 			}
 		} else {
 			pkg.Status = entity.StatusInstalled
 			results = append(results, pkg)
-			if uc.logger != nil {
-				uc.logger.Info("Successfully installed package '%s' (%s)", pkg.ID, pkg.Type)
-			}
+			uc.logger.Info("Successfully installed package '%s' (%s)", pkg.ID, pkg.Type)
 			if onProgress != nil {
 				onProgress(pkg, "installed successfully", nil)
 			}

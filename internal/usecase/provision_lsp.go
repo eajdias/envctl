@@ -36,15 +36,11 @@ type LSPResult struct {
 func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error) {
 	lsps, err := uc.manifestRepo.LoadLSPs()
 	if err != nil {
-		if uc.logger != nil {
-			uc.logger.Error("Failed to load LSP manifests: %v", err)
-		}
+		uc.logger.Error("Failed to load LSP manifests: %v", err)
 		return nil, fmt.Errorf("failed to load LSP manifests: %w", err)
 	}
 
-	if uc.logger != nil {
-		uc.logger.Info("Starting LSP servers provisioning (Total: %d LSPs)", len(lsps))
-	}
+	uc.logger.Info("Starting LSP servers provisioning (Total: %d LSPs)", len(lsps))
 
 	var results []LSPResult
 
@@ -55,9 +51,7 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 		// Check if binary is already in PATH
 		if lsp.CheckBinary != "" {
 			if toolAvailable(ctx, lsp.CheckBinary) {
-				if uc.logger != nil {
-					uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("binary '%s' found in PATH", lsp.CheckBinary))
-				}
+				uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("binary '%s' found in PATH", lsp.CheckBinary))
 				results = append(results, LSPResult{
 					LSP:     lsp,
 					Status:  entity.DiagOK,
@@ -69,9 +63,7 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 
 		mgr, ok := uc.managers[lsp.InstallType]
 		if !ok || !mgr.IsAvailable(ctx) {
-			if uc.logger != nil {
-				uc.logger.Warn("LSP '%s': Installer '%s' not available to install '%s'", lsp.ServerName, lsp.InstallType, lsp.InstallTarget)
-			}
+			uc.logger.Warn("LSP '%s': Installer '%s' not available to install '%s'", lsp.ServerName, lsp.InstallType, lsp.InstallTarget)
 			results = append(results, LSPResult{
 				LSP:          lsp,
 				Status:       entity.DiagWarning,
@@ -85,23 +77,17 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 			Type: lsp.InstallType,
 		}
 
-		if uc.logger != nil {
-			uc.logger.LogIdempotency("LSP", lsp.ServerName, false, fmt.Sprintf("installing '%s' via %s", lsp.InstallTarget, lsp.InstallType))
-		}
+		uc.logger.LogIdempotency("LSP", lsp.ServerName, false, fmt.Sprintf("installing '%s' via %s", lsp.InstallTarget, lsp.InstallType))
 
 		if err := mgr.Install(ctx, pkg); err != nil {
-			if uc.logger != nil {
-				uc.logger.Error("Failed to install LSP '%s' (%s): %v", lsp.ServerName, lsp.InstallTarget, err)
-			}
+			uc.logger.Error("Failed to install LSP '%s' (%s): %v", lsp.ServerName, lsp.InstallTarget, err)
 			results = append(results, LSPResult{
 				LSP:          lsp,
 				Status:       entity.DiagError,
 				ErrorMessage: fmt.Sprintf("Failed to install %s: %v", lsp.InstallTarget, err),
 			})
 		} else {
-			if uc.logger != nil {
-				uc.logger.Info("Successfully installed LSP '%s' via %s", lsp.ServerName, lsp.InstallType)
-			}
+			uc.logger.Info("Successfully installed LSP '%s' via %s", lsp.ServerName, lsp.InstallType)
 			results = append(results, LSPResult{
 				LSP:     lsp,
 				Status:  entity.DiagOK,

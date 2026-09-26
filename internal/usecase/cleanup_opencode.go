@@ -61,9 +61,7 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 				os.Remove(stale)
 				result.RemovedFiles = append(result.RemovedFiles, stale)
 				result.FreedBytes += info.Size()
-				if uc.logger != nil {
-					uc.logger.Info("[CLEANUP] removed legacy config %s", stale)
-				}
+				uc.logger.Info("[CLEANUP] removed legacy config %s", stale)
 			}
 		}
 	}
@@ -80,9 +78,7 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 				os.Remove(fPath)
 				result.RemovedFiles = append(result.RemovedFiles, fPath)
 				result.FreedBytes += info.Size()
-				if uc.logger != nil {
-					uc.logger.Info("[CLEANUP] removed oversized tool-output %s (%.1f MB)", fPath, float64(info.Size())/(1024*1024))
-				}
+				uc.logger.Info("[CLEANUP] removed oversized tool-output %s (%.1f MB)", fPath, float64(info.Size())/(1024*1024))
 			}
 		}
 	}
@@ -98,23 +94,17 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 			if vacuumErr != nil {
 				result.StoreNote = fmt.Sprintf("%.1f MB, %.1f MB reclaimable but VACUUM could not run: %v",
 					float64(store.SizeBytes)/(1024*1024), float64(store.ReclaimableBytes)/(1024*1024), vacuumErr)
-				if uc.logger != nil {
-					uc.logger.Warn("[CLEANUP] opencode.db VACUUM skipped: %v", vacuumErr)
-				}
+				uc.logger.Warn("[CLEANUP] opencode.db VACUUM skipped: %v", vacuumErr)
 			} else {
 				result.FreedBytes += freed
 				result.StoreNote = fmt.Sprintf("%.1f MB, reclaimed %.1f MB (VACUUM)",
 					float64(store.SizeBytes)/(1024*1024), float64(freed)/(1024*1024))
-				if uc.logger != nil {
-					uc.logger.Info("[CLEANUP] opencode.db: reclaimed %.1f MB", float64(freed)/(1024*1024))
-				}
+				uc.logger.Info("[CLEANUP] opencode.db: reclaimed %.1f MB", float64(freed)/(1024*1024))
 			}
 		} else {
 			result.StoreNote = fmt.Sprintf("%.1f MB of live session data (0 MB reclaimable — prune sessions to shrink it)",
 				float64(store.SizeBytes)/(1024*1024))
-			if uc.logger != nil {
-				uc.logger.Info("[CLEANUP] opencode.db holds %.1f MB of live data; nothing to reclaim", float64(store.SizeBytes)/(1024*1024))
-			}
+			uc.logger.Info("[CLEANUP] opencode.db holds %.1f MB of live data; nothing to reclaim", float64(store.SizeBytes)/(1024*1024))
 		}
 	}
 
@@ -145,9 +135,7 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 			}
 			result.RemovedFiles = append(result.RemovedFiles, path)
 			result.FreedBytes += size
-			if uc.logger != nil {
-				uc.logger.Info("[CLEANUP] removed stale scratch %s", path)
-			}
+			uc.logger.Info("[CLEANUP] removed stale scratch %s", path)
 		}
 	}
 

@@ -55,15 +55,11 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 
 	skills, err := uc.manifestRepo.LoadSkills()
 	if err != nil {
-		if uc.logger != nil {
-			uc.logger.Error("Failed to load skills manifest: %v", err)
-		}
+		uc.logger.Error("Failed to load skills manifest: %v", err)
 		return nil, nil, nil, fmt.Errorf("failed to load skills manifest: %w", err)
 	}
 
-	if uc.logger != nil {
-		uc.logger.Info("Starting agent skills provisioning (Total: %d skills, Target: '%s')", len(skills), targetBaseDir)
-	}
+	uc.logger.Info("Starting agent skills provisioning (Total: %d skills, Target: '%s')", len(skills), targetBaseDir)
 
 	wanted := make(map[string]bool, len(skills))
 	goos := runtime.GOOS
@@ -73,9 +69,7 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		}
 	}
 
-	if uc.logger != nil {
-		uc.logger.Info("Agent skills applicable to %s: %d of %d", goos, len(wanted), len(skills))
-	}
+	uc.logger.Info("Agent skills applicable to %s: %d of %d", goos, len(wanted), len(skills))
 
 	var results []SkillDeployResult
 
@@ -92,9 +86,7 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 
 		filesCopied, copyErr := uc.fsManager.CopyEmbeddedTree(uc.embeddedFS, skillSourceDir, skillTargetDir)
 		if copyErr != nil {
-			if uc.logger != nil {
-				uc.logger.Error("Failed to deploy skill '%s' to '%s': %v", skill.Name, skillTargetDir, copyErr)
-			}
+			uc.logger.Error("Failed to deploy skill '%s' to '%s': %v", skill.Name, skillTargetDir, copyErr)
 			results = append(results, SkillDeployResult{
 				SkillName:    skill.Name,
 				TargetDir:    skillTargetDir,
@@ -102,9 +94,7 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 				ErrorMessage: copyErr.Error(),
 			})
 		} else {
-			if uc.logger != nil {
-				uc.logger.Info("Deployed skill '%s' (%d files) to '%s'", skill.Name, filesCopied, skillTargetDir)
-			}
+			uc.logger.Info("Deployed skill '%s' (%d files) to '%s'", skill.Name, filesCopied, skillTargetDir)
 			results = append(results, SkillDeployResult{
 				SkillName:   skill.Name,
 				TargetDir:   skillTargetDir,
@@ -121,14 +111,14 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 		// The trash tree is a sibling of the skills directory (see quarantineSkill).
 		trashDir := filepath.Join(filepath.Dir(base), ".envctl-trash", "skills")
 		aged, expireErr := expireQuarantinedSkills(trashDir, staleSkillQuarantineTTL)
-		if expireErr != nil && uc.logger != nil {
+		if expireErr != nil {
 			uc.logger.Warn("Could not expire quarantined skills in '%s': %v", trashDir, expireErr)
 		}
-		if len(aged) > 0 && uc.logger != nil {
+		if len(aged) > 0 {
 			uc.logger.Info("[SKILLS-QUARANTINE] expired %d entr(ies) older than %s in %s", len(aged), staleSkillQuarantineTTL, trashDir)
 		}
 		expired = aged
-	} else if uc.logger != nil {
+	} else {
 		uc.logger.Warn("Could not expand skills target '%s' for pruning: %v", targetBaseDir, expandErr)
 	}
 
@@ -159,15 +149,11 @@ func pruneStaleSkills(baseDir string, wanted map[string]bool, logger repository.
 		}
 		dest, err := quarantineSkill(baseDir, name)
 		if err != nil {
-			if logger != nil {
-				logger.Warn("Failed to quarantine stale skill '%s': %v", name, err)
-			}
+			logger.Warn("Failed to quarantine stale skill '%s': %v", name, err)
 			continue
 		}
 		quarantined = append(quarantined, name)
-		if logger != nil {
-			logger.Info("[SKILLS-PRUNE] quarantined stale skill '%s' to '%s'", name, dest)
-		}
+		logger.Info("[SKILLS-PRUNE] quarantined stale skill '%s' to '%s'", name, dest)
 	}
 	return quarantined
 }

@@ -8,9 +8,9 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 
 ### A. Idempotência e Detecção de Drift
 - Cada passo de provisionamento deve implementar os contratos do repositório:
-  - `CheckPackage(ctx, target) (bool, string, error)`: Detecta se o componente já está no estado desejado.
-  - `InstallPackage(ctx, target) error`: Executa a instalação ou configuração apenas se necessário.
-  - `Verify(ctx, target) error`: Valida a integridade pós-instalação (versão, PATH, permissão).
+  - `IsInstalled(ctx, pkg) (bool, string, error)`: Detecta se o componente já está no estado desejado.
+  - `Install(ctx, pkg) error`: Executa a instalação ou configuração apenas se necessário.
+  - `IsAvailable(ctx) bool`: Informa se o gerenciador existe neste host (skip idempotente quando ausente).
 
 ### B. Isolamento de Responsabilidades (Clean Architecture)
 - A camada de **Domínio** não possui dependências de pacotes externos, chamadas de sistema operacional diretas ou APIs específicas de plataforma.
@@ -29,8 +29,8 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Detecção de OS (`windows`, `linux`) e arquitetura (`amd64`, `arm64`).
    - Validação de privilégios e permissões.
 2. **Infraestrutura Base de Pacotes:**
-   - Windows: Instalação dos pacotes essenciais via `Winget` e `Pacman`.
-   - Linux: Instalação dos pacotes essenciais via `APT` / gerenciador de pacotes nativo.
+   - Windows: Instalação dos pacotes essenciais via `Winget` (+ Volta/pip para toolchains).
+   - Linux: Instalação dos pacotes essenciais via `APT` (Debian/Ubuntu) ou `pacman`/`paru` (Arch/CachyOS).
 3. **Configuração de Shell e Ambiente:**
    - Variáveis de ambiente (`NODE_PATH`, `ENVCTL_TEMP`).
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).

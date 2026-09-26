@@ -12,6 +12,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 // execTool builds an exec.Cmd resolved against the Volta/user-local/Go
@@ -191,10 +192,8 @@ func (p *PipManager) IsAvailable(ctx context.Context) bool {
 
 func (p *PipManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return true, strings.TrimSpace(string(out)), nil
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "show", pkg.ID)

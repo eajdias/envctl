@@ -145,12 +145,6 @@ whitelist segura.
 - **`ty`** (Astral) como segundo type checker Python, ao lado do mypy (ver §4 da matriz).
 - **Windows:** rodar `envctl run windows` numa sessão Windows para validar o tipo `PSModule`
   (PSScriptAnalyzer + Pester) — pendente de máquina Windows.
-- **Windows:** ~~avaliar tweaks de telemetria/Game Bar (desbloat), hoje limitados a 6 DWords de
-  Explorer/tema + Developer Mode~~ **resolvido 2026-09-24**: `run debloat` opt-in (76 tweaks em
-  `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 31 Appx + 9 serviços;
-  tipos novos `Appx`/`Service` no TweaksManager; `doctor` agrega por categoria em `INFO`,
-  nunca `--fix`) + guia `docs/guides/windows-debloat-tier3.md` (Tier 3 manual: OneDrive, hibernação, power
-  plan, Teredo, `.wslconfig`, Copilot/Recall).
 
 ---
 

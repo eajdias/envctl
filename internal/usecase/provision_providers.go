@@ -48,9 +48,7 @@ func NewProvisionProvidersUseCase(
 
 // logInfo logs through the optional logger.
 func (uc *ProvisionProvidersUseCase) logInfo(format string, args ...any) {
-	if uc.logger != nil {
-		uc.logger.Info(format, args...)
-	}
+	uc.logger.Info(format, args...)
 }
 
 // toolchainEnv builds the environment used for provider probes, so Volta shims

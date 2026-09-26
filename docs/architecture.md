@@ -20,7 +20,7 @@ envctl/
 │   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
 │   │   ├── provision_skills.go  # Extração e atualização das 12 skills
 │   │   ├── provision_lsp.go     # Instalação e validação dos 15 binários LSP (shell/IDE)
-│   │   ├── provision_system.go  # Customizações de sistema e registro (Windows)
+│   │   ├── provision_tweaks.go  # Núcleo único Windows11/Debloat (CheckBatch no debloat)
 │   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
 │   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
@@ -55,7 +55,7 @@ envctl/
   - `WindowsTweak`: Chave de registro, recurso opcional ou fonte de sistema.
   - `Diagnostic`: Item de auditoria do subsistema `doctor` com severidade (`OK`, `WARN`, `ERROR`).
 - **Repositórios e Contratos (`repository/interfaces.go`)**:
-  - `PackageManager`: Interface universal com `CheckPackage`, `InstallPackage` e `VerifyPackage`.
+  - `PackageManager`: Interface universal com `Type`, `IsAvailable`, `IsInstalled`, `Install` e `ListInstalled`.
   - `FileSystemManager`: Operações com caminho dinâmico (`~`, `%VAR%`, `$VAR`), backup atômico e restrição de permissões (Windows ACLs via `icacls` ou POSIX `chmod`).
   - `WindowsTweaksManager`: Gestão de tweaks de registro e instalação de fontes.
   - `ManifestRepository`: Carga e persistência dos manifestos declarativos, incluindo specs de performance por perfil.
@@ -69,7 +69,7 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
 - **`ProvisionSkillsUseCase`**: Extrai as 12 skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
 - **`ProvisionLSPsUseCase`**: Garante a presença dos 15 binários de language server p/ shell/IDE (sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
-- **`ProvisionSystemUseCase`**: Aplica ajustes de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux).
+- **`ProvisionTweaksUseCase`** (`provision_tweaks.go`): Núcleo único Windows11/Debloat — aplica tweaks de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux); o stack Debloat usa `CheckBatch` e é opt-in via `run debloat`.
 - **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
 - **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
 
@@ -100,11 +100,8 @@ package envctl
 
 import "embed"
 
-//go:embed all:manifests
-var EmbeddedManifests embed.FS
-
-//go:embed all:configs
-var EmbeddedConfigs embed.FS
+//go:embed all:manifests all:configs
+var EmbeddedFS embed.FS
 ```
 
 Isso garante que o binário gerado (`envctl` ou `envctl.exe`) seja totalmente autônomo, não dependendo de conexão de rede ou arquivos externos no momento do provisionamento inicial.

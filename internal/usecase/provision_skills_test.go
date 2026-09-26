@@ -24,7 +24,7 @@ func TestPruneStaleSkillsQuarantinesOnlyUnlistedDirs(t *testing.T) {
 	}
 
 	wanted := map[string]bool{"keep-a": true, "keep-b": true}
-	quarantined := pruneStaleSkills(base, wanted, nil)
+	quarantined := pruneStaleSkills(base, wanted, &mockLogger{})
 
 	if len(quarantined) != 1 || quarantined[0] != "stale-x" {
 		t.Fatalf("expected exactly [stale-x] quarantined, got %v", quarantined)
@@ -62,7 +62,7 @@ func TestPruneStaleSkillsEmptyWantedIsNoop(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 
-	if removed := pruneStaleSkills(base, map[string]bool{}, nil); len(removed) != 0 {
+	if removed := pruneStaleSkills(base, map[string]bool{}, &mockLogger{}); len(removed) != 0 {
 		t.Fatalf("expected no removals with an empty wanted set, got %v", removed)
 	}
 	if _, err := os.Stat(filepath.Join(base, "anything")); err != nil {
@@ -71,7 +71,7 @@ func TestPruneStaleSkillsEmptyWantedIsNoop(t *testing.T) {
 }
 
 func TestPruneStaleSkillsMissingDirIsNoop(t *testing.T) {
-	if removed := pruneStaleSkills(filepath.Join(t.TempDir(), "does-not-exist"), map[string]bool{"a": true}, nil); len(removed) != 0 {
+	if removed := pruneStaleSkills(filepath.Join(t.TempDir(), "does-not-exist"), map[string]bool{"a": true}, &mockLogger{}); len(removed) != 0 {
 		t.Fatalf("expected no removals for a missing dir, got %v", removed)
 	}
 }

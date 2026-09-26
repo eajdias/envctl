@@ -10,15 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 const (
-	tempHygieneWarnThresholdBytes = 300 * 1024 * 1024
-	tempReclaimableWarnBytes      = 100 * 1024 * 1024
-	tempScratchDirMaxAge          = 6 * time.Hour
-	tempRandomDirMaxAge           = 24 * time.Hour
+	tempScratchDirMaxAge = 6 * time.Hour
+	tempRandomDirMaxAge  = 24 * time.Hour
 )
 
 // TempHygieneUseCase audits and prunes stale temporary/scratch artifacts that
@@ -188,71 +185,6 @@ func dirSize(path string) (int64, error) {
 	return size, nil
 }
 
-// Audit produces health diagnostics about temp directory usage.
-func (uc *TempHygieneUseCase) Audit(ctx context.Context) []entity.Diagnostic {
-	var diags []entity.Diagnostic
-	roots := tempRoots()
-	if len(roots) == 0 {
-		return []entity.Diagnostic{{
-			Category: entity.DiagWarning,
-			System:   "TempHygiene",
-			Target:   "temp",
-			Details:  "No temp directory could be detected for hygiene audit",
-			FixHint:  "ensure TMP/TEMP/TMPDIR points to an existing directory",
-		}}
-	}
-
-	var total, reclaimable int64
-	var reclaimDetails []string
-	now := time.Now()
-	for _, root := range roots {
-		entries, err := os.ReadDir(root)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			info, err := e.Info()
-			if err != nil {
-				continue
-			}
-			size, _ := dirSize(filepath.Join(root, e.Name()))
-			total += size
-			if classifyTempEntry(e.Name(), e.IsDir(), now.Sub(info.ModTime())).remove {
-				reclaimable += size
-				reclaimDetails = append(reclaimDetails,
-					fmt.Sprintf("%s (%.1fMB)", e.Name(), float64(size)/(1024*1024)))
-			}
-		}
-	}
-
-	target := strings.Join(roots, ", ")
-	if reclaimable > tempReclaimableWarnBytes {
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "TempHygiene",
-			Target:   target,
-			Details:  fmt.Sprintf("Stale temp artifacts: %.1f MB across %d entries — e.g. %s", float64(reclaimable)/(1024*1024), len(reclaimDetails), joinPreview(reclaimDetails, 3)),
-			FixHint:  "run 'envctl run cleanup' to prune them",
-		})
-	} else if total > tempHygieneWarnThresholdBytes {
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "TempHygiene",
-			Target:   target,
-			Details:  fmt.Sprintf("Temp usage %.1f MB, but only %.1f MB is reclaimable — review manually if disk is tight", float64(total)/(1024*1024), float64(reclaimable)/(1024*1024)),
-			FixHint:  "review temp directory contents manually",
-		})
-	} else {
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "TempHygiene",
-			Target:   target,
-			Details:  fmt.Sprintf("Temp usage %.1f MB, reclaimable %.1f MB", float64(total)/(1024*1024), float64(reclaimable)/(1024*1024)),
-		})
-	}
-	return diags
-}
-
 // Cleanup prunes stale temp artifacts, skipping entries locked by running processes.
 func (uc *TempHygieneUseCase) Cleanup(ctx context.Context) (*TempCleanupReport, error) {
 	report := &TempCleanupReport{}
@@ -290,20 +222,8 @@ func (uc *TempHygieneUseCase) Cleanup(ctx context.Context) (*TempCleanupReport, 
 			}
 			report.Removed++
 			report.FreedBytes += size
-			if uc.logger != nil {
-				uc.logger.Info("[TEMP-CLEAN] removed %s (%d bytes)", path, size)
-			}
+			uc.logger.Info("[TEMP-CLEAN] removed %s (%d bytes)", path, size)
 		}
 	}
 	return report, nil
-}
-
-func joinPreview(items []string, max int) string {
-	if len(items) == 0 {
-		return "none"
-	}
-	if len(items) > max {
-		return fmt.Sprintf("%s, ... (%d total)", strings.Join(items[:max], ", "), len(items))
-	}
-	return strings.Join(items, ", ")
 }
