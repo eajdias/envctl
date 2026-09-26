@@ -15,23 +15,28 @@ agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao ti
 
 ## Sistema (verificar, não presumir)
 1. CPU sem AVX2 (ex.: Sandy Bridge, x86-64-v2)? Então: só repos genéricos (nunca v3/v4), AppImages legacy, e testar SIGILL em qualquer binário novo. Emuladores exigentes (RPCS3, ShadPS4, Switch AAA, xemu, simple64) são inviáveis — não instalar.
-2. Kernel cmdline (Limine `/etc/default/limine` + `limine-update` + reboot): `preempt=full split_lock_detect=off amdgpu.ppfeaturemask=0xffffffff zswap.enabled=0`. `mitigations=off` é decisão manual aprovada caso a caso (trade-off Spectre/Meltdown) — o envctl NÃO o gerencia nem audita, de propósito.
-3. `power-profiles-daemon` balanced no desktop; jogos via wrapper `game-performance %command%` (vem do `cachyos-settings`, não é pacote próprio). Manter `ananicy-cpp`, NUNCA combinar com `gamemode`.
+2. Kernel cmdline (Limine `/etc/default/limine` + `limine-update` + reboot). Três tiers, porque os params não têm o mesmo significado:
+   - **Universal (auditado com WARN se faltar):** `preempt=full split_lock_detect=off zswap.enabled=0`.
+   - **Só com AMD (`amdgpu` carregado; auditado só nessa máquina, e ignorado em Intel/NVIDIA):** `amdgpu.runpm=0 amdgpu.aspm=0 pcie_aspm=off amdgpu.gpu_recovery=0`.
+   - **Estabilidade, opcional (INFO, nunca WARN):** `oops=panic panic=10` — transformar oops em panic e limitar o loop de reboot; é escolha de crash visibility, não de performance. Kernel de fábrica sem eles não é gap.
+   - `mitigations=off` é decisão manual aprovada caso a caso (trade-off Spectre/Meltdown) — o envctl NÃO o gerencia nem audita, de propósito.
+3. `power-profiles-daemon` balanced no desktop; jogos via wrapper `game-performance %command%` — o binário vem do pacote `cachyos-settings`, declarado no `gaming.yaml` (é ele quem traz o ruleset `cachyos-ananicy-rules` e os defaults em `modprobe.d`/`sysctl.d`/`modules-load.d`). Manter `ananicy-cpp` **junto com** `cachyos-ananicy-rules`: o daemon sozinho sobe com zero regras. NUNCA combinar com `gamemode`.
 4. Scheduler: `/etc/scx_loader/config.toml` com `default_sched="scx_bpfland"` + `default_mode="Auto"`; `game-performance` troca p/ perfil gaming sozinho. Rollback: `systemctl disable --now scx_loader`.
 5. GPU AMD: `lactd` ativo + fan curve conservadora em `/etc/lact/config.yaml` (exemplo real Polaris: `40:0.2, 55:0.35, 65:0.55, 75:0.8, 85:1.0`, 500ms, `performance_level: auto` — o ID da GPU varia por máquina, nunca copie às cegas); nunca clock/voltagem sem testar estabilidade jogo a jogo. `MESA_SHADER_CACHE_MAX_SIZE=12G` + `RADV_PERFTEST=gpl` em `~/.config/environment.d/gaming.conf` (provisionado pelo envctl); manter RADV, nunca AMDVLK.
 6. MangoHud preset (`~/.config/MangoHud/MangoHud.conf`, provisionado pelo envctl): `fps,frametime,cpu/gpu/vram`, toggle Shift+F12, `fps_metrics=avg,0.01` (AVG + 1% low). Launch padrão Steam: `game-performance mangohud --dlsym %command%` (`LD_PRELOAD=""` se overlay/recorder travar).
-7. KDE: `[Compositing]` no kwinrc com `AllowBlockCompositing=true` + `UnredirectFullscreen=true` (fullscreen bypassa o compositor); `plasma-x11-session` NÃO puxa o `xorg-server` — instalar o trio (`plasma-x11-session`, `xorg-server`, `xf86-input-libinput`) junto ou a sessão X11 nem sobe (`/usr/bin/X` ausente).
+7. KDE: `[Compositing]` no kwinrc com `AllowBlockCompositing=true` + `UnredirectFullscreen=true` (fullscreen bypassa o compositor); `plasma-x11-session` NÃO puxa o `xorg-server` — instalar o quarteto (`plasma-x11-session`, `xorg-server`, `xf86-input-libinput`, `xf86-video-amdgpu`) junto ou a sessão X11 nem sobe (`/usr/bin/X` ausente) e, sem o driver AMD, cai em modesetting genérico.
 
 ## Steam/Proton
 - Biblioteca ativa em disco Linux (Btrfs/ext4); NTFS só backup frio (`ntfs-3g`), exFAT via `exfatprogs`; nunca prefix Proton em NTFS/exFAT.
 - Proton global Valve; por jogo `proton-cachyos-slr` build **x86-64** (nunca `_v3` sem AVX2); shader pre-cache OFF; `umu-launcher` + `wine-cachyos-opt` como backend fora do Steam.
 - AAA pesado e GPU-bound: `gamescope -W 1920 -H 1080 -w 1280 -h 720 -F fsr -- %command%`.
+- Controles: as regras udev vêm de `steam-devices` (dependência de `steam`, já declarado) — sem elas o pad aparece mas não mapeia. `protontricks` para ajuste fino de Proton/Wine por jogo.
 
 ## Emuladores (Vulkan em todos; resolução = teto sensato p/ i7-2600 + RX 580)
 | Emulador | Renderer | Res. interna | Notas |
 |---|---|---|---|
-| Dolphin | Vulkan (`GFXBackend=Vulkan`, `ShaderCompilationMode=2` async) | Auto (segue a janela) | 10 perfis X360 embutidos (`profiles/`): carregar na GUI por jogador |
-| RetroArch | `video_driver="vulkan"` | nativa | só cores sem-standalone-bom (genesis-plus-gx, mupen64plus-next); resto é standalone |
+| Dolphin | Vulkan (`GFXBackend=Vulkan`, `ShaderCompilationMode=2` async) | Auto (segue a janela) | perfis de controle são configurados na GUI, não versionados aqui (ver abaixo) |
+| RetroArch | `video_driver="vulkan"` | nativa | menus Ozone/XMB vêm de `retroarch-assets-ozone` e `retroarch-assets-xmb` (declarados); só cores sem-standalone-bom (genesis-plus-gx, mupen64plus-next); resto é standalone |
 | PPSSPP | Vulkan | 4x | sem frameskip |
 | PCSX2 | Vulkan (`Renderer=14`), `mtvu=true` | 3x | ⚠️ Pad 1 vem no TECLADO: mapear na GUI (Automatic Mapping) |
 | DuckStation | Vulkan, PGXP off (CPU fraca) | 5x | BIOS `scph550x` em `bios/` |
@@ -43,7 +48,7 @@ agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao ti
 
 - BIOS nos layouts oficiais de cada emu (DuckStation `bios/`, PCSX2 `bios/`, Azahar `sysdata/`+`nand/`, PPSSPP `flash0/`, Dolphin `GC/{USA,EUR,JAP}/`, RetroArch `system/`, melonDS/mGBA/flycast/snes9x/mednafen nos próprios dirs).
 - Controles XInput: SDL automático na maioria; exceções manuais na GUI: PCSX2 (Automatic Mapping), Azahar (Controls), Dolphin (perfis abaixo).
-- Dolphin: 10 perfis Xbox 360 embutidos nesta skill (`profiles/GCPad/`, `profiles/Wiimote/`: GameCube, Nunchuk, Sideways, Upright, Classic × P1/P2). Instalar os necessários em `~/.local/share/dolphin-emu/Config/Profiles/{GCPad,Wiimote}/` e carregar na GUI (Controllers > Configure > Profile > Load). Mapeamento sem giroscópio: mira/swing no direcional direito (flick = golpe), sacudir = LB, R3 recentraliza.
+- Dolphin: **perfis de controle NÃO são versionados pelo envctl.** Não existe `profiles/` no repo (a skill `cachyos-gaming-setup`, que os trazia, foi removida em 2026-09-26) — a máquina tem 2 criados à mão (`X360-GameCube-P1/P2.ini`). Para multi-jogador, criar os perfis na GUI (Controllers > Configure > Profile) e salvar em `~/.local/share/dolphin-emu/Config/Profiles/{GCPad,Wiimote}/`; o carregamento é manual por jogador, não automático. Mapeamento sem giroscópio: mira/swing no direcional direito (flick = golpe), sacudir = LB, R3 recentraliza.
 - Keys/firmware (Switch, Wii U, Vita, 3DS): SEMPRE do próprio console; mods de jogo casam por build ID (@nsobid) — versão errada = crash. Pastas de ROMs: um dir por sistema em `~/Games/` (NVMe).
 - 360 sem gyro: shrines de movimento (BOTW) e afins precisam workaround por jogo (motion source via UDP, ou skip).
 
@@ -51,5 +56,13 @@ agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao ti
 - Canal único: gerenciador de pacotes. Updaters internos: desligar/ignorar (binários root-owned nem aceitam escrita interna). Exceção: AppImages pinnados (Eden legacy) = update manual, nunca automático.
 
 ## Verificação
-- `envctl doctor`: seção Gaming (pacotes do `gaming.yaml` + 4 serviços + `sched_ext` + cmdline sem mitigations + RADV + preset shader + `/usr/bin/X` + multilib). Silenciosa sem Steam instalado.
-- Manual: `systemctl is-active scx_loader lactd ananicy-cpp power-profiles-daemon` (4/4), `/proc/cmdline` com os params, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.
+- `envctl doctor`, seção Gaming — silenciosa sem Steam instalado (opt-in):
+  - pacotes do `gaming.yaml` (inclui `cachyos-settings` e `cachyos-ananicy-rules`);
+  - regras do ananicy (`/etc/ananicy.d/00-types.types` presente → o daemon não está inerte);
+  - 4 serviços (`scx_loader`, `lactd`, `ananicy-cpp`, `power-profiles-daemon`);
+  - `sched_ext` habilitado;
+  - cmdline em 3 tiers: universal, AMD (só com `amdgpu`), panic (INFO);
+  - RADV ativo, preset `gaming.conf` com as 2 chaves, preset `MangoHud.conf` presente;
+  - `/usr/bin/X` e `[multilib]` ativo.
+- `envctl doctor`, seção Performance: `.pacnew` pendentes em `/etc` (INFO, via `pacdiff`), swap/zram, governor, scheduler de I/O, journald, `fstrim.timer` e os 5 daemons.
+- Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, `/etc/scx_loader/config.toml`, fan curve em `/etc/lact/config.yaml`, `[Compositing]` no kwinrc, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.
