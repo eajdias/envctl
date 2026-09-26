@@ -23,15 +23,6 @@ lsps:
     install_target: "pyright"
     check_binary: "pyright-langserver"
 
-  - id: pylsp
-    language: python
-    server_name: "Python LSP Server"
-    command: "pylsp"
-    args: []
-    install_type: pip
-    install_target: "python-lsp-server"
-    check_binary: "pylsp"
-
   - id: gopls
     language: go
     server_name: "Go Language Server"

@@ -391,12 +391,6 @@ packages:
     category: python-tools
     check_command: pytest --version
 
-  - id: mypy
-    name: mypy (Python static type checker)
-    type: pip
-    category: python-tools
-    check_command: mypy --version
-
   - id: sqlfluff
     name: sqlfluff (SQL linter with dialect support)
     type: pip

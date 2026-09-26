@@ -643,7 +643,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			{"uv", "uv Python package manager"},
 			{"ruff", "ruff linter (via uv)"},
 			{"fd", "fd (fdfind symlink)"},
-			{"pylsp", "python-lsp-server (via uv)"},
 			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
 			{"golangci-lint", "golangci-lint (CI lint gate, used by envctl-verify)"},
 			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},

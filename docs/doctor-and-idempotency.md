@@ -81,7 +81,7 @@ envctl doctor --fix
 - Reinstala variáveis de ambiente do usuário.
 - Restaura templates de shell e configurações com backup atômico.
 - Extrai e sincroniza skills ausentes ou desatualizadas.
-- Baixa runtimes ou componentes de LSP faltantes (ex: `pylsp`, `docker-langserver` ou binários do Chromium).
+- Baixa runtimes ou componentes de LSP faltantes (ex: `pyright`, `docker-langserver` ou binários do Chromium).
 
 ---
 

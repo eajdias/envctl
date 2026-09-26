@@ -95,7 +95,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected exactly %d embedded skill directories, got %d", expectedSkills, len(shipped))
 	}
 
-	const expectedLSPs = 15
+	const expectedLSPs = 14
 	if len(lsps) != expectedLSPs {
 		t.Errorf("expected exactly %d LSPs in manifest, got %d", expectedLSPs, len(lsps))
 	}

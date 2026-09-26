@@ -17,7 +17,7 @@ import (
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
 // the global OpenCode and CommandCode environments on Ubuntu servers: Volta +
 // Node, the OpenCode CLI, the CommandCode CLI, and the user-local CLI tools
-// (gh, delta, yq, uv, ruff, pylsp, stylelint, golangci-lint, fd).
+// (gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    repository.FileSystemManager
@@ -549,27 +549,6 @@ cd "$BUILD/paru-bin" && makepkg -si --noconfirm >/dev/null 2>&1`)
 			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
 				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "paru (AUR helper)",
 				Details: "Skipped (not an Arch-family host)",
-			})
-		}
-	}
-
-	// 11. python-lsp-server - installed via uv so the `pylsp` binary lands in
-	// ~/.local/bin. Ubuntu 24.04 blocks system pip installs (PEP 668), so pip is
-	// not a viable installer on Linux.
-	if uc.hasTool(ctx, "uv") && !uc.hasTool(ctx, "pylsp") {
-		uc.logger.Info("LinuxBootstrap: installing python-lsp-server via uv")
-		out, err := uc.runShell(ctx, `"$HOME/.local/bin/uv" tool install python-lsp-server`)
-		if err != nil {
-			uc.logger.Error("LinuxBootstrap: uv tool install python-lsp-server failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "pylsp (python-lsp-server)",
-				Details: fmt.Sprintf("uv tool install python-lsp-server failed: %v (%s)", err, out),
-				FixHint: "Run 'uv tool install python-lsp-server' manually",
-			})
-		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "pylsp (python-lsp-server)",
-				Details: "Installed successfully via uv",
 			})
 		}
 	}
