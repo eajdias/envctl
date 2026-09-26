@@ -43,9 +43,7 @@ type ManifestRepository interface {
 	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
 	LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error)
 
-	SavePackages(pkgs []entity.Package) error
 	SaveSkills(skills []entity.Skill) error
-	SaveLSPs(lsps []entity.LSP) error
 	SaveGitConfigs(configs []entity.GitConfig) error
 }
 

@@ -1,5 +1,6 @@
-# gaming.yaml - Opt-in gaming stack for Arch/CachyOS (Steam, emulators, overlays)
-# Provisioned via `envctl run gaming` (NOT part of `run all` defaults).
+# gaming.yaml - Gaming stack for Arch/CachyOS (Steam, emulators, overlays).
+# Provisioned via `envctl run cachyos` (full desktop profile) or standalone via
+# `envctl run gaming`.
 # Requires multilib enabled in /etc/pacman.conf (steam, lib32-*).
 # AUR entries need paru + passwordless sudo (see run pre-flight).
 # Eden (Switch) is intentionally absent: pinned legacy AppImage, manual install.

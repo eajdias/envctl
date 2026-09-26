@@ -17,7 +17,7 @@ irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
 2. Tenta baixar a release compilada mais recente diretamente via `gh release download` (se o GitHub CLI estiver autenticado) ou via download web.
 3. Se nenhum binário estiver disponível, compila o código-fonte Go automaticamente se o Go estiver instalado.
 4. Instala o executável em `~/.local/bin/envctl.exe` e adiciona ao seu `PATH` de usuário.
-5. Inicia o provisionamento completo chamando `envctl run all` e executa a auditoria `envctl doctor`.
+5. Inicia o perfil completo da workstation chamando `envctl run windows` (tweaks + debloat + tudo) e executa a auditoria `envctl doctor`.
 
 ---
 
@@ -43,8 +43,8 @@ $env:Path = "$HOME\.local\bin;" + $env:Path
 # 4. Execute a auditoria de saúde do sistema
 envctl doctor
 
-# 5. Execute o provisionamento completo
-envctl run all
+# 5. Execute o perfil completo da workstation (tweaks + debloat + tudo)
+envctl run windows
 ```
 
 ---
@@ -65,7 +65,7 @@ cd envctl
 
 # 2. Execute diretamente sem compilar binário intermediário
 go run ./cmd/envctl doctor
-go run ./cmd/envctl run all
+go run ./cmd/envctl run windows
 
 # 3. Ou compile o binário standalone otimizado
 go build -ldflags "-s -w -X main.Version=v1.0.13" -o envctl.exe ./cmd/envctl
@@ -88,8 +88,11 @@ envctl run winget
 # Apenas runtime Node.js LTS e ferramentas globais via Volta
 envctl run volta
 
-# Apenas ajustes de Registro, Modo Desenvolvedor e Modo Escuro
+# Perfil completo da workstation (tweaks + debloat + pacotes + shell + skills + LSPs)
 envctl run windows
+
+# Apenas ajustes de Registro, Modo Desenvolvedor e Modo Escuro
+envctl run tweaks
 
 # Apenas variáveis de ambiente (NODE_PATH, ENVCTL_TEMP) e arquivos de shell
 envctl run shell

@@ -25,7 +25,7 @@ Licenças verificadas via API do GitHub em 2026-09-16 (`license.spdx_id = MIT`).
 
 ## 2. Sem upstream confirmado (suas)
 
-
+Nenhuma skill atual se enquadra aqui — as 12 do catálogo derivam do upstream acima ou de autoria própria já documentada em `docs/skills.md`.
 
 ## 3. Licença
 
@@ -34,6 +34,6 @@ Repositório com `LICENSE` (MIT) na raiz. Todas as skills declaram `license: MIT
 ## 4. Ao adotar skill de terceiro daqui pra frente
 
 1. Verifique a licença do upstream (`gh api repos/<owner>/<repo> --jq .license.spdx_id`). Prefira MIT/Apache-2.0/BSD.
-3. Adapte o corpo como quiser — fidelidade ao upstream não é necessária.
-4. Registre na tabela da seção 1.
-5. Rode `envctl run skills`; confirme no `cmdc skills list`.
+2. Adapte o corpo como quiser — fidelidade ao upstream não é necessária.
+3. Registre na tabela da seção 1.
+4. Rode `envctl run skills`; confirme no `cmdc skills list`.

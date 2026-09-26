@@ -8,6 +8,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 type aptManager struct {
@@ -42,15 +43,9 @@ func (a *aptManager) IsAvailable(ctx context.Context) bool {
 }
 
 func (a *aptManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	// If custom check command is provided, try that first
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		if len(parts) > 0 {
-			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				return true, strings.TrimSpace(string(out)), nil
-			}
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 
@@ -91,7 +86,7 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 	// Elevated privileges are required when running as a non-root user.
 	// VPS instances (e.g. AWS Ubuntu) typically grant passwordless sudo (sudo -n).
 	var cmd *exec.Cmd
-	if isNonRoot(ctx) {
+	if executil.IsNonRoot() {
 		cmd = exec.CommandContext(ctx, "sudo", append([]string{"-n", a.aptPath}, args...)...)
 	} else {
 		cmd = exec.CommandContext(ctx, a.aptPath, args...)
@@ -108,7 +103,7 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 // (required on fresh VPSs where the lists are empty).
 func (a *aptManager) updatePackageLists(ctx context.Context) error {
 	var cmd *exec.Cmd
-	if isNonRoot(ctx) {
+	if executil.IsNonRoot() {
 		cmd = exec.CommandContext(ctx, "sudo", "-n", a.aptPath, "update")
 	} else {
 		cmd = exec.CommandContext(ctx, a.aptPath, "update")
@@ -119,16 +114,6 @@ func (a *aptManager) updatePackageLists(ctx context.Context) error {
 		return fmt.Errorf("apt-get update failed: %s (%w)", string(out), err)
 	}
 	return nil
-}
-
-// isNonRoot reports whether the current process runs as a non-root user.
-// It uses `id -u` so it is safe on Linux; on other platforms it returns false.
-func isNonRoot(ctx context.Context) bool {
-	out, err := exec.CommandContext(ctx, "id", "-u").Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) != "0"
 }
 
 func (a *aptManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {

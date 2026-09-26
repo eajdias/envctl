@@ -41,9 +41,7 @@ func (uc *CleanupCommandCodeUseCase) Execute(ctx context.Context) (*CleanupResul
 			os.Remove(stale)
 			result.RemovedFiles = append(result.RemovedFiles, stale)
 			result.FreedBytes += info.Size()
-			if uc.logger != nil {
-				uc.logger.Info("[CLEANUP] removed stale CommandCode config %s", stale)
-			}
+			uc.logger.Info("[CLEANUP] removed stale CommandCode config %s", stale)
 		}
 	}
 

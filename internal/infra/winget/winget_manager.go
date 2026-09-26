@@ -8,6 +8,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 type wingetManager struct{}
@@ -30,15 +31,9 @@ func (w *wingetManager) IsAvailable(ctx context.Context) bool {
 }
 
 func (w *wingetManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	// If custom check_command is specified, use bash or cmd
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		cmdName := parts[0]
-		cmdArgs := parts[1:]
-		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			return true, strings.TrimSpace(string(out)), nil
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 

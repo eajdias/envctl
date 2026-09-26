@@ -8,6 +8,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 type pacmanManager struct {
@@ -35,15 +36,9 @@ func (m *pacmanManager) IsAvailable(ctx context.Context) bool {
 }
 
 func (m *pacmanManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	// If custom check command is provided, try that first
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		if len(parts) > 0 {
-			cmd := exec.CommandContext(ctx, parts[0], parts[1:]...)
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				return true, strings.TrimSpace(string(out)), nil
-			}
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 
@@ -70,7 +65,7 @@ func (m *pacmanManager) Install(ctx context.Context, pkg entity.Package) error {
 
 	// Elevated privileges are required when running as a non-root user.
 	var cmd *exec.Cmd
-	if isNonRoot(ctx) {
+	if executil.IsNonRoot() {
 		cmd = exec.CommandContext(ctx, "sudo", append([]string{"-n", m.pacmanPath}, args...)...)
 	} else {
 		cmd = exec.CommandContext(ctx, m.pacmanPath, args...)
@@ -80,16 +75,6 @@ func (m *pacmanManager) Install(ctx context.Context, pkg entity.Package) error {
 		return fmt.Errorf("pacman -S %s failed: %s (%w)", pkg.ID, string(out), err)
 	}
 	return nil
-}
-
-// isNonRoot reports whether the current process runs as a non-root user.
-// It uses `id -u` so it is safe on Linux; on other platforms it returns false.
-func isNonRoot(ctx context.Context) bool {
-	out, err := exec.CommandContext(ctx, "id", "-u").Output()
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(string(out)) != "0"
 }
 
 func (m *pacmanManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {

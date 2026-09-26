@@ -18,7 +18,21 @@ type fileLogger struct {
 	file        *os.File
 }
 
-// NewFileLogger creates a persistent disk logger in ~/.envctl/logs/ or a specified directory.
+type noopLogger struct{}
+
+func NewNoopLogger() repository.Logger { return &noopLogger{} }
+
+func (l *noopLogger) Info(format string, args ...any)  {}
+func (l *noopLogger) Warn(format string, args ...any)  {}
+func (l *noopLogger) Error(format string, args ...any) {}
+func (l *noopLogger) Debug(format string, args ...any) {}
+func (l *noopLogger) LogCommand(cmd string, args []string, exitCode int, output string, err error) {
+}
+func (l *noopLogger) LogIdempotency(system, target string, skipped bool, reason string) {
+}
+func (l *noopLogger) GetLogFilePath() string { return "" }
+func (l *noopLogger) Close() error           { return nil }
+
 func NewFileLogger(customDir string) (repository.Logger, error) {
 	logDir := customDir
 	if logDir == "" {

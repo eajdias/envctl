@@ -16,7 +16,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
 2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run all` instalando pacotes via `apt-get`, Volta/Node, LSPs e implantando as 12 skills de IA.
+4. Executa `envctl run vps` (perfil Ubuntu/Debian: apt + performance + Volta/Node + LSPs + 12 skills de IA).
 5. Roda a auditoria diagnóstica `envctl doctor`.
 
 ---
@@ -46,8 +46,8 @@ export PATH="$HOME/.local/bin:$PATH"
 # 5. Execute o diagnóstico de conformidade
 envctl doctor
 
-# 6. Execute o provisionamento completo
-envctl run all
+# 6. Execute o perfil completo do servidor (Ubuntu/Debian)
+envctl run vps
 ```
 
 ---
@@ -63,7 +63,7 @@ cd envctl
 
 # 2. Execute diretamente
 go run ./cmd/envctl doctor
-go run ./cmd/envctl run all
+go run ./cmd/envctl run vps
 
 # 3. Ou compile o binário standalone
 go build -ldflags "-s -w -X main.Version=v1.1.0" -o envctl ./cmd/envctl
@@ -74,7 +74,7 @@ sudo mv envctl /usr/local/bin/ # ou mv envctl ~/.local/bin/
 
 ## 🎛️ 4. Subcomandos Modulares no Linux
 
-No Linux, comandos específicos de Windows (como `run winget`, `run windows`) são ignorados de forma limpa e segura:
+No Linux, comandos específicos de Windows (como `run winget`, `run tweaks`, `run debloat`) são ignorados de forma limpa e segura:
 
 ```bash
 # Apenas pacotes do sistema via APT (curl, git, ripgrep, fzf, jq, rsync, tree, etc.)
@@ -99,7 +99,7 @@ envctl doctor
 envctl doctor --fix
 ```
 
-### Performance Linux por SO (opt-in)
+### Performance Linux por SO (aplicado pelo perfil `run vps`, standalone abaixo)
 
 O comando `run performance` seleciona um perfil exato e nunca mistura Ubuntu
 com CachyOS:

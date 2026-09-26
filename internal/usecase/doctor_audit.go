@@ -62,9 +62,7 @@ type AuditReport struct {
 }
 
 func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error) {
-	if uc.logger != nil {
-		uc.logger.Info("Starting system audit and diagnostic verification")
-	}
+	uc.logger.Info("Starting system audit and diagnostic verification")
 
 	report := &AuditReport{}
 
@@ -74,26 +72,18 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		switch diag.Category {
 		case entity.DiagOK:
 			report.Passed++
-			if uc.logger != nil {
-				uc.logger.Info("[AUDIT-PASS] [%s] %s: %s", diag.System, diag.Target, diag.Details)
-			}
+			uc.logger.Info("[AUDIT-PASS] [%s] %s: %s", diag.System, diag.Target, diag.Details)
 		case entity.DiagWarning:
 			report.Warnings++
-			if uc.logger != nil {
-				uc.logger.Warn("[AUDIT-WARN] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
-			}
+			uc.logger.Warn("[AUDIT-WARN] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
 		case entity.DiagError:
 			report.Errors++
-			if uc.logger != nil {
-				uc.logger.Error("[AUDIT-FAIL] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
-			}
+			uc.logger.Error("[AUDIT-FAIL] [%s] %s: %s (Fix: %s)", diag.System, diag.Target, diag.Details, diag.FixHint)
 		default:
 			// DiagInfo and future informational categories count as passed:
 			// they carry context, not problems.
 			report.Passed++
-			if uc.logger != nil {
-				uc.logger.Info("[AUDIT-INFO] [%s] %s: %s", diag.System, diag.Target, diag.Details)
-			}
+			uc.logger.Info("[AUDIT-INFO] [%s] %s: %s", diag.System, diag.Target, diag.Details)
 		}
 	}
 
@@ -600,9 +590,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	verifierPath, verifierErr := uc.fsManager.ExpandUserPath("~/.local/bin/envctl-verify")
 	prePushPath, prePushErr := uc.fsManager.ExpandUserPath("~/.config/git/hooks/pre-push")
 	if verifierErr != nil || prePushErr != nil {
-		if uc.logger != nil {
-			uc.logger.Warn("Could not resolve the verification paths: %v / %v", verifierErr, prePushErr)
-		}
+		uc.logger.Warn("Could not resolve the verification paths: %v / %v", verifierErr, prePushErr)
 	}
 	verifierReady := isExecutableFile(verifierPath)
 	prePushReady := isExecutableFile(prePushPath)
@@ -636,7 +624,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 11. Audit Linux Toolchain Bootstrap (Linux only)
 	if runtime.GOOS == "linux" {
 		userHomeDir, homeErr := uc.fsManager.ExpandUserPath("~")
-		if homeErr != nil && uc.logger != nil {
+		if homeErr != nil {
 			uc.logger.Warn("Could not expand the home directory for the Linux toolchain audit: %v", homeErr)
 		}
 		env := linuxToolchainEnv(userHomeDir)
@@ -839,7 +827,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 12. Audit OpenCode storage accumulation & standardized temp folder
 	homeDir, homeErr := uc.fsManager.ExpandUserPath("~")
-	if homeErr != nil && uc.logger != nil {
+	if homeErr != nil {
 		uc.logger.Warn("Could not resolve the user home for the OpenCode store audit: %v", homeErr)
 	}
 	opencodeDataDir := openCodeDataDir(homeDir)

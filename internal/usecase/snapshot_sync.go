@@ -38,9 +38,7 @@ type SnapshotResult struct {
 }
 
 func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, error) {
-	if uc.logger != nil {
-		uc.logger.Info("Starting reverse snapshot sync")
-	}
+	uc.logger.Info("Starting reverse snapshot sync")
 
 	result := &SnapshotResult{}
 
@@ -71,30 +69,22 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		if uc.fsManager.Exists(cf.Destination) {
 			data, err := uc.fsManager.ReadFile(cf.Destination)
 			if err != nil {
-				if uc.logger != nil {
-					uc.logger.Warn("Snapshot: failed to read config '%s': %v", cf.Destination, err)
-				}
+				uc.logger.Warn("Snapshot: failed to read config '%s': %v", cf.Destination, err)
 				continue
 			}
 			if current, err := os.ReadFile(cf.Source); err == nil && string(current) == string(data) {
 				continue // no drift: leave the curated file untouched
 			}
 			if err := os.MkdirAll(filepath.Dir(cf.Source), 0755); err != nil {
-				if uc.logger != nil {
-					uc.logger.Warn("Snapshot: failed to create dir for '%s': %v", cf.Source, err)
-				}
+				uc.logger.Warn("Snapshot: failed to create dir for '%s': %v", cf.Source, err)
 				continue
 			}
 			if err := os.WriteFile(cf.Source, data, 0644); err != nil {
-				if uc.logger != nil {
-					uc.logger.Warn("Snapshot: failed to write '%s': %v", cf.Source, err)
-				}
+				uc.logger.Warn("Snapshot: failed to write '%s': %v", cf.Source, err)
 				continue
 			}
 			result.UpdatedFiles = append(result.UpdatedFiles, cf.Source)
-			if uc.logger != nil {
-				uc.logger.Info("Snapshot synced config '%s' -> '%s'", cf.Destination, cf.Source)
-			}
+			uc.logger.Info("Snapshot synced config '%s' -> '%s'", cf.Destination, cf.Source)
 		}
 	}
 
@@ -122,7 +112,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 				skillDest := filepath.Join("configs", "skills", skillName)
 
 				// Copy skill files
-				if err := uc.copyDir(skillSrc, skillDest); err != nil && uc.logger != nil {
+				if err := uc.copyDir(skillSrc, skillDest); err != nil {
 					uc.logger.Warn("Snapshot: failed to copy skill '%s': %v", skillName, err)
 				}
 
@@ -177,17 +167,13 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		}
 
 		if skillsManifestEqual(existingSkills, merged) {
-			if uc.logger != nil {
-				uc.logger.Info("Snapshot discovered %d agent skills, manifest already in sync", len(discoveredSkills))
-			}
+			uc.logger.Info("Snapshot discovered %d agent skills, manifest already in sync", len(discoveredSkills))
 			result.DiscoveredSkills = len(discoveredSkills)
 		} else if len(merged) > 0 {
 			result.DiscoveredSkills = len(discoveredSkills)
 			_ = uc.manifestRepo.SaveSkills(merged)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/skills.yaml")
-			if uc.logger != nil {
-				uc.logger.Info("Snapshot discovered and cataloged %d agent skills", len(discoveredSkills))
-			}
+			uc.logger.Info("Snapshot discovered and cataloged %d agent skills", len(discoveredSkills))
 		}
 	}
 
@@ -234,9 +220,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		if !gitConfigsEqual(existingGitConfigs, currentGitConfigs) {
 			_ = uc.manifestRepo.SaveGitConfigs(currentGitConfigs)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/git.yaml")
-			if uc.logger != nil {
-				uc.logger.Info("Snapshot captured %d global Git configurations", len(currentGitConfigs))
-			}
+			uc.logger.Info("Snapshot captured %d global Git configurations", len(currentGitConfigs))
 		}
 	}
 

@@ -21,18 +21,6 @@ func PrintSection(title string) {
 	pterm.DefaultSection.Println(title)
 }
 
-func PrintSuccess(msg string) {
-	pterm.Success.Println(msg)
-}
-
-func PrintWarning(msg string) {
-	pterm.Warning.Println(msg)
-}
-
-func PrintError(msg string) {
-	pterm.Error.Println(msg)
-}
-
 func PrintInfo(msg string) {
 	pterm.Info.Println(msg)
 }

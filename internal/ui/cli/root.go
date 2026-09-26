@@ -41,8 +41,8 @@ type AppContext struct {
 	ProvisionShellUC       *usecase.ProvisionShellUseCase
 	ProvisionSkillsUC      *usecase.ProvisionSkillsUseCase
 	ProvisionLSPUC         *usecase.ProvisionLSPsUseCase
-	ProvisionWindowsUC     *usecase.ProvisionWindowsUseCase
-	ProvisionDebloatUC     *usecase.ProvisionDebloatUseCase
+	ProvisionWindowsUC     *usecase.ProvisionTweaksUseCase
+	ProvisionDebloatUC     *usecase.ProvisionTweaksUseCase
 	ProvisionBootstrapUC   *usecase.ProvisionBootstrapUseCase
 	ProvisionProvidersUC   *usecase.ProvisionProvidersUseCase
 	DoctorAuditUC          *usecase.DoctorAuditUseCase
@@ -89,6 +89,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 	fileLogger, err := logger.NewFileLogger(logDirFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to initialize file logger: %v\n", err)
+		fileLogger = logger.NewNoopLogger()
 	}
 
 	windowsTweaksMgr := windows.NewWindowsTweaksManager(fileLogger)

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/usecase"
 )
 
 func newRunCmd() *cobra.Command {
@@ -24,15 +25,39 @@ func newRunCmd() *cobra.Command {
 				return nil
 			}
 			_ = cmd.Help()
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, windows, cleanup)", args[0])
+			return fmt.Errorf("unknown subsystem '%s' (valid: all, windows, vps, cachyos, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, cleanup)", args[0])
 		},
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "all",
-		Short: "Provision everything (Packages, Shell, Configs, Skills, LSPs)",
+		Short: "Provision the full profile for this machine (dispatches to windows, vps or cachyos)",
 		Run: func(cmd *cobra.Command, args []string) {
 			runAllProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "windows",
+		Short: "Full Windows 11 workstation profile (tweaks + debloat + packages + shell + skills + LSPs)",
+		Run: func(cmd *cobra.Command, args []string) {
+			runWindowsProfile()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "vps",
+		Short: "Full Ubuntu/Debian server profile (providers + bootstrap + apt + performance + shell + skills + LSPs)",
+		Run: func(cmd *cobra.Command, args []string) {
+			runVPSProfile()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "cachyos",
+		Short: "Full CachyOS desktop profile (providers + bootstrap + pacman/paru + gaming + performance + shell + skills + LSPs)",
+		Run: func(cmd *cobra.Command, args []string) {
+			runCachyOSProfile()
 		},
 	})
 
@@ -169,8 +194,8 @@ func newRunCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "windows",
-		Short: "Provision Windows 11 registry tweaks (LongPaths, DevMode, Explorer, Themes)",
+		Use:   "tweaks",
+		Short: "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runWindowsProvisioning()
@@ -191,21 +216,47 @@ func newRunCmd() *cobra.Command {
 
 func runAllProvisioning() {
 	PrintBanner()
-	pterm.DefaultHeader.WithFullWidth().Println("Starting Complete Environment Provisioning")
+	platform := entity.DetectedPlatform()
+	switch {
+	case platform.GOOS == "windows":
+		runWindowsProfile()
+	case entity.PerformanceProfileMatchesPlatform(entity.PerformanceProfileCachyOS, platform):
+		runCachyOSProfile()
+	default:
+		runVPSProfile()
+	}
+}
 
-	isLinux := runtime.GOOS == "linux"
-
-	// Pre-flight: verify sudo NOPASSWD on Linux so apt packages don't fail silently.
-	if isLinux {
-		if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
-			user := os.Getenv("USER")
-			if user == "" {
-				user = "$USER"
-			}
-			pterm.Warning.Println("sudo NOPASSWD is not configured. APT packages will fail to install.")
-			pterm.Info.Printf("Fix: echo '%s ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/%s-nopasswd\n", user, user)
-			pterm.Println()
+// requireSudoNOPASSWD warns once on Linux when passwordless sudo is missing,
+// since package installs and performance tuning fail without it.
+func requireSudoNOPASSWD() {
+	if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
+		user := os.Getenv("USER")
+		if user == "" {
+			user = "$USER"
 		}
+		pterm.Warning.Println("sudo NOPASSWD is not configured. Package installs will fail.")
+		pterm.Info.Printf("Fix: echo '%s ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/%s-nopasswd\n", user, user)
+		pterm.Println()
+	}
+}
+
+func finishProfile(title string) {
+	pterm.Println()
+	pterm.DefaultBox.WithTitle(pterm.LightGreen("🎉 Provisioning Completed Successfully")).Println(
+		title + "\nRun 'envctl doctor' at any time to verify system health.",
+	)
+
+	PrintSecretGuidance()
+}
+
+func runWindowsProfile() {
+	PrintBanner()
+	pterm.DefaultHeader.WithFullWidth().Println("Starting Windows 11 Workstation Provisioning")
+
+	if runtime.GOOS != "windows" {
+		pterm.Warning.Println("Windows profile requested on a non-Windows host; Windows-only steps will be skipped.")
+		pterm.Println()
 	}
 
 	total := 7
@@ -213,56 +264,105 @@ func runAllProvisioning() {
 		return fmt.Sprintf("%d/%d %s", n, total, text)
 	}
 
-	// 0. Providers preflight (Volta, Node, OpenCode/CommandCode CLIs). Runs
-	// before everything: the toolchain bootstrap and every Volta-managed package
-	// in the manifests need these to exist, and a current provider CLI is what
-	// makes the agents usable on a fresh machine.
 	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
 	runProvidersProvisioning()
 
-	// 1. Windows 11 Tweaks & Fonts (Windows only)
-	if runtime.GOOS == "windows" {
-		PrintSection(section(2, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
-		runWindowsProvisioning()
-	} else {
-		PrintSection(section(2, "Skipping Windows Tweaks (Linux/POSIX environment)"))
-	}
+	PrintSection(section(2, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
+	runWindowsProvisioning()
 
-	// 2. Linux Toolchain Bootstrap (Volta, Node, OpenCode, CLI tools) - Linux only.
-	// Runs BEFORE packages: the packages manifest includes Volta-managed npm
-	// packages (node, pnpm, LSP servers) that require the Volta
-	// toolchain — on a fresh VPS `run all` must bootstrap first, otherwise
-	// every Volta package is skipped as "manager not available".
-	if isLinux {
-		PrintSection(section(3, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
-		runBootstrapProvisioning()
-	} else {
-		PrintSection(section(3, "Skipping Linux Toolchain Bootstrap (Windows environment)"))
-	}
+	PrintSection(section(3, "Provisioning Windows 11 Debloat (telemetry/privacy/gaming/Appx/services)"))
+	runDebloatProvisioning()
 
-	// 3. Packages (Winget / APT + Volta + Go)
 	PrintSection(section(4, "Provisioning System Packages & Toolchains"))
 	runPackagesProvisioning("")
 
-	// 4. Shell, Env & Configs
 	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
 	runShellProvisioning()
 
-	// 5. Skills
 	PrintSection(section(6, "Provisioning Agent Skills (OpenCode + CommandCode)"))
 	runSkillsProvisioning()
 
-	// 6. LSPs
 	PrintSection(section(7, "Provisioning Language Server Protocols (LSP)"))
 	runLSPProvisioning()
 
-	pterm.Println()
-	pterm.DefaultBox.WithTitle(pterm.LightGreen("🎉 Provisioning Completed Successfully")).Println(
-		"All system components, toolchains, skills, and shell configurations have been applied.\n" +
-			"Run 'envctl doctor' at any time to verify system health.",
-	)
+	finishProfile("All Windows workstation components, debloat, toolchains, skills, and shell configurations have been applied.")
+}
 
-	PrintSecretGuidance()
+func runVPSProfile() {
+	PrintBanner()
+	pterm.DefaultHeader.WithFullWidth().Println("Starting Ubuntu/Debian Server (VPS) Provisioning")
+
+	requireSudoNOPASSWD()
+
+	total := 7
+	section := func(n int, text string) string {
+		return fmt.Sprintf("%d/%d %s", n, total, text)
+	}
+
+	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
+	runProvidersProvisioning()
+
+	PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
+	runBootstrapProvisioning()
+
+	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
+	runPackagesProvisioning("")
+
+	PrintSection(section(4, "Applying Ubuntu Performance Profile (zram + sysctl)"))
+	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
+		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
+	}
+
+	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
+	runShellProvisioning()
+
+	PrintSection(section(6, "Provisioning Agent Skills (OpenCode + CommandCode)"))
+	runSkillsProvisioning()
+
+	PrintSection(section(7, "Provisioning Language Server Protocols (LSP)"))
+	runLSPProvisioning()
+
+	finishProfile("All server components, performance tuning, toolchains, skills, and shell configurations have been applied.")
+}
+
+func runCachyOSProfile() {
+	PrintBanner()
+	pterm.DefaultHeader.WithFullWidth().Println("Starting CachyOS Desktop Provisioning")
+
+	requireSudoNOPASSWD()
+
+	total := 8
+	section := func(n int, text string) string {
+		return fmt.Sprintf("%d/%d %s", n, total, text)
+	}
+
+	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
+	runProvidersProvisioning()
+
+	PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
+	runBootstrapProvisioning()
+
+	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
+	runPackagesProvisioning("")
+
+	PrintSection(section(4, "Provisioning Gaming Stack (Steam, Proton, emulators, MangoHud)"))
+	runGamingProvisioning()
+
+	PrintSection(section(5, "Applying CachyOS Performance Profile (zram)"))
+	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
+		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
+	}
+
+	PrintSection(section(6, "Provisioning Shell, Environment Variables & Config Files"))
+	runShellProvisioning()
+
+	PrintSection(section(7, "Provisioning Agent Skills (OpenCode + CommandCode)"))
+	runSkillsProvisioning()
+
+	PrintSection(section(8, "Provisioning Language Server Protocols (LSP)"))
+	runLSPProvisioning()
+
+	finishProfile("All CachyOS desktop components, gaming, performance tuning, toolchains, skills, and shell configurations have been applied.")
 }
 
 func runProvidersProvisioning() {
@@ -512,41 +612,31 @@ func runCleanup() {
 }
 
 func runWindowsProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Applying Windows 11 system tweaks, registry settings & fonts...")
-	ctx := context.Background()
-
-	results, err := appCtx.ProvisionWindowsUC.Execute(ctx, func(tweak entity.WindowsTweak, status, details string) {
-		targetName := fmt.Sprintf("%s\\%s", tweak.Path, tweak.Name)
-		if tweak.Path == "" {
-			targetName = fmt.Sprintf("[%s] %s", tweak.Type, tweak.Name)
-		}
-		if status == "applied" {
-			pterm.Success.Printf("  • %s: %s\n", targetName, details)
-		} else if status == "skipped" {
-			pterm.Success.Printf("  • %s: %s\n", targetName, details)
-		} else if status == "failed" {
-			pterm.Error.Printf("  • %s: %s\n", targetName, details)
-		}
-	})
-
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed Windows tweaks provisioning: %v", err))
-		return
-	}
-
-	spinner.Success(fmt.Sprintf("Processed %d Windows system tweaks and customizations", len(results)))
+	runTweakStack(
+		"Applying Windows 11 system tweaks, registry settings & fonts...",
+		"Failed Windows tweaks provisioning: %v",
+		"Processed %d Windows system tweaks and customizations",
+		appCtx.ProvisionWindowsUC,
+	)
 }
 
 func runDebloatProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services)...")
+	runTweakStack(
+		"Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services)...",
+		"Failed debloat provisioning: %v",
+		"Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services)",
+		appCtx.ProvisionDebloatUC,
+	)
+}
+
+func runTweakStack(spinnerMsg, failMsg, doneMsg string, uc *usecase.ProvisionTweaksUseCase) {
+	spinner, _ := pterm.DefaultSpinner.Start(spinnerMsg)
 	ctx := context.Background()
 
-	results, err := appCtx.ProvisionDebloatUC.Execute(ctx, func(tweak entity.WindowsTweak, status, details string) {
-		targetName := debloatDisplayName(tweak)
+	results, err := uc.Execute(ctx, func(tweak entity.WindowsTweak, status, details string) {
+		targetName := usecase.TweakDisplayName(tweak)
 		switch status {
-		case "applied":
-			pterm.Success.Printf("  • %s: %s\n", targetName, details)
-		case "skipped":
+		case "applied", "skipped":
 			pterm.Success.Printf("  • %s: %s\n", targetName, details)
 		case "failed":
 			pterm.Error.Printf("  • %s: %s\n", targetName, details)
@@ -554,17 +644,9 @@ func runDebloatProvisioning() {
 	})
 
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed debloat provisioning: %v", err))
+		spinner.Fail(fmt.Sprintf(failMsg, err))
 		return
 	}
 
-	spinner.Success(fmt.Sprintf("Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services)", len(results)))
-}
-
-func debloatDisplayName(tweak entity.WindowsTweak) string {
-	targetName := fmt.Sprintf("%s\\%s", tweak.Path, tweak.Name)
-	if tweak.Path == "" {
-		targetName = fmt.Sprintf("[%s] %s", tweak.Type, tweak.Name)
-	}
-	return targetName
+	spinner.Success(fmt.Sprintf(doneMsg, len(results)))
 }

@@ -54,9 +54,7 @@ func (m *mockManifestRepo) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
 func (m *mockManifestRepo) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	return m.performanceSpecs[profile], nil
 }
-func (m *mockManifestRepo) SavePackages(pkgs []entity.Package) error        { return nil }
 func (m *mockManifestRepo) SaveSkills(skills []entity.Skill) error          { return nil }
-func (m *mockManifestRepo) SaveLSPs(lsps []entity.LSP) error                { return nil }
 func (m *mockManifestRepo) SaveGitConfigs(configs []entity.GitConfig) error { return nil }
 
 // mockFSManager implements repository.FileSystemManager for testing.

@@ -41,18 +41,22 @@ O envctl transforma o OpenCode local num **orquestrador de frotas**: cada VPS/VM
 
 **Fluxo completo (o agente LLM local já sabe fazer):**
 
-1. **Instalação no Windows (recomendado):** `irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex` → `envctl run all` → `envctl doctor` (Day-0 local, idempotente).
-2. **Adicionar VPS/VM nova:** peça ao agente para cadastrar a conexão SSH — ele registra seguindo os padrões (ssh-manager + inventário local `~/.config/opencode/extras/ssh_servers.md`, referência `code-playbooks/references/infra.md`) e **roda o envctl na VPS** (`curl -fsSL .../bootstrap.sh | bash` → `envctl run all`).
-3. **Controle:** a VPS passa a ter o próprio OpenCode (plano **Free**) + as mesmas skills; tarefas pesadas podem ser despachadas do local por SSH, mantendo o contexto local enxuto.
-4. **Limite Free estourado na VPS:** o orquestrador **PERGUNTA** se você quer registrar um TOKEN (`opencode auth login` na VPS). **Se você não quiser, ele executa os comandos por conta própria via SSH** — a orquestração nunca fica bloqueada.
+1. **Instalação no Windows (recomendado):** `irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex` → `envctl run windows` (ou `run all`, que detecta o OS) → `envctl doctor` (Day-0 local, idempotente).
+2. **Adicionar VPS/VM nova:** peça ao agente para cadastrar a conexão SSH — ele registra seguindo os padrões (ssh-manager + inventário local `~/.config/opencode/extras/ssh_servers.md`, referência `code-playbooks/references/infra.md`) e **roda o envctl na VPS** (`curl -fsSL .../bootstrap.sh | bash` → `envctl run vps`).
+3. **Desktop CachyOS:** `envctl run cachyos` (ou `run all`, que detecta o OS) — perfil completo com gaming + performance.
+4. **Controle:** a VPS passa a ter o próprio OpenCode (plano **Free**) + as mesmas skills; tarefas pesadas podem ser despachadas do local por SSH, mantendo o contexto local enxuto.
+5. **Limite Free estourado na VPS:** o orquestrador **PERGUNTA** se você quer registrar um TOKEN (`opencode auth login` na VPS). **Se você não quiser, ele executa os comandos por conta própria via SSH** — a orquestração nunca fica bloqueada.
 
 ---
 
 ## 💻 Comandos Principais
 
 ```bash
-# Provisionamento completo do ecossistema (Day-0)
-envctl run all
+# Perfis completos por máquina (Day-0) — `run all` detecta o OS e despacha
+envctl run all          # windows | vps | cachyos, conforme o host
+envctl run windows      # Workstation Windows 11: tweaks + debloat + tudo
+envctl run vps          # Servidor Ubuntu/Debian: apt + performance + tudo
+envctl run cachyos      # Desktop CachyOS: pacman/paru + gaming + performance + tudo
 
 # Agentes — cada um provisiona só o que é dele (não toca o outro)
 envctl commandcode      # CommandCode: settings, AGENTS.md, MCP, agentes, SKILL-INDEX e skills
@@ -64,16 +68,20 @@ envctl doctor
 # Auto-remediação automática de qualquer divergência
 envctl doctor --fix
 
-# Provisionamento por subsistema modular
+# Provisionamento granular por subsistema
 envctl run providers    # Fase 0: Volta, Node e os CLIs OpenCode/CommandCode prontos e atuais
 envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
+envctl run pacman       # Pacotes pacman (Arch/CachyOS)
+envctl run paru         # Pacotes AUR via paru (Arch/CachyOS)
+envctl run gaming       # Stack gaming standalone (Arch/CachyOS)
+envctl run performance  # Perfil de performance standalone (Ubuntu 24.04+ ou CachyOS)
+envctl run tweaks       # Só tweaks de registro, Developer Mode e fontes (Windows)
+envctl run debloat      # Só debloat standalone (Windows)
 envctl run volta        # Node.js e ferramentas globais
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das skills
 envctl run lsp          # 15 Servidores de Linguagem (LSP)
-envctl run performance  # Perfil opt-in Ubuntu 24.04+ ou CachyOS (zram + auditoria/sysctl)
-envctl run windows      # Tweaks de registro, Developer Mode e fontes
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 
 # Snapshot reverso e sincronização de estado (Day-2)
