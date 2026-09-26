@@ -680,15 +680,140 @@ func (m *mockGamingPackageManager) ListInstalled(ctx context.Context) ([]entity.
 }
 
 func gamingStackUseCase(gamingPkgs []entity.Package, managers map[entity.PackageType]repository.PackageManager) *DoctorAuditUseCase {
+	return gamingStackUseCaseWithFS(gamingPkgs, managers, nil)
+}
+
+func gamingStackUseCaseWithFS(gamingPkgs []entity.Package, managers map[entity.PackageType]repository.PackageManager, existingPaths map[string]bool) *DoctorAuditUseCase {
+	if existingPaths == nil {
+		existingPaths = map[string]bool{}
+	}
 	return NewDoctorAuditUseCase(
 		&mockManifestRepo{gamingPkgs: gamingPkgs},
-		&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}},
+		&mockFSManager{existingPaths: existingPaths, fileContents: map[string][]byte{}},
 		&mockEnvManager{},
 		nil,
 		nil,
 		managers,
 		&mockLogger{},
 	)
+}
+
+// findGamingDiag returns the first Gaming diagnostic for target, if any.
+func findGamingDiag(diags []entity.Diagnostic, target string) *entity.Diagnostic {
+	for i := range diags {
+		if diags[i].System == "Gaming" && diags[i].Target == target {
+			return &diags[i]
+		}
+	}
+	return nil
+}
+
+func TestDoctorAudit_GamingTuningWarnsWhenAnanicyHasNoRuleset(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "ananicy-cpp", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "cachyos-ananicy-rules", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{
+				"steam":                 "1.0.0.87-3",
+				"ananicy-cpp":           "1.1.1-1",
+				"cachyos-ananicy-rules": "1:1.1.49-1",
+			},
+		},
+	}
+
+	// The ruleset package is installed but /etc/ananicy.d holds no rules: the
+	// service audit passes and the daemon stays inert. The package loop cannot
+	// see this, so the tuning audit has to.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected an ananicy-rules diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for a missing ananicy ruleset, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.FixHint, "cachyos-ananicy-rules") {
+		t.Errorf("expected the FixHint to name the ruleset package, got %q", got.FixHint)
+	}
+}
+
+func TestDoctorAudit_GamingTuningReportsAnanicyRulesetPresent(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "ananicy-cpp", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"steam": "1.0.0.87-3", "ananicy-cpp": "1.1.1-1"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{ananicyTypesMarker: true})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected an ananicy-rules diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagOK {
+		t.Errorf("expected OK when the ruleset is present, got %v: %s", got.Category, got.Details)
+	}
+}
+
+// TestDoctorAudit_GamingStackAuditsAnanicyRulesPackage guards the T1 wiring:
+// declaring the ruleset in the manifest is what makes the package audit cover
+// the "fresh machine has no rules at all" case.
+func TestDoctorAudit_GamingStackAuditsAnanicyRulesPackage(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{
+		{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+		{ID: "cachyos-ananicy-rules", Type: entity.PackageTypePacman, OS: "arch,cachyos"},
+	}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true,
+			installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "cachyos-ananicy-rules")
+	if got == nil {
+		t.Fatalf("expected the package loop to audit cachyos-ananicy-rules, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagWarning {
+		t.Errorf("expected WARNING for the uninstalled ruleset package, got %v", got.Category)
+	}
+}
+
+func gamingTargets(diags []entity.Diagnostic) []string {
+	var targets []string
+	for _, d := range diags {
+		if d.System == "Gaming" {
+			targets = append(targets, d.Target)
+		}
+	}
+	return targets
 }
 
 func TestDoctorAudit_GamingStackSkippedWithoutManager(t *testing.T) {

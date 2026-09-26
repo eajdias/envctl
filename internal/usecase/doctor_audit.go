@@ -1061,6 +1061,14 @@ var gamingKernelParams = []string{"preempt=full", "split_lock_detect=off", "zswa
 // gamingServices are the daemons the gaming stack needs active.
 var gamingServices = []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon"}
 
+// ananicyTypesMarker is a file owned solely by the ananicy ruleset package
+// (cachyos-ananicy-rules). The ananicy-cpp daemon only creates /etc/ananicy.d
+// and ships no file in it, so the service can be active with no rules at all.
+// The gaming package audit already covers "the ruleset package is not
+// installed"; this marker covers the drift the package loop cannot see, namely
+// the package present while its rules were removed.
+const ananicyTypesMarker = "/etc/ananicy.d/00-types.types"
+
 // missingCmdlineParams returns the wanted kernel parameters absent from cmdline.
 func missingCmdlineParams(cmdline string, wanted []string) []string {
 	var missing []string
@@ -1177,6 +1185,22 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				})
 			}
 		}
+	}
+	if !uc.fsManager.Exists(ananicyTypesMarker) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Gaming",
+			Target:   "ananicy-rules",
+			Details:  "ananicy-cpp has no ruleset; the daemon runs but every process gets the default priority",
+			FixHint:  "run 'envctl run gaming' to install cachyos-ananicy-rules (the ananicy-cpp daemon alone ships zero rules)",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "ananicy-rules",
+			Details:  "ananicy ruleset present",
+		})
 	}
 	if data, err := os.ReadFile("/sys/kernel/sched_ext/state"); err == nil {
 		if state := strings.TrimSpace(string(data)); state != "enabled" {
