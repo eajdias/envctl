@@ -329,6 +329,93 @@ func TestServiceExpectedStateDefaultsToDisabled(t *testing.T) {
 	}
 }
 
+// psLit renders a PowerShell single-quoted string literal. psQuote on its own
+// only escapes; a caller that forgets the surrounding quotes silently produces
+// a bareword, which PowerShell accepts as a string in some positions (-Name)
+// and rejects as a parse error in others (-contains).
+func psLit(s string) string { return "'" + psQuote(s) + "'" }
+
+type startupRoundTripCase struct {
+	label  string
+	name   string
+	create string
+	// present reports whether the entry is still on disk: exit 0 = present.
+	// It must test THIS name, not the container: GetValueNames() returns every
+	// value in the Run key, so a bare non-null check would report "present" for
+	// entries the apply never touched.
+	present string
+	remove  string
+	// literal is the exact quoted token the scripts must carry. It differs
+	// from name for the folder case: the probe matches on BaseName, so the
+	// file on disk carries an extension.
+	literal string
+}
+
+// A startup entry is a Run-key value or a Startup-folder file; the two take
+// different code paths in both the probe and the removal.
+func startupRoundTripCases() []startupRoundTripCase {
+	const runKey = `HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`
+	return []startupRoundTripCase{
+		{
+			label: "Run key value",
+			name:  "EnvctlStartupProbeRunKey",
+			create: fmt.Sprintf(
+				`New-Item -Path %s -Force | Out-Null; `+
+					`New-ItemProperty -Path %s -Name %s -Value 'envctl-test' -PropertyType String -Force | Out-Null`,
+				psLit(runKey), psLit(runKey), psLit("EnvctlStartupProbeRunKey")),
+			present: fmt.Sprintf(
+				`$k = %s; if (Test-Path -LiteralPath $k) { `+
+					`if (@((Get-Item -LiteralPath $k).GetValueNames()) -contains %s) { exit 0 } }; exit 1`,
+				psLit(runKey), psLit("EnvctlStartupProbeRunKey")),
+			remove: fmt.Sprintf(
+				`Remove-ItemProperty -LiteralPath %s -Name %s -Force -ErrorAction SilentlyContinue`,
+				psLit(runKey), psLit("EnvctlStartupProbeRunKey")),
+			literal: psLit("EnvctlStartupProbeRunKey"),
+		},
+		{
+			label: "Startup folder file",
+			name:  "EnvctlStartupProbeFolder",
+			create: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) %s; `+
+					`New-Item -ItemType Directory -Path $d -Force | Out-Null; `+
+					`New-Item -ItemType File -Path (Join-Path $d %s) -Force | Out-Null`,
+				psLit(startupFolderSuffix), psLit("EnvctlStartupProbeFolder.lnk")),
+			present: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) %s; `+
+					`if (Test-Path -LiteralPath (Join-Path $d %s)) { exit 0 }; exit 1`,
+				psLit(startupFolderSuffix), psLit("EnvctlStartupProbeFolder.lnk")),
+			remove: fmt.Sprintf(
+				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) %s; `+
+					`Remove-Item -LiteralPath (Join-Path $d %s) -Force -ErrorAction SilentlyContinue`,
+				psLit(startupFolderSuffix), psLit("EnvctlStartupProbeFolder.lnk")),
+			literal: psLit("EnvctlStartupProbeFolder.lnk"),
+		},
+	}
+}
+
+// The round-trip scripts are only executed on Windows, where a missing quote is
+// a parse error at best. Pin on Linux that every rendered script carries the
+// names as quoted literals and left no %s behind.
+func TestStartupRoundTripScriptsAreQuoted(t *testing.T) {
+	for _, tc := range startupRoundTripCases() {
+		t.Run(tc.label, func(t *testing.T) {
+			for field, script := range map[string]string{"create": tc.create, "present": tc.present, "remove": tc.remove} {
+				if strings.Contains(script, "%s") {
+					t.Errorf("%s script has an unsubstituted verb: %s", field, script)
+				}
+				if !strings.Contains(script, tc.literal) {
+					t.Errorf("%s script must carry the entry as the quoted literal %s: %s", field, tc.literal, script)
+				}
+				for _, bare := range []string{"-contains " + tc.name, "-Name " + tc.name} {
+					if strings.Contains(script, bare) {
+						t.Errorf("%s script has an unquoted name (%q): %s", field, bare, script)
+					}
+				}
+			}
+		})
+	}
+}
+
 // Round-trip on disposable startup entries: the only coverage of the
 // destructive path, for both target kinds. Creates an entry, proves the check
 // reports drift, applies, proves convergence, and re-applies for idempotency —
@@ -345,61 +432,14 @@ func TestWindowsTweaksManager_StartupItemRoundTrip(t *testing.T) {
 	mgr := NewWindowsTweaksManager(logger.NewNoopLogger())
 	ctx := context.Background()
 
-	// A startup entry is a Run-key value or a Startup-folder file; the two take
-	// different code paths in both the probe and the removal.
-	cases := []struct {
-		label  string
-		name   string
-		create string
-		// present reports whether the entry is still on disk: exit 0 = present.
-		// It must test THIS name, not the container: GetValueNames() returns
-		// every value in the Run key, so a bare non-null check would report
-		// "present" for entries the apply never touched.
-		present string
-		remove  string
-	}{
-		{
-			label: "Run key value",
-			name:  "EnvctlStartupProbeRunKey",
-			create: fmt.Sprintf(
-				`New-Item -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Force | Out-Null; `+
-					`New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Value 'envctl-test' -PropertyType String -Force | Out-Null`,
-				psQuote("EnvctlStartupProbeRunKey")),
-			present: fmt.Sprintf(
-				`$k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'; `+
-					`if (Test-Path -LiteralPath $k) { if (@((Get-Item -LiteralPath $k).GetValueNames()) -contains %s) { exit 0 } }; exit 1`,
-				psQuote("EnvctlStartupProbeRunKey")),
-			remove: `Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name %s -Force -ErrorAction SilentlyContinue`,
-		},
-		{
-			label: "Startup folder file",
-			name:  "EnvctlStartupProbeFolder",
-			create: fmt.Sprintf(
-				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
-					`New-Item -ItemType Directory -Path $d -Force | Out-Null; `+
-					`New-Item -ItemType File -Path (Join-Path $d '%s.lnk') -Force | Out-Null`,
-				startupFolderSuffix, "EnvctlStartupProbeFolder"),
-			present: fmt.Sprintf(
-				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
-					`if (Test-Path -LiteralPath (Join-Path $d '%s.lnk')) { exit 0 }; exit 1`,
-				startupFolderSuffix, "EnvctlStartupProbeFolder"),
-			remove: fmt.Sprintf(
-				`$d = Join-Path ([Environment]::GetFolderPath('ApplicationData')) '%s'; `+
-					`Remove-Item -LiteralPath (Join-Path $d '%s.lnk') -Force -ErrorAction SilentlyContinue`,
-				startupFolderSuffix, "EnvctlStartupProbeFolder"),
-		},
-	}
-
-	for _, tc := range cases {
+	for _, tc := range startupRoundTripCases() {
 		t.Run(tc.label, func(t *testing.T) {
 			// A failed setup must fail the build, not skip it: a skip here is
 			// the CI staying green without ever executing the removal.
 			if out, err := runPS(tc.create); err != nil {
 				t.Fatalf("cannot create the disposable %s: %v: %s", tc.label, err, out)
 			}
-			t.Cleanup(func() {
-				_, _ = runPS(fmt.Sprintf(tc.remove, psQuote(tc.name)))
-			})
+			t.Cleanup(func() { _, _ = runPS(tc.remove) })
 			if out, err := runPS(tc.present); err != nil {
 				t.Fatalf("the disposable %s was not created: %v: %s", tc.label, err, out)
 			}
