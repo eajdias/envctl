@@ -249,11 +249,16 @@ tweaks:
     category: "startup"
 ```
 
-`StartupItem` remove a entrada só quando o `Location` do
-`Win32_StartupCommand` é uma Run key ou a pasta Startup. A mesma classe também
-enumera **serviços**, e apagar uma dessas linhas quebraria o serviço — o
-predicado `startupLocationRemovable()` é a fonte única (check, batch e apply
-passam por ele) e o apply apaga por `Name` **e** `Location`.
+`StartupItem` sonda e remove contra um conjunto **fechado**: as duas Run keys
+(`HKCU`/`HKLM ...\CurrentVersion\Run`) e as duas pastas `Startup` (`%APPDATA%`
+e `%ProgramData%`). Não passa por `Win32_StartupCommand` — essa classe é uma
+`CIM_Setting` cujo MOF publicado lista só properties (não existe `Delete`) e o
+`Location` dela é inconsistente entre formatos. Ler os locais diretamente torna
+a garantia estrutural: um serviço não é um valor em Run key nem um arquivo em
+pasta `Startup`, então não há o que classificar errado. `startupTargetKind()`
+roteia cada local para o cmdlet certo (`Remove-ItemProperty` na Run key,
+`Remove-Item` na pasta) e check, batch e apply passam todos por `probeStartup`,
+de modo que auditoria e mutação não divergem.
 
 O `doctor` audita uma linha agregada por categoria (`Debloat / category <nome>`):
 `OK` quando aplicada, `INFO` com `run 'envctl run debloat'` quando há drift — nunca

@@ -7,15 +7,17 @@
 # Deliberately OUT (manual steps in docs/guides/windows-debloat-tier3.md):
 # - OneDrive removal (recursive user-data delete, needs confirmation)
 # - Xbox suite (gaming)
-# - Remote-access & per-user services: AnyDesk, Firebird*, Tailscale, sshd
-# - Spooler (printing), wbengine stays Manual (Windows Backup), NgcRingFenceSvc
+# - Remote-access services: AnyDesk, Tailscale, sshd
+# - Spooler (printing), NgcRingFenceSvc, StorSvc, gupdate*, EasyAntiCheat*
 # - powercfg plans, hibernation, Teredo, UserPreferencesMask (Binary),
 #   .wslconfig tuning, Copilot/Recall winget removal, Defender sample opt-out
 #
-# Startup entries are scoped to Run keys + the Startup folder
-# (Win32_StartupCommand rows whose Location is one of those two). Service rows
-# are enumerated by the same Win32_StartupCommand class but are NEVER deleted —
-# see startupLocationRemovable() in internal/infra/windows/tweaks_manager.go.
+# Startup entries are probed and removed against the two Run keys and the two
+# Startup folders directly, never through Win32_StartupCommand: that class is a
+# CIM_Setting whose MOF lists properties only (no Delete method) and its
+# `Location` is inconsistent across shapes. A closed set is what keeps a service
+# out of reach — see startupProbeScript() in
+# internal/infra/windows/tweaks_manager.go.
 version: "1.0"
 
 tweaks:
@@ -312,9 +314,9 @@ tweaks:
     type: "DWord"
     category: "gaming"
 
-  # --- Apps: remove bloatware Store packages (31 Appx) ---
-  # Xbox suite + MSTeams + OutlookForWindows are excluded on purpose
-  # (gaming / work comms) — see docs/guides/windows-debloat-tier3.md for manual removal.
+  # --- Apps: remove bloatware Store packages (34 Appx) ---
+  # Só o Xbox suite fica de fora (gaming) — ver
+  # docs/guides/windows-debloat-tier3.md §8.
   - id: "appx-microsoft-copilot"
     description: "Remove Microsoft.Copilot bloatware"
     name: "Microsoft.Copilot"

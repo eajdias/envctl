@@ -123,7 +123,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "debloat",
-		Short: "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, safe services)",
+		Short: "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runDebloatProvisioning()
@@ -270,7 +270,7 @@ func runWindowsProfile() {
 	PrintSection(section(2, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
 	runWindowsProvisioning()
 
-	PrintSection(section(3, "Provisioning Windows 11 Debloat (telemetry/privacy/gaming/Appx/services)"))
+	PrintSection(section(3, "Provisioning Windows 11 Debloat (telemetry/privacy/gaming/Appx/services/startup)"))
 	runDebloatProvisioning()
 
 	PrintSection(section(4, "Provisioning System Packages & Toolchains"))
@@ -624,7 +624,7 @@ func runDebloatProvisioning() {
 	runTweakStack(
 		"Applying opt-in Windows 11 debloat (run as Administrator for Appx/HKLM/services)...",
 		"Failed debloat provisioning: %v",
-		"Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services)",
+		"Processed %d debloat tweaks (telemetry/privacy/gaming/apps/services/startup)",
 		appCtx.ProvisionDebloatUC,
 	)
 }

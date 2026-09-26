@@ -50,55 +50,87 @@ func TestPSScriptEscapesAdversarialTweak(t *testing.T) {
 	}
 }
 
-// A Win32_StartupCommand row is only ours to delete when it is a user startup
-// entry (Run key or Startup folder). Service rows share the same class and
-// deleting one breaks a service, so the predicate must reject them.
-func TestStartupLocationRemovable(t *testing.T) {
+// The probe only ever looks at the two Run keys and the two Startup folders,
+// so "never touches a service" is structural: there is no Location to
+// misclassify. startupTargetKind routes the removal to the right mechanism.
+func TestStartupTargetKind(t *testing.T) {
 	tests := []struct {
 		name     string
 		location string
-		want     bool
+		want     string
 	}{
-		{"run key current user", `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, true},
-		{"run key local machine", `HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Run`, true},
-		{"run key wow6432", `HKEY_CURRENT_USER\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run`, true},
-		{"startup folder roaming", `C:\Users\owner\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\Brave.lnk`, true},
-		{"startup folder programdata", `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\Canva.lnk`, true},
-		{"service row", `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WavesSvc`, false},
-		{"service row bare", "Service", false},
-		{"run once is one-shot, not a startup entry", `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce`, false},
-		{"empty location", "", false},
-		{"unrelated path", `C:\Temp\evil.lnk`, false},
-		{"lowercase must still match", `hkey_current_user\software\microsoft\windows\currentversion\run`, true},
-		{"lookalike suffix is not a run key", `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunBackup`, false},
+		{"hkcu run key", startupRunKeys[0], startupKindRegistry},
+		{"hklm run key", startupRunKeys[1], startupKindRegistry},
+		{"roaming startup folder", `C:\Users\owner\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`, startupKindDir},
+		{"programdata startup folder", `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup`, startupKindDir},
+		{"service key is not a startup target", `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WavesSvc`, ""},
+		{"empty", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := startupLocationRemovable(tt.location); got != tt.want {
-				t.Errorf("startupLocationRemovable(%q) = %v, want %v", tt.location, got, tt.want)
+			if got := startupTargetKind(tt.location); got != tt.want {
+				t.Errorf("startupTargetKind(%q) = %q, want %q", tt.location, got, tt.want)
 			}
 		})
 	}
 }
 
-// Parse contract for the CIM readout the startup family depends on:
-// `DEBLOATSTARTUP|||<name>|||<location>` rows.
-func TestParseStartupRows(t *testing.T) {
-	out := "DEBLOATSTARTUP|||SecurityHealth|||HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\r\n" +
-		"DEBLOATSTARTUP|||WavesSvc|||HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\WavesSvc\r\n" +
+func TestParseStartupProbe(t *testing.T) {
+	out := "DEBLOATSTARTUP|||SecurityHealth|||" + startupRunKeys[0] + "\r\n" +
+		"DEBLOATSTARTUP|||Canva|||C:\\Users\\owner\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\r\n" +
+		"DEBLOATSTARTUP|||BraveSoftware|||\r\n" +
 		"garbage line without separator\r\n"
-	rows := parseStartupRows(out)
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows from CIM output, got %d (%v)", len(rows), rows)
+	rows := parseStartupProbe(out)
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d (%v)", len(rows), rows)
 	}
-	if rows["securityhealth"] != `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run` {
-		t.Errorf("row lookup must be case-insensitive on the name, got %q", rows["securityhealth"])
+	if got := rows["securityhealth"]; got != startupRunKeys[0] {
+		t.Errorf("registry row = %q, want %q", got, startupRunKeys[0])
 	}
-	if startupLocationRemovable(rows["wavessvc"]) {
-		t.Error("service row must not be removable even when the name matches a manifest entry")
+	if got := rows["canva"]; !strings.Contains(got, "Start Menu") {
+		t.Errorf("dir row = %q, want the Startup folder", got)
 	}
-	if !startupLocationRemovable(rows["securityhealth"]) {
-		t.Error("run key row must be removable")
+	if got, ok := rows["bravesoftware"]; !ok || got != "" {
+		t.Errorf("absent entry must probe as an empty location, got %q (present=%v)", got, ok)
+	}
+}
+
+// Removal goes through the registry provider and the filesystem, never a WMI
+// method: Win32_StartupCommand is a CIM_Setting whose published MOF lists
+// properties only, so a .Delete() call cannot work.
+func TestStartupRemovalScriptAvoidsMissingWmiMethod(t *testing.T) {
+	script := startupRemovalScript("SecurityHealth", []string{startupRunKeys[0]})
+	if strings.Contains(script, ".Delete()") || strings.Contains(script, "Invoke-CimMethod") {
+		t.Errorf("removal must not call a WMI method (Win32_StartupCommand has none): %s", script)
+	}
+	if !strings.Contains(script, "Remove-ItemProperty") {
+		t.Errorf("registry location must be removed with Remove-ItemProperty: %s", script)
+	}
+	dirScript := startupRemovalScript("Brave", []string{`C:\Users\owner\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`})
+	if strings.Contains(dirScript, "Remove-ItemProperty") {
+		t.Errorf("folder location must not hit the registry: %s", dirScript)
+	}
+	if !strings.Contains(dirScript, "Remove-Item ") || !strings.Contains(dirScript, "-LiteralPath") {
+		t.Errorf("folder location must be removed with Remove-Item -LiteralPath: %s", dirScript)
+	}
+}
+
+// Adversarial manifest names stay inside single-quoted PowerShell strings and
+// never become -Filter wildcards.
+func TestStartupScriptsQuoteAdversarialNames(t *testing.T) {
+	name := `a'b"c$d[e]`
+	probe := startupProbeScript([]string{name})
+	removal := startupRemovalScript(name, []string{startupRunKeys[0]})
+	for _, script := range []string{probe, removal} {
+		if strings.Contains(script, `"`+name) {
+			t.Errorf("payload leaked into double-quoted interpolation: %s", script)
+		}
+		if !strings.Contains(script, psQuote(name)) {
+			t.Errorf("name must be single-quoted via psQuote: %s", script)
+		}
+		if strings.Contains(script, "-Filter") {
+			t.Errorf("name must never reach -Filter (wildcard injection): %s", script)
+		}
 	}
 }
 
@@ -125,21 +157,19 @@ func TestServiceExpectedStateDefaultsToDisabled(t *testing.T) {
 	}
 }
 
-// A startup entry that exists only as a service row is NOT drift: the doctor
-// must stay green and apply must be a no-op, never a service deletion.
-func TestStartupConformsTreatsServiceRowAsConforming(t *testing.T) {
-	rows := map[string]string{
-		"wavessvc":      `HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WavesSvc`,
-		"microsoftedge": `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`,
+// An entry the probe found is drift; an entry the probe did not find is
+// conforming. The probe can only ever report a Run key or a Startup folder,
+// so there is no "looks like a service" case left to defend.
+func TestStartupConforms(t *testing.T) {
+	if ok, details := startupConforms(""); !ok {
+		t.Errorf("absent entry must conform, got ok=false (%q)", details)
 	}
-	if ok, details := startupConforms(rows, "WavesSvc"); !ok {
-		t.Errorf("service-only row must conform, got ok=false (%q)", details)
+	if ok, details := startupConforms(startupRunKeys[0]); ok {
+		t.Errorf("run key entry must be drift so it gets removed, got ok=true (%q)", details)
 	}
-	if ok, details := startupConforms(rows, "MicrosoftEdge"); ok {
-		t.Errorf("run key row must be drift so it gets removed, got ok=true (%q)", details)
-	}
-	if ok, _ := startupConforms(rows, "NeverInstalled"); !ok {
-		t.Error("absent name must conform")
+	dir := `C:\Users\owner\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`
+	if ok, details := startupConforms(dir + ";" + startupRunKeys[1]); ok {
+		t.Errorf("multiple locations must be drift, got ok=true (%q)", details)
 	}
 }
 
@@ -208,6 +238,7 @@ func TestWindowsTweaksManager_CheckBatchMatchesSingle(t *testing.T) {
 		{ID: "sample-appx-absent", Name: "Envctl.DefinitelyNotInstalled123", Type: "Appx"},
 		{ID: "sample-svc", Name: "Spooler", Value: "Disabled", Type: "Service"},
 		{ID: "sample-svc-missing", Name: "EnvctlNoSuchService123", Value: "Disabled", Type: "Service"},
+		{ID: "sample-startup-absent", Name: "EnvctlNoSuchStartup123", Type: "StartupItem"},
 	}
 
 	batch := mgr.CheckBatch(ctx, tweaks)

@@ -15,9 +15,11 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
   (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e
   4 startup entries. `debloat.yaml` vai de 76 para 94 tweaks.
-- Novo tipo de tweak `StartupItem` (Run keys + pasta Startup), com predicado
-  `startupLocationRemovable()` como fonte única: `Win32_StartupCommand` também
-  enumera serviços e nunca são removidos.
+- Novo tipo de tweak `StartupItem`, sondado e removido contra um conjunto
+  fechado (2 Run keys + 2 pastas `Startup`) em vez de `Win32_StartupCommand`:
+  essa classe é uma `CIM_Setting` cujo MOF lista só properties (o `Delete()` do
+  `windows11-clean` não existe) e o `Location` dela é inconsistente entre
+  formatos, o que fazia um classificador sobre ele casar com a forma errada.
 
 ---
 

@@ -46,49 +46,106 @@ func psValue(v any) string {
 	}
 }
 
-// startupCIMQuery lists every Win32_StartupCommand row as
-// `DEBLOATSTARTUP|||<name>|||<location>`. One spawn answers the whole family.
-const startupCIMQuery = `Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction SilentlyContinue | ForEach-Object { Write-Output ("DEBLOATSTARTUP|||" + $_.Name + "|||" + $_.Location) }`
-
-// serviceExpectedState reads the declared target startup type, defaulting to
-// Disabled when the manifest omits it. Shared by the check, batch-check and
-// apply paths so all three agree on the target.
-func serviceExpectedState(tweak entity.WindowsTweak) string {
-	if s, ok := tweak.Value.(string); ok && s != "" {
-		return s
+// Startup entries are probed and removed against the two Run keys and the two
+// Startup folders directly, NOT through Win32_StartupCommand. Two reasons:
+//   - That class is a CIM_Setting whose published MOF lists properties only,
+//     so the legacy tool's `$_.Delete()` does not exist.
+//   - Its `Location` is inconsistent (registry key, the literal strings
+//     "Startup"/"Common Startup", HKU\<SID>\...), which forced a fragile
+//     classifier that silently matched nothing and left the doctor green.
+//
+// Reading the exact locations makes "never touches a service" structural: a
+// service cannot be a value in a Run key nor a file in a Startup folder, so
+// there is nothing left to misclassify.
+var (
+	startupRunKeys = []string{
+		`HKCU:\Software\Microsoft\Windows\CurrentVersion\Run`,
+		`HKLM:\Software\Microsoft\Windows\CurrentVersion\Run`,
 	}
-	return "Disabled"
+	startupKindRegistry = "registry"
+	startupKindDir      = "dir"
+)
+
+// startupProbeScript reports, for each wanted name, the `;`-joined list of
+// locations where it was found (empty when absent). Names are compared with
+// -eq against enumerated values, never with -Filter, so a name carrying
+// PowerShell wildcard characters stays inert.
+func startupProbeScript(names []string) string {
+	quoted := make([]string, 0, len(names))
+	for _, n := range names {
+		quoted = append(quoted, "'"+psQuote(n)+"'")
+	}
+	return fmt.Sprintf(`
+$keys = @(%s)
+$dirs = @(
+  (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'),
+  (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Startup'))
+foreach ($n in @(%s)) {
+  $found = @()
+  foreach ($k in $keys) {
+    if ($null -ne (Get-ItemProperty -Path $k -Name $n -ErrorAction SilentlyContinue)) { $found += $k }
+  }
+  foreach ($d in $dirs) {
+    if (Test-Path -LiteralPath $d) {
+      $hit = @(Get-ChildItem -LiteralPath $d -ErrorAction SilentlyContinue | Where-Object { $_.BaseName -eq $n })
+      if ($hit.Count -gt 0) { $found += $d }
+    }
+  }
+  Write-Output ("DEBLOATSTARTUP|||" + $n + "|||" + ($found -join ';'))
+}
+`, psJoin(startupRunKeys), strings.Join(quoted, ","))
 }
 
-// startupLocationRemovable reports whether a Win32_StartupCommand Location is
-// a user startup entry (Run key or Startup folder) rather than a service.
-// The class also enumerates services, and deleting one of those rows breaks a
-// service, so anything outside those two shapes is not ours to touch.
-//
-// Single source of truth on purpose: CheckTweak, CheckBatch and ApplyTweak all
-// route through it, so the audit and the mutation cannot drift apart.
-func startupLocationRemovable(location string) bool {
-	loc := strings.ToLower(strings.TrimSpace(location))
-	if loc == "" {
-		return false
-	}
-	// Startup folder, per-user and all-users, on any drive.
-	if strings.Contains(loc, `\start menu\programs\startup\`) {
-		return true
-	}
-	// Run key under a real hive, including the WOW6432Node redirected view.
-	// Suffix match (not Contains) so RunOnce/RunBackup are not swept in.
-	for _, hive := range []string{`hkey_current_user\`, `hkey_local_machine\`, `hkcu:\`, `hklm:\`} {
-		if strings.HasPrefix(loc, hive) {
-			return strings.HasSuffix(strings.TrimPrefix(loc, hive), `\currentversion\run`)
+// startupRemovalScript deletes one name from the given locations. Registry
+// locations go through Remove-ItemProperty (the System Registry Provider route
+// the WMI docs point at); folder locations go through Remove-Item on the
+// enumerated file, which is how a Startup-folder shortcut is really removed.
+func startupRemovalScript(name string, locations []string) string {
+	var b strings.Builder
+	for _, loc := range locations {
+		switch startupTargetKind(loc) {
+		case startupKindRegistry:
+			fmt.Fprintf(&b, "Remove-ItemProperty -LiteralPath '%s' -Name '%s' -Force -ErrorAction Stop\n",
+				psQuote(loc), psQuote(name))
+		case startupKindDir:
+			fmt.Fprintf(&b, "Get-ChildItem -LiteralPath '%s' -ErrorAction Stop | Where-Object { $_.BaseName -eq '%s' } | Remove-Item -Force -ErrorAction Stop\n",
+				psQuote(loc), psQuote(name))
 		}
 	}
-	return false
+	return b.String()
 }
 
-// parseStartupRows indexes the CIM readout by lowercased name so lookups do
-// not depend on the casing Windows reports.
-func parseStartupRows(out string) map[string]string {
+// startupTargetKind classifies a probed location. Anything outside the closed
+// set the probe emits returns "", and the removal script then skips it.
+func startupTargetKind(location string) string {
+	loc := strings.TrimSpace(location)
+	if loc == "" {
+		return ""
+	}
+	for _, key := range startupRunKeys {
+		if strings.EqualFold(loc, key) {
+			return startupKindRegistry
+		}
+	}
+	// A Startup folder is a filesystem path; a registry key never is.
+	if len(loc) > 1 && loc[1] == ':' {
+		return startupKindDir
+	}
+	return ""
+}
+
+// psJoin renders a []string as PowerShell array elements.
+func psJoin(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, v := range values {
+		quoted = append(quoted, "'"+psQuote(v)+"'")
+	}
+	return strings.Join(quoted, ",")
+}
+
+// parseStartupProbe indexes the probe readout by lowercased name. An entry the
+// probe reported with an empty location list is absent, not missing data.
+func parseStartupProbe(out string) map[string]string {
 	rows := make(map[string]string)
 	for _, line := range strings.Split(out, "\n") {
 		parts := strings.SplitN(strings.TrimSpace(line), "|||", 3)
@@ -100,24 +157,55 @@ func parseStartupRows(out string) map[string]string {
 	return rows
 }
 
-// startupConforms maps one row set to the tweak verdict. Conforming = no entry
-// of ours to remove, which includes a same-named row living somewhere we do
-// not touch (a service): the doctor stays green and apply is a no-op.
-func startupConforms(rows map[string]string, name string) (bool, string) {
-	loc, found := rows[strings.ToLower(name)]
-	if !found || !startupLocationRemovable(loc) {
+// startupConforms maps a probed location list to the tweak verdict. Conforming
+// = the probe found nothing to remove.
+func startupConforms(locations string) (bool, string) {
+	if strings.TrimSpace(locations) == "" {
 		return true, "No removable startup entry"
 	}
 	return false, "Startup entry present (will be removed on apply)"
 }
 
-func (m *TweaksManager) queryStartupRows(ctx context.Context) (map[string]string, error) {
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupCIMQuery)
+// startupSplitLocations turns the probe's `;`-joined list back into a slice.
+func startupSplitLocations(locations string) []string {
+	var out []string
+	for _, loc := range strings.Split(locations, ";") {
+		if loc = strings.TrimSpace(loc); loc != "" {
+			out = append(out, loc)
+		}
+	}
+	return out
+}
+
+func (m *TweaksManager) probeStartup(ctx context.Context, names []string) (map[string]string, error) {
+	if len(names) == 0 {
+		return map[string]string{}, nil
+	}
+	//nolint:gosec // G204: names come from the embedded manifest (same trust level as the package tables) and reach PowerShell only as single-quoted literals via psQuote; no expansion, no shell. Asserted by TestStartupScriptsQuoteAdversarialNames.
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupProbeScript(names))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("failed to enumerate startup commands: %w", err)
+		return nil, fmt.Errorf("failed to probe startup entries: %s (%w)", strings.TrimSpace(string(out)), err)
 	}
-	return parseStartupRows(string(out)), nil
+	return parseStartupProbe(string(out)), nil
+}
+
+func (m *TweaksManager) probeStartupTweak(ctx context.Context, name string) (string, error) {
+	rows, err := m.probeStartup(ctx, []string{name})
+	if err != nil {
+		return "", err
+	}
+	return rows[strings.ToLower(name)], nil
+}
+
+// serviceExpectedState reads the declared target startup type, defaulting to
+// Disabled when the manifest omits it. Shared by the check, batch-check and
+// apply paths so all three agree on the target.
+func serviceExpectedState(tweak entity.WindowsTweak) string {
+	if s, ok := tweak.Value.(string); ok && s != "" {
+		return s
+	}
+	return "Disabled"
 }
 
 func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error) {
@@ -203,11 +291,11 @@ if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.S
 		return false, fmt.Sprintf("Service startup type is %s, expected %s", actualState, expectedState), nil
 
 	case "startupitem":
-		rows, err := m.queryStartupRows(ctx)
+		locations, err := m.probeStartupTweak(ctx, tweak.Name)
 		if err != nil {
 			return false, "", err
 		}
-		ok, details := startupConforms(rows, tweak.Name)
+		ok, details := startupConforms(locations)
 		return ok, details, nil
 
 	default: // Registry DWord, String, Binary, etc.
@@ -445,13 +533,17 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 	}
 }
 
-// checkStartupBatch enumerates Win32_StartupCommand once and answers every
-// startup tweak from that map (conforming = no removable entry).
+// checkStartupBatch probes every wanted name in one spawn and answers from the
+// resulting map (conforming = the probe found nothing to remove).
 func (m *TweaksManager) checkStartupBatch(ctx context.Context, tweaks []entity.WindowsTweak, idx []int, results []entity.TweakCheckResult) {
 	if len(idx) == 0 {
 		return
 	}
-	rows, err := m.queryStartupRows(ctx)
+	names := make([]string, 0, len(idx))
+	for _, i := range idx {
+		names = append(names, tweaks[i].Name)
+	}
+	rows, err := m.probeStartup(ctx, names)
 	if err != nil {
 		for _, i := range idx {
 			results[i].Err = err
@@ -459,7 +551,7 @@ func (m *TweaksManager) checkStartupBatch(ctx context.Context, tweaks []entity.W
 		return
 	}
 	for _, i := range idx {
-		results[i].OK, results[i].Details = startupConforms(rows, tweaks[i].Name)
+		results[i].OK, results[i].Details = startupConforms(rows[strings.ToLower(tweaks[i].Name)])
 	}
 }
 
@@ -561,20 +653,21 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		return nil
 
 	case "startupitem":
-		// Re-enumerate and filter with the same predicate the check uses, then
-		// delete by Name AND Location so a same-named service row can never be
-		// hit even if the enumeration changed between check and apply.
-		rows, err := m.queryStartupRows(ctx)
+		// Re-probe with the same script the check uses, then delete only from
+		// the locations it reported. The closed set (two Run keys, two Startup
+		// folders) is what keeps a service out of reach, not a classifier.
+		locations, err := m.probeStartupTweak(ctx, tweak.Name)
 		if err != nil {
 			return err
 		}
-		loc, found := rows[strings.ToLower(tweak.Name)]
-		if !found || !startupLocationRemovable(loc) {
+		targets := startupSplitLocations(locations)
+		if len(targets) == 0 {
 			return nil // nothing of ours to remove: idempotent no-op
 		}
-		startupScript := fmt.Sprintf(
-			`Get-CimInstance -ClassName Win32_StartupCommand -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq '%s' -and $_.Location -eq '%s' } | ForEach-Object { $_.Delete() }`,
-			psQuote(tweak.Name), psQuote(loc))
+		startupScript := startupRemovalScript(tweak.Name, targets)
+		if strings.TrimSpace(startupScript) == "" {
+			return nil // every probed location fell outside the closed set
+		}
 		startupCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", startupScript)
 		startupOut, startupErr := startupCmd.CombinedOutput()
 		exitCode := 0

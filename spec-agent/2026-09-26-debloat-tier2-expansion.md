@@ -23,9 +23,19 @@ packages and 27 services left out of `manifests/debloat.yaml`, plus the
    audio enhancer on the owner's hardware. Enter `BraveSoftware`, `Canva`,
    `MicrosoftEdge`, `SecurityHealth`.
 3. **Startup removal scoped to Run keys + Startup folder.** The legacy uses
-   `Win32_StartupCommand | .Delete()`, which also enumerates **services** as
-   startup commands — deleting the wrong row breaks a service. envctl filters
-   by `Location` and never touches a service.
+   `Win32_StartupCommand | .Delete()`. Two defects in that approach, both
+   confirmed against the published MOF and the class docs during review:
+   - `Win32_StartupCommand` is a `CIM_Setting` whose MOF lists **properties
+     only** — there is no `Delete` method, so the legacy call cannot work. The
+     docs point at the *System Registry Provider* for changes instead.
+   - Its `Location` is inconsistent (registry key path, the bare literals
+     `Startup` / `Common Startup`, `HKU\<SID>\...`), and it does not enumerate
+     services at all. A classifier over `Location` was therefore both
+     unnecessary and fragile.
+
+   envctl probes and removes against the two Run keys and the two Startup
+   folders **directly**. "Never touches a service" becomes structural: a
+   service can be neither a Run-key value nor a Startup-folder file.
 
 ## Changes
 
@@ -39,32 +49,39 @@ packages and 27 services left out of `manifests/debloat.yaml`, plus the
 | `Service` → `Manual` (category `services`) | 0 | 11 | `WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `DellCustomerConnect`, `DellSupportAssistAgent`, `DellTechHub`, `DellOptiPlex`, `fbguard`, `fbserver` |
 | `StartupItem` (category `startup`) | 0 | 4 | `BraveSoftware`, `Canva`, `MicrosoftEdge`, `SecurityHealth` |
 
-New manifest type `StartupItem` (no `path`, no `value`; `name` = the
-`Win32_StartupCommand` name). Xbox suite stays out — gaming.
+New manifest type `StartupItem` (no `path`, no `value`; `name` = the Run-key
+value name / Startup-folder file base name). Xbox suite stays out — gaming.
 
 ### `internal/infra/windows/tweaks_manager.go`
 
-- `startupLocationRemovable(location string) bool` — pure Go predicate, the
-  single source of truth for "is this a user startup entry?". Accepts
-  `HKCU`/`HKLM` `...\\CurrentVersion\\Run` (plus `Wow6432Node`) and any
-  `...\\Start Menu\\Programs\\Startup` path; rejects service rows and
-  everything else. Lives in Go (not PowerShell) so it is unit-testable off
-  Windows and so check and apply **cannot** drift.
-- `CheckTweak` case `startup` — one CIM query filtered by the predicate.
-  Conforming = absent (`OK`).
-- `CheckBatch` — new `startupIdx` family, one spawn listing
-  `NAME|||LOCATION` for all rows, answered from that map (details strings
-  identical to the single path).
-- `ApplyTweak` case `startup` — re-queries, filters in Go with the same
-  predicate, deletes each matching row by `Name` **and** `Location`. No match
-  is a no-op, so apply is idempotent.
+- `startupRunKeys` — the closed set of two Run keys; `startupKindRegistry` /
+  `startupKindDir` classify a probed location.
+- `startupProbeScript(names)` — one spawn answering every wanted name with its
+  `;`-joined locations. Names are compared with `-eq` against enumerated
+  values, never via `-Filter`, so a name carrying PowerShell wildcard
+  characters stays inert.
+- `startupTargetKind(location)` — pure Go classifier, unit-testable off
+  Windows. Returns `""` for anything outside the closed set, and the removal
+  script then skips it.
+- `startupRemovalScript(name, locations)` — `Remove-ItemProperty` for Run
+  keys, `Get-ChildItem | Remove-Item` for Startup folders. No WMI method.
+- `CheckTweak` case `startupitem` / `CheckBatch` new `startupIdx` family /
+  `ApplyTweak` case `startupitem` — all three route through `probeStartup`, so
+  the audit and the mutation cannot drift. Apply is a no-op when the probe
+  reports nothing.
+- `serviceExpectedState(tweak)` — extracted so check, batch and apply resolve
+  the target `StartType` the same way (the ternary was duplicated in all three).
 
 ### Tests
 
-- `tweaks_manager_test.go`: `startupLocationRemovable` table test (happy path
-  Run key, Startup folder, boundary `RunOnce`/service row/empty/Wow6432Node)
-  — runs on Linux, unlike the existing Windows-only tests.
-- `manifest_repo_test.go`: `expectedDebloat` 76 → 94.
+- `tweaks_manager_test.go`: `startupTargetKind` table, `parseStartupProbe`,
+  `startupRemovalScript` (asserts it never emits `.Delete()`/`Invoke-CimMethod`
+  and routes each kind to the right cmdlet), `startupScriptsQuoteAdversarialNames`
+  (asserts `psQuote` and no `-Filter`), `startupConforms`, plus a `StartupItem`
+  entry in the existing batch-vs-single parity test. All run on Linux, unlike
+  the pre-existing Windows-only tests.
+- `manifest_repo_test.go`: `expectedDebloat` 76 → 94, the `StartupItem` shape,
+  and a guard that no `-manual` id regressed to `Disabled`.
 
 ### Docs
 

@@ -114,32 +114,51 @@ Fora do manifest de propósito: `Spooler` (impressão), serviços de acesso remo
 ## 9.1 Startup entries: o que o `run debloat` remove (e o que nunca remove)
 
 O manifest remove 4 entradas de startup — `BraveSoftware`, `Canva`,
-`MicrosoftEdge`, `SecurityHealth` — via `Win32_StartupCommand`. O predicado
-`startupLocationRemovable()` limita o escopo a **Run keys e pasta Startup**.
+`MicrosoftEdge`, `SecurityHealth`. O escopo é um conjunto fechado: as duas Run
+keys (`HKCU`/`HKLM ...\CurrentVersion\Run`) e as duas pastas `Startup`
+(`%APPDATA%` e `%ProgramData%`).
+
+**Não é `Win32_StartupCommand`, de propósito.** Duas Razões, ambas
+confirmadas na doc oficial da classe:
+
+- O MOF publicado declara `class Win32_StartupCommand : CIM_Setting` com
+  **só properties** — não existe método `Delete`. O `ForEach-Object { $_.Delete() }`
+  do `windows11-clean` **não funciona**. A própria doc manda alterar os valores
+  pelo *System Registry Provider*.
+- O `Location` da classe é inconsistente: ora o caminho da Run key, ora as
+  strings literais `Startup` / `Common Startup`, ora `HKU\<SID>\...`. Um
+  classificador sobre ele é frágil — e a versão anterior deste envctl caía
+  justamente nisso: não casava com `HKLM\SOFTWARE\...\Run` (a forma canônica,
+  sem os dois pontos), o `run debloat` reportava "skipped" e o doctor mostrava
+  `4/4` verde sem nada ter sido removido.
+
+Ler os locais diretamente torna a garantia **estrutural**: um serviço não é um
+valor em Run key nem um arquivo em pasta `Startup`, então não há o que
+classificar errado.
 
 Duas exclusões deliberadas:
 
-- **Serviços nunca são tocados.** A mesma classe `Win32_StartupCommand` também
-  enumera serviços; apagar a linha errada quebraria o serviço. Uma linha cujo
-  `Location` é `...\Services\...` conta como conforme (verde no doctor) e o apply
-  é no-op.
 - **Serviços de áudio ficaram de fora**: `WavesSvc` e `RtkAuduService` são
   drivers e desligá-los pode quebrar o áudio da máquina.
 
-Para auditar antes de aplicar:
+Auditando antes de aplicar:
 
 ```powershell
-Get-CimInstance -ClassName Win32_StartupCommand |
-    Select-Object Name, Location, Command |
-    Format-Table -AutoSize
+Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' |
+    Select-Object -ExcludeProperty PS*
+Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+Get-ChildItem "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
 ```
 
 Removendo uma entrada à mão:
 
 ```powershell
-Get-CimInstance -ClassName Win32_StartupCommand |
-    Where-Object { $_.Name -eq 'SecurityHealth' } |
-    ForEach-Object { $_.Delete() }
+# Run key
+Remove-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'SecurityHealth' -Force
+# Pasta Startup (o atalho tem extensão, por isso o BaseName)
+Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup" |
+    Where-Object { $_.BaseName -eq 'Brave' } |
+    Remove-Item -Force
 ```
 
 ## 10. Telemetria fora do registro
