@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
@@ -220,6 +221,74 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 	for _, tw := range debloat {
 		if tw.ID == "gaming-win-keyboard-delay" && tw.Type != "String" {
 			t.Errorf("gaming-win-keyboard-delay must be String (REG_SZ), got %q", tw.Type)
+		}
+	}
+}
+
+// gamingParityPackages are the runtime packages the managed CachyOS
+// workstation actually has installed, which the gaming stack depends on to
+// work rather than merely to start:
+//
+//   - cachyos-settings ships /usr/bin/game-performance (the wrapper the gaming
+//     guide tells the owner to put in Steam launch options), the CachyOS
+//     modprobe/sysctl/modules-load defaults, and owns
+//     cachyos-ananicy-rules. Without it the guide references a missing binary.
+//   - cachyos-ananicy-rules owns /etc/ananicy.d/*; the ananicy-cpp daemon ships
+//     without a single rule, so `systemctl is-active` passes on a rulesless host.
+//   - xf86-video-amdgpu is the X.Org driver that the declared Plasma X11
+//     session trio needs; nothing else pulls it.
+//   - retroarch-assets-ozone/xmb are the RetroArch menu assets.
+//   - protontricks is the per-game Proton/Wine tuning tool.
+//
+// Declared deliberately as the child, not cachyos-gaming-meta: that meta pulls
+// 23 dependencies for one accessory binary and four of them are already
+// declared here individually.
+var gamingParityPackages = []string{
+	"cachyos-settings",
+	"cachyos-ananicy-rules",
+	"protontricks",
+	"retroarch-assets-ozone",
+	"retroarch-assets-xmb",
+	"xf86-video-amdgpu",
+}
+
+func TestGamingManifestDeclaresRuntimeParity(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	pkgs, err := repo.LoadGamingPackages()
+	if err != nil {
+		t.Fatalf("failed to load gaming manifest: %v", err)
+	}
+	if len(pkgs) == 0 {
+		t.Fatal("expected gaming packages to be non-empty")
+	}
+
+	declared := make(map[string]entity.Package, len(pkgs))
+	seen := make(map[string]bool, len(pkgs))
+	for _, pkg := range pkgs {
+		if seen[pkg.ID] {
+			t.Errorf("duplicate gaming package id %q", pkg.ID)
+		}
+		seen[pkg.ID] = true
+		declared[pkg.ID] = pkg
+	}
+
+	for _, id := range gamingParityPackages {
+		pkg, ok := declared[id]
+		if !ok {
+			t.Errorf("gaming manifest does not declare %q; a fresh machine would lack it", id)
+			continue
+		}
+		if pkg.Name == "" {
+			t.Errorf("gaming package %q has an empty name", id)
+		}
+		if pkg.Type != entity.PackageTypePacman {
+			t.Errorf("gaming package %q must be pacman, got %q", id, pkg.Type)
+		}
+		// gaming.yaml scopes the whole stack to "arch,cachyos"; a package
+		// without cachyos in its OS list would never be provisioned here.
+		if !strings.Contains(pkg.OS, "cachyos") {
+			t.Errorf("gaming package %q must target cachyos, got %q", id, pkg.OS)
 		}
 	}
 }
