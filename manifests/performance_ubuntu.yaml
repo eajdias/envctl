@@ -17,6 +17,10 @@ packages:
 
 # Conservative server baseline. Values are explicit for review/rollback and do
 # not replace workload-specific tuning for databases, storage, or networking.
+#
+# `policy` states the direction of the change instead of a blind replacement:
+# "min" raises a value but never lowers one, which is what a host that already
+# ships a better value needs. Omitting it means always write.
 sysctls:
   - key: vm.swappiness
     value: "10"
@@ -32,7 +36,14 @@ sysctls:
     rationale: Increase the pending SYN queue without an unbounded value.
   - key: fs.file-max
     value: "2097152"
-    rationale: Raise the system-wide file descriptor ceiling for parallel server workloads.
+    policy: min
+    rationale: >-
+      Raise the system-wide file descriptor ceiling, but never lower it. Both
+      clouds already ship fs.file-max at the int64 ceiling (measured
+      9223372036854775807 on vps_oracle_2 and zscan_chatbot), so a plain write
+      would be a regression of many orders of magnitude. `policy: min` makes
+      the value a floor: hosts below it get raised, hosts above it are left
+      alone.
 
 # Memory tiers. The host is measured with the hardware probe and matched here;
 # the manifest never carries a machine number. Boundaries sit ~50% above the

@@ -215,6 +215,20 @@ func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	if ubuntu.Tiers[len(ubuntu.Tiers)-1].MatchMemTotalMax != 0 {
 		t.Fatalf("last tier must be unbounded, got %#v", ubuntu.Tiers[len(ubuntu.Tiers)-1])
 	}
+	// The fleet already ships fs.file-max at the int64 ceiling, so a plain
+	// write would regress it. The manifest must declare it as a floor.
+	var fileMax *entity.SysctlSetting
+	for i, setting := range ubuntu.Sysctls {
+		if setting.Key == "fs.file-max" {
+			fileMax = &ubuntu.Sysctls[i]
+		}
+	}
+	if fileMax == nil {
+		t.Fatal("Ubuntu performance spec must declare fs.file-max")
+	}
+	if fileMax.Policy != entity.SysctlPolicyMin {
+		t.Fatalf("fs.file-max policy = %q, want min so the host ceiling is never lowered", fileMax.Policy)
+	}
 	for _, tier := range ubuntu.Tiers {
 		if !tier.ZRAMEnabled() && tier.ID == "tiny" {
 			t.Fatal("the tiny tier must enable zram: the fleet's memory-constrained hosts need it")

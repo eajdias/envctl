@@ -25,12 +25,30 @@ type PerformanceProfileMeta struct {
 	ManifestFile     string             `yaml:"-"`
 }
 
+// SysctlPolicy decides how a declared value interacts with the host's current
+// value. It exists because a manifest states a direction, not a replacement:
+// writing over a value the host already sets better is a regression.
+type SysctlPolicy string
+
+const (
+	// SysctlPolicySet always writes the declared value.
+	SysctlPolicySet SysctlPolicy = ""
+	// SysctlPolicyMin writes only when the host's effective value is lower, so
+	// the tool can raise a ceiling but never lower one.
+	SysctlPolicyMin SysctlPolicy = "min"
+	// SysctlPolicyMax writes only when the host's effective value is higher.
+	SysctlPolicyMax SysctlPolicy = "max"
+)
+
 // SysctlSetting is one explicit, reviewable sysctl value in a performance
 // profile. The rationale is carried into CLI/doctor output and documentation.
 type SysctlSetting struct {
 	Key       string `yaml:"key"`
 	Value     string `yaml:"value"`
 	Rationale string `yaml:"rationale"`
+	// Policy defaults to SysctlPolicySet. A min or max policy makes the
+	// declared value a bound rather than a replacement.
+	Policy SysctlPolicy `yaml:"policy,omitempty"`
 }
 
 // PerformanceSpec is the complete declarative payload for one OS profile.
