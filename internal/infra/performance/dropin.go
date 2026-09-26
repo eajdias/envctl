@@ -145,7 +145,15 @@ func (w *dropinWriter) Install(content string, mode os.FileMode, dryRun bool) (c
 	cleanup()
 
 	if out, err := w.command(context.Background(), "mv", "-f", tempDestination, w.destination); err != nil {
-		_, _ = w.command(context.Background(), "rm", "-f", tempDestination)
+		// The destination is intact because the rename never happened; the
+		// staged copy is orphaned, so removing it is best effort. Its failure
+		// is deliberately not folded into the returned error, which must stay
+		// about the rename that actually failed.
+		if cleanupOut, cleanupErr := w.command(context.Background(), "rm", "-f", tempDestination); cleanupErr != nil {
+			return false, backup, fmt.Errorf("replace %s failed: %v (%s); staged copy %s could not be removed: %v (%s)",
+				w.destination, err, strings.TrimSpace(string(out)), tempDestination,
+				cleanupErr, strings.TrimSpace(string(cleanupOut)))
+		}
 		return false, backup, fmt.Errorf("replace %s failed: %v (%s)", w.destination, err, strings.TrimSpace(string(out)))
 	}
 	return true, backup, nil

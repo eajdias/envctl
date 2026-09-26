@@ -131,10 +131,7 @@ func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec
 		}}, err
 	}
 
-	installedPackages, err := m.collectInstalled(ctx, spec)
-	if err != nil {
-		return nil, err
-	}
+	installedPackages := m.collectInstalled(ctx, spec)
 
 	if dryRun {
 		diagnostics := make([]entity.Diagnostic, 0, len(spec.Removals))
@@ -218,7 +215,7 @@ func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec
 
 // collectInstalled builds the set of installed package names once, so the guard
 // check for every entry is a map lookup rather than a probe per entry.
-func (m *linuxDebloatManager) collectInstalled(ctx context.Context, spec entity.DebloatSpec) (map[string]bool, error) {
+func (m *linuxDebloatManager) collectInstalled(ctx context.Context, spec entity.DebloatSpec) map[string]bool {
 	installed := make(map[string]bool)
 	for _, removal := range spec.Removals {
 		remover, ok := m.removers[removal.Type]
@@ -236,5 +233,5 @@ func (m *linuxDebloatManager) collectInstalled(ctx context.Context, spec entity.
 			installed[name] = present
 		}
 	}
-	return installed, nil
+	return installed
 }
