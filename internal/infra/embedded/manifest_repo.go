@@ -214,6 +214,7 @@ type performanceManifest struct {
 	Tiers            []entity.PerformanceTier `yaml:"tiers,omitempty"`
 	Timezone         *entity.TimezoneSpec     `yaml:"timezone,omitempty"`
 	Journald         *entity.JournaldSpec     `yaml:"journald,omitempty"`
+	Limits           *entity.LimitsSpec       `yaml:"limits,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -266,6 +267,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 		Tiers:            manifest.Tiers,
 		Timezone:         manifest.Timezone,
 		Journald:         manifest.Journald,
+		Limits:           manifest.Limits,
 	}, nil
 }
 
