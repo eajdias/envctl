@@ -38,6 +38,13 @@ var commandCodeAgentTools = map[string]bool{
 	"enter_worktree": true, "exit_worktree": true,
 }
 
+// commandCodeReservedAgentNames are the ids CommandCode owns: a custom file
+// with one of these names is ignored by the runtime, so shipping one would be
+// a silent no-op.
+var commandCodeReservedAgentNames = map[string]bool{
+	"explore": true, "plan": true, "review": true, "general": true,
+}
+
 // commandCodePermissionModes lists the values the runtime accepts, including the
 // documented aliases.
 var commandCodePermissionModes = map[string]bool{
