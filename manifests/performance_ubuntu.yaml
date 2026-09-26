@@ -33,3 +33,71 @@ sysctls:
   - key: fs.file-max
     value: "2097152"
     rationale: Raise the system-wide file descriptor ceiling for parallel server workloads.
+
+# Memory tiers. The host is measured with the hardware probe and matched here;
+# the manifest never carries a machine number. Boundaries sit ~50% above the
+# nominal instance size because /proc/meminfo MemTotal is always short of it:
+# the measured fleet reports 974092 kB (951 MiB) for a nominal "1 GB" shape and
+# 16162396 kB (15783 MiB) for a nominal "16 GB" one.
+#
+# vfs_cache_pressure is tier-scoped because it trades RAM for fewer stat() calls
+# and the right side of that trade moves with how scarce RAM is. The kernel doc
+# warns that 0 risks OOM and that a value far above vfs_cache_pressure_denom
+# (100) hurts, so the value only ever approaches 100 from below.
+tiers:
+  - id: tiny
+    mem_total_max_mib: 1536
+    zram: true
+    rationale: >-
+      HARDWARE-VALIDATED: vps_oracle_2 and vps_oracle_1 both report 951 MiB of
+      MemTotal. RAM is the scarce resource at this size, so zram is enabled and
+      the dentry/inode cache is held (vfs_cache_pressure 50, below the 100
+      denominator) to buy back syscall latency. 1500 MiB of headroom above the
+      measured value absorbs a differently-shaped 1 GB instance.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "50"
+        rationale: >-
+          Retain dentry and inode cache; safe here only because the tier is
+          memory-constrained enough for zram to absorb the pressure instead.
+
+  - id: small
+    mem_total_max_mib: 4608
+    zram: true
+    rationale: >-
+      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
+      The boundary and the settings are reasoning, not measurement. zram stays
+      enabled because 4 GiB is still the range where a burst of build or
+      container work can evict the page cache, and the cache pressure is relaxed
+      toward the 100 denominator as RAM stops being the binding constraint.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "75"
+        rationale: >-
+          Partial dentry/inode retention; a middle ground between the tiny tier
+          and the default. Unvalidated on real hardware.
+
+  - id: medium
+    mem_total_max_mib: 9216
+    zram: false
+    rationale: >-
+      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
+      zram is disabled because at this size disk swap is cheap relative to the
+      RAM the compressor would hold, and the page cache is worth more than a
+      compressed swap tier.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "100"
+        rationale: >-
+          The kernel default, i.e. fair reclaim between page cache and swap.
+          Once RAM is not the constraint there is no reason to hold dentry and
+          inode cache at the expense of swap.
+
+  - id: large
+    mem_total_max_mib: 0
+    zram: false
+    rationale: >-
+      HARDWARE-VALIDATED: zscan_chatbot reports 15783 MiB of MemTotal on a
+      nominal "16 GB" instance. The same reasoning as medium applies with more
+      room; the band is unbounded so a future larger instance needs no manifest
+      edit.

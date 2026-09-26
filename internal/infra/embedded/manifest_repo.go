@@ -208,9 +208,10 @@ type performanceManifest struct {
 	// MinDistroVersion is the release floor. It is manifest data so raising
 	// the floor never requires a code change, and so a profile identity never
 	// has to encode a version the fleet has already moved past.
-	MinDistroVersion string                 `yaml:"min_distro_version,omitempty"`
-	Packages         []entity.Package       `yaml:"packages"`
-	Sysctls          []entity.SysctlSetting `yaml:"sysctls"`
+	MinDistroVersion string                   `yaml:"min_distro_version,omitempty"`
+	Packages         []entity.Package         `yaml:"packages"`
+	Sysctls          []entity.SysctlSetting   `yaml:"sysctls"`
+	Tiers            []entity.PerformanceTier `yaml:"tiers,omitempty"`
 }
 
 // performanceManifests is the single profile -> file map plus a deterministic
@@ -247,11 +248,20 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 	if expected == entity.PerformanceProfileCachyOS && len(manifest.Sysctls) > 0 {
 		return entity.PerformanceSpec{}, fmt.Errorf("%s cannot declare sysctls for the CachyOS profile", filename)
 	}
+	// Tiers are only validated when a profile declares them. The CachyOS
+	// profile deliberately has none: its zram is unconditional, so a band list
+	// would imply a memory policy it does not have.
+	if len(manifest.Tiers) > 0 {
+		if err := entity.ValidatePerformanceTiers(manifest.Tiers); err != nil {
+			return entity.PerformanceSpec{}, fmt.Errorf("%s: %w", filename, err)
+		}
+	}
 	return entity.PerformanceSpec{
 		Profile:          manifest.Profile,
 		MinDistroVersion: manifest.MinDistroVersion,
 		Packages:         manifest.Packages,
 		Sysctls:          manifest.Sysctls,
+		Tiers:            manifest.Tiers,
 	}, nil
 }
 

@@ -206,6 +206,20 @@ func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	if ubuntu.MinDistroVersion != "24.04" {
 		t.Fatalf("Ubuntu performance spec minimum = %q, want the manifest-declared 24.04", ubuntu.MinDistroVersion)
 	}
+	if len(ubuntu.Tiers) != 4 {
+		t.Fatalf("Ubuntu performance spec tiers = %d, want 4", len(ubuntu.Tiers))
+	}
+	if ubuntu.Tiers[0].ID != "tiny" || ubuntu.Tiers[0].MatchMemTotalMax != 1536 {
+		t.Fatalf("first tier = %#v, want tiny up to 1536 MiB", ubuntu.Tiers[0])
+	}
+	if ubuntu.Tiers[len(ubuntu.Tiers)-1].MatchMemTotalMax != 0 {
+		t.Fatalf("last tier must be unbounded, got %#v", ubuntu.Tiers[len(ubuntu.Tiers)-1])
+	}
+	for _, tier := range ubuntu.Tiers {
+		if !tier.ZRAMEnabled() && tier.ID == "tiny" {
+			t.Fatal("the tiny tier must enable zram: the fleet's memory-constrained hosts need it")
+		}
+	}
 
 	cachyos, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS)
 	if err != nil {
