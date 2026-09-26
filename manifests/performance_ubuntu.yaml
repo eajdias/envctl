@@ -1,6 +1,10 @@
-# Ubuntu Server 24.04+ performance profile.
-# This file is selected only on exact Ubuntu >= 24.04 hosts by `run performance`.
-profile: ubuntu-24.04
+# Ubuntu Server performance profile.
+# The identity is version-free: the fleet already runs Ubuntu 26.04, so the
+# release floor lives here as data and is evaluated with MatchesDistroMinimum.
+# Selected only on hosts whose /etc/os-release reports ID=ubuntu inside the
+# Debian family and whose VERSION_ID satisfies min_distro_version.
+profile: ubuntu-server
+min_distro_version: "24.04"
 
 packages:
   - id: systemd-zram-generator
@@ -10,16 +14,71 @@ packages:
     target_distro: ubuntu
     min_distro_version: "24.04"
     category: performance
+  - id: tzdata
+    name: tzdata (IANA timezone database for timedatectl)
+    type: apt
+    os: ubuntu
+    target_distro: ubuntu
+    min_distro_version: "24.04"
+    category: performance
+
+# The timezone is an operator's deliberate choice, not a tuning knob: it decides
+# log timestamps and scheduled job times. All three reachable hosts in the
+# fleet report Etc/UTC with NTP active, so the declared zone matches and verify
+# mode is a silent pass. A host on a different zone is reported as INFO and left
+# alone; changing it requires an explicit enforce on the command line.
+timezone:
+  mode: verify
+  expected: Etc/UTC
 
 # Conservative server baseline. Values are explicit for review/rollback and do
 # not replace workload-specific tuning for databases, storage, or networking.
+#
+# Swapfile policy.
+#
+# Both Oracle hosts already ship a hand-created 8 GB swapfile at /swapfile with
+# priority -1, so adoption is the common case there and must be a complete
+# no-op. The AWS host has no swap at all. The declared path is deliberately NOT
+# the conventional /swapfile, so a swapfile the operator created is never
+# mistaken for one this tool manages.
+#
+# Size is MemTotal clamped to [1G, 8G] and then refused unless the root
+# filesystem has that plus a 5G reserve. The clamps are the safety: the measured
+# 951 MiB host is raised to the 1 GB floor and the 15783 MiB host is pulled down
+# to the 8 GB ceiling.
+#
+# btrfs is refused by default: its documentation calls a root-filesystem
+# swapfile "especially discouraged" because an active one makes balance and scrub
+# skip block groups.
+swap:
+  policy: auto
+  file: /swapfile.envctl
+  priority: -2
+  size_of: mem_total
+  size_min: 1G
+  size_max: 8G
+  disk_reserve: 5G
+  fs_allow: [ext4, xfs]
+  fs_btrfs: refuse
+  fs_deny: [zfs, overlay, tmpfs]
+
+# vm.swappiness is deliberately NOT declared here. It used to be pinned to 10
+# while the same profile installed zram-generator, which told the kernel not to
+# use the device the profile had just created. It is now derived at run time from
+# the measured swap topology: 150 when compressed RAM swap is active, 10 when the
+# only swap is on disk. See DeriveSwappiness.
+zram:
+  policy: tier
+
+# Only host-independent network settings live here. Memory-scoped values
+# (vfs_cache_pressure, and vm.swappiness once it is derived from the measured
+# swap topology) are declared per tier or computed, so the base stays the part
+# every memory size receives.
+#
+# `policy` states the direction of the change instead of a blind replacement:
+# "min" raises a value but never lowers one, which is what a host that already
+# ships a better value needs. Omitting it means always write.
 sysctls:
-  - key: vm.swappiness
-    value: "10"
-    rationale: Keep SSD/server swap pressure conservative; zram remains available under pressure.
-  - key: vm.vfs_cache_pressure
-    value: "50"
-    rationale: Retain inode/dentry cache without the low-cache pressure of aggressive server tuning.
   - key: net.core.somaxconn
     value: "65535"
     rationale: Accept large completed-connection bursts for server workloads.
@@ -28,4 +87,122 @@ sysctls:
     rationale: Increase the pending SYN queue without an unbounded value.
   - key: fs.file-max
     value: "2097152"
-    rationale: Raise the system-wide file descriptor ceiling for parallel server workloads.
+    policy: min
+    rationale: >-
+      Raise the system-wide file descriptor ceiling, but never lower it. Both
+      clouds already ship fs.file-max at the int64 ceiling (measured
+      9223372036854775807 on vps_oracle_2 and zscan_chatbot), so a plain write
+      would be a regression of many orders of magnitude. `policy: min` makes
+      the value a floor: hosts below it get raised, hosts above it are left
+      alone.
+
+# Memory tiers. The host is measured with the hardware probe and matched here;
+# the manifest never carries a machine number. Boundaries sit ~50% above the
+# nominal instance size because /proc/meminfo MemTotal is always short of it:
+# the measured fleet reports 974092 kB (951 MiB) for a nominal "1 GB" shape and
+# 16162396 kB (15783 MiB) for a nominal "16 GB" one.
+#
+# vfs_cache_pressure is tier-scoped because it trades RAM for fewer stat() calls
+# and the right side of that trade moves with how scarce RAM is. The kernel doc
+# warns that 0 risks OOM and that a value far above vfs_cache_pressure_denom
+# (100) hurts, so the value only ever approaches 100 from below.
+tiers:
+  - id: tiny
+    mem_total_max_mib: 1536
+    zram: true
+    rationale: >-
+      HARDWARE-VALIDATED: vps_oracle_2 and vps_oracle_1 both report 951 MiB of
+      MemTotal. RAM is the scarce resource at this size, so zram is enabled and
+      the dentry/inode cache is held (vfs_cache_pressure 50, below the 100
+      denominator) to buy back syscall latency. 1500 MiB of headroom above the
+      measured value absorbs a differently-shaped 1 GB instance.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "50"
+        rationale: >-
+          Retain dentry and inode cache; safe here only because the tier is
+          memory-constrained enough for zram to absorb the pressure instead.
+
+  - id: small
+    mem_total_max_mib: 4608
+    zram: true
+    rationale: >-
+      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
+      The boundary and the settings are reasoning, not measurement. zram stays
+      enabled because 4 GiB is still the range where a burst of build or
+      container work can evict the page cache, and the cache pressure is relaxed
+      toward the 100 denominator as RAM stops being the binding constraint.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "75"
+        rationale: >-
+          Partial dentry/inode retention; a middle ground between the tiny tier
+          and the default. Unvalidated on real hardware.
+
+  - id: medium
+    mem_total_max_mib: 9216
+    zram: false
+    rationale: >-
+      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
+      zram is disabled because at this size disk swap is cheap relative to the
+      RAM the compressor would hold, and the page cache is worth more than a
+      compressed swap tier.
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "100"
+        rationale: >-
+          The kernel default, i.e. fair reclaim between page cache and swap.
+          Once RAM is not the constraint there is no reason to hold dentry and
+          inode cache at the expense of swap.
+
+  - id: large
+    mem_total_max_mib: 0
+    zram: false
+    rationale: >-
+      HARDWARE-VALIDATED: zscan_chatbot reports 15783 MiB of MemTotal on a
+      nominal "16 GB" instance. The same reasoning as medium applies with more
+      room; the band is unbounded so a future larger instance needs no manifest
+      edit.
+
+# Journald size policy. All three reachable hosts are uncapped today, and the
+# built-in default is 10% of the filesystem: about 4.5 GB on the 45 GB OCI
+# disks, which a 951 MiB machine cannot afford and which, once full, prevents
+# logging, then SSH, then diagnosis. SystemKeepFree is mandatory rather than
+# extra because man 5 journald.conf states journald honours both limits and
+# uses the smaller of the two, so a cap without a floor can still be exceeded.
+journald:
+  dropin: /etc/systemd/journald.conf.d/90-envctl-journald.conf
+  values:
+    - { key: SystemMaxUse, value: "200M" }
+    - { key: SystemKeepFree, value: "1G" }
+    - { key: RuntimeMaxUse, value: "50M" }
+    - { key: MaxRetentionSec, value: "2week" }
+
+# File-descriptor and process limits.
+#
+# The soft limit is 1024 on every reachable host, which is a real EMFILE risk
+# once Docker and Node run on the box. The hard limit is NOT pinned: the fleet
+# reports 524288 on Oracle and 1048576 on AWS, so the systemd drop-in writes
+# "soft:" with an empty hard side and each host keeps the ceiling it shipped
+# with. That form was verified to parse cleanly with systemd-analyze
+# cat-config before being relied on.
+#
+# man 5 systemd.exec warns that a soft limit above 1024 breaks select(2) in
+# software that still uses it; the apply reports that caveat every run rather
+# than leaving it to be discovered in production.
+#
+# daemon_reexec is required because daemon-reload does not re-read system.conf.
+# It is the only operation here that touches PID 1, and --no-daemon-reexec
+# turns it off.
+limits:
+  system_dropin: /etc/systemd/system.conf.d/90-envctl-limits.conf
+  pam_dropin: /etc/security/limits.d/90-envctl-limits.conf
+  nofile_soft: 65536
+  nofile_hard: ""
+  nproc: 32768
+  daemon_reexec: true
+
+# Linux package removal is NOT declared here. The list lives in
+# manifests/debloat_linux.yaml and is loaded through its own repository method,
+# because it is the only part of this profile that destroys operator-visible
+# state and therefore deserves its own review surface and its own docs page.

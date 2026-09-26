@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
@@ -16,6 +17,12 @@ type ProvisionPerformanceUseCase struct {
 	packages     *ProvisionPackagesUseCase
 	sysctl       repository.SysctlManager
 	zram         repository.ZRAMManager
+	timezone     repository.TimezoneManager
+	journald     repository.JournaldManager
+	limits       repository.ResourceLimitsManager
+	probe        repository.HardwareProbe
+	swap         repository.SwapManager
+	debloat      repository.LinuxDebloatManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
@@ -27,6 +34,12 @@ func NewProvisionPerformanceUseCase(
 	zram repository.ZRAMManager,
 	logger repository.Logger,
 	platform func() entity.PlatformInfo,
+	timezone repository.TimezoneManager,
+	journald repository.JournaldManager,
+	limits repository.ResourceLimitsManager,
+	probe repository.HardwareProbe,
+	swap repository.SwapManager,
+	debloat repository.LinuxDebloatManager,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -36,6 +49,12 @@ func NewProvisionPerformanceUseCase(
 		packages:     packages,
 		sysctl:       sysctl,
 		zram:         zram,
+		timezone:     timezone,
+		journald:     journald,
+		limits:       limits,
+		probe:        probe,
+		swap:         swap,
+		debloat:      debloat,
 		logger:       logger,
 		platform:     platform,
 	}
@@ -50,10 +69,37 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	dryRun bool,
 	onProgress PackageProgressHandler,
 ) ([]entity.Package, []entity.Diagnostic, error) {
+	return uc.executePerformance(ctx, profile, dryRun, onProgress, false, false, "")
+}
+
+// ExecutePerformanceWithOptions is the command-line entry point. It folds the
+// flag decisions into the declared specs before anything is applied, so a flag
+// and its effect are covered by the same tests.
+func (uc *ProvisionPerformanceUseCase) ExecutePerformanceWithOptions(
+	ctx context.Context,
+	profile entity.PerformanceProfile,
+	opts PerformanceOptions,
+	onProgress PackageProgressHandler,
+) ([]entity.Package, []entity.Diagnostic, error) {
+	return uc.executePerformance(ctx, profile, opts.DryRun, onProgress, opts.AllowDebloat || opts.DebloatOnly, opts.NoDaemonReexec, opts.Timezone)
+}
+
+// executePerformance carries the opt-in flag for the one destructive step.
+// Package removal is the only part of this profile that removes state the
+// operator can see, so it never runs because a profile happened to include it.
+func (uc *ProvisionPerformanceUseCase) executePerformance(
+	ctx context.Context,
+	profile entity.PerformanceProfile,
+	dryRun bool,
+	onProgress PackageProgressHandler,
+	allowDebloat bool,
+	optionsNoReexec bool,
+	optionsTimezone string,
+) ([]entity.Package, []entity.Diagnostic, error) {
 	platform := uc.platform()
-	if !entity.PerformanceProfileMatchesPlatform(profile, platform) {
+	if !entity.PerformanceProfileMatchesOS(profile, platform) {
 		return nil, nil, fmt.Errorf(
-			"performance profile %q is unsupported on %s %s (family=%s); use an exact supported OS",
+			"performance profile %q targets a different OS than this host (%s %s, family=%s)",
 			profile, platform.ID, platform.VersionID, platform.Family,
 		)
 	}
@@ -65,8 +111,32 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 	if spec.Profile != profile {
 		return nil, nil, fmt.Errorf("performance manifest returned profile %q, expected %q", spec.Profile, profile)
 	}
-	if err := validatePerformanceSpec(spec, profile); err != nil {
+	// The release floor is manifest data, so it is evaluated after the spec is
+	// loaded and never hard-coded here.
+	if !entity.MatchesDistroMinimum(platform.VersionID, spec.MinDistroVersion) {
+		return nil, nil, fmt.Errorf(
+			"performance profile %q requires %s >= %s; this host is %s",
+			profile, platform.ID, spec.MinDistroVersion, platform.VersionID,
+		)
+	}
+	if err := validatePerformanceSpec(spec, profile, platform); err != nil {
 		return nil, nil, err
+	}
+	if spec.Limits != nil {
+		limits := *spec.Limits
+		if spec.Timezone != nil {
+			tz := *spec.Timezone
+			PerformanceOptions{NoDaemonReexec: optionsNoReexec, Timezone: optionsTimezone}.applyTo(&limits, &tz)
+			spec.Limits = &limits
+			spec.Timezone = &tz
+		} else {
+			PerformanceOptions{NoDaemonReexec: optionsNoReexec}.applyTo(&limits, nil)
+			spec.Limits = &limits
+		}
+	} else if spec.Timezone != nil {
+		tz := *spec.Timezone
+		PerformanceOptions{Timezone: optionsTimezone}.applyTo(nil, &tz)
+		spec.Timezone = &tz
 	}
 	if uc.packages == nil {
 		return nil, nil, fmt.Errorf("performance package provisioner is not configured")
@@ -85,42 +155,221 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
 			}
 		}
 	}
-	if len(spec.Sysctls) > 0 {
+	// The host is measured, never assumed: both the memory band and the swap
+	// topology come from the probe, and both feed the settings applied below.
+	hardware := entity.HardwareState{}
+	if uc.probe != nil {
+		hardware = uc.probe.Snapshot(ctx)
+	}
+
+	// Tier resolution is optional: a profile that declares no memory bands (the
+	// CachyOS profile) has no band policy to apply, and forcing one would
+	// invent a memory model the profile does not have.
+	var tier entity.PerformanceTier
+	if len(spec.Tiers) > 0 {
+		selected, tierErr := entity.SelectPerformanceTier(hardware, spec.Tiers)
+		if tierErr != nil {
+			return packages, append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagError,
+				System:   "Performance",
+				Target:   "tier",
+				Details:  tierErr.Error(),
+			}), tierErr
+		}
+		tier = selected
+		tierCategory := entity.DiagOK
+		if dryRun {
+			tierCategory = entity.DiagInfo
+		}
+		diagnostics = append(diagnostics, entity.Diagnostic{
+			Category: tierCategory,
+			System:   "Performance",
+			Target:   "tier",
+			Details: fmt.Sprintf("tier %q %s for %d MiB of detected memory (band ceiling %d MiB)",
+				tier.ID, map[bool]string{true: "would be selected", false: "selected"}[dryRun],
+				hardware.MemTotalMiB(), tier.MatchMemTotalMax),
+		})
+	}
+
+	// Swap comes before zram: the disk fallback is the tier the compressed
+	// device has to outrank, so its priority must exist first.
+	if spec.Swap != nil && spec.Swap.Enabled() {
+		if uc.swap == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a swap policy but no swap manager is configured", profile)
+		}
+		swapDiagnostics, swapErr := uc.swap.Ensure(ctx, *spec.Swap, hardware, dryRun)
+		diagnostics = append(diagnostics, swapDiagnostics...)
+		if swapErr != nil {
+			return packages, diagnostics, swapErr
+		}
+		if uc.probe != nil {
+			hardware = uc.probe.Snapshot(ctx)
+		}
+	}
+
+	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {
+		policy := entity.ZRAMPolicyTier
+		switch {
+		case spec.ZRAM != nil:
+			policy = spec.ZRAM.Policy
+		case len(spec.Tiers) == 0:
+			// No bands means no band policy, so there is nothing to gate on and
+			// the profile's zram package is provisioned unconditionally.
+			policy = entity.ZRAMPolicyAlways
+		}
+		run, reason := entity.ResolvedZRAMPolicy(policy, tier, hardware)
+		switch {
+		case run && uc.zram == nil:
+			return packages, diagnostics, fmt.Errorf("performance profile %q requires a zram manager", profile)
+		case run:
+			zramDiagnostics, zramErr := uc.zram.Ensure(ctx, dryRun)
+			diagnostics = append(diagnostics, zramDiagnostics...)
+			if zramErr != nil {
+				return packages, diagnostics, zramErr
+			}
+			// Re-read the host: bringing zram up changes the swap topology, and
+			// the derived swappiness depends on the topology that exists AFTER
+			// the device is live, not on the state before it.
+			if uc.probe != nil {
+				hardware = uc.probe.Snapshot(ctx)
+			}
+		default:
+			diagnostics = append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Performance",
+				Target:   "zram",
+				Details:  reason,
+			})
+		}
+	}
+
+	// vm.swappiness is derived last and therefore always wins. It is a function
+	// of the measured swap topology, so a value pinned in the manifest would be
+	// a claim about a host nobody measured. This is also what removes the old
+	// contradiction of shipping zram together with a pinned value of 10.
+	settings := mergeTierSysctls(spec.Sysctls, tier.Sysctls)
+	// Only a profile that declares memory bands opts into topology-derived
+	// tuning. The CachyOS profile declares none and must never receive a
+	// sysctl apply, so deriving a value for it would be an unrequested change.
+	if uc.probe != nil && len(spec.Tiers) > 0 {
+		value, rationale := entity.DeriveSwappiness(hardware)
+		settings = upsertSysctl(settings, entity.SysctlSetting{
+			Key:       "vm.swappiness",
+			Value:     strconv.Itoa(value),
+			Policy:    entity.SysctlPolicySet,
+			Rationale: rationale,
+		})
+	}
+	if len(settings) > 0 {
 		if uc.sysctl == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q requires a sysctl manager", profile)
 		}
-		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, spec.Sysctls, dryRun)
+		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, settings, dryRun)
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
 		}
 	}
-	if specContainsPackage(spec.Packages, "zram-generator", "systemd-zram-generator") {
-		if uc.zram == nil {
-			return packages, diagnostics, fmt.Errorf("performance profile %q requires a zram manager", profile)
+	if spec.Limits != nil {
+		if uc.limits == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a limits policy but no limits manager is configured", profile)
 		}
-		zramDiagnostics, zramErr := uc.zram.Ensure(ctx, dryRun)
-		diagnostics = append(diagnostics, zramDiagnostics...)
-		if zramErr != nil {
-			return packages, diagnostics, zramErr
+		limitDiagnostics, limitErr := uc.limits.Apply(ctx, *spec.Limits, dryRun)
+		diagnostics = append(diagnostics, limitDiagnostics...)
+		if limitErr != nil {
+			return packages, diagnostics, limitErr
+		}
+	}
+	if spec.Journald != nil {
+		if uc.journald == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a journald policy but no journald manager is configured", profile)
+		}
+		journaldDiagnostics, journaldErr := uc.journald.Apply(ctx, *spec.Journald, dryRun)
+		diagnostics = append(diagnostics, journaldDiagnostics...)
+		if journaldErr != nil {
+			return packages, diagnostics, journaldErr
+		}
+	}
+	if spec.Timezone != nil {
+		if uc.timezone == nil {
+			return packages, diagnostics, fmt.Errorf("performance profile %q declares a timezone policy but no timezone manager is configured", profile)
+		}
+		timezoneDiagnostics, timezoneErr := uc.timezone.Apply(ctx, *spec.Timezone, dryRun)
+		diagnostics = append(diagnostics, timezoneDiagnostics...)
+		if timezoneErr != nil {
+			return packages, diagnostics, timezoneErr
+		}
+	}
+	// Package removal is the last step and is opt-in. It is the only part of
+	// this profile that removes state the operator can see, and it runs last so
+	// everything that could still fail (sizing, privileges, re-exec) has already
+	// succeeded before anything is destroyed.
+	if allowDebloat {
+		if uc.debloat == nil {
+			return packages, diagnostics, fmt.Errorf("linux debloat was requested but no debloat manager is configured")
+		}
+		debloatSpec, specErr := uc.manifestRepo.LoadLinuxDebloatSpec()
+		if specErr != nil {
+			return packages, append(diagnostics, entity.Diagnostic{
+				Category: entity.DiagError,
+				System:   "Debloat",
+				Target:   "linux",
+				Details:  specErr.Error(),
+			}), specErr
+		}
+		debloatDiagnostics, debloatErr := uc.debloat.Apply(ctx, debloatSpec, dryRun)
+		diagnostics = append(diagnostics, debloatDiagnostics...)
+		if debloatErr != nil {
+			return packages, diagnostics, debloatErr
 		}
 	}
 
 	return packages, diagnostics, nil
 }
 
-func validatePerformanceSpec(spec entity.PerformanceSpec, profile entity.PerformanceProfile) error {
+// validatePerformanceSpec checks profile-internal consistency and package
+// scoping. The platform is supplied by the caller so the check runs against the
+// real host instead of a synthesized one: a synthetic VERSION_ID would hide a
+// package whose min_distro_version no longer matches the fleet.
+// mergeTierSysctls layers a tier's sysctls over the profile's unconditional
+// ones, so a band can override a base value without the base being repeated in
+// every tier.
+func mergeTierSysctls(base, tier []entity.SysctlSetting) []entity.SysctlSetting {
+	merged := make(map[string]entity.SysctlSetting, len(base)+len(tier))
+	order := make([]string, 0, len(base)+len(tier))
+	for _, setting := range append(append([]entity.SysctlSetting(nil), base...), tier...) {
+		if _, seen := merged[setting.Key]; !seen {
+			order = append(order, setting.Key)
+		}
+		merged[setting.Key] = setting
+	}
+	out := make([]entity.SysctlSetting, 0, len(order))
+	for _, key := range order {
+		out = append(out, merged[key])
+	}
+	return out
+}
+
+// upsertSysctl replaces a key in place or appends it.
+func upsertSysctl(settings []entity.SysctlSetting, setting entity.SysctlSetting) []entity.SysctlSetting {
+	for i, existing := range settings {
+		if existing.Key == setting.Key {
+			settings[i] = setting
+			return settings
+		}
+	}
+	return append(settings, setting)
+}
+
+func validatePerformanceSpec(spec entity.PerformanceSpec, profile entity.PerformanceProfile, platform entity.PlatformInfo) error {
 	if profile == entity.PerformanceProfileCachyOS && len(spec.Sysctls) > 0 {
 		return fmt.Errorf("CachyOS performance profile cannot contain sysctl settings")
 	}
 
-	platform := entity.PlatformInfo{GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04"}
-	if profile == entity.PerformanceProfileCachyOS {
-		platform = entity.PlatformInfo{GOOS: "linux", Family: entity.DistroArch, ID: "cachyos", VersionID: "rolling"}
-	}
 	for _, pkg := range spec.Packages {
 		if !entity.PackageMatchesPlatform(pkg, platform) {
-			return fmt.Errorf("performance package %q is not scoped to profile %q", pkg.ID, profile)
+			return fmt.Errorf("performance package %q is not applicable to %s %s in profile %q",
+				pkg.ID, platform.ID, platform.VersionID, profile)
 		}
 	}
 	return nil

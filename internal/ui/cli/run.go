@@ -21,7 +21,10 @@ func newRunCmd() *cobra.Command {
 		Long:  `Executes idempotent provisioning tasks for system packages, shell, skills, and LSPs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 || args[0] == "all" {
-				runAllProvisioning()
+				if err := runAllProvisioning(); err != nil {
+					pterm.Error.Printf("%v\n", err)
+					os.Exit(1)
+				}
 				return nil
 			}
 			_ = cmd.Help()
@@ -33,7 +36,10 @@ func newRunCmd() *cobra.Command {
 		Use:   "all",
 		Short: "Provision the full profile for this machine (dispatches to windows, vps or cachyos)",
 		Run: func(cmd *cobra.Command, args []string) {
-			runAllProvisioning()
+			if err := runAllProvisioning(); err != nil {
+				pterm.Error.Printf("%v\n", err)
+				os.Exit(1)
+			}
 		},
 	})
 
@@ -47,9 +53,9 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "vps",
-		Short: "Full Ubuntu/Debian server profile (providers + bootstrap + apt + performance + shell + skills + LSPs)",
-		Run: func(cmd *cobra.Command, args []string) {
-			runVPSProfile()
+		Short: "Ubuntu Server 24+ profile (providers + bootstrap + apt + performance + shell + skills + LSPs)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVPSProfile()
 		},
 	})
 
@@ -108,17 +114,30 @@ func newRunCmd() *cobra.Command {
 
 	performanceCmd := &cobra.Command{
 		Use:   "performance",
-		Short: "Apply the exact Ubuntu 24.04+ or CachyOS performance profile",
+		Short: "Apply the exact Ubuntu Server 24+ or CachyOS performance profile",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dryRun, err := cmd.Flags().GetBool("dry-run")
-			if err != nil {
+			flags := cmd.Flags()
+			opts := usecase.PerformanceOptions{
+				DryRun:             mustBool(flags, "dry-run"),
+				NoDaemonReexec:     mustBool(flags, "no-daemon-reexec"),
+				Timezone:           mustString(flags, "timezone"),
+				AllowDebloat:       mustBool(flags, "allow-debloat"),
+				DebloatOnly:        mustBool(flags, "debloat-only"),
+				ForceRebootPending: mustBool(flags, "force-reboot-pending"),
+			}
+			if err := opts.Validate(); err != nil {
 				return err
 			}
 			PrintBanner()
-			return runPerformanceProvisioning(cmd.Context(), dryRun)
+			return runPerformanceProvisioning(cmd.Context(), opts)
 		},
 	}
 	performanceCmd.Flags().Bool("dry-run", false, "Show the exact OS profile and changes without applying them")
+	performanceCmd.Flags().Bool("no-daemon-reexec", false, "Write the limits drop-ins without re-executing PID 1 (the new defaults then apply on the next reboot)")
+	performanceCmd.Flags().String("timezone", "", "Enforce an IANA timezone instead of only verifying the host's (for example America/Sao_Paulo)")
+	performanceCmd.Flags().Bool("allow-debloat", false, "Also remove the packages listed in manifests/debloat_linux.yaml (opt-in: this destroys installed packages)")
+	performanceCmd.Flags().Bool("debloat-only", false, "Run only the package removal, skipping every other step")
+	performanceCmd.Flags().Bool("force-reboot-pending", false, "Proceed even though /var/run/reboot-required exists")
 	cmd.AddCommand(performanceCmd)
 
 	cmd.AddCommand(&cobra.Command{
@@ -214,16 +233,18 @@ func newRunCmd() *cobra.Command {
 	return cmd
 }
 
-func runAllProvisioning() {
+func runAllProvisioning() error {
 	PrintBanner()
 	platform := entity.DetectedPlatform()
 	switch {
 	case platform.GOOS == "windows":
 		runWindowsProfile()
-	case entity.PerformanceProfileMatchesPlatform(entity.PerformanceProfileCachyOS, platform):
+		return nil
+	case entity.PerformanceProfileMatchesOS(entity.PerformanceProfileCachyOS, platform):
 		runCachyOSProfile()
+		return nil
 	default:
-		runVPSProfile()
+		return runVPSProfile()
 	}
 }
 
@@ -288,7 +309,7 @@ func runWindowsProfile() {
 	finishProfile("All Windows workstation components, debloat, toolchains, skills, and shell configurations have been applied.")
 }
 
-func runVPSProfile() {
+func runVPSProfile() error {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Ubuntu/Debian Server (VPS) Provisioning")
 
@@ -308,9 +329,13 @@ func runVPSProfile() {
 	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
 	runPackagesProvisioning("")
 
-	PrintSection(section(4, "Applying Ubuntu Performance Profile (zram + sysctl)"))
-	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
-		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
+	// The profile is a hard requirement on this path, not an optional extra:
+	// the owner declared Ubuntu Server 24+ as the only server target, so a host
+	// outside the manifest's declared minimum must fail loudly instead of
+	// silently skipping every performance change.
+	PrintSection(section(4, "Applying Ubuntu Server Performance Profile (zram + sysctl)"))
+	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
+		return fmt.Errorf("the ubuntu-server performance profile is required by `run vps`: %w", err)
 	}
 
 	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
@@ -323,6 +348,7 @@ func runVPSProfile() {
 	runLSPProvisioning()
 
 	finishProfile("All server components, performance tuning, toolchains, skills, and shell configurations have been applied.")
+	return nil
 }
 
 func runCachyOSProfile() {
@@ -349,7 +375,7 @@ func runCachyOSProfile() {
 	runGamingProvisioning()
 
 	PrintSection(section(5, "Applying CachyOS Performance Profile (zram)"))
-	if err := runPerformanceProvisioning(context.Background(), false); err != nil {
+	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{}); err != nil {
 		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
 	}
 

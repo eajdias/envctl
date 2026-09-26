@@ -38,9 +38,10 @@ func (i *performanceInspector) Snapshot(ctx context.Context) entity.PerformanceS
 		CPUGovernors:    readCPUGovernors(filepath.Join(i.root, "sys/devices/system/cpu")),
 		BlockSchedulers: readBlockSchedulers(filepath.Join(i.root, "sys/block")),
 		Journald: entity.JournaldState{
-			DiskUsage:    parseJournaldDiskUsage(i.output(ctx, "journalctl", "--disk-usage")),
-			Storage:      parseJournaldValue(journaldConfig, "Storage="),
-			SystemMaxUse: parseJournaldValue(journaldConfig, "SystemMaxUse="),
+			DiskUsage:      parseJournaldDiskUsage(i.output(ctx, "journalctl", "--disk-usage")),
+			Storage:        parseJournaldValue(journaldConfig, "Storage="),
+			SystemMaxUse:   parseJournaldValue(journaldConfig, "SystemMaxUse="),
+			SystemKeepFree: parseJournaldValue(journaldConfig, "SystemKeepFree="),
 		},
 		FSTRIMTimer: i.readTimer(ctx, "fstrim.timer"),
 		Services:    i.readServices(ctx, []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon", "systemd-oomd"}),

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl"
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
@@ -227,22 +228,103 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 func TestPerformanceManifestsAreSeparateByProfile(t *testing.T) {
 	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
 
-	ubuntu, err := repo.LoadPerformanceSpec("ubuntu-24.04")
+	ubuntu, err := repo.LoadPerformanceSpec(entity.PerformanceProfileUbuntuServer)
 	if err != nil {
 		t.Fatalf("failed to load Ubuntu performance manifest: %v", err)
 	}
-	if ubuntu.Profile != "ubuntu-24.04" || len(ubuntu.Packages) != 1 || ubuntu.Packages[0].ID != "systemd-zram-generator" {
-		t.Fatalf("unexpected Ubuntu performance spec: %#v", ubuntu)
+	if ubuntu.Profile != entity.PerformanceProfileUbuntuServer {
+		t.Fatalf("Ubuntu performance spec profile = %q", ubuntu.Profile)
+	}
+	// Assert the required entries are present rather than counting packages, so
+	// adding a justified package does not break an unrelated contract.
+	requiredUbuntu := []string{"systemd-zram-generator", "tzdata"}
+	present := make(map[string]bool, len(ubuntu.Packages))
+	for _, pkg := range ubuntu.Packages {
+		present[pkg.ID] = true
+	}
+	for _, id := range requiredUbuntu {
+		if !present[id] {
+			t.Fatalf("Ubuntu performance spec is missing package %q; present: %v", id, present)
+		}
 	}
 	if len(ubuntu.Sysctls) == 0 {
 		t.Fatal("Ubuntu performance spec must contain sysctl settings")
 	}
+	// Memory-scoped sysctls belong to the tiers, not to the profile base: the
+	// base is what every memory size gets, and vfs_cache_pressure is a memory
+	// policy that each tier sets for itself.
+	for _, setting := range ubuntu.Sysctls {
+		if setting.Key == "vm.vfs_cache_pressure" {
+			t.Fatal("vm.vfs_cache_pressure must be declared per tier, not in the profile base")
+		}
+	}
+	if ubuntu.Timezone == nil || ubuntu.Timezone.Expected != "Etc/UTC" {
+		t.Fatalf("Ubuntu performance spec timezone = %#v, want the fleet's Etc/UTC", ubuntu.Timezone)
+	}
+	if ubuntu.MinDistroVersion != "24.04" {
+		t.Fatalf("Ubuntu performance spec minimum = %q, want the manifest-declared 24.04", ubuntu.MinDistroVersion)
+	}
+	if len(ubuntu.Tiers) != 4 {
+		t.Fatalf("Ubuntu performance spec tiers = %d, want 4", len(ubuntu.Tiers))
+	}
+	if ubuntu.Tiers[0].ID != "tiny" || ubuntu.Tiers[0].MatchMemTotalMax != 1536 {
+		t.Fatalf("first tier = %#v, want tiny up to 1536 MiB", ubuntu.Tiers[0])
+	}
+	if ubuntu.Tiers[len(ubuntu.Tiers)-1].MatchMemTotalMax != 0 {
+		t.Fatalf("last tier must be unbounded, got %#v", ubuntu.Tiers[len(ubuntu.Tiers)-1])
+	}
+	// The fleet already ships fs.file-max at the int64 ceiling, so a plain
+	// write would regress it. The manifest must declare it as a floor.
+	var fileMax *entity.SysctlSetting
+	for i, setting := range ubuntu.Sysctls {
+		if setting.Key == "fs.file-max" {
+			fileMax = &ubuntu.Sysctls[i]
+		}
+	}
+	if fileMax == nil {
+		t.Fatal("Ubuntu performance spec must declare fs.file-max")
+	}
+	if fileMax.Policy != entity.SysctlPolicyMin {
+		t.Fatalf("fs.file-max policy = %q, want min so the host ceiling is never lowered", fileMax.Policy)
+	}
+	// vm.swappiness must NOT be declared: it is derived from the measured swap
+	// topology at run time, and pinning it is what produced the original defect
+	// of shipping zram together with a value of 10.
+	for _, setting := range ubuntu.Sysctls {
+		if setting.Key == "vm.swappiness" {
+			t.Fatal("vm.swappiness must be derived from the swap topology, not declared in the manifest")
+		}
+	}
+	if ubuntu.ZRAM == nil || ubuntu.ZRAM.Policy != entity.ZRAMPolicyTier {
+		t.Fatalf("zram policy = %#v, want tier", ubuntu.ZRAM)
+	}
+	// The declared swap path must not be the conventional /swapfile: both
+	// Oracle hosts already ship a hand-created swapfile there, and reusing the
+	// path would make the tool's own state indistinguishable from the
+	// operator's.
+	if ubuntu.Swap == nil {
+		t.Fatal("Ubuntu performance spec must declare a swap policy")
+	}
+	if ubuntu.Swap.File == "/swapfile" {
+		t.Fatal("the declared swap path must not be /swapfile, which the operator may already own")
+	}
+	if ubuntu.Swap.Priority >= 0 {
+		t.Fatalf("swap priority = %d, want a negative value so the zram tier outranks the disk fallback", ubuntu.Swap.Priority)
+	}
+	if err := entity.ValidateSwapSpec(*ubuntu.Swap); err != nil {
+		t.Fatalf("the declared swap spec is invalid: %v", err)
+	}
+	for _, tier := range ubuntu.Tiers {
+		if !tier.ZRAMEnabled() && tier.ID == "tiny" {
+			t.Fatal("the tiny tier must enable zram: the fleet's memory-constrained hosts need it")
+		}
+	}
 
-	cachyos, err := repo.LoadPerformanceSpec("cachyos")
+	cachyos, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS)
 	if err != nil {
 		t.Fatalf("failed to load CachyOS performance manifest: %v", err)
 	}
-	if cachyos.Profile != "cachyos" || len(cachyos.Packages) != 1 || cachyos.Packages[0].ID != "zram-generator" {
+	if cachyos.Profile != entity.PerformanceProfileCachyOS || len(cachyos.Packages) != 1 || cachyos.Packages[0].ID != "zram-generator" {
 		t.Fatalf("unexpected CachyOS performance spec: %#v", cachyos)
 	}
 	if len(cachyos.Sysctls) != 0 {
@@ -261,7 +343,7 @@ func TestUnreadableLocalPerformanceManifestDoesNotFallBack(t *testing.T) {
 	}
 
 	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
-	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+	if _, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS); err == nil {
 		t.Fatal("expected unreadable local manifest to fail closed")
 	}
 }
@@ -278,7 +360,7 @@ func TestLocalCachyPerformanceManifestCannotInjectSysctls(t *testing.T) {
 	}
 
 	repo := NewManifestRepository(envctl.EmbeddedFS, dir)
-	if _, err := repo.LoadPerformanceSpec("cachyos"); err == nil {
+	if _, err := repo.LoadPerformanceSpec(entity.PerformanceProfileCachyOS); err == nil {
 		t.Fatal("expected local CachyOS sysctl injection to be rejected")
 	}
 }
@@ -326,6 +408,102 @@ func TestUbuntuPerformanceToolboxManifest(t *testing.T) {
 	for id, found := range required {
 		if !found {
 			t.Errorf("missing Ubuntu 24.04 performance package %q", id)
+		}
+	}
+}
+
+// TestListPerformanceProfilesReadsTheMinimumFromDisk keeps the release floor in
+// the manifest. A Go constant that encodes "24.04" is a lie once the fleet runs
+// 26.04, so discovery must report the declared minimum.
+func TestListPerformanceProfilesReadsTheMinimumFromDisk(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	metas, err := repo.ListPerformanceProfiles()
+	if err != nil {
+		t.Fatalf("ListPerformanceProfiles failed: %v", err)
+	}
+	if len(metas) != 2 {
+		t.Fatalf("performance profiles = %#v, want exactly two", metas)
+	}
+
+	byProfile := make(map[entity.PerformanceProfile]entity.PerformanceProfileMeta, len(metas))
+	for _, meta := range metas {
+		if meta.ManifestFile == "" {
+			t.Fatalf("meta %#v does not name its manifest file", meta)
+		}
+		byProfile[meta.Profile] = meta
+	}
+
+	ubuntu, ok := byProfile[entity.PerformanceProfileUbuntuServer]
+	if !ok {
+		t.Fatalf("ubuntu-server profile is not discoverable: %#v", metas)
+	}
+	if ubuntu.MinDistroVersion != "24.04" {
+		t.Fatalf("ubuntu-server minimum = %q, want 24.04", ubuntu.MinDistroVersion)
+	}
+	if ubuntu.ManifestFile != "performance_ubuntu.yaml" {
+		t.Fatalf("ubuntu-server manifest file = %q", ubuntu.ManifestFile)
+	}
+
+	cachyos, ok := byProfile[entity.PerformanceProfileCachyOS]
+	if !ok {
+		t.Fatalf("cachyos profile is not discoverable: %#v", metas)
+	}
+	if cachyos.MinDistroVersion != "" {
+		t.Fatalf("cachyos minimum = %q, want empty for a rolling release", cachyos.MinDistroVersion)
+	}
+}
+
+// TestPerformanceManifestsDoNotDeclareAVersionedProfileName is the lint that
+// keeps the old identity from coming back through a manifest edit.
+// The removal list is reviewed on its own surface and must reflect the
+// MEASURED fleet: entries that no measured cloud image ships are noise.
+func TestLoadLinuxDebloatSpecMatchesTheMeasuredFleet(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	spec, err := repo.LoadLinuxDebloatSpec()
+	if err != nil {
+		t.Fatalf("LoadLinuxDebloatSpec failed: %v", err)
+	}
+	if spec.NeedrestartDropin == "" {
+		t.Fatal("the spec must declare the needrestart guard")
+	}
+
+	ids := make(map[string]bool, len(spec.Removals))
+	for _, removal := range spec.Removals {
+		ids[removal.ID] = true
+	}
+	// Installed on all three reachable hosts.
+	for _, required := range []string{"modemmanager", "fwupd", "udisks2"} {
+		if !ids[required] {
+			t.Fatalf("removal %q is installed on every measured host and must be listed", required)
+		}
+	}
+	// Absent from every measured cloud image, so listing them is noise.
+	for _, absent := range []string{"avahi-daemon", "cups", "bluez", "bluetooth"} {
+		if ids[absent] {
+			t.Fatalf("removal %q is absent from every measured cloud image and must not be listed", absent)
+		}
+	}
+}
+
+func readManifestFixture(t *testing.T, filename string) (string, error) {
+	t.Helper()
+	data, err := fs.ReadFile(envctl.EmbeddedFS, "manifests/"+filename)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func TestPerformanceManifestsDoNotDeclareAVersionedProfileName(t *testing.T) {
+	for _, filename := range []string{"performance_ubuntu.yaml", "performance_cachyos.yaml"} {
+		data, err := readManifestFixture(t, filename)
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if strings.Contains(data, "ubuntu-24.04") {
+			t.Fatalf("%s still declares the versioned profile identity ubuntu-24.04", filename)
 		}
 	}
 }
