@@ -250,6 +250,46 @@ Todos continuam atrás de benchmark e aprovação explícita, como decidido em
 envctl mora aqui, não em skill de agente: o commit `d5a2db0` cortou o catálogo de
 50 para 12 e movia esse conhecimento para dentro do repo de propósito.
 
+## Um valor que não sobrevive ao reboot
+
+Escrever um sysctl não é o bastante: o que decide o valor do próximo boot é o
+**arquivo** que o `systemd-sysctl` ler por último, e a ordem é pelo **basename**,
+não pelo diretório. O `sysctl.d(5)` é explícito: *"All configuration files are
+sorted by their filename in lexicographic order, regardless of which of the
+directories they reside in"*, com `/etc` > `/run` > `/usr/local/lib` > `/usr/lib`
+só desempatando nomes iguais.
+
+Isso bitou a `vps_oracle_2` e só apareceu no reboot. Ela tem
+`/etc/sysctl.d/99-swappiness.conf` com `vm.swappiness=10`, escrito pelo Oracle
+Cloud Agent (sem backup `.bak`, `ctime == mtime`, e a mesma janela do agente em
+`/etc/sudoers.d/100-oracle-cloud-agent-users`). O perfil escreve
+`/etc/sysctl.d/90-envctl-performance.conf` com o valor derivado. `99-` ganha de
+`90-`: o run escrevia 150 e aplicava ao vivo, e o boot seguinte restaurava 10 —
+com o `doctor` reportando **zero warnings**, porque ele nunca comparava a
+intenção do perfil com o que o host realmente aplicaria.
+
+Agora:
+
+- **o run cede a chave.** Ele não escreve o valor, não toca no arquivo do host, e
+  avisa nomeando o arquivo, o valor do host e o valor derivado. Reescrever seria
+  teatro: o host restauraria o valor a cada boot e o run reportaria uma mudança
+  que não consegue manter.
+- **o drop-in do perfil para de mentir.** A chave é omitida do arquivo que o
+  envctl controla, então ele só declara o que realmente está em vigor. Remover ou
+  renomear o arquivo do host devolve a chave ao perfil na próxima execução, sem
+  nenhuma outra mudança.
+- **o audit compara intenção contra boot.** Cada chave que o perfil pina é
+  conferida contra o arquivo vencedor e contra o valor ao vivo. Uma chave que
+  satisfaz o kernel agora mas não o próximo boot é reportada. `policy: min` e
+  `max` são respeitadas: um valor do host melhor que o piso não é drift, e uma
+  chave de limite sem drop-in não gera aviso — a política pede exatamente que o
+  valor do host valha.
+
+O rollback é o do item: o backup `.bak.YYYYMMDD-HHMMSS` do drop-in. E a escolha é
+do dono — `sudo rm /etc/sysctl.d/99-swappiness.conf` devolve `vm.swappiness` ao
+perfil (vale 150 porque há zram ativo com prioridade 100 sobre o swap de disco);
+deixar o arquivo mantém 10.
+
 ## Provisionar uma VPS nova em uma passada só
 
 `run all` numa caixa zerada converge numa passada. Dois motivos que historicamente

@@ -247,19 +247,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 	// of the measured swap topology, so a value pinned in the manifest would be
 	// a claim about a host nobody measured. This is also what removes the old
 	// contradiction of shipping zram together with a pinned value of 10.
-	settings := mergeTierSysctls(spec.Sysctls, tier.Sysctls)
-	// Only a profile that declares memory bands opts into topology-derived
-	// tuning. The CachyOS profile declares none and must never receive a
-	// sysctl apply, so deriving a value for it would be an unrequested change.
-	if uc.probe != nil && len(spec.Tiers) > 0 {
-		value, rationale := entity.DeriveSwappiness(hardware)
-		settings = upsertSysctl(settings, entity.SysctlSetting{
-			Key:       "vm.swappiness",
-			Value:     strconv.Itoa(value),
-			Policy:    entity.SysctlPolicySet,
-			Rationale: rationale,
-		})
-	}
+	settings := performanceSysctlIntent(spec, tier, hardware, uc.probe != nil)
 	if len(settings) > 0 {
 		if uc.sysctl == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q requires a sysctl manager", profile)
@@ -334,6 +322,40 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 // mergeTierSysctls layers a tier's sysctls over the profile's unconditional
 // ones, so a band can override a base value without the base being repeated in
 // every tier.
+// performanceSysctlIntent is the exact set of sysctl settings a profile wants
+// on one measured host: the base list, the tier's overrides, and the values
+// derived from the measured swap topology.
+//
+// The provisioning pipeline and the audit both call it. Sharing it is what makes
+// a drift report trustworthy: a report that recomputed its own list could
+// describe a set of keys the run would never apply, and the two would disagree
+// without either being wrong.
+//
+// measured is false when nobody probed this host. Topology-derived values are
+// then omitted rather than guessed from a zero HardwareState, which would claim
+// "no swap is active" about a host nobody looked at.
+func performanceSysctlIntent(
+	spec entity.PerformanceSpec,
+	tier entity.PerformanceTier,
+	hardware entity.HardwareState,
+	measured bool,
+) []entity.SysctlSetting {
+	settings := mergeTierSysctls(spec.Sysctls, tier.Sysctls)
+	// Only a profile that declares memory bands opts into topology-derived
+	// tuning. The CachyOS profile declares none and must never receive a
+	// sysctl apply, so deriving a value for it would be an unrequested change.
+	if measured && len(spec.Tiers) > 0 {
+		value, rationale := entity.DeriveSwappiness(hardware)
+		settings = upsertSysctl(settings, entity.SysctlSetting{
+			Key:       "vm.swappiness",
+			Value:     strconv.Itoa(value),
+			Policy:    entity.SysctlPolicySet,
+			Rationale: rationale,
+		})
+	}
+	return settings
+}
+
 func mergeTierSysctls(base, tier []entity.SysctlSetting) []entity.SysctlSetting {
 	merged := make(map[string]entity.SysctlSetting, len(base)+len(tier))
 	order := make([]string, 0, len(base)+len(tier))

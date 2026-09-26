@@ -2,6 +2,7 @@ package entity
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -241,6 +242,89 @@ type PerformanceSnapshot struct {
 	Journald        JournaldState
 	FSTRIMTimer     TimerState
 	Services        []ServiceState
+	// Sysctls is the resolved sysctl.d state: one entry per key, naming the
+	// file that systemd-sysctl will apply last at the next boot, the value that
+	// file sets, and the value the kernel currently holds.
+	Sysctls []SysctlAssignment
+	// MemoryKB is MemTotal from /proc/meminfo. It is what selects the memory
+	// tier, so an audit can resolve the same tier a run would.
+	MemoryKB uint64
+}
+
+// HardwareState projects a snapshot onto the measured host the tier and the
+// derived sysctls are computed from. The inspector observes with procfs and
+// sysfs while the provisioning pipeline observes with the hardware probe; both
+// end up here, so the decision functions see one shape.
+func (s PerformanceSnapshot) HardwareState() HardwareState {
+	return NewHardwareState(s.MemoryKB, 0, "", 0, s.Swap)
+}
+
+// CompareSysctlValues compares two sysctl values numerically: 1 when a is
+// greater, -1 when it is smaller, 0 when they are equal. An unparseable side
+// never compares equal, so a malformed manifest cannot look satisfied.
+func CompareSysctlValues(a, b string) int {
+	av, aErr := strconv.ParseUint(strings.TrimSpace(a), 10, 64)
+	bv, bErr := strconv.ParseUint(strings.TrimSpace(b), 10, 64)
+	if aErr != nil || bErr != nil {
+		return -1
+	}
+	switch {
+	case av > bv:
+		return 1
+	case av < bv:
+		return -1
+	default:
+		return 0
+	}
+}
+
+// SysctlSettingSatisfied reports whether a live value already meets a setting's
+// policy. A min-policy key is satisfied by anything at or above the declared
+// value, a max-policy key by anything at or below, and a set-policy key only by
+// an exact match.
+func SysctlSettingSatisfied(setting SysctlSetting, live string) bool {
+	cmp := CompareSysctlValues(live, setting.Value)
+	switch setting.Policy {
+	case SysctlPolicyMin:
+		return cmp >= 0
+	case SysctlPolicyMax:
+		return cmp <= 0
+	default:
+		return strings.TrimSpace(live) == strings.TrimSpace(setting.Value)
+	}
+}
+
+// SysctlAssignment is one key as systemd-sysctl will resolve it at boot.
+//
+// A live host can disagree with its own configuration: the profile writes a
+// value, another drop-in with a later filename overrides it, and the next boot
+// silently restores the other value. Reporting the resolved file, the boot
+// value and the live value together is what makes that visible.
+type SysctlAssignment struct {
+	Key string
+	// File is the path of the drop-in that wins the precedence order.
+	File string
+	// Boot is the value the winning file sets.
+	Boot string
+	// Live is what /proc/sys currently reports, empty when unreadable.
+	Live string
+	// Managed reports that File is the drop-in this project writes.
+	Managed bool
+}
+
+// ResolvePerformanceProfile returns the profile this host is provisioned with.
+// The CachyOS profile is matched first because it is the narrower claim: a
+// CachyOS host is an Arch-family Linux host, and matching the family alone would
+// hand a gaming desktop the server profile.
+//
+// The default is the Ubuntu server profile, which is the only remaining Linux
+// target. A caller that is not on Linux must not reach here: the Windows path
+// has no performance profile.
+func ResolvePerformanceProfile(platform PlatformInfo) PerformanceProfile {
+	if PerformanceProfileMatchesOS(PerformanceProfileCachyOS, platform) {
+		return PerformanceProfileCachyOS
+	}
+	return PerformanceProfileUbuntuServer
 }
 
 // PerformanceProfileMatchesOS reports whether the supplied platform is the OS

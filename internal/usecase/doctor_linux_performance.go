@@ -166,6 +166,12 @@ func (uc *DoctorAuditUseCase) auditLinuxPerformance(ctx context.Context, addDiag
 		})
 	}
 
+	// What the profile wants, against what the host will actually apply at the
+	// next boot. The profile's own file being correct proves nothing about the
+	// running host, which is how a vendor file with a later filename kept
+	// vm.swappiness at 10 across a reboot with a green audit.
+	uc.auditSysctlIntent(snapshot, addDiag)
+
 	// A pending reboot is the one performance line allowed to warn: the host
 	// genuinely is not in the state the profile would converge it to.
 	if state := ProbeRebootPending(nil); state.Pending {

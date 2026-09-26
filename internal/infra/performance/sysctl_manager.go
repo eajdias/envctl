@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,11 +22,14 @@ type effectiveValueFunc func(key string) (string, bool)
 type sysctlManager struct {
 	writer *dropinWriter
 	read   effectiveValueFunc
+	// sysctlDirs are the drop-in directories systemd-sysctl reads, in
+	// precedence order. Tests point it at a fixture tree.
+	sysctlDirs []string
 }
 
 // NewSysctlManager creates the production Linux sysctl adapter.
 func NewSysctlManager() repository.SysctlManager {
-	return newSysctlManager(
+	manager := newSysctlManager(
 		sysctlDropinPath,
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			return execCommand(ctx, name, args...)
@@ -36,6 +38,14 @@ func NewSysctlManager() repository.SysctlManager {
 		os.Geteuid() != 0,
 		readSysctlValue,
 	)
+	// Only the production constructor binds the real drop-in directories.
+	// Leaving them unset here keeps every in-package test hermetic: a developer
+	// machine with its own /usr/lib/sysctl.d entry would otherwise decide
+	// whether a test about vm.swappiness passes. That is not hypothetical — this
+	// repository's own tests failed this way on a CachyOS host shipping
+	// 70-cachyos-settings.conf.
+	manager.sysctlDirs = sysctlDropinDirs
+	return manager
 }
 
 func newSysctlManager(
@@ -64,6 +74,8 @@ func (m *sysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetti
 	if err != nil {
 		return skipped, err
 	}
+	applicable, shadowed := m.yieldToHostDropins(applicable)
+	skipped = append(skipped, shadowed...)
 	if len(applicable) == 0 {
 		return skipped, nil
 	}
@@ -149,7 +161,7 @@ func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable
 					Details:  detail,
 				}), fmt.Errorf("%s", detail)
 			}
-			cmp := compareSysctlValues(effective, setting.Value)
+			cmp := entity.CompareSysctlValues(effective, setting.Value)
 			keep := (setting.Policy == entity.SysctlPolicyMin && cmp >= 0) ||
 				(setting.Policy == entity.SysctlPolicyMax && cmp <= 0)
 			if keep {
@@ -168,6 +180,44 @@ func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable
 	return applicable, skipped, nil
 }
 
+// yieldToHostDropins removes the settings a host-owned drop-in already decides,
+// reporting each one. Writing them anyway would be theatre: the next boot would
+// restore the host's value, the run would report a change it cannot keep, and the
+// profile's own file would claim a setting that never takes effect.
+func (m *sysctlManager) yieldToHostDropins(settings []entity.SysctlSetting) ([]entity.SysctlSetting, []entity.Diagnostic) {
+	if len(settings) == 0 || m.sysctlDirs == nil {
+		return settings, nil
+	}
+
+	resolved := resolveSysctlAssignments(m.sysctlDirs, m.writer.destination)
+	byKey := make(map[string]entity.SysctlAssignment, len(resolved))
+	for _, assignment := range resolved {
+		byKey[assignment.Key] = assignment
+	}
+
+	applicable := make([]entity.SysctlSetting, 0, len(settings))
+	var diags []entity.Diagnostic
+	for _, setting := range settings {
+		assignment, ok := byKey[setting.Key]
+		if !ok || assignment.Managed || strings.TrimSpace(assignment.Boot) == strings.TrimSpace(setting.Value) {
+			applicable = append(applicable, setting)
+			continue
+		}
+		diags = append(diags, entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Performance",
+			Target:   setting.Key,
+			Details: fmt.Sprintf(
+				"left at the host's %s, declared %s: %s wins at boot because it sorts after this profile's drop-in",
+				assignment.Boot, setting.Value, assignment.File),
+			FixHint: fmt.Sprintf(
+				"remove or rename %s to let this profile own %s, or keep it to hold the host's value",
+				assignment.File, setting.Key),
+		})
+	}
+	return applicable, diags
+}
+
 func readSysctlValue(key string) (string, bool) {
 	data, err := os.ReadFile(sysctlProcPath(key))
 	if err != nil {
@@ -180,24 +230,6 @@ func readSysctlValue(key string) (string, bool) {
 // directory separator.
 func sysctlProcPath(key string) string {
 	return filepath.Join("/proc/sys", strings.ReplaceAll(strings.TrimSpace(key), ".", "/"))
-}
-
-// compareSysctlValues compares two sysctl values numerically. An unparseable
-// side never compares equal, so a malformed manifest cannot look satisfied.
-func compareSysctlValues(a, b string) int {
-	av, aErr := strconv.ParseUint(strings.TrimSpace(a), 10, 64)
-	bv, bErr := strconv.ParseUint(strings.TrimSpace(b), 10, 64)
-	if aErr != nil || bErr != nil {
-		return -1
-	}
-	switch {
-	case av > bv:
-		return 1
-	case av < bv:
-		return -1
-	default:
-		return 0
-	}
 }
 
 func renderSysctlConfig(settings []entity.SysctlSetting) (string, error) {

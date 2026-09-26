@@ -172,6 +172,18 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   dedicated `run performance` command still refuses, and `--force-reboot-pending`
   still overrides. Found by running `run all` on a host with three pending kernel
   images: the run died at the performance phase and phases 5-7 never ran.
+* **linux:** a sysctl key another drop-in decides is reported, not overwritten,
+  and the audit now verifies the keys the profile pins. Rebooting a real host
+  showed `vm.swappiness` silently reverting from the derived 150 to 10: the fleet
+  ships `/etc/sysctl.d/99-swappiness.conf`, written by the cloud agent, and
+  `systemd-sysctl` sorts every file by basename in lexicographic order, so a
+  `99-` file wins over the profile's `90-`. The profile wrote its own value, set
+  it live, and the next boot restored the host's with nothing reported anywhere.
+  The run now yields the key, names the file, and stops claiming the value in its
+  own drop-in; the audit compares the profile's intent against the resolved
+  drop-ins, so a key that satisfies the running kernel but not the next boot is
+  reported. Found by rebooting `vps_oracle_2`, whose doctor reported zero
+  warnings while the derived value was not in effect.
 * **linux:** resolve a toolchain binary against the toolchain PATH before
   running it. `exec.Command` resolves against the PROCESS PATH when the command
   is constructed, so assigning `cmd.Env` afterwards never affected which

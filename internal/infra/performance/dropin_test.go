@@ -365,16 +365,16 @@ func TestSysctlProcPath(t *testing.T) {
 }
 
 func TestCompareSysctlValues(t *testing.T) {
-	if compareSysctlValues("10", "9") <= 0 {
+	if entity.CompareSysctlValues("10", "9") <= 0 {
 		t.Fatal("10 must compare greater than 9")
 	}
-	if compareSysctlValues("4096", "9223372036854775807") >= 0 {
+	if entity.CompareSysctlValues("4096", "9223372036854775807") >= 0 {
 		t.Fatal("4096 must compare lower than the int64 ceiling")
 	}
-	if compareSysctlValues("65535", "65535") != 0 {
+	if entity.CompareSysctlValues("65535", "65535") != 0 {
 		t.Fatal("equal values must compare equal")
 	}
-	if compareSysctlValues("", "1") == 0 {
+	if entity.CompareSysctlValues("", "1") == 0 {
 		t.Fatal("an unparseable value must not silently compare equal")
 	}
 }

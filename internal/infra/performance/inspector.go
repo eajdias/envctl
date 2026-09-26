@@ -17,6 +17,9 @@ import (
 type performanceInspector struct {
 	root string
 	run  commandRunner
+	// sysctlDirs are the drop-in directories systemd-sysctl reads, in
+	// precedence order. Tests point it at a fixture tree.
+	sysctlDirs []string
 }
 
 // NewPerformanceInspector creates a read-only Linux performance inspector.
@@ -27,7 +30,7 @@ func NewPerformanceInspector() repository.PerformanceInspector {
 }
 
 func newPerformanceInspector(root string, run commandRunner) *performanceInspector {
-	return &performanceInspector{root: root, run: run}
+	return &performanceInspector{root: root, run: run, sysctlDirs: sysctlDropinDirs}
 }
 
 func (i *performanceInspector) Snapshot(ctx context.Context) entity.PerformanceSnapshot {
@@ -45,6 +48,10 @@ func (i *performanceInspector) Snapshot(ctx context.Context) entity.PerformanceS
 		},
 		FSTRIMTimer: i.readTimer(ctx, "fstrim.timer"),
 		Services:    i.readServices(ctx, []string{"scx_loader", "lactd", "ananicy-cpp", "power-profiles-daemon", "systemd-oomd"}),
+		MemoryKB:    readMemTotalKB(filepath.Join(i.root, "proc/meminfo")),
+	}
+	if i.sysctlDirs != nil {
+		snapshot.Sysctls = resolveSysctlAssignments(i.sysctlDirs, sysctlDropinPath)
 	}
 	if snapshot.ZRAM.Present && snapshot.ZRAM.Priority == 0 {
 		for _, device := range snapshot.Swap {
@@ -239,6 +246,31 @@ func readBlockSchedulers(root string) []entity.BlockScheduler {
 	}
 	sort.Slice(schedulers, func(i, j int) bool { return schedulers[i].Device < schedulers[j].Device })
 	return schedulers
+}
+
+// readMemTotalKB reports MemTotal in kilobytes, the unit the tier boundaries are
+// written in. It is the one number that decides which memory band a host is in.
+func readMemTotalKB(path string) uint64 {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		key, value, found := strings.Cut(line, ":")
+		if !found || strings.TrimSpace(key) != "MemTotal" {
+			continue
+		}
+		fields := strings.Fields(value)
+		if len(fields) == 0 {
+			return 0
+		}
+		total, err := strconv.ParseUint(fields[0], 10, 64)
+		if err != nil {
+			return 0
+		}
+		return total
+	}
+	return 0
 }
 
 func readTrimmed(path string) string {
