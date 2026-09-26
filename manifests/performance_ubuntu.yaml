@@ -201,3 +201,8 @@ limits:
   nofile_hard: ""
   nproc: 32768
   daemon_reexec: true
+
+# Linux package removal is NOT declared here. The list lives in
+# manifests/debloat_linux.yaml and is loaded through its own repository method,
+# because it is the only part of this profile that destroys operator-visible
+# state and therefore deserves its own review surface and its own docs page.

@@ -16,6 +16,10 @@ type performanceRepoStub struct {
 	loadErr   error
 }
 
+func (m *performanceRepoStub) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+	return entity.DebloatSpec{}, nil
+}
+
 func (m *performanceRepoStub) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
 	return []entity.PerformanceProfileMeta{{
 		Profile:          entity.PerformanceProfileUbuntuServer,
@@ -95,6 +99,17 @@ func (m *performanceTimezoneStub) Apply(_ context.Context, _ entity.TimezoneSpec
 // performanceProbeStub returns a fixed host so tier resolution and the derived
 // swappiness are deterministic in tests. MemTotal 974092 kB is the measured
 // vps_oracle_2 value, which selects the "tiny" band.
+type performanceDebloatStub struct {
+	calls  int
+	dryRun bool
+}
+
+func (m *performanceDebloatStub) Apply(_ context.Context, _ entity.DebloatSpec, dryRun bool) ([]entity.Diagnostic, error) {
+	m.calls++
+	m.dryRun = dryRun
+	return nil, nil
+}
+
 type performanceSwapStub struct {
 	calls  int
 	dryRun bool
@@ -181,7 +196,7 @@ func newPerformanceUseCaseForTest(
 	return NewProvisionPerformanceUseCase(repo, packages, sysctl, zram, &mockLogger{}, func() entity.PlatformInfo {
 		return platform
 	}, &performanceTimezoneStub{}, &performanceJournaldStub{}, &performanceLimitsStub{},
-		&performanceProbeStub{state: newTestHardwareState()}, &performanceSwapStub{})
+		&performanceProbeStub{state: newTestHardwareState()}, &performanceSwapStub{}, &performanceDebloatStub{})
 }
 
 // TestProvisionPerformanceRejectsHostBelowManifestMinimum pins the moved gate:
@@ -371,5 +386,49 @@ func TestProvisionPerformanceCachyOSDoesNotApplySysctl(t *testing.T) {
 	}
 	if zram.calls != 1 || zram.dryRun {
 		t.Fatalf("CachyOS zram Ensure calls = %d dryRun=%v, want one real call", zram.calls, zram.dryRun)
+	}
+}
+
+// Package removal is the only part of the profile that destroys
+// operator-visible state, so it must never run just because a profile
+// mentioned it.
+func TestProvisionPerformanceDebloatIsOptIn(t *testing.T) {
+	repo := &performanceRepoStub{spec: entity.PerformanceSpec{
+		Profile:          entity.PerformanceProfileUbuntuServer,
+		MinDistroVersion: "24.04",
+		Packages: []entity.Package{{
+			ID: "systemd-zram-generator", Type: entity.PackageTypeApt, OS: "ubuntu",
+			TargetDistro: "ubuntu", MinDistroVersion: "24.04",
+		}},
+		Sysctls: []entity.SysctlSetting{{Key: "net.core.somaxconn", Value: "65535"}},
+		Tiers:   testTiers(),
+	}}
+	manager := &performancePackageManager{packageType: entity.PackageTypeApt, available: true, installed: map[string]string{"systemd-zram-generator": "1.2.1-2"}}
+	debloat := &performanceDebloatStub{}
+	packages := NewProvisionPackagesUseCase(repo, map[entity.PackageType]repository.PackageManager{manager.Type(): manager}, &mockLogger{})
+	packages.platform = func() entity.PlatformInfo {
+		return entity.PlatformInfo{GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04"}
+	}
+	uc := NewProvisionPerformanceUseCase(repo, packages, &performanceSysctlStub{}, &performanceZRAMStub{},
+		&mockLogger{}, func() entity.PlatformInfo {
+			return entity.PlatformInfo{GOOS: "linux", Family: entity.DistroDebian, ID: "ubuntu", VersionID: "24.04"}
+		}, &performanceTimezoneStub{}, &performanceJournaldStub{}, &performanceLimitsStub{},
+		&performanceProbeStub{state: newTestHardwareState()}, &performanceSwapStub{}, debloat)
+
+	if _, _, err := uc.ExecutePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil); err != nil {
+		t.Fatalf("default run failed: %v", err)
+	}
+	if debloat.calls != 0 {
+		t.Fatalf("the default run removed packages %d time(s); removal must be opt-in", debloat.calls)
+	}
+
+	// The opt-in run reaches the debloat manager. Its outcome depends on the
+	// loaded spec, which the repository stub does not populate; what matters
+	// here is that the call happens at all.
+	if _, _, err := uc.executePerformance(context.Background(), entity.PerformanceProfileUbuntuServer, false, nil, true); err != nil {
+		t.Fatalf("opt-in run failed: %v", err)
+	}
+	if debloat.calls != 1 {
+		t.Fatalf("the opt-in run called debloat %d time(s), want 1", debloat.calls)
 	}
 }

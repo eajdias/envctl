@@ -421,6 +421,37 @@ func TestListPerformanceProfilesReadsTheMinimumFromDisk(t *testing.T) {
 
 // TestPerformanceManifestsDoNotDeclareAVersionedProfileName is the lint that
 // keeps the old identity from coming back through a manifest edit.
+// The removal list is reviewed on its own surface and must reflect the
+// MEASURED fleet: entries that no measured cloud image ships are noise.
+func TestLoadLinuxDebloatSpecMatchesTheMeasuredFleet(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
+
+	spec, err := repo.LoadLinuxDebloatSpec()
+	if err != nil {
+		t.Fatalf("LoadLinuxDebloatSpec failed: %v", err)
+	}
+	if spec.NeedrestartDropin == "" {
+		t.Fatal("the spec must declare the needrestart guard")
+	}
+
+	ids := make(map[string]bool, len(spec.Removals))
+	for _, removal := range spec.Removals {
+		ids[removal.ID] = true
+	}
+	// Installed on all three reachable hosts.
+	for _, required := range []string{"modemmanager", "fwupd", "udisks2"} {
+		if !ids[required] {
+			t.Fatalf("removal %q is installed on every measured host and must be listed", required)
+		}
+	}
+	// Absent from every measured cloud image, so listing them is noise.
+	for _, absent := range []string{"avahi-daemon", "cups", "bluez", "bluetooth"} {
+		if ids[absent] {
+			t.Fatalf("removal %q is absent from every measured cloud image and must not be listed", absent)
+		}
+	}
+}
+
 func readManifestFixture(t *testing.T, filename string) (string, error) {
 	t.Helper()
 	data, err := fs.ReadFile(envctl.EmbeddedFS, "manifests/"+filename)

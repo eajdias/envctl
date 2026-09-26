@@ -51,6 +51,10 @@ func (m *mockManifestRepo) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
 func (m *mockManifestRepo) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
 	return m.debloat, nil
 }
+func (m *mockManifestRepo) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+	return entity.DebloatSpec{}, nil
+}
+
 func (m *mockManifestRepo) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
 	return nil, nil
 }
