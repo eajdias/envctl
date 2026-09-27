@@ -87,6 +87,13 @@ envctl doctor --fix
 
 ## 🔄 Idempotência Estrita & Backup Atômico
 
+O `doctor` só **relata**: não muta a máquina sem `--fix`. O `envctl update` é o oposto — ele
+muda, e é por isso que tem escopo próprio: só mecanismos user-local (`volta`/`npm`, `uv tool`,
+`go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
+Para saber o que está atrás sem mudar nada: `envctl update --list` (nem toca a rede) ou
+`envctl update --dry-run`.
+
+
 Todas as operações de escrita de arquivos e alterações no sistema são **estritamente idempotentes**:
 
 ### 1. Detecção de Hash SHA-256
