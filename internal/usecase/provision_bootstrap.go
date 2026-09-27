@@ -146,7 +146,11 @@ func (uc *ProvisionBootstrapUseCase) hasTool(ctx context.Context, name string) b
 // write a no-op. A label that lies is worse than a slow check: the run log is
 // the evidence the idempotency review reads.
 func (uc *ProvisionBootstrapUseCase) configStep(ctx context.Context, result *BootstrapResult, target, doneCheck, writeScript string) {
-	if out, err := uc.runShellStdout(ctx, doneCheck); err == nil && strings.TrimSpace(out) != "" {
+	// The exit status is the whole contract. Requiring the check to also print
+	// something inverted it: a check that correctly answered "already done" and
+	// said so quietly was treated as "not done", so the write ran on every run
+	// and the step reported "Written" on a profile that never changed.
+	if _, err := uc.runShellStdout(ctx, doneCheck); err == nil {
 		uc.logger.LogIdempotency("LinuxBootstrap", target, true, "already present")
 		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
 			Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
