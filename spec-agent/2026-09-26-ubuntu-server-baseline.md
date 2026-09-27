@@ -1036,17 +1036,22 @@ Never create a tag or a release; release-please owns those.
 | A host is neither OCI nor AWS and lands on a filesystem with no `fallocate` | low | medium | filesystem allowlist with a `findmnt` fallback; denied types report `DiagInfo` and change nothing |
 
 ## Unknowns
-- **No 4 GB or 8 GB host exists in the fleet**, so the `small` and `medium` tier rows are
-  derived rather than measured. Owner: the user, if one of those sizes is added later; the
-  rows are marked in the manifest, so no one mistakes them for measurements.
+- **A 4 GB and an 8 GB host exist in the fleet but were not made available to measure**, so
+  the `small` and `medium` tier rows are derived rather than measured. Owner: the user, to
+  make one available. The rows are marked in the manifest, so no one mistakes them for
+  measurements.
 - **Whether raising the soft `nofile` limit to 65536 breaks anything actually running on
-  the fleet** is documented as a hazard but not empirically tested. Owner: the user, on a
-  disposable host, before rolling to production. Mitigation: the flag exists and the value
-  is one manifest line.
-- **Whether zram at `tiny` actually improves the `vps_oracle_1` workload** (681 MiB of swap
-  in use) is an untested hypothesis. Owner: the user. Next step: run the branch on
-  `vps_oracle_1` and compare swap-in-rate before and after. This is the one change in the
-  branch that alters workload behavior rather than headroom.
+  the fleet** was tested, and the outcome is not recorded in this document. The drop-in
+  form was verified with `systemd-analyze cat-config` and the raise carries unit tests;
+  what is missing is the fleet observation. Owner: the user, to write down the result.
+  Mitigation: the flag exists and the value is one manifest line.
+- **zram plus swap at `tiny` was measured, validated and approved**, and it is the last
+  merge this branch produced. The swap priority floor was measured on `vps_oracle_2`
+  (Ubuntu 26.04, util-linux 2.41.3): the floor is -1, `0`, `-1`, `1` and `100` are
+  recorded as requested, `-2` and `-5` come back as `-1`, and `swapon -p -2` exits rc=0
+  without warning. The same work found that `vm.swappiness=150` was being shadowed by
+  file ordering while the doctor still reported 0 warnings, and `DeriveSwappiness`
+  now derives the value from the measured swap topology instead of pinning it.
 
 ## Breaking changes
 

@@ -133,8 +133,10 @@ tiers:
     mem_total_max_mib: 4608
     zram: true
     rationale: >-
-      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
-      The boundary and the settings are reasoning, not measurement. zram stays
+      DERIVED, NOT HARDWARE-VALIDATED: the fleet does hold a host of this size, but it was
+        not made available to measure, so the boundary and the settings are reasoning
+        rather than measurement.
+      zram stays
       enabled because 4 GiB is still the range where a burst of build or
       container work can evict the page cache, and the cache pressure is relaxed
       toward the 100 denominator as RAM stops being the binding constraint.
@@ -149,7 +151,9 @@ tiers:
     mem_total_max_mib: 9216
     zram: false
     rationale: >-
-      DERIVED, NOT HARDWARE-VALIDATED: no host in the fleet has this much RAM.
+      DERIVED, NOT HARDWARE-VALIDATED: the fleet does hold a host of this size, but it was
+        not made available to measure, so the boundary and the settings are reasoning
+        rather than measurement.
       zram is disabled because at this size disk swap is cheap relative to the
       RAM the compressor would hold, and the page cache is worth more than a
       compressed swap tier.
