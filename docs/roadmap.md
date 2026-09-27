@@ -57,33 +57,7 @@ Auditoria por subsistema:
 **Entregável:** uma coluna Termux em `docs/os-and-agent-matrix.md` + uma tabela do que
 **não** migra e por quê (nada de silêncio: skip explícito).
 
-## 3. Skills de Tailscale e Cloudflared
-
-**Objetivo:** skills novas para controlar/automatizar a camada de rede:
-`tailscale status --json` / `up` / `down` / inventário de dispositivos / exit nodes e notas
-de ACL; e `cloudflared` (criar/listar túneis, `tunnel route dns`, rodar como serviço com
-credenciais 0600).
-
-- **Status 2026-09-26:** o conhecimento foi absorvido como **seção de referência**, não como
-  skill: `configs/skills/code-playbooks/references/infra.md` tem `## Tailscale` e `## Syncthing`,
-  incluindo as regras que evitam erro (exit node muda o roteamento da máquina toda → documentar e
-  reverter; nunca editar `config.xml` à mão → usar a REST API; segredo vai para arquivo de secrets
-  na máquina alvo, não para o comando). **Decisão:** não viram skill porque o catálogo é
-  carregado a cada turno nos dois runtimes, e nem `tailscale` nem `syncthing` são provisionados
-  pelo envctl (uso esporádico, ficam por fora do manifesto) — as outras 12 skills são workflow do
-  agente ou do próprio envctl. `cloudflared` segue pendente.
-
-- Onde, se `cloudflared` entrar: `configs/skills/<nome>/` + `manifests/skills.yaml` (checklist na
-  §5 da matriz) — mas reavalie o custo de catálogo antes; a alternativa é mais uma seção em
-  `references/infra.md`.
-- Hoje a camada de rede **não** tem skill; o acesso remoto existe pelo skill de SSH/ssh-manager e
-  pela referência de infra.
-- Receita que vale documentar: "expor uma porta local para o tailnet **ou** para a internet
-  com segurança, e como derrubar depois".
-- Segredos (auth key, credencial de túnel) **nunca** no repositório: documentar o armazenamento
-  em `~/.config/opencode/secrets/` (0700) ou no keyring do OS.
-
-## 4. SSH entre os OS: verificação profunda
+## 3. SSH entre os OS: verificação profunda
 
 **Objetivo:** provar com evidência que o SSH funciona em **cada direção** usada de verdade
 (Windows ↔ Linux ↔ VM/VPS ↔ celular), em vez de assumir.
@@ -99,7 +73,7 @@ Ponto de atenção: o Android mata processos em background → o `sshd` do Termu
 **Entregável:** matriz "origem → destino" com o comando exato e o resultado observado, mais a
 correção do que falhar (inclusive nos templates de `~/.ssh/config`).
 
-## 5. Provedor local controlando provedor remoto via SSH
+## 4. Provedor local controlando provedor remoto via SSH
 
 **Objetivo:** o agente na estação (opencode/commandcode) despachar trabalho para os agentes
 das outras máquinas por SSH, com evidência.
@@ -112,6 +86,28 @@ das outras máquinas por SSH, com evidência.
   (prompt de host key travando o agente, multiplexação, retry).
 - **Entregável:** um cenário de teste por par origem→destino e as correções no skill de
   dispatch e/ou no bootstrap remoto do envctl.
+
+## 5. Instalação local como serviço de background
+
+**Objetivo:** nas máquinas usadas como serviço, manter o ambiente convergido e o próprio
+envctl atualizado **sem sessão manual**: auditoria periódica e auto-update dentro de uma
+whitelist segura.
+
+- Linux: unit + timer de `systemd` (de preferência `--user`).
+- Windows: Task Scheduler (ou serviço via WinSW/NSSM) — o Day-0 já tem `bootstrap.ps1`.
+- Termux: `termux-services`/`termux-boot` (depende do item 1).
+- **Cuidados:** single-flight com lockfile (o timer não pode competir com um `run` manual),
+  logging em `~/.envctl/*.log` (já existe) e **nunca** auto-`--fix` destrutivo silencioso — o
+  serviço audita e reporta; corrige só o que estiver numa whitelist.
+- **Entregável:** arquivos de unit + um comando de instalação/remoção (ex.:
+  `envctl self-install --service`) com testes.
+- **Spec 2026-09-27:** `spec-agent/2026-09-27-envctl-service.md`. Recorte julgado
+  implementável e verificável: Linux-only, `systemd --user`, e o serviço **só audita**
+  (`doctor` → log em `~/.envctl/logs/`), sem auto-`--fix` e sem auto-update. O
+  single-flight via lockfile fica para a fase que passar a corrigir, porque é só lá que
+  dois processos que mutam podem interferir — e porque ele não existe no código ainda e
+  teria de entrar nos entrypoints de `run`/`doctor`/`update`, com risco de lock órfão.
+  Windows (Task Scheduler) e Termux (`termux-services`, depende do item 1) adiados.
 
 ## 6. Renomear o projeto para algo único
 
@@ -128,53 +124,4 @@ envctl**.
 **Sugestão:** um commit mecânico só para isso + alias/symlink de compatibilidade por uma
 release, para não quebrar máquinas já provisionadas.
 
-## 7. Instalação local como serviço de background
-
-**Objetivo:** nas máquinas usadas como serviço, manter o ambiente convergido e o próprio
-envctl atualizado **sem sessão manual**: auditoria periódica e auto-update dentro de uma
-whitelist segura.
-
-- Linux: unit + timer de `systemd` (de preferência `--user`).
-- Windows: Task Scheduler (ou serviço via WinSW/NSSM) — o Day-0 já tem `bootstrap.ps1`.
-- Termux: `termux-services`/`termux-boot` (depende do item 1).
-- **Cuidados:** single-flight com lockfile (o timer não pode competir com um `run` manual),
-  logging em `~/.envctl/*.log` (já existe) e **nunca** auto-`--fix` destrutivo silencioso — o
-  serviço audita e reporta; corrige só o que estiver numa whitelist.
-- **Entregável:** arquivos de unit + um comando de instalação/remoção (ex.:
-  `envctl self-install --service`) com testes.
-
-## 8. Agenda curta (já discutida, não bloqueia)
-
-- **CLIs extras de dev** (lazygit, `npm-check-updates`/`ncu`; avaliar `xh`, `duf`): entram no
-  manifesto de **pacotes** com `check_command` e auditoria — não na fase 0, que é só provedores.
-  **Status 2026-09-26:** `lazygit`, `lazydocker` e `duf` absorvidos do inventário CachyOS
-  (pacman, `os: arch,cachyos`); `ncu` e `xh` **descartados**, por redundância com o que a stack
-  já entrega, não por escopo:
-  - `ncu` — Node já responde "o que tem update" de forma nativa (`pnpm outdated` e `npm outdated`),
-    exatamente como Go (`go list -m -u all`) e Rust (`cargo update --dry-run`). Seria um terceiro
-    caminho para a mesma pergunta. Se um projeto `npm`-sem-`pnpm` preferir a saída dele, é
-    `npm i -g npm-check-updates` no projeto — não um item de ambiente.
-  - `xh` — mesma função de `eza`, que já está no manifesto nas três plataformas.
-- **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
-  nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
-- **`envctl update`** — **entregue 2026-09-26.** Atualiza o toolchain global que os manifestos
-  instalam por mecanismo user-local (`volta`/`npm`, `uv tool`, `go install`), aplicando sem
-  perguntar porque nada disso pede sudo e cada update é reversível. Gerenciadores de SO ficam
-  de fora de propósito: *partial upgrade* no Arch quebra o sistema. Spec completa em
-  `spec-agent/2026-09-26-envctl-update.md`.
-- ~~`ty` (Astral)~~ — **descartado 2026-09-26:** seria um terceiro type checker no mesmo
-  eixo (`pyright` já é LSP + tipos, `ruff` é da mesma casa e é lint). Se um dia `ty` entrar,
-  ele **substitui** o `pyright` ou o type checker do projeto — não se soma. O `mypy` também
-  saiu do manifesto: type checker estrito é decisão do projeto, e o `envctl-verify` só o roda
-  onde existe config `[mypy]` e binário (venv/`uv`/PATH).
-- **Windows:** validar o tipo `PSModule` (PSScriptAnalyzer + Pester). **Status 2026-09-26:** o
-  blocker deixou de ser máquina Windows — o CI já roda `windows-latest` com `go vet`, `go test` e
-  `go build`, mas **nenhum** workflow invoca PSScriptAnalyzer/Pester e o tipo `PSModule`
-  (`internal/infra/windows/tweaks_manager.go`) não tem teste. Falta escrever a validação, não
-  hardware.
-
 ---
-
-**Ordem sugerida:** 4 → 5 (SSH e dispatch remoto são a base) → 3 (skills de rede em cima
-disso) → 7 (serviço, começa a render autonomia) → 1/2 (Termux) → 6 (rename por último, quando
-o escopo parar de mudar).
