@@ -7,6 +7,39 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.10.0](https://github.com/eajdias/envctl/compare/v1.9.0...v1.10.0) (2026-09-27)
+
+
+### Features
+
+* **linux:** add declarative RAM tiers with hardware-validated boundaries ([ea88fe8](https://github.com/eajdias/envctl/commit/ea88fe84e05c33930b698a83cb63a6d6909c14db))
+* **linux:** add opt-in package removal with a needrestart guard ([90743ac](https://github.com/eajdias/envctl/commit/90743aca7649bf1fbae9dce1dd3c983e84555c7b))
+* **linux:** add the performance flag surface and the reboot precondition ([357dcb2](https://github.com/eajdias/envctl/commit/357dcb270872009fb90d91a252234cd58f503b16))
+* **linux:** add the read-only hardware probe for tier resolution ([2b4ea93](https://github.com/eajdias/envctl/commit/2b4ea939760815dc0f54310e413912f3f793c728))
+* **linux:** add the Ubuntu Server baseline with hardware-detected optimization ([c07717d](https://github.com/eajdias/envctl/commit/c07717d42786c6133fed8278d55d1a76ba49f24c))
+* **linux:** add timezone verification with opt-in enforcement ([befaec5](https://github.com/eajdias/envctl/commit/befaec58b86c5530cfb7c8eef617a6d63db897bd))
+* **linux:** adopt an existing swapfile or create a clamped one ([c2e3104](https://github.com/eajdias/envctl/commit/c2e31044d2362cbff5a2e462d24f9d0f7bf5afac))
+* **linux:** cap journald with a keep-free floor and restart, never stop ([f43813d](https://github.com/eajdias/envctl/commit/f43813dc86e897ad8fb279c78fa2130e8d04b050))
+* **linux:** gate zram on the memory tier and derive swappiness from the host ([0e44a5b](https://github.com/eajdias/envctl/commit/0e44a5b81a8096530066081bc3bca350d29fc189))
+* **linux:** move the performance release floor out of the Go constant ([80a751a](https://github.com/eajdias/envctl/commit/80a751ac22a106878cf01d9b75eec147a6bace31))
+* **linux:** raise the soft descriptor limit without touching the host hard limit ([32ad3db](https://github.com/eajdias/envctl/commit/32ad3db427f4426d228a139d74eef48e6a2ef93d))
+* **linux:** share the drop-in writer and add the min sysctl policy ([daba01d](https://github.com/eajdias/envctl/commit/daba01db14ab138920e95aa0920d66ee1f041555))
+* **update:** add envctl update for the global toolchain ([477023d](https://github.com/eajdias/envctl/commit/477023d817f494d01a499d3ed8c6c3f4e7e7b0ce))
+
+
+### Bug Fixes
+
+* **cleanup:** also remove the python-lsp-server uv tool env ([f1faccf](https://github.com/eajdias/envctl/commit/f1faccfe009727eadba09d9bae2f7865c420ac16))
+* **cli:** keep the swapfile and debloat managers wired after the rebase on main ([7ce485a](https://github.com/eajdias/envctl/commit/7ce485ac6b298627b8e363dcb34ff8310e1a749f))
+* **linux:** a pending reboot must not abort a whole-profile run ([e29e7b3](https://github.com/eajdias/envctl/commit/e29e7b3db55e90e4c00c110f08d85fbf71364f5b))
+* **linux:** keep the drop-in scratch file out of the privileged directory ([cc4cbc6](https://github.com/eajdias/envctl/commit/cc4cbc6582cd16fb7605e6d5f662ca37f1162b0a))
+* **linux:** make the swapfile priority activated, verified and achievable ([b2cfd74](https://github.com/eajdias/envctl/commit/b2cfd7476e19bd593d824801202e9c0081fa6340))
+* **linux:** report a sysctl key another drop-in decides instead of silently losing it at boot ([d5a248f](https://github.com/eajdias/envctl/commit/d5a248f463762d3ff129e20cd395c015be940bc2))
+* **linux:** resolve PATH entries with the platform-aware executable check ([b5eec61](https://github.com/eajdias/envctl/commit/b5eec61065c0ae43e553e017dbc0a6cfdef4be12))
+* **linux:** resolve toolchain binaries against the toolchain PATH before running ([73fd818](https://github.com/eajdias/envctl/commit/73fd81889f0c6e5dea5530aa24fe1102896da636))
+* **linux:** satisfy the linter across the new performance adapters ([750dbf3](https://github.com/eajdias/envctl/commit/750dbf365e9e3f03e7d0ca07f71c4d06f7c5c50c))
+* **linux:** split the statfs call so the Windows release still builds ([9101877](https://github.com/eajdias/envctl/commit/910187713d69e712e7c7eb8ffb4f721430c6bba1))
+
 ## [1.9.0](https://github.com/eajdias/envctl/compare/v1.8.1...v1.9.0) (2026-09-26)
 
 
