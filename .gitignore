@@ -50,6 +50,11 @@ PowerShellEditorServices.json
 # Local git worktrees created for parallel agent sessions
 /.worktrees/
 
+# Stray logs from tools that write into the current directory instead of a log
+# dir. The agent runbook keeps its own under ~/.envctl/logs.
+/errors.log
+*.log
+
 # OS specific
 Thumbs.db
 Desktop.ini
