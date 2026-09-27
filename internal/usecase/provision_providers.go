@@ -190,7 +190,7 @@ func (uc *ProvisionProvidersUseCase) Execute(ctx context.Context) ([]entity.Diag
 				uc.ensureProviderCLI(ctx, tool, add)
 				continue
 			}
-			if installed := uc.installedVersion(ctx, tool.binary); installed == "" {
+			if installed := installedVersion(ctx, tool.binary); installed == "" {
 				add(entity.DiagWarning, tool.name,
 					"Not installed and Volta is unavailable to install it",
 					"Install Volta, then run 'envctl run providers' again")
@@ -213,7 +213,7 @@ func (uc *ProvisionProvidersUseCase) Execute(ctx context.Context) ([]entity.Diag
 // available afterwards. Volta has no self-update command: updating it means
 // re-running its installer, which the bootstrap already does when it is absent.
 func (uc *ProvisionProvidersUseCase) ensureVolta(ctx context.Context, add func(entity.DiagnosticStatus, string, string, string)) bool {
-	if version := uc.installedVersion(ctx, "volta"); version != "" {
+	if version := installedVersion(ctx, "volta"); version != "" {
 		add(entity.DiagOK, "Volta", fmt.Sprintf("v%s available", version), "")
 		return true
 	}
@@ -282,7 +282,7 @@ func (uc *ProvisionProvidersUseCase) manifestNodeSpec() string {
 // ensureProviderCLI installs the CLI when missing and updates it when Volta owns
 // it and the registry has moved on; a tool owned by the OS is reported instead.
 func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool providerCLI, add func(entity.DiagnosticStatus, string, string, string)) {
-	installed := uc.installedVersion(ctx, tool.binary)
+	installed := installedVersion(ctx, tool.binary)
 	source := installSource(tool.binary)
 	pacmanOwns := tool.binary == "opencode" && uc.pacmanOwnsOpenCode(ctx)
 
@@ -303,7 +303,7 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 			return
 		}
 		uc.logInfo("Providers: archived user-local opencode at %s; pacman remains authoritative", backup)
-		installed = uc.installedVersion(ctx, tool.binary)
+		installed = installedVersion(ctx, tool.binary)
 		source = installSource(tool.binary)
 	}
 
@@ -335,7 +335,7 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		uc.installStandaloneProvider(ctx, tool, add, source != sourceSystem)
 
 	case tool.voltaPkg != "" && source == sourceVolta:
-		latest := uc.npmLatest(ctx, tool.voltaPkg)
+		latest := npmLatest(ctx, tool.voltaPkg)
 		if latest == "" || !versionsDiffer(installed, latest) {
 			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (Volta, current)", installed), "")
 			return
@@ -347,7 +347,7 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 				"Run 'volta install "+tool.voltaPkg+"' manually")
 			return
 		}
-		after := uc.installedVersion(ctx, tool.binary)
+		after := installedVersion(ctx, tool.binary)
 		if after == "" || after == installed {
 			// Volta's shim map can lag a beat behind its own install; never claim
 			// "updated X -> X" — report what was asked for instead.
@@ -458,7 +458,7 @@ func (uc *ProvisionProvidersUseCase) updatePacmanOpenCode(ctx context.Context, t
 			"Run 'envctl run pacman' to update opencode")
 		return
 	}
-	after := uc.installedVersion(ctx, tool.binary)
+	after := installedVersion(ctx, tool.binary)
 	if !versionMajorAtLeast(after, tool.requiredMajor) {
 		add(entity.DiagWarning, tool.name,
 			fmt.Sprintf("pacman update completed but OpenCode %s is not a verified v%d binary", printableVersion(after), tool.requiredMajor),
@@ -528,7 +528,7 @@ func (uc *ProvisionProvidersUseCase) requireStandaloneProviderVersion(ctx contex
 	if tool.requiredMajor == 0 {
 		return true
 	}
-	version := uc.installedVersion(ctx, tool.binary)
+	version := installedVersion(ctx, tool.binary)
 	if versionMajorAtLeast(version, tool.requiredMajor) {
 		return true
 	}
@@ -547,7 +547,7 @@ func printableVersion(version string) string {
 
 // installedVersion runs `<binary> --version` and reduces the output to the first
 // version-looking token (tools report "opencode v2.0.5", "1.55.1", ...).
-func (uc *ProvisionProvidersUseCase) installedVersion(ctx context.Context, binary string) string {
+func installedVersion(ctx context.Context, binary string) string {
 	resolved, err := resolveOnToolchainPath(binary)
 	if err != nil {
 		return ""
@@ -576,7 +576,7 @@ func installSource(binary string) string {
 }
 
 // npmLatest reads the "latest" dist-tag of an npm package.
-func (uc *ProvisionProvidersUseCase) npmLatest(ctx context.Context, pkg string) string {
+func npmLatest(ctx context.Context, pkg string) string {
 	out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://registry.npmjs.org/"+pkg+"/latest")
 	if err != nil {
 		return ""
@@ -615,8 +615,31 @@ func versionsDiffer(installed, latest string) bool {
 	return normalizeVersion(installed) != normalizeVersion(latest)
 }
 
+// normalizeVersion reduces a version to a comparable form: no "v" prefix, no
+// leading zeros inside numeric segments, and no build metadata.
+//
+// The zero-padding case is real, not theoretical: yt-dlp reports
+// "2026.08.19" from --version while `uv tool list` reports "v2026.8.19" for the
+// same release. Comparing the raw strings would report a difference and run an
+// update that changes nothing.
 func normalizeVersion(version string) string {
-	return strings.TrimPrefix(strings.TrimSpace(version), "v")
+	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if idx := strings.IndexAny(v, "+"); idx > 0 {
+		v = v[:idx]
+	}
+	if !strings.Contains(v, ".") {
+		return v
+	}
+	segments := strings.Split(v, ".")
+	for i, segment := range segments {
+		trimmed := strings.TrimLeft(segment, "0")
+		if trimmed == "" && segment != "" {
+			// A segment of only zeros is zero, not empty.
+			trimmed = "0"
+		}
+		segments[i] = trimmed
+	}
+	return strings.Join(segments, ".")
 }
 
 // Install sources. These are stable identifiers compared against in code; use

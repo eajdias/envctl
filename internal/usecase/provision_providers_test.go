@@ -133,8 +133,7 @@ func TestInstalledVersionResolvesVoltaShim(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("PATH", "/usr/bin:/bin")
 
-	uc := &ProvisionProvidersUseCase{}
-	if got := uc.installedVersion(context.Background(), "fakecli"); got != "9.9.9" {
+	if got := installedVersion(context.Background(), "fakecli"); got != "9.9.9" {
 		t.Errorf("installedVersion(fakecli) = %q, want %q (shim invisible on process PATH, visible on toolchain PATH)", got, "9.9.9")
 	}
 	if got := installSource("fakecli"); got != sourceVolta {
