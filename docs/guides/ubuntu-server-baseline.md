@@ -312,7 +312,6 @@ Verificar em caixa zerada: `envctl run all` e então `envctl doctor`, esperando
 
 ## Unknowns que ficam para o dono
 
-- **`zscan_proxy_prod` não autentica** — 9 de 10 máquinas verificadas.
 - **Não existe VPS de 4 GB nem de 8 GB** — os bands `small` e `medium` são
   derivados, declarados como tal no manifesto.
 - **`nofile` soft em 65536** é risco documentado (`select(2)`), não testado
