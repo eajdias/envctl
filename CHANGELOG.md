@@ -42,6 +42,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   doctor reportar convergência inexistente. A sonda emite tokens (nunca paths),
   recusa token desconhecido, escapa o nome para `-Name` (que é wildcard no
   provider de registro) e trata sonda parcial como erro.
+- `envctl update`: mantém o toolchain global atual (globals `volta`/`npm`, `uv tool` de
+  Python, `go install`), aplicando sem perguntar — nada disso pede sudo e cada update é
+  reversível. `--dry-run` faz o preview, `--only` filtra por grupo e `--list` mostra o
+  inventário sem tocar a rede. Gerenciadores de SO (`pacman`/`apt`/`winget`) nunca são
+  automatizados: atualizar um subconjunto via `pacman -S` é *partial upgrade*, que o Arch
+  proíbe. Spec em `spec-agent/2026-09-26-envctl-update.md`.
 
 ### Corrigido
 

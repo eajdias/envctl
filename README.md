@@ -68,6 +68,9 @@ envctl doctor
 # Auto-remediação automática de qualquer divergência
 envctl doctor --fix
 
+# Atualiza o toolchain global (globals volta/npm, uv tool de Python, go install)
+envctl update            # aplica direto; --dry-run faz o preview, --list só inventaria
+
 # Provisionamento granular por subsistema
 envctl run providers    # Fase 0: Volta, Node e os CLIs OpenCode/CommandCode prontos e atuais
 envctl run winget       # Pacotes Winget (Windows)

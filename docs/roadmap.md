@@ -157,6 +157,11 @@ whitelist segura.
   - `xh` — mesma função de `eza`, que já está no manifesto nas três plataformas.
 - **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
   nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
+- **`envctl update`** — **entregue 2026-09-26.** Atualiza o toolchain global que os manifestos
+  instalam por mecanismo user-local (`volta`/`npm`, `uv tool`, `go install`), aplicando sem
+  perguntar porque nada disso pede sudo e cada update é reversível. Gerenciadores de SO ficam
+  de fora de propósito: *partial upgrade* no Arch quebra o sistema. Spec completa em
+  `spec-agent/2026-09-26-envctl-update.md`.
 - ~~`ty` (Astral)~~ — **descartado 2026-09-26:** seria um terceiro type checker no mesmo
   eixo (`pyright` já é LSP + tipos, `ruff` é da mesma casa e é lint). Se um dia `ty` entrar,
   ele **substitui** o `pyright` ou o type checker do projeto — não se soma. O `mypy` também

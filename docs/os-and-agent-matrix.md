@@ -36,6 +36,8 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat no perfil **`run windows`** (94 em `debloat.yaml`: 12 telemetria + 12 privacidade + 12 gaming-win + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4 startup entries; Tier 3 manual em `docs/guides/windows-debloat-tier3.md`) | — | — |
 | Gaming (`run gaming`) | — | — | pacman + paru (44 pkgs: `cachyos-settings` + ruleset do ananicy, Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, quarteto X11) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
+| Atualização de toolchain (`envctl update`) | `volta`/`npm` globals · `uv tool` (Python) · `go install` — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `go install` (sem `volta` no servidor) | idem desktop |
+| — | **Gerenciadores de SO nunca automatizados**: atualizar subconjunto via `pacman -S` é *partial upgrade*, que o Arch proíbe; `apt`/`winget` seguem o update do SO |
 | Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
 **Escopo por subsistema:** `run winget`/`run tweaks`/`run debloat` são Windows-only; `run apt` é
