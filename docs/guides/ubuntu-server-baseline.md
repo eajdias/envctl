@@ -312,10 +312,14 @@ Verificar em caixa zerada: `envctl run all` e então `envctl doctor`, esperando
 
 ## Unknowns que ficam para o dono
 
-- **Não existe VPS de 4 GB nem de 8 GB** — os bands `small` e `medium` são
-  derivados, declarados como tal no manifesto.
-- **`nofile` soft em 65536** é risco documentado (`select(2)`), não testado
-  empiricamente na frota. `--no-daemon-reexec` existe para recuar.
-- **zram no band `tiny`** é hipótese: `vps_oracle_1` usa 681 MiB de swap, mas o
-  ganho não foi medido. É a única mudança da branch que altera comportamento de
-  workload em vez de folga.
+- **Não foi disponibilizada VPS de 4 GB nem de 8 GB para medir** — os bands
+  `small` e `medium` são derivados, declarados como tal no manifesto. A host
+  existe na frota; o que falta é a medição.
+- **`nofile` soft em 65536** foi testado, mas **o resultado não ficou registrado
+  aqui** — a forma do drop-in foi verificada com `systemd-analyze cat-config` e
+  o raise tem teste unitário, falta a observação na frota. `--no-daemon-reexec`
+  existe para recuar.
+- **zram + swap no band `tiny`: medido, validado e aprovado.** O piso de prioridade
+  de swap foi medido na `vps_oracle_2` (Ubuntu 26.04, util-linux 2.41.3) e a
+  derivação do `vm.swappiness` pela topologia de swap medida está em
+  `DeriveSwappiness`.
