@@ -3,7 +3,9 @@
 **Data:** 2026-09-26
 **Escopo aprovado:** atualizar o **toolchain global** que o envctl provisiona (não as dependências
 do projeto, não pacotes do SO).
-**Default aprovado:** *report-only*, com **oferta** de atualizar quando houver algo desatualizado.
+**Default aprovado:** **aplica direto, sem perguntar.** As três stacks são user-local, sem sudo e
+reversíveis, então automatizar é seguro; `--dry-run` é o preview. Gerenciadores de SO nunca são
+automatizados.
 
 ---
 
@@ -48,47 +50,34 @@ vez de silenciar.
 ## 4. Comportamento
 
 ```
-envctl update                 # report-only; se houver update e houver TTY, oferece
-envctl update --apply         # aplica sem perguntar (para script/CI)
+envctl update                 # aplica as atualizações de Node/Python/Go, sem perguntar
 envctl update --dry-run       # imprime o comando exato de cada update, não executa
 envctl update --only volta    # filtra por grupo (volta|uv|go)
 envctl update --list          # só o inventário, sem consultar latest
 ```
 
-### Fase 1 — report (sempre, sem efeito colateral)
-Para cada tool elegível: `installed` → `available`, agrupado, com o comando que faria a
-mudança. Reaproveita `installedVersion()` e `npmLatest()` (já existem em
+**Sem fase de prompt.** As três stacks são user-local (sem `sudo`, sem tocar `/etc`, sem
+bootloader) e cada update é unitário e reversível — a versão anterior fica registrada no report.
+Por isso o default aplica direto. A linha que protege contra automação destrutiva continua valendo
+para o **SO**, que está fora do inventário.
+
+### Fase 1 — inventário
+Para cada tool elegível: `installed` → `available`, agrupado, com o comando que faria a mudança.
+Reaproveita `installedVersion()` e `npmLatest()` (já existem em
 `provision_providers.go:548` e `:579`).
 
-### Fase 2 — offer (default, só com TTY)
-Se houver algo desatualizado **e** stdout for um terminal, oferece o update. Uma pergunta por
-grupo, não por tool:
-
-```
-3 tools desatualizados:
-  typescript        5.4.2 -> 5.9.2   (volta install typescript@latest)
-  pytest            8.0.0 -> 9.1.1    (uv tool upgrade pytest)
-  gopls             0.14.0 -> 0.21.0  (go install golang.org/x/tools/gopls@latest)
-Atualizar? [y/N/q]
-```
-
-- `y` aplica · `N` não · `q` sai
-- **Sem TTY (pipe, CI, `nohup`): não pergunta, não trava.** Reporta e sai com código 0, com hint
-  para `--apply`. Isso é requisito, não convenience: um update que trava em CI é pior que um
-  update que não roda.
-
-### Fase 3 — apply
+### Fase 2 — apply
 Executa pelo mesmo `runWithToolchain()` que o resto do projeto usa (mesmo PATH resolvido, mesma
 captura de output). Confirma o resultado: **re-checa a versão depois** e reporta `installed ->
 agora` ou a falha com o comando para rodar à mão. Um update que falha em silêncio é pior que
-não tentar.
+não tentar. **Uma tool que falha não interrompe as outras** — cada update é unitário.
 
 ## 5. Arquivos afetados
 
 | arquivo | mudança |
 |---|---|
 | `internal/usecase/update.go` | novo — `UpdateUseCase`, relatório por grupo, offer/apply |
-| `internal/usecase/update_test.go` | novo — TDD por grupo, dry-run, sem-TTY, falha |
+| `internal/usecase/update_test.go` | novo — TDD por grupo, dry-run, latest indisponível, falha isolada |
 | `internal/ui/cli/update.go` | novo — comando cobra + flags |
 | `internal/usecase/app_context.go` | novo wiring no container |
 | `internal/usecase/doctor_audit.go` | **só** se reutilizar helper; sem check novo (update não é estado de saúde) |
@@ -105,10 +94,10 @@ pinada; "latest" é sempre consultado na hora.
 
 | risco | guard |
 |---|---|
-| update de tool quebra o gate (ex.: `golangci-lint` novo mais estrito) | `golangci-lint` **fora** do inventário (seu instalador é `curl \| sh`); e `--apply` roda `envctl-verify` no repo atual depois, como smoke |
+| update de tool quebra o gate (ex.: `golangci-lint` novo mais estrito) | `golangci-lint` **fora** do inventário (seu instalador e `curl \| sh`); quem roda o gate e o `envctl-verify` |
 | partial upgrade no Arch | ferramentas de `pacman` fora do escopo, escrito no `--help` e no report |
-| travar em CI | sem TTY ⇒ sem prompt, report-only, exit 0 |
-| rede caiu ao consultar latest | `npmLatest()` já devolve `""` ⇒ linha vira "latest desconhecido", nunca "atualizado" |
+| aplicar sem perguntar em script/CI | e o default **e** e seguro: as tres stacks sao user-local, sem sudo, unitarias e reversiveis. O que e destrutivo (SO) e justamente o que nao entra |
+| rede caiu ao consultar latest | `npmLatest()` ja devolve `""` => a linha vira "latest desconhecido" e **nada e atualizado** |
 | `volta install pkg@latest` re-resolve e muda a toolchain inteira | usar o mesmo `runWithToolchain`/`ensureProviderCLI` que a fase 0 já usa, sem inventar caminho novo |
 | tool some do manifesto entre check e apply | reler o manifesto no apply e casar por `install_target`, não por índice |
 
@@ -116,7 +105,7 @@ pinada; "latest" é sempre consultado na hora.
 
 - Cada update é **unitário por tool**: se `uv tool upgrade pytest` falhar, nada mais é tocado, e o
   comando anterior fica no lugar (uv guarda a versão anterior em `~/.local/share/uv/tools/`).
-- Report-only é o default, então o caso comum não tem rollback a fazer.
+- `--dry-run` é o preview; sem ele o default aplica, e o report sempre mostra a versão anterior.
 - Reverter de propósito: `volta install <pkg>@<versão-anterior>` (o report mostra a versão
   anterior, então ela fica registrada) ou `uv tool install <tool>==<versão-anterior>`.
 
@@ -125,7 +114,7 @@ pinada; "latest" é sempre consultado na hora.
 TDD, um comportamento por vez:
 
 ```sh
-go test ./internal/usecase/ -run TestUpdate -v     # dry-run não executa; sem TTY não pergunta
+go test ./internal/usecase/ -run TestUpdate -v     # dry-run não executa; OS nunca entra no inventário
 go build ./... && go vet ./... && go test ./...
 golangci-lint run --new-from-rev=origin/main
 bash configs/bin/envctl-verify --git-push
@@ -134,7 +123,7 @@ bash configs/bin/envctl-verify --git-push
 Testes que **precisam** existir, porque cobrem os guards:
 
 1. `--dry-run` imprime o comando e não muda nada (comparar versão antes/depois)
-2. sem TTY ⇒ **não** pergunta e **não** trava (o teste que impede o bug de CI)
+2. o caminho de apply **não tem prompt** (o default aplica; nada no código pergunta)
 3. latest indisponível ⇒ linha "desconhecido", nunca "atualizado"
 4. falha no apply ⇒ as outras tools do grupo continuam como estavam
 5. `pacman`/`apt`/`winget` **nunca** aparecem no inventário (o guard do Arch)
@@ -144,5 +133,5 @@ Testes que **precisam** existir, porque cobrem os guards:
 
 1. `--list` (inventário puro, sem rede) — mostra o terreno e já é útil
 2. fase 1 report (rede, sem efeito)
-3. `--apply` por grupo, um grupo por vez
+3. apply por grupo, um grupo por vez
 4. offer interativo por último (o que tem CI é o resto)
