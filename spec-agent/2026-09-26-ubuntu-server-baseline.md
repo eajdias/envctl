@@ -37,7 +37,6 @@ document, not inferred. Host of record: `vps_oracle_2` (Ubuntu 26.04, kernel
 | `rpcbind` has an installed reverse-dependency (`nfs-common`) | `apt-cache rdepends --installed rpcbind` |
 | Of the VPS-init debloat list only `modemmanager` and `rpcbind` exist on a cloud image; `fwupd`/`udisks2` are installed on 3/3 and are absent from that list | measured on 3 hosts |
 | `vps_oracle_2` has `/var/run/reboot-required` | measured |
-| `zscan_proxy_prod` fails authentication → 9/10 of the fleet is verifiable | `ssh-manager` |
 
 ## Non-goals
 
@@ -1037,11 +1036,6 @@ Never create a tag or a release; release-please owns those.
 | A host is neither OCI nor AWS and lands on a filesystem with no `fallocate` | low | medium | filesystem allowlist with a `findmnt` fallback; denied types report `DiagInfo` and change nothing |
 
 ## Unknowns
-
-- **`zscan_proxy_prod` cannot authenticate**, so 9 of 10 fleet members are verified. If that
-  host is a different shape or filesystem, the tier and filesystem branches are untested
-  against it. Owner: the user. Next step: repair the key in `~/.ssh-manager/.env` and re-run
-  the Task 1 Step 5 probe command. Not blocking — the design detects rather than assumes.
 - **No 4 GB or 8 GB host exists in the fleet**, so the `small` and `medium` tier rows are
   derived rather than measured. Owner: the user, if one of those sizes is added later; the
   rows are marked in the manifest, so no one mistakes them for measurements.
