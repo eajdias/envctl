@@ -691,11 +691,19 @@ func fzfHasWalker(version string) bool {
 	return major > 0 || minor >= 47
 }
 
-// goPathDoneCheck exits 0 when the shell profiles already carry the Go PATH, so
+// goPathDoneCheck exits 0 only when goPathInstaller would change nothing, so
 // configStep can report "already present" instead of running a write that its
 // own grep would turn into a no-op.
+//
+// Every condition is the negation of the installer's matching guard, per
+// profile. The `command -v fish` line is the one that is easy to get backwards:
+// without fish there is no fish config to write, so it exits 0 — but only after
+// the POSIX profiles are known to be done. Exiting 0 there instead makes a host
+// without fish report "already present" on a profile that has no Go PATH yet,
+// and the write never happens. That is the same lying label configStep exists to
+// remove, so the ordering is load-bearing and the test covers both hosts.
 const goPathDoneCheck = `for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  [ -f "$f" ] && grep -q "/usr/local/go/bin" "$f" && exit 0
+  [ -f "$f" ] && grep -q "/usr/local/go/bin" "$f" || exit 1
 done
 command -v fish >/dev/null 2>&1 || exit 0
 F="$HOME/.config/fish/config.fish"
