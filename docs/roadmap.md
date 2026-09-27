@@ -147,8 +147,14 @@ whitelist segura.
 
 - **CLIs extras de dev** (lazygit, `npm-check-updates`/`ncu`; avaliar `xh`, `duf`): entram no
   manifesto de **pacotes** com `check_command` e auditoria — não na fase 0, que é só provedores.
-  **Status 2026-09-24:** `lazygit`, `lazydocker` e `duf` absorvidos do inventário CachyOS
-  (pacman, `os: arch,cachyos`); `ncu`/`xh` seguem pendentes.
+  **Status 2026-09-26:** `lazygit`, `lazydocker` e `duf` absorvidos do inventário CachyOS
+  (pacman, `os: arch,cachyos`); `ncu` e `xh` **descartados**, por redundância com o que a stack
+  já entrega, não por escopo:
+  - `ncu` — Node já responde "o que tem update" de forma nativa (`pnpm outdated` e `npm outdated`),
+    exatamente como Go (`go list -m -u all`) e Rust (`cargo update --dry-run`). Seria um terceiro
+    caminho para a mesma pergunta. Se um projeto `npm`-sem-`pnpm` preferir a saída dele, é
+    `npm i -g npm-check-updates` no projeto — não um item de ambiente.
+  - `xh` — mesma função de `eza`, que já está no manifesto nas três plataformas.
 - **Skills por banco** (PostgreSQL/pgvector, MySQL, Redis, SQLite): decisão registrada —
   nenhum cliente/CLI global; cada banco ganha a sua skill quando aparecer a necessidade.
 - ~~`ty` (Astral)~~ — **descartado 2026-09-26:** seria um terceiro type checker no mesmo
