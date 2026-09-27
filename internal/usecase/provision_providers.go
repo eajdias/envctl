@@ -64,41 +64,74 @@ func toolchainEnv() []string {
 // runWithToolchain runs a command against the toolchain PATH and returns its
 // trimmed combined output.
 func runWithToolchain(ctx context.Context, name string, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = toolchainEnv()
+	return runWithToolchainEnv(ctx, toolchainEnv(), name, args...)
+}
+
+// runWithToolchainEnv is the testable core: it resolves the binary against the
+// PATH declared in the supplied environment and runs it with that environment.
+//
+// Resolving first is not optional. exec.Command resolves the binary against the
+// PROCESS PATH at construction time, so assigning cmd.Env afterwards never
+// affects which executable runs. A non-login shell (ssh, systemd, an agent) has
+// a minimal process PATH, so a tool the profile had just installed into
+// ~/.volta/bin was reported as "executable file not found in $PATH". That made
+// the Node runtime and the CommandCode CLI fail on a freshly provisioned VPS and
+// forced a second `run all` to converge.
+func runWithToolchainEnv(ctx context.Context, env []string, name string, args ...string) (string, error) {
+	// Fall back to the bare name so a genuinely absent tool still produces the
+	// familiar error from exec, naming the binary the operator expects.
+	resolved := name
+	if path, err := lookPathInEnv(name, pathValueFromEnv(env)); err == nil {
+		resolved = path
+	}
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err
 }
 
-// resolveOnToolchainPath mirrors toolchain.lookPathWithEnv against the PATH
-// built by toolchainEnv(), so probes see what execution sees (non-login
-// shells have a minimal process PATH; the toolchain PATH prepends
-// ~/.local/bin, ~/.volta/bin, /usr/local/go/bin, ~/go/bin).
-func resolveOnToolchainPath(name string) (string, error) {
-	env := toolchainEnv()
-	path := ""
+// pathValueFromEnv returns the PATH declared in env, or "" when there is none.
+func pathValueFromEnv(env []string) string {
 	for _, kv := range env {
 		if v, ok := strings.CutPrefix(kv, "PATH="); ok {
-			path = v
-			break
+			return v
 		}
 	}
-	if path == "" {
-		return exec.LookPath(name)
+	return ""
+}
+
+// lookPathInEnv resolves a bare command name against an explicit PATH value,
+// mirroring exec.LookPath. An empty PATH is an explicit miss, not a reason to
+// fall back to the process PATH.
+func lookPathInEnv(name, pathValue string) (string, error) {
+	if pathValue == "" {
+		return "", fmt.Errorf("environment declares no PATH")
 	}
 	if filepath.IsAbs(name) {
 		return name, nil
 	}
-	for _, dir := range filepath.SplitList(path) {
+	for _, dir := range filepath.SplitList(pathValue) {
 		if dir == "" {
 			dir = "."
 		}
 		candidate := filepath.Join(dir, name)
-		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() && fi.Mode()&0111 != 0 {
+		if isExecutableFile(candidate) {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf("executable %q not found on toolchain PATH", name)
+	return "", fmt.Errorf("%s not found in PATH", name)
+}
+
+// resolveOnToolchainPath resolves against the PATH built by toolchainEnv(), so
+// probes see what execution sees. It shares lookPathInEnv with the runner, which
+// matters: a probe and the command it guards must resolve a tool identically or
+// the probe reports a tool as absent while the command could have run it.
+func resolveOnToolchainPath(name string) (string, error) {
+	pathValue := pathValueFromEnv(toolchainEnv())
+	if pathValue == "" {
+		return exec.LookPath(name)
+	}
+	return lookPathInEnv(name, pathValue)
 }
 
 // openCodeLinuxV2Installer installs the official OpenCode V2 channel. The
@@ -249,9 +282,7 @@ func (uc *ProvisionProvidersUseCase) ensureNodeRuntime(ctx context.Context, add 
 	if spec == "" {
 		return
 	}
-	cmd := exec.CommandContext(ctx, "volta", "which", "node")
-	cmd.Env = toolchainEnv()
-	if cmd.Run() == nil {
+	if _, err := runWithToolchain(ctx, "volta", "which", "node"); err == nil {
 		return
 	}
 	uc.logInfo("Providers: installing the default Node runtime (%s)", spec)

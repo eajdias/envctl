@@ -18,6 +18,46 @@ type ZRAMManager interface {
 	Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnostic, error)
 }
 
+// HardwareProbe returns the detected, read-only description of the host. A
+// missing source is reported as a zero value, never as an error: the caller
+// resolves policy against what could be measured.
+type HardwareProbe interface {
+	Snapshot(ctx context.Context) entity.HardwareState
+}
+
+// TimezoneManager reports the host timezone and, only when explicitly asked to,
+// sets it. The default policy is verification.
+type TimezoneManager interface {
+	Current(ctx context.Context) (string, error)
+	Apply(ctx context.Context, spec entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
+// JournaldManager installs the journald size drop-in. It restarts the service
+// rather than stopping it: man 8 systemd-journald documents that a restart
+// preserves the client streams and that stopping is not recommended.
+type JournaldManager interface {
+	Apply(ctx context.Context, spec entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
+// ResourceLimitsManager installs the systemd and PAM limit drop-ins. It may
+// re-execute the service manager, which is the only privileged PID 1 operation
+// in this package and is opt-out.
+type ResourceLimitsManager interface {
+	Apply(ctx context.Context, spec entity.LimitsSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
+// SwapManager adopts an existing swap device or creates one. Adoption must be a
+// complete no-op: a device the tool did not create is reported and left alone.
+type SwapManager interface {
+	Ensure(ctx context.Context, spec entity.SwapSpec, hw entity.HardwareState, dryRun bool) ([]entity.Diagnostic, error)
+}
+
+// LinuxDebloatManager removes declared packages after installing the guard
+// that stops a package change from restarting services under the operator.
+type LinuxDebloatManager interface {
+	Apply(ctx context.Context, spec entity.DebloatSpec, dryRun bool) ([]entity.Diagnostic, error)
+}
+
 // PerformanceInspector returns read-only Linux performance state. Missing
 // probes are represented by zero values/empty slices and never mutate the host.
 type PerformanceInspector interface {

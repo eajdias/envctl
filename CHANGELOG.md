@@ -157,6 +157,88 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Features
+
+* **linux:** add the `ubuntu-server` performance baseline with hardware-detected
+  optimization. The profile identity no longer encodes a version (the fleet runs
+  26.04, so `ubuntu-server` with `min_distro_version: "24.04"` in the manifest
+  replaces `ubuntu-24.04`), a read-only hardware probe feeds declarative memory
+  tiers, and the profile now converges a host on swap, journald, file-descriptor
+  limits and the timezone. Package removal is opt-in via `--allow-debloat`.
+* **linux:** an umbrella run (`run all`, `run vps`, `run cachyos`) now reports a
+  pending reboot and continues, instead of aborting. A pending kernel update is
+  the norm on a long-lived server, and the phases after the performance one are
+  valid regardless; aborting made those servers impossible to bootstrap. The
+  dedicated `run performance` command still refuses, and `--force-reboot-pending`
+  still overrides. Found by running `run all` on a host with three pending kernel
+  images: the run died at the performance phase and phases 5-7 never ran.
+* **linux:** the swapfile priority is now activated, verified and achievable.
+  Three defects, all invisible until the creation path ran on a real host
+  (`vps_oracle_2`), which it had never done because every fleet box already had a
+  swapfile to adopt: (1) `swapon` was called without `-p`, so the live device sat
+  at the kernel default of -1 while fstab said -2; (2) the profile's own file was
+  adopted with the reason "not created by envctl, so it is left untouched", which
+  is false for a file envctl created, and its priority was never reconciled;
+  (3) the manifest declared `priority: -2`, and measured on Ubuntu 26.04 with
+  util-linux 2.41.3 the kernel's floor is -1 — 0, -1, 1 and 100 are stored as
+  asked, -2 and -5 both come back as -1, and `swapon` exits 0 when it clamps. The
+  manifest now declares the floor, the activation passes `-p`, the profile's own
+  unused file is re-activated when its priority drifts, and every activation reads
+  the priority back from `/proc/swaps` and reports a mismatch instead of claiming
+  success. A device holding pages is reported rather than deactivated, because
+  swapping 100 MiB into 600 MiB of RAM to fix a number is a bad trade.
+* **linux:** a sysctl key another drop-in decides is reported, not overwritten,
+  and the audit now verifies the keys the profile pins. Rebooting a real host
+  showed `vm.swappiness` silently reverting from the derived 150 to 10: the fleet
+  ships `/etc/sysctl.d/99-swappiness.conf`, written by the cloud agent, and
+  `systemd-sysctl` sorts every file by basename in lexicographic order, so a
+  `99-` file wins over the profile's `90-`. The profile wrote its own value, set
+  it live, and the next boot restored the host's with nothing reported anywhere.
+  The run now yields the key, names the file, and stops claiming the value in its
+  own drop-in; the audit compares the profile's intent against the resolved
+  drop-ins, so a key that satisfies the running kernel but not the next boot is
+  reported. Found by rebooting `vps_oracle_2`, whose doctor reported zero
+  warnings while the derived value was not in effect.
+* **linux:** resolve a toolchain binary against the toolchain PATH before
+  running it. `exec.Command` resolves against the PROCESS PATH when the command
+  is constructed, so assigning `cmd.Env` afterwards never affected which
+  executable ran. On a non-login shell (ssh, systemd, an agent) that PATH is
+  minimal, so the Node runtime and the CommandCode CLI were reported as
+  "executable file not found in $PATH" on a freshly provisioned VPS even though
+  the same run had just installed Volta into `~/.volta/bin`. A greenfield
+  `run all` now converges in one pass instead of two.
+* **linux:** raise the soft file-descriptor limit without pinning the host's hard
+  limit. The systemd drop-in writes `DefaultLimitNOFILE=65536:`, a form verified
+  to parse cleanly and to leave each host's own ceiling intact; the Oracle hosts
+  report 524288 and the AWS host 1048576.
+* **linux:** cap journald with a `SystemKeepFree` floor and restart the service
+  rather than stopping it, which `man 8 systemd-journald` documents as the only
+  safe verb.
+
+### Bug fixes
+
+* **linux:** stop deriving `vm.swappiness` from a pinned manifest value. The
+  profile installed `systemd-zram-generator` while declaring `10`, telling the
+  kernel not to use the device it had just created. The value is now derived from
+  the measured swap topology: 150 with compressed RAM swap active, 10 when the
+  only swap is on disk.
+* **linux:** add a `min` sysctl policy so a declared value can act as a floor.
+  `fs.file-max` is now `policy: min`, because both clouds ship it at the int64
+  ceiling and the previous manifest wrote `2097152` over it while reporting
+  success.
+
+### Breaking changes
+
+* `run all` on a Linux host that is not Ubuntu Server `>= 24.04` now exits
+  non-zero instead of warning and continuing. The owner declared Ubuntu Server 24+
+  as the only server target.
+* `ManifestRepository` gains `ListPerformanceProfiles` and
+  `LoadLinuxDebloatSpec`; the compiler enumerates every implementation and test
+  double that needs updating.
+* `run performance` gains `--no-daemon-reexec`, `--timezone`, `--allow-debloat`,
+  `--debloat-only` and `--force-reboot-pending`. No existing flag changed.
+
+
 - **Changed**: the release PR no longer waits for a maintainer to click "approve workflow". GitHub treats the release-please bot as an outside collaborator, so its `pull_request` run sat at `action_required` and every release needed a human. The CI pipeline now also runs on `push` to `release-please--**` — a push run needs no approval, and branch protection only requires that the checks reported on the head SHA — while the bot's `pull_request` run is not created at all, via `paths-ignore` on the two files it generates. Verified empirically on a throwaway `release-please--*` branch: Lint + Test on ubuntu and windows all green, no approval step.
 - **Removed**: the release pipeline no longer builds or ships darwin binaries. `release.yml` had a
   `# 3. Darwin amd64 & arm64` section feeding `envctl-darwin-amd64`, `envctl-darwin-arm64` and their tarballs into

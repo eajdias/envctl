@@ -203,23 +203,45 @@ func (m *manifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) 
 	return manifest.Tweaks, nil
 }
 
+const linuxDebloatManifest = "debloat_linux.yaml"
+
 type performanceManifest struct {
-	Profile  entity.PerformanceProfile `yaml:"profile"`
-	Packages []entity.Package          `yaml:"packages"`
-	Sysctls  []entity.SysctlSetting    `yaml:"sysctls"`
+	Profile entity.PerformanceProfile `yaml:"profile"`
+	// MinDistroVersion is the release floor. It is manifest data so raising
+	// the floor never requires a code change, and so a profile identity never
+	// has to encode a version the fleet has already moved past.
+	MinDistroVersion string                   `yaml:"min_distro_version,omitempty"`
+	Packages         []entity.Package         `yaml:"packages"`
+	Sysctls          []entity.SysctlSetting   `yaml:"sysctls"`
+	Tiers            []entity.PerformanceTier `yaml:"tiers,omitempty"`
+	Timezone         *entity.TimezoneSpec     `yaml:"timezone,omitempty"`
+	Journald         *entity.JournaldSpec     `yaml:"journald,omitempty"`
+	Limits           *entity.LimitsSpec       `yaml:"limits,omitempty"`
+	ZRAM             *entity.ZRAMSpec         `yaml:"zram,omitempty"`
+	Swap             *entity.SwapSpec         `yaml:"swap,omitempty"`
+	Debloat          *entity.DebloatSpec      `yaml:"debloat,omitempty"`
 }
 
-func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
-	filename := ""
-	switch profile {
-	case entity.PerformanceProfileUbuntu:
-		filename = "performance_ubuntu.yaml"
-	case entity.PerformanceProfileCachyOS:
-		filename = "performance_cachyos.yaml"
-	default:
-		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
-	}
+// performanceManifests is the single profile -> file map plus a deterministic
+// discovery order, so ListPerformanceProfiles never depends on map iteration.
+var performanceManifests = []struct {
+	Profile entity.PerformanceProfile
+	File    string
+}{
+	{entity.PerformanceProfileUbuntuServer, "performance_ubuntu.yaml"},
+	{entity.PerformanceProfileCachyOS, "performance_cachyos.yaml"},
+}
 
+func performanceManifestFile(profile entity.PerformanceProfile) (string, bool) {
+	for _, entry := range performanceManifests {
+		if entry.Profile == profile {
+			return entry.File, true
+		}
+	}
+	return "", false
+}
+
+func (m *manifestRepository) parsePerformanceManifest(filename string, expected entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	data, err := m.readManifestFile(filename)
 	if err != nil {
 		return entity.PerformanceSpec{}, err
@@ -228,17 +250,83 @@ func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfi
 	if err := yaml.Unmarshal(data, &manifest); err != nil {
 		return entity.PerformanceSpec{}, fmt.Errorf("failed to parse %s: %w", filename, err)
 	}
-	if manifest.Profile != profile {
-		return entity.PerformanceSpec{}, fmt.Errorf("%s declares profile %q, expected %q", filename, manifest.Profile, profile)
+	if manifest.Profile != expected {
+		return entity.PerformanceSpec{}, fmt.Errorf("%s declares profile %q, expected %q", filename, manifest.Profile, expected)
 	}
-	if profile == entity.PerformanceProfileCachyOS && len(manifest.Sysctls) > 0 {
+	if expected == entity.PerformanceProfileCachyOS && len(manifest.Sysctls) > 0 {
 		return entity.PerformanceSpec{}, fmt.Errorf("%s cannot declare sysctls for the CachyOS profile", filename)
 	}
+	// Tiers are only validated when a profile declares them. The CachyOS
+	// profile deliberately has none: its zram is unconditional, so a band list
+	// would imply a memory policy it does not have.
+	if len(manifest.Tiers) > 0 {
+		if err := entity.ValidatePerformanceTiers(manifest.Tiers); err != nil {
+			return entity.PerformanceSpec{}, fmt.Errorf("%s: %w", filename, err)
+		}
+	}
 	return entity.PerformanceSpec{
-		Profile:  manifest.Profile,
-		Packages: manifest.Packages,
-		Sysctls:  manifest.Sysctls,
+		Profile:          manifest.Profile,
+		MinDistroVersion: manifest.MinDistroVersion,
+		Packages:         manifest.Packages,
+		Sysctls:          manifest.Sysctls,
+		Tiers:            manifest.Tiers,
+		Timezone:         manifest.Timezone,
+		Journald:         manifest.Journald,
+		Limits:           manifest.Limits,
+		ZRAM:             manifest.ZRAM,
+		Swap:             manifest.Swap,
+		Debloat:          manifest.Debloat,
 	}, nil
+}
+
+func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+	filename, ok := performanceManifestFile(profile)
+	if !ok {
+		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
+	}
+	return m.parsePerformanceManifest(filename, profile)
+}
+
+// LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
+func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+	data, err := m.readManifestFile(linuxDebloatManifest)
+	if err != nil {
+		return entity.DebloatSpec{}, err
+	}
+	var manifest struct {
+		NeedrestartDropin string                  `yaml:"needrestart_dropin"`
+		Removals          []entity.PackageRemoval `yaml:"removals"`
+		Version           string                  `yaml:"version"`
+	}
+	if err := yaml.Unmarshal(data, &manifest); err != nil {
+		return entity.DebloatSpec{}, fmt.Errorf("failed to parse %s: %w", linuxDebloatManifest, err)
+	}
+	spec := entity.DebloatSpec{
+		NeedrestartDropin: manifest.NeedrestartDropin,
+		Removals:          manifest.Removals,
+	}
+	if err := entity.ValidateDebloatSpec(spec); err != nil {
+		return entity.DebloatSpec{}, fmt.Errorf("%s: %w", linuxDebloatManifest, err)
+	}
+	return spec, nil
+}
+
+// ListPerformanceProfiles reports every shipped profile with the release floor
+// its manifest declares, so the CLI can select one without knowing a version.
+func (m *manifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
+	metas := make([]entity.PerformanceProfileMeta, 0, len(performanceManifests))
+	for _, entry := range performanceManifests {
+		spec, err := m.parsePerformanceManifest(entry.File, entry.Profile)
+		if err != nil {
+			return nil, err
+		}
+		metas = append(metas, entity.PerformanceProfileMeta{
+			Profile:          spec.Profile,
+			MinDistroVersion: spec.MinDistroVersion,
+			ManifestFile:     entry.File,
+		})
+	}
+	return metas, nil
 }
 
 func saveManifestFile(localDir, filename string, manifest any) error {

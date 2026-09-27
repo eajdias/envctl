@@ -17,6 +17,16 @@ type PackageManager interface {
 	ListInstalled(ctx context.Context) ([]entity.Package, error)
 }
 
+// PackageRemover is a narrow port for package removal. PackageManager is
+// deliberately NOT extended: it has eight implementations (apt, pacman, paru,
+// winget, volta, npm, pip, go) plus a mock, and four of those have no removal
+// semantics at all. Only the managers that can actually remove declare this.
+type PackageRemover interface {
+	Type() entity.PackageType
+	IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error)
+	Remove(ctx context.Context, pkg entity.Package) error
+}
+
 // FileSystemManager provides file operations with atomic backup and path expansion.
 type FileSystemManager interface {
 	WriteWithBackup(destPath string, content []byte, perm os.FileMode) (backupCreated string, err error)
@@ -42,6 +52,11 @@ type ManifestRepository interface {
 	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
 	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
 	LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error)
+	// LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
+	LoadLinuxDebloatSpec() (entity.DebloatSpec, error)
+	// ListPerformanceProfiles reports every shipped profile with the release
+	// floor its manifest declares, so no caller hard-codes a version.
+	ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error)
 
 	SaveSkills(skills []entity.Skill) error
 	SaveGitConfigs(configs []entity.GitConfig) error

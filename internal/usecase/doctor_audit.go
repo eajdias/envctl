@@ -25,7 +25,11 @@ type DoctorAuditUseCase struct {
 	tweaksManager        repository.WindowsTweaksManager
 	managers             map[entity.PackageType]repository.PackageManager
 	performanceInspector repository.PerformanceInspector
-	logger               repository.Logger
+	// platform is a seam so the performance audit resolves the same profile a
+	// run would without reading the host's /etc/os-release. Tests set it;
+	// production leaves it nil and gets entity.DetectedPlatform.
+	platform func() entity.PlatformInfo
+	logger   repository.Logger
 }
 
 func NewDoctorAuditUseCase(

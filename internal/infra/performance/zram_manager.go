@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,8 +12,6 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 )
-
-const zramService = "dev-zram0.swap"
 
 type zramManager struct {
 	hasDevice   func() bool
@@ -32,10 +29,8 @@ func NewZRAMManager() repository.ZRAMManager {
 			data, err := os.ReadFile("/proc/swaps")
 			return err == nil && procSwapsContainsZRAM0(string(data))
 		},
-		func(ctx context.Context, name string, args ...string) ([]byte, error) {
-			return exec.CommandContext(ctx, name, args...).CombinedOutput()
-		},
-		os.Geteuid() != 0,
+		execCommand,
+		needsElevation(),
 		waitForDevice,
 		listZRAMDevices,
 	)
@@ -67,6 +62,9 @@ func newZRAMManager(
 	}
 }
 
+// Ensure brings the compressed-RAM device up when the resolved policy wants it.
+// An existing device is adopted, and a second pre-existing device is still
+// refused rather than duplicated.
 func (m *zramManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnostic, error) {
 	if m.hasDevice != nil && m.hasDevice() {
 		return []entity.Diagnostic{{
@@ -76,8 +74,7 @@ func (m *zramManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnos
 			Details:  "zram device is active",
 		}}, nil
 	}
-	devices := m.existingDevices()
-	if other := otherZRAMDevices(devices); len(other) > 0 {
+	if other := otherZRAMDevices(m.existingDevices()); len(other) > 0 {
 		return []entity.Diagnostic{{
 			Category: entity.DiagInfo,
 			System:   "Performance",
@@ -94,14 +91,12 @@ func (m *zramManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnos
 		}}, nil
 	}
 
-	var output []byte
-	var err error
-	if output, err = m.command(ctx, "modprobe", "zram"); err != nil {
+	if out, err := m.command(ctx, "modprobe", "zram"); err != nil {
 		return []entity.Diagnostic{{
 			Category: entity.DiagError,
 			System:   "Performance",
 			Target:   "zram",
-			Details:  fmt.Sprintf("load zram module failed: %v (%s)", err, strings.TrimSpace(string(output))),
+			Details:  fmt.Sprintf("load zram module failed: %v (%s)", err, strings.TrimSpace(string(out))),
 		}}, err
 	}
 	if m.wait == nil || !m.wait(ctx, m.hasNode) {
@@ -121,20 +116,20 @@ func (m *zramManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnos
 		}}, nil
 	}
 
-	if output, err = m.command(ctx, "systemctl", "daemon-reload"); err != nil {
+	if out, err := m.command(ctx, "systemctl", "daemon-reload"); err != nil {
 		return []entity.Diagnostic{{
 			Category: entity.DiagError,
 			System:   "Performance",
 			Target:   "zram",
-			Details:  fmt.Sprintf("reload systemd units for zram failed: %v (%s)", err, strings.TrimSpace(string(output))),
+			Details:  fmt.Sprintf("reload systemd units for zram failed: %v (%s)", err, strings.TrimSpace(string(out))),
 		}}, err
 	}
-	if output, err = m.command(ctx, "systemctl", "start", zramService); err != nil {
+	if out, err := m.command(ctx, "systemctl", "start", zramService); err != nil {
 		return []entity.Diagnostic{{
 			Category: entity.DiagError,
 			System:   "Performance",
 			Target:   "zram",
-			Details:  fmt.Sprintf("start %s failed: %v (%s)", zramService, err, strings.TrimSpace(string(output))),
+			Details:  fmt.Sprintf("start %s failed: %v (%s)", zramService, err, strings.TrimSpace(string(out))),
 		}}, err
 	}
 
@@ -174,6 +169,13 @@ func otherZRAMDevices(devices []string) []string {
 	return other
 }
 
+func (m *zramManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
+	if m.elevate {
+		return m.run(ctx, "sudo", append([]string{"-n", name}, args...)...)
+	}
+	return m.run(ctx, name, args...)
+}
+
 func procSwapsContainsZRAM0(data string) bool {
 	for _, line := range strings.Split(data, "\n") {
 		fields := strings.Fields(line)
@@ -197,14 +199,8 @@ func listZRAMDevices() []string {
 	return devices
 }
 
-func (m *zramManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
-	if m.elevate {
-		elevatedArgs := append([]string{"-n", name}, args...)
-		return m.run(ctx, "sudo", elevatedArgs...)
-	}
-	return m.run(ctx, name, args...)
-}
-
+// waitForDevice polls briefly after modprobe: the device node appears through
+// udev, so it is not there the instant the module loads.
 func waitForDevice(ctx context.Context, hasDevice func() bool) bool {
 	deadline := time.NewTimer(2 * time.Second)
 	defer deadline.Stop()
