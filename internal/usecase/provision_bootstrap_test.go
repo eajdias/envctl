@@ -89,3 +89,150 @@ func TestFzfHasWalker(t *testing.T) {
 		}
 	}
 }
+
+// TestGoPathConfigStepReportsWorkOnlyOnce locks the contract configStep relies
+// on: goPathDoneCheck must fail before the write and succeed after it, and a
+// second write must not duplicate the entry. Without this, the step reports
+// "installed" on every run while the write is a no-op, and the run log — the
+// evidence an idempotency review reads — stops being trustworthy.
+func TestGoPathConfigStepReportsWorkOnlyOnce(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX profile persistence is Linux-only")
+	}
+
+	// Both scripts branch on `command -v fish`, so PATH is built explicitly here.
+	// Inheriting the host PATH made the first assertion true on a machine with
+	// fish and false on one without, which is how the first version of this test
+	// passed locally and then failed on the runner: a check that exited 0 on a
+	// profile with no Go PATH at all was reported as "already present".
+	cases := []struct {
+		name     string
+		withFish bool
+	}{
+		{name: "fish installed", withFish: true},
+		{name: "fish absent", withFish: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			for _, name := range []string{".bashrc", ".profile"} {
+				if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
+					t.Fatalf("WriteFile(%s): %v", name, err)
+				}
+			}
+
+			// A bin dir holding only what the scripts shell out to, so
+			// `command -v fish` answers from this dir and not from the host.
+			bin := t.TempDir()
+			for _, tool := range []string{"grep", "mkdir", "dirname"} {
+				resolved, err := exec.LookPath(tool)
+				if err != nil {
+					t.Fatalf("LookPath(%s): %v", tool, err)
+				}
+				if err := os.Symlink(resolved, filepath.Join(bin, tool)); err != nil {
+					t.Fatalf("Symlink(%s): %v", tool, err)
+				}
+			}
+			if tc.withFish {
+				// `command -v` only needs the file to be executable: neither
+				// script runs fish, it only writes fish's config.
+				if err := os.WriteFile(filepath.Join(bin, "fish"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+					t.Fatalf("WriteFile(fish stub): %v", err)
+				}
+			}
+
+			env := make([]string, 0, len(os.Environ())+2)
+			for _, entry := range os.Environ() {
+				if !strings.HasPrefix(entry, "HOME=") && !strings.HasPrefix(entry, "PATH=") {
+					env = append(env, entry)
+				}
+			}
+			env = append(env, "HOME="+home, "PATH="+bin)
+
+			run := func(script string) error {
+				// #nosec G204 -- the scripts are package-level constants, not input.
+				cmd := exec.Command("bash", "-c", script)
+				cmd.Env = env
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Logf("script output: %s", strings.TrimSpace(string(out)))
+				}
+				return err
+			}
+			read := func(name string) string {
+				data, err := os.ReadFile(filepath.Join(home, name))
+				if err != nil {
+					t.Fatalf("ReadFile(%s): %v", name, err)
+				}
+				return string(data)
+			}
+			fishRC := ".config/fish/config.fish"
+
+			// Before the write the check must report "not done" so the step runs.
+			if err := run(goPathDoneCheck); err == nil {
+				t.Error("goPathDoneCheck succeeded on a fresh profile, want failure so the step applies the write")
+			}
+			if err := run(goPathInstaller); err != nil {
+				t.Fatalf("goPathInstaller: %v", err)
+			}
+			if err := run(goPathDoneCheck); err != nil {
+				t.Errorf("goPathDoneCheck failed after the write, want success so the step reports already present: %v", err)
+			}
+
+			// Running the step again must neither fail nor change a byte: the
+			// check reporting "already present" and the installer being a no-op
+			// are the same fact seen from two sides.
+			before := map[string]string{}
+			for _, name := range []string{".bashrc", ".profile", fishRC} {
+				if _, err := os.Stat(filepath.Join(home, name)); err == nil {
+					before[name] = read(name)
+				}
+			}
+			if err := run(goPathInstaller); err != nil {
+				t.Fatalf("goPathInstaller rerun: %v", err)
+			}
+			for name, want := range before {
+				if got := read(name); got != want {
+					t.Errorf("rerun changed %s:\n--- first run ---\n%s\n--- rerun ---\n%s", name, want, got)
+				}
+			}
+
+			for _, name := range []string{".bashrc", ".profile"} {
+				if got := strings.Count(read(name), "/usr/local/go/bin"); got != 1 {
+					t.Errorf("%s contains %d Go PATH entries, want 1", name, got)
+				}
+			}
+			if tc.withFish {
+				got := read(fishRC)
+				if n := strings.Count(got, "/usr/local/go/bin"); n != 1 {
+					t.Errorf("%s contains %d Go PATH entries, want 1", fishRC, n)
+				}
+				// The bash export is a syntax error in fish, so the write uses
+				// fish's own syntax; see the comment on goPathInstaller.
+				if !strings.Contains(got, "set -gx PATH") || strings.Contains(got, "export PATH=") {
+					t.Errorf("%s is not fish syntax: %q", fishRC, got)
+				}
+
+				// A partial state — the POSIX profiles done, the fish config
+				// gone — is still work to do. Reporting "already present" there
+				// would leave the config.fish entry missing for good, since the
+				// installer only ever runs when the check says there is work.
+				if err := os.Remove(filepath.Join(home, fishRC)); err != nil {
+					t.Fatalf("Remove(%s): %v", fishRC, err)
+				}
+				if err := run(goPathDoneCheck); err == nil {
+					t.Errorf("goPathDoneCheck succeeded with %s missing, want failure so the step rewrites it", fishRC)
+				}
+				if err := run(goPathInstaller); err != nil {
+					t.Fatalf("goPathInstaller after partial state: %v", err)
+				}
+				if got := read(fishRC); !strings.Contains(got, "set -gx PATH") {
+					t.Errorf("%s not restored after the partial state: %q", fishRC, got)
+				}
+			} else if _, err := os.Stat(filepath.Join(home, fishRC)); err == nil {
+				t.Errorf("%s written on a host without fish, want no fish config", fishRC)
+			}
+		})
+	}
+}

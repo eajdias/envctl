@@ -38,10 +38,10 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   measured swap topology. Package removal is opt-in (`--allow-debloat`) and its
   list is `manifests/debloat_linux.yaml`. Operating detail and per-item rollback:
   `docs/guides/ubuntu-server-baseline.md`.
-- **`docs/roadmap.md`** — the agreed future work (Termux/Android as an OS, tailscale and
-  cloudflared skills, deep SSH verification between OSes, local provider driving remote
-  providers over SSH, the project rename and running envctl as a background service), each
-  with the context already gathered. Check it before proposing "new" work.
+- **`docs/roadmap.md`** — the agreed future work (Termux/Android as an OS, deep SSH
+  verification between OSes, local provider driving remote providers over SSH, the project
+  rename and running envctl as a background service), each with the context already
+  gathered. Check it before proposing "new" work.
 - **`CHANGELOG.md`** — owned by the release-please bot: version sections and
   release notes are generated from conventional commits (`feat`→minor,
   `fix`→patch, `chore`/`docs`→no release). Never hand-write a version

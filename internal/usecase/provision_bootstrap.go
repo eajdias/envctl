@@ -136,6 +136,39 @@ func (uc *ProvisionBootstrapUseCase) hasTool(ctx context.Context, name string) b
 	return err == nil
 }
 
+// configStep applies a configuration write whose idempotency is decided by a
+// check command rather than by a binary lookup.
+//
+// step() cannot model this: it guards on `command -v <name>`, and a config
+// write has no binary to look for. The Go PATH step used a placeholder name
+// ("shell-path") to get through that guard, so hasTool always answered false
+// and every run reported "installed" even though the script's own grep made the
+// write a no-op. A label that lies is worse than a slow check: the run log is
+// the evidence the idempotency review reads.
+func (uc *ProvisionBootstrapUseCase) configStep(ctx context.Context, result *BootstrapResult, target, doneCheck, writeScript string) {
+	if out, err := uc.runShellStdout(ctx, doneCheck); err == nil && strings.TrimSpace(out) != "" {
+		uc.logger.LogIdempotency("LinuxBootstrap", target, true, "already present")
+		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+			Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
+			Details: "Already present in the shell profiles",
+		})
+		return
+	}
+
+	if err := uc.installStep(ctx, result, nameAlreadyPresent(target), target, writeScript); err != nil {
+		return
+	}
+	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "written")
+	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
+		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
+		Details: "Written to the shell profiles",
+	})
+}
+
+// nameAlreadyPresent keeps installStep's failure diagnostic readable: a config
+// write has no tool name, and "shell-path" would be a fiction in the log.
+func nameAlreadyPresent(target string) string { return "config" }
+
 // step installs a tool when missing, or reports it as already available.
 func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *BootstrapResult, name, target, installScript string) {
 	if uc.hasTool(ctx, name) {
@@ -581,27 +614,7 @@ echo "Installed ${GO_VER}"`)
 	// 14. Persist the Go PATH in shell profiles so future login shells find go
 	// and gopls. Fish needs its own syntax — writing bash exports into
 	// config.fish would be a syntax error.
-	uc.step(ctx, result, "shell-path", "Persist Go PATH in shell profiles",
-		`set -e
-POSIX_LINES='
-# Go SDK (via envctl bootstrap)
-export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"'
-FISH_LINES='
-# Go SDK (via envctl bootstrap)
-set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH'
-for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
-    printf '%s\n' "$POSIX_LINES" >> "$f"
-  fi
-done
-if command -v fish >/dev/null 2>&1; then
-  FISH_RC="$HOME/.config/fish/config.fish"
-  mkdir -p "$(dirname "$FISH_RC")"
-  if [ ! -f "$FISH_RC" ] || ! grep -q "/usr/local/go/bin" "$FISH_RC"; then
-    printf '%s\n' "$FISH_LINES" >> "$FISH_RC"
-  fi
-fi
-echo "Go PATH persisted to ~/.bashrc, ~/.profile and fish config"`)
+	uc.configStep(ctx, result, "Persist Go PATH in shell profiles", goPathDoneCheck, goPathInstaller)
 
 	// 15. hadolint - Dockerfile linter (no apt/pacman package upstream; same
 	// release-binary pattern as gh/delta/yq). envctl-verify lints changed
@@ -621,7 +634,7 @@ chmod +x "$HOME/.local/bin/hadolint"
 	if uc.fzfSupportsWalker(ctx) {
 		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
 			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
-			Details: "Installed fzf is new enough to use its built-in walker",
+			Details: "The installed fzf already provides the built-in directory walker",
 		})
 	} else {
 		uc.logger.Info("LinuxBootstrap: installing a current fzf (built-in directory walker)")
@@ -677,3 +690,44 @@ func fzfHasWalker(version string) bool {
 	}
 	return major > 0 || minor >= 47
 }
+
+// goPathDoneCheck exits 0 only when goPathInstaller would change nothing, so
+// configStep can report "already present" instead of running a write that its
+// own grep would turn into a no-op.
+//
+// Every condition is the negation of the installer's matching guard, per
+// profile. The `command -v fish` line is the one that is easy to get backwards:
+// without fish there is no fish config to write, so it exits 0 — but only after
+// the POSIX profiles are known to be done. Exiting 0 there instead makes a host
+// without fish report "already present" on a profile that has no Go PATH yet,
+// and the write never happens. That is the same lying label configStep exists to
+// remove, so the ordering is load-bearing and the test covers both hosts.
+const goPathDoneCheck = `for f in "$HOME/.bashrc" "$HOME/.profile"; do
+  [ -f "$f" ] && grep -q "/usr/local/go/bin" "$f" || exit 1
+done
+command -v fish >/dev/null 2>&1 || exit 0
+F="$HOME/.config/fish/config.fish"
+[ -f "$F" ] && grep -q "/usr/local/go/bin" "$F"`
+
+// goPathInstaller writes the Go PATH export using each shell's own syntax.
+// Writing bash exports into config.fish would be a syntax error, so fish gets
+// set -gx instead.
+const goPathInstaller = `set -e
+POSIX_LINES='
+# Go SDK (via envctl bootstrap)
+export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"'
+FISH_LINES='
+# Go SDK (via envctl bootstrap)
+set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH'
+for f in "$HOME/.bashrc" "$HOME/.profile"; do
+  if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
+    printf '%s\n' "$POSIX_LINES" >> "$f"
+  fi
+done
+if command -v fish >/dev/null 2>&1; then
+  FISH_RC="$HOME/.config/fish/config.fish"
+  mkdir -p "$(dirname "$FISH_RC")"
+  if [ ! -f "$FISH_RC" ] || ! grep -q "/usr/local/go/bin" "$FISH_RC"; then
+    printf '%s\n' "$FISH_LINES" >> "$FISH_RC"
+  fi
+fi`
