@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -234,5 +236,73 @@ func TestGoPathConfigStepReportsWorkOnlyOnce(t *testing.T) {
 				t.Errorf("%s written on a host without fish, want no fish config", fishRC)
 			}
 		})
+	}
+}
+
+// idempotencyRecorder captures the idempotency line the run log shows a
+// reviewer. The Details string reaches the doctor; this is the other half of the
+// same claim, and a step that flipped only this was reported as still correct.
+type idempotencyRecorder struct {
+	mockLogger
+	calls []string
+}
+
+func (r *idempotencyRecorder) LogIdempotency(system, target string, skipped bool, reason string) {
+	r.calls = append(r.calls, fmt.Sprintf("%s|%s|skipped=%t|%s", system, target, skipped, reason))
+}
+
+// TestConfigStepLabelsTheGoPathWriteHonestly exercises configStep itself, not
+// the two scripts. The first version of the Go PATH fix tested only the scripts
+// and still shipped a step that reported "Written" on every run, because the
+// bug was in how configStep read the check's result and not in the check.
+func TestConfigStepLabelsTheGoPathWriteHonestly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX profile persistence is Linux-only")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, name := range []string{".bashrc", ".profile"} {
+		if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
+			t.Fatalf("WriteFile(%s): %v", name, err)
+		}
+	}
+
+	logger := &idempotencyRecorder{}
+	uc := NewProvisionBootstrapUseCase(&mockFSManager{}, nil, nil, logger)
+	const target = "Persist Go PATH in shell profiles"
+
+	first := &BootstrapResult{}
+	uc.configStep(context.Background(), first, target, goPathDoneCheck, goPathInstaller)
+	if len(first.Diagnostics) != 1 {
+		t.Fatalf("first run reported %d diagnostics, want 1: %+v", len(first.Diagnostics), first.Diagnostics)
+	}
+	if got, want := first.Diagnostics[0].Details, "Written to the shell profiles"; got != want {
+		t.Errorf("first run label = %q, want %q", got, want)
+	}
+	if got, want := logger.calls[0], "LinuxBootstrap|"+target+"|skipped=false|written"; got != want {
+		t.Errorf("first run idempotency line = %q, want %q", got, want)
+	}
+
+	second := &BootstrapResult{}
+	uc.configStep(context.Background(), second, target, goPathDoneCheck, goPathInstaller)
+	if len(second.Diagnostics) != 1 {
+		t.Fatalf("second run reported %d diagnostics, want 1: %+v", len(second.Diagnostics), second.Diagnostics)
+	}
+	if got, want := second.Diagnostics[0].Details, "Already present in the shell profiles"; got != want {
+		t.Errorf("second run label = %q, want %q — the step must stop claiming a write it did not do", got, want)
+	}
+	if got, want := logger.calls[1], "LinuxBootstrap|"+target+"|skipped=true|already present"; got != want {
+		t.Errorf("second run idempotency line = %q, want %q", got, want)
+	}
+
+	// The label is only honest if it is also true of the files.
+	for _, name := range []string{".bashrc", ".profile"} {
+		data, err := os.ReadFile(filepath.Join(home, name))
+		if err != nil {
+			t.Fatalf("ReadFile(%s): %v", name, err)
+		}
+		if got := strings.Count(string(data), "/usr/local/go/bin"); got != 1 {
+			t.Errorf("%s contains %d Go PATH entries, want 1", name, got)
+		}
 	}
 }
