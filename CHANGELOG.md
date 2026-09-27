@@ -7,6 +7,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.10.1](https://github.com/eajdias/envctl/compare/v1.10.0...v1.10.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **bootstrap:** honest idempotency labels, plus the roadmap resync and the service spec ([dda1674](https://github.com/eajdias/envctl/commit/dda1674f03c6caa6406546aad2f8e46a8eada912))
+* **bootstrap:** let the exit status alone decide the configStep label ([b719ff4](https://github.com/eajdias/envctl/commit/b719ff4853c72876ee9149b6da2727b1f4b190d6))
+* **bootstrap:** make the Go PATH check a real negation of its installer ([dd96895](https://github.com/eajdias/envctl/commit/dd968950a1e02aec55e03c9f993dc73635d5dde7))
+* **bootstrap:** stop reporting "installed" when the write was a no-op ([7b4ca41](https://github.com/eajdias/envctl/commit/7b4ca41bc48d9d000fbfc03d789857823edc0122))
+* **bootstrap:** the configStep label was decided by stdout, not by the check ([067f426](https://github.com/eajdias/envctl/commit/067f4261a7e668cf66b5a7336b6d580653c06b6a))
+
 ## [1.10.0](https://github.com/eajdias/envctl/compare/v1.9.0...v1.10.0) (2026-09-27)
 
 
