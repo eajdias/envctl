@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -112,32 +113,46 @@ func InitApp(embeddedFS fs.FS, version string) {
 	performanceInspector := performance.NewPerformanceInspector()
 
 	appCtx = &AppContext{
-		EmbeddedFS:             embeddedFS,
-		ManifestRepo:           manifestRepo,
-		FSManager:              fsManager,
-		EnvManager:             envManager,
-		GitManager:             gitManager,
-		TweaksManager:          windowsTweaksMgr,
-		Logger:                 fileLogger,
-		PackageManagers:        pkgManagers,
-		ProvisionPkgsUC:        packagesUC,
-		ProvisionPerformanceUC: usecase.NewProvisionPerformanceUseCase(manifestRepo, packagesUC, sysctlManager, zramManager, fileLogger, entity.DetectedPlatform, performance.NewTimezoneManager(), performance.NewJournaldManager(), performance.NewResourceLimitsManager(), performance.NewHardwareProbe(), performance.NewSwapfileManager()),
-		ProvisionShellUC:       usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
-		ProvisionSkillsUC:      usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
-		ProvisionLSPUC:         usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
-		ProvisionWindowsUC:     usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionDebloatUC:     usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionBootstrapUC:   usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
-		ProvisionProvidersUC:   usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
-		DoctorAuditUC:          usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
-		SnapshotSyncUC:         usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
-		UpdateUC:               usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
-		TempHygieneUC:          usecase.NewTempHygieneUseCase(fileLogger),
-		CleanupOpenCodeUC:      usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
-		CleanupCommandCodeUC:   usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
+		EmbeddedFS:      embeddedFS,
+		ManifestRepo:    manifestRepo,
+		FSManager:       fsManager,
+		EnvManager:      envManager,
+		GitManager:      gitManager,
+		TweaksManager:   windowsTweaksMgr,
+		Logger:          fileLogger,
+		PackageManagers: pkgManagers,
+		ProvisionPkgsUC: packagesUC,
+		ProvisionPerformanceUC: usecase.NewProvisionPerformanceUseCase(manifestRepo, packagesUC, sysctlManager, zramManager, fileLogger, entity.DetectedPlatform, performance.NewTimezoneManager(), performance.NewJournaldManager(), performance.NewResourceLimitsManager(), performance.NewHardwareProbe(), performance.NewSwapfileManager(),
+			performance.NewLinuxDebloatManager("", "", packageInstalledProbe(pkgManagers))),
+		ProvisionShellUC:     usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
+		ProvisionSkillsUC:    usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
+		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
+		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
+		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
+		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
+		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
+		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
+		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
+		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
+		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
+		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
 	registerCommands()
+}
+
+// packageInstalledProbe answers "is this package present" through the same
+// package managers the provisioner uses, so the debloat decision and the doctor
+// audit can never disagree about what is installed.
+func packageInstalledProbe(managers map[entity.PackageType]repository.PackageManager) func(context.Context, entity.Package) (bool, string, error) {
+	return func(ctx context.Context, pkg entity.Package) (bool, string, error) {
+		manager, ok := managers[pkg.Type]
+		if !ok {
+			return false, "", fmt.Errorf("no package manager configured for type %q", pkg.Type)
+		}
+		return manager.IsInstalled(ctx, pkg)
+	}
 }
 
 func registerCommands() {
