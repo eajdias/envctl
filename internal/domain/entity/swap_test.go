@@ -222,3 +222,46 @@ func TestFormatBytesForDiagnostics(t *testing.T) {
 		t.Fatal("FormatBytes returned an empty string")
 	}
 }
+
+// TestDiskSwapDescriptorSeparatesOurFileFromTheOperators is the rule that decides
+// whether envctl may touch a live swap device: only the file this profile owns
+// is envctl's own state. Everything else is the operator's and is adopted whole.
+func TestDiskSwapDescriptorSeparatesOurFileFromTheOperators(t *testing.T) {
+	hw := NewHardwareState(974092, 2, "ext4", 30_000_000_000, []SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		{Name: "/swapfile", Type: "file", SizeKB: 8388608, Priority: -1},
+	})
+
+	foreign := hw.DiskSwap(swapSpecFixture())
+	if !foreign.Adopted {
+		t.Fatal("the operator's disk swap was not detected")
+	}
+	if foreign.IsOwnFile {
+		t.Fatal("a file this profile does not declare was reported as envctl's own")
+	}
+	if foreign.Name != "/swapfile" || foreign.Priority != -1 {
+		t.Fatalf("descriptor = %+v, want /swapfile at -1", foreign)
+	}
+
+	ours := NewHardwareState(974092, 2, "ext4", 30_000_000_000, []SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		{Name: "/swapfile.envctl", Type: "file", SizeKB: 976562, Priority: -1},
+	}).DiskSwap(swapSpecFixture())
+	if !ours.IsOwnFile {
+		t.Fatal("the file the profile declares was not recognised as envctl's own")
+	}
+	if ours.UsedBytes != 0 {
+		t.Fatalf("used = %d, want 0 for a fresh device", ours.UsedBytes)
+	}
+}
+
+// A host with only zram has no disk swap to describe, and the descriptor must
+// say so rather than return a zero value that reads as "adopted".
+func TestDiskSwapDescriptorOnAHostWithOnlyCompressedSwap(t *testing.T) {
+	hw := NewHardwareState(974092, 2, "ext4", 30_000_000_000, []SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+	})
+	if hw.DiskSwap(swapSpecFixture()).Adopted {
+		t.Fatal("a compressed device was reported as a disk swap")
+	}
+}

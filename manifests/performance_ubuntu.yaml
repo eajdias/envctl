@@ -53,7 +53,13 @@ timezone:
 swap:
   policy: auto
   file: /swapfile.envctl
-  priority: -2
+  # -1 is the floor, not a preference. Measured on vps_oracle_2 (Ubuntu 26.04,
+  # util-linux 2.41.3): 0, -1, 1 and 100 are stored as requested, while -2 and -5
+  # both come back as -1 and `swapon -p -2` still exits 0. The manifest used to
+  # declare -2, so the run wrote pri=-2 to fstab, reported the priority as
+  # applied, and the kernel held -1 for ever. "Lowest available" is the whole
+  # intent here: the disk tier must sit below the compressed tier, which is 100.
+  priority: -1
   size_of: mem_total
   size_min: 1G
   size_max: 8G

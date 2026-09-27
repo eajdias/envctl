@@ -172,6 +172,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   dedicated `run performance` command still refuses, and `--force-reboot-pending`
   still overrides. Found by running `run all` on a host with three pending kernel
   images: the run died at the performance phase and phases 5-7 never ran.
+* **linux:** the swapfile priority is now activated, verified and achievable.
+  Three defects, all invisible until the creation path ran on a real host
+  (`vps_oracle_2`), which it had never done because every fleet box already had a
+  swapfile to adopt: (1) `swapon` was called without `-p`, so the live device sat
+  at the kernel default of -1 while fstab said -2; (2) the profile's own file was
+  adopted with the reason "not created by envctl, so it is left untouched", which
+  is false for a file envctl created, and its priority was never reconciled;
+  (3) the manifest declared `priority: -2`, and measured on Ubuntu 26.04 with
+  util-linux 2.41.3 the kernel's floor is -1 — 0, -1, 1 and 100 are stored as
+  asked, -2 and -5 both come back as -1, and `swapon` exits 0 when it clamps. The
+  manifest now declares the floor, the activation passes `-p`, the profile's own
+  unused file is re-activated when its priority drifts, and every activation reads
+  the priority back from `/proc/swaps` and reports a mismatch instead of claiming
+  success. A device holding pages is reported rather than deactivated, because
+  swapping 100 MiB into 600 MiB of RAM to fix a number is a bad trade.
 * **linux:** a sysctl key another drop-in decides is reported, not overwritten,
   and the audit now verifies the keys the profile pins. Rebooting a real host
   showed `vm.swappiness` silently reverting from the derived 150 to 10: the fleet

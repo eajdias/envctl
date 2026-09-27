@@ -23,6 +23,7 @@ type swapFixture struct {
 	failOn   map[string]error
 	// statfsValues simulates the file's existence and content.
 	fileExists map[string]bool
+	procSwaps  string
 }
 
 func newSwapFixture(t *testing.T) *swapFixture {
@@ -77,12 +78,20 @@ func (f *swapFixture) manager() *swapfileManager {
 	return newSwapfileManager(f.run, fstabWriter, exists, readFile, func() bool { return false }, false)
 }
 
+// procSwaps is what the kernel reports after an activation. Tests script it to
+// model a priority the kernel refused to store.
+func (f *swapFixture) setProcSwaps(content string) { f.procSwaps = content }
+
 func (f *swapFixture) run(_ context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, append([]string{name}, args...))
 	if err, ok := f.failOn[name]; ok && err != nil {
 		return nil, err
 	}
 	switch name {
+	case "cat":
+		if len(args) == 1 && args[0] == "/proc/swaps" {
+			return []byte(f.procSwaps), nil
+		}
 	case "fallocate", "truncate":
 		target := args[len(args)-1]
 		f.existing[target] = []byte("allocated")
@@ -174,6 +183,16 @@ func TestSwapfileManagerCreatesOnExt4(t *testing.T) {
 	written := string(f.existing[f.path(testFstab)])
 	if !strings.Contains(written, "pri=-2") {
 		t.Fatalf("fstab entry does not carry the declared priority: %q", written)
+	}
+	// ...and the activation has to agree with it. Writing pri=-2 to fstab while
+	// running a bare `swapon` leaves the live device at the kernel default of -1
+	// and only reaches the declared priority at the next boot, so the state a
+	// run leaves behind is not the state the next boot produces. That is the
+	// same class of divergence as a shadowed sysctl, and it is invisible to a
+	// test that only reads the fstab it just wrote.
+	activation := f.argOf("swapon")
+	if !contains(activation, "-p") || !contains(activation, "-2") {
+		t.Fatalf("swapon was activated without the declared priority: %#v", f.calls)
 	}
 	// The rendered entry carries the declared path exactly as the manifest
 	// states it, which is what an operator reads.
@@ -375,5 +394,160 @@ func TestFstabEntryIsNotDuplicated(t *testing.T) {
 	}
 	if fstabHasSwapEntry(existing, "/other") {
 		t.Fatal("an unrelated path was reported as present")
+	}
+}
+
+// TestSwapfileManagerReconcilesThePriorityOfItsOwnUnusedSwapfile covers the state
+// the first real run left on vps_oracle_2: the activation had used the kernel
+// default of -1 while the manifest and the fstab entry said -2. The profile's own
+// file is envctl's own state, so this is not adoption and it must converge.
+//
+// Reconciling a live priority means swapoff then swapon, which is only free while
+// the device is empty, so the empty case is the one that acts.
+func TestSwapfileManagerReconcilesThePriorityOfItsOwnUnusedSwapfile(t *testing.T) {
+	f := newSwapFixture(t)
+	f.hw = entity.NewHardwareState(974092, 2, "ext4", 30_000_000_000, []entity.SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		{Name: "/swapfile.envctl", Type: "file", SizeKB: 976562, UsedKB: 0, Priority: -1},
+	})
+
+	diags, err := f.manager().Ensure(context.Background(), f.spec, f.hw, false)
+	if err != nil {
+		t.Fatalf("reconciliation failed: %v", err)
+	}
+	if !f.issued("swapoff") {
+		t.Fatalf("an empty own-file device was not deactivated to change its priority: %#v", f.calls)
+	}
+	activation := f.argOf("swapon")
+	if !containsArg(activation, "-p") || !containsArg(activation, "-2") {
+		t.Fatalf("the device was not reactivated with the declared priority: %#v", f.calls)
+	}
+	if f.issued("mkswap") {
+		t.Fatalf("an existing own-file device was re-formatted: %#v", f.calls)
+	}
+	if len(diags) == 0 || diags[0].Category != entity.DiagOK {
+		t.Fatalf("diagnostics = %#v, want OK", diags)
+	}
+	if !strings.Contains(diags[0].Details, "-2") {
+		t.Fatalf("the diagnostic does not report the declared priority: %q", diags[0].Details)
+	}
+}
+
+// A device holding pages cannot be deactivated safely on a constrained host, so
+// the divergence is reported and left to the next boot, which reads the fstab
+// entry. Swapping off 100+ MiB into 600 MiB of RAM would trade a cosmetic
+// priority for an OOM.
+func TestSwapfileManagerReportsThePriorityDivergenceWhenTheFileIsInUse(t *testing.T) {
+	f := newSwapFixture(t)
+	f.hw = entity.NewHardwareState(974092, 2, "ext4", 30_000_000_000, []entity.SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		{Name: "/swapfile.envctl", Type: "file", SizeKB: 976562, UsedKB: 204800, Priority: -1},
+	})
+
+	diags, err := f.manager().Ensure(context.Background(), f.spec, f.hw, false)
+	if err != nil {
+		t.Fatalf("a reported divergence must not fail the run: %v", err)
+	}
+	if f.issued("swapoff") {
+		t.Fatalf("a device holding pages was deactivated: %#v", f.calls)
+	}
+	if len(diags) == 0 || diags[0].Category != entity.DiagWarning {
+		t.Fatalf("diagnostics = %#v, want a warning the owner can act on", diags)
+	}
+	if !strings.Contains(diags[0].Details, "holds") {
+		t.Fatalf("the diagnostic does not say the device is in use: %q", diags[0].Details)
+	}
+	if !strings.Contains(diags[0].Details, "not deactivated") {
+		t.Fatalf("the diagnostic does not say why nothing was changed: %q", diags[0].Details)
+	}
+	if diags[0].FixHint == "" {
+		t.Fatal("the warning carries no fix hint")
+	}
+}
+
+// A foreign device is never touched, whatever its priority, and the reason must
+// be truthful: the profile did not create it.
+func TestSwapfileManagerNeverReconcilesAForeignDevice(t *testing.T) {
+	f := newSwapFixture(t)
+	f.hw = entity.NewHardwareState(974092, 2, "ext4", 30_000_000_000, []entity.SwapDevice{
+		{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		{Name: "/swapfile", Type: "file", SizeKB: 8388608, UsedKB: 0, Priority: -1},
+	})
+
+	diags, err := f.manager().Ensure(context.Background(), f.spec, f.hw, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"swapoff", "swapon", "mkswap"} {
+		if f.issued(forbidden) {
+			t.Fatalf("the operator's device was touched with %q: %#v", forbidden, f.calls)
+		}
+	}
+	if !strings.Contains(diags[0].Details, "not created by envctl") {
+		t.Fatalf("the adoption reason is missing: %q", diags[0].Details)
+	}
+}
+
+func containsArg(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
+}
+
+// TestSwapfileManagerReportsAPriorityTheKernelRefused is the regression test for
+// what the kernel actually does, measured on vps_oracle_2 with util-linux
+// 2.41.3: swap priority has a floor of -1, every value below it is silently
+// clamped, and `swapon -p -2` still exits 0. The manifest declared -2, so the
+// run wrote pri=-2 to fstab, told the owner the priority was applied, and the
+// kernel held -1. A declared value the system cannot hold must be reported, not
+// assumed.
+func TestSwapfileManagerReportsAPriorityTheKernelRefused(t *testing.T) {
+	f := newSwapFixture(t)
+	// The device lands at -1 whatever was asked for.
+	f.setProcSwaps("Filename\tType\tSize\tUsed\tPriority\n" +
+		"/swapfile.envctl\tfile\t976556\t0\t-1\n" +
+		"/dev/zram0\tpartition\t486908\t125700\t100\n")
+
+	diags, err := f.manager().Ensure(context.Background(), f.spec, f.hw, false)
+	if err != nil {
+		t.Fatalf("a refused priority must not fail the run: %v", err)
+	}
+	var warned bool
+	for _, diag := range diags {
+		if diag.Target != "swap" || diag.Category != entity.DiagWarning {
+			continue
+		}
+		warned = true
+		if !strings.Contains(diag.Details, "-2") || !strings.Contains(diag.Details, "-1") {
+			t.Fatalf("the warning does not carry both the declared and the effective value: %q", diag.Details)
+		}
+		if diag.FixHint == "" {
+			t.Fatal("the warning carries no fix hint")
+		}
+	}
+	if !warned {
+		t.Fatalf("the kernel's refusal was reported as success: %#v", diags)
+	}
+}
+
+// The same read-back must stay quiet when the kernel honoured the request, or the
+// report would cry wolf on every run.
+func TestSwapfileManagerSilentWhenThePriorityTakesEffect(t *testing.T) {
+	f := newSwapFixture(t)
+	f.spec.Priority = 10
+	f.setProcSwaps("Filename\tType\tSize\tUsed\tPriority\n" +
+		"/swapfile.envctl\tfile\t976556\t0\t10\n")
+
+	diags, err := f.manager().Ensure(context.Background(), f.spec, f.hw, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diag := range diags {
+		if diag.Category == entity.DiagWarning {
+			t.Fatalf("an honoured priority produced a warning: %q", diag.Details)
+		}
 	}
 }

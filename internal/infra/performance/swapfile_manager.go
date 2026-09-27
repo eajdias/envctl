@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -54,6 +55,75 @@ func newSwapfileManager(
 // hand-created 8 GB swapfile, and the AWS host is the only one that needs a new
 // one. An adopted device is reported and left completely alone — no resize, no
 // re-mkswap, no fstab rewrite — because it is state the tool did not create.
+// holdOwnSwapfile keeps the profile's own swapfile at the priority the manifest
+// declares.
+//
+// This is not adoption. The file at spec.File is state this tool created, so its
+// priority is state this tool owns, and a live device sitting at a different
+// priority is drift the run has to resolve: writing pri=-2 to fstab while the
+// kernel holds -1 means the state a run leaves behind is not the state the next
+// boot produces.
+//
+// Changing a live priority takes swapoff then swapon, which is free only while
+// the device is empty. A device holding pages is reported instead of being
+// deactivated, because pulling those pages back into RAM to fix a number is a bad
+// trade on a memory-constrained host; the fstab entry already carries the
+// declared priority, so the next boot resolves it on its own.
+func (m *swapfileManager) holdOwnSwapfile(
+	ctx context.Context,
+	spec entity.SwapSpec,
+	disk entity.DiskSwapDescriptor,
+	dryRun bool,
+) ([]entity.Diagnostic, error) {
+	inEffect := fmt.Sprintf("in effect at priority %d as declared", spec.Priority)
+	if disk.Priority == spec.Priority {
+		return []entity.Diagnostic{{
+			Category: entity.DiagOK,
+			System:   "Performance",
+			Target:   "swap",
+			Details: fmt.Sprintf(
+				"this profile's own swapfile %s (%s) is active, %s",
+				disk.Name, entity.FormatBytes(disk.SizeBytes), inEffect),
+		}}, nil
+	}
+
+	if !disk.Unused {
+		return []entity.Diagnostic{{
+			Category: entity.DiagWarning,
+			System:   "Performance",
+			Target:   "swap",
+			Details: fmt.Sprintf(
+				"this profile's own swapfile %s is active at priority %d, declared %d, and holds %s of pages: not deactivated to change it",
+				disk.Name, disk.Priority, spec.Priority, entity.FormatBytes(disk.UsedBytes)),
+			FixHint: "the fstab entry already declares the priority, so the next boot applies it; to apply it now, free the device first and re-run",
+		}}, nil
+	}
+
+	if dryRun {
+		return []entity.Diagnostic{{
+			Category: entity.DiagInfo,
+			System:   "Performance",
+			Target:   "swap",
+			Details: fmt.Sprintf(
+				"would re-activate this profile's swapfile %s at the declared priority %d (currently %d)",
+				disk.Name, spec.Priority, disk.Priority),
+		}}, nil
+	}
+
+	if out, err := m.command(ctx, "swapoff", disk.Name); err != nil {
+		detail := fmt.Sprintf("swapoff %s failed: %v (%s)", disk.Name, err, strings.TrimSpace(string(out)))
+		return swapError(detail), fmt.Errorf("%s", detail)
+	}
+	if out, err := m.command(ctx, "swapon", "-p", strconv.Itoa(spec.Priority), disk.Name); err != nil {
+		detail := fmt.Sprintf("swapon -p %d %s failed: %v (%s); the device is now inactive and /etc/fstab restores it at the next boot",
+			spec.Priority, disk.Name, err, strings.TrimSpace(string(out)))
+		return swapError(detail), fmt.Errorf("%s", detail)
+	}
+	return m.activationDiagnostics(fmt.Sprintf(
+		"re-activated this profile's swapfile %s (%s) that was at priority %d",
+		disk.Name, entity.FormatBytes(disk.SizeBytes), disk.Priority), spec), nil
+}
+
 func (m *swapfileManager) Ensure(
 	ctx context.Context,
 	spec entity.SwapSpec,
@@ -80,16 +150,20 @@ func (m *swapfileManager) Ensure(
 		return swapError(detail), fmt.Errorf("%s", detail)
 	}
 
-	if adopted, name, size := hw.AdoptedDiskSwap(); adopted {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf(
-				"adopting the existing disk swap %s (%s, priority %d); it was not created by envctl, so it is left untouched",
-				name, entity.FormatBytes(size), hw.DiskSwapTopPri,
-			),
-		}}, nil
+	disk := hw.DiskSwap(spec)
+	if disk.Adopted {
+		if !disk.IsOwnFile {
+			return []entity.Diagnostic{{
+				Category: entity.DiagOK,
+				System:   "Performance",
+				Target:   "swap",
+				Details: fmt.Sprintf(
+					"adopting the existing disk swap %s (%s, priority %d); it was not created by envctl, so it is left untouched",
+					disk.Name, entity.FormatBytes(disk.SizeBytes), disk.Priority,
+				),
+			}}, nil
+		}
+		return m.holdOwnSwapfile(ctx, spec, disk, dryRun)
 	}
 
 	switch entity.ResolveSwapFilesystem(spec, hw.RootFSType) {
@@ -134,20 +208,77 @@ func (m *swapfileManager) Ensure(
 	if out, err := m.command(ctx, "mkswap", spec.File); err != nil {
 		return swapError(fmt.Sprintf("mkswap %s failed: %v (%s)", spec.File, err, strings.TrimSpace(string(out)))), err
 	}
-	if out, err := m.command(ctx, "swapon", spec.File); err != nil {
+	// The priority is passed to swapon, not only written to fstab. A bare
+	// `swapon` activates the device at the kernel default of -1, so the run
+	// would leave a live device whose priority disagrees with both the manifest
+	// and the fstab entry, and only the next boot would make them agree.
+	if out, err := m.command(ctx, "swapon", "-p", strconv.Itoa(spec.Priority), spec.File); err != nil {
 		return swapError(fmt.Sprintf("swapon %s failed: %v (%s)", spec.File, err, strings.TrimSpace(string(out)))), err
 	}
 	if err := m.registerFstab(spec); err != nil {
 		return swapError(err.Error()), err
 	}
 
+	return m.activationDiagnostics(fmt.Sprintf(
+		"created a %s swapfile at %s", entity.FormatBytes(size), spec.File), spec), nil
+}
+
+// activationDiagnostics reports what the kernel actually holds, not what was
+// requested.
+//
+// This read-back is not belt and braces. Measured on vps_oracle_2 with
+// util-linux 2.41.3: swap priority has a floor of -1, every lower value is
+// silently clamped, and `swapon -p -2` still exits 0. A manifest that declares an
+// unachievable priority would otherwise be reported as applied for ever, which is
+// the same shape of bug as a sysctl drop-in shadowed by another file: the tool
+// wrote what it intended and never learned that the system kept something else.
+func (m *swapfileManager) activationDiagnostics(action string, spec entity.SwapSpec) []entity.Diagnostic {
+	effective, ok := m.effectivePriority(spec.File)
+	if !ok {
+		return []entity.Diagnostic{{
+			Category: entity.DiagOK,
+			System:   "Performance",
+			Target:   "swap",
+			Details: fmt.Sprintf("%s, requesting priority %d (the kernel's view could not be read back)",
+				action, spec.Priority),
+		}}
+	}
+	if effective == spec.Priority {
+		return []entity.Diagnostic{{
+			Category: entity.DiagOK,
+			System:   "Performance",
+			Target:   "swap",
+			Details:  fmt.Sprintf("%s, active at priority %d", action, effective),
+		}}
+	}
 	return []entity.Diagnostic{{
-		Category: entity.DiagOK,
+		Category: entity.DiagWarning,
 		System:   "Performance",
 		Target:   "swap",
-		Details: fmt.Sprintf("created a %s swapfile at %s with priority %d",
-			entity.FormatBytes(size), spec.File, spec.Priority),
-	}}, nil
+		Details: fmt.Sprintf(
+			"%s, but the kernel holds priority %d: %d was requested and the kernel refused it (swap priority has a floor of %d and `swapon` exits 0 when it clamps)",
+			action, effective, spec.Priority, entity.MinSwapPriority),
+		FixHint: fmt.Sprintf(
+			"set the profile's swap priority to %d or higher in the manifest; %s already carries the same request for the next boot",
+			effective, spec.File),
+	}}
+}
+
+// effectivePriority reads the kernel's view of a swap device from /proc/swaps.
+func (m *swapfileManager) effectivePriority(name string) (int, bool) {
+	if m.run == nil {
+		return 0, false
+	}
+	out, err := m.command(context.Background(), "cat", "/proc/swaps")
+	if err != nil {
+		return 0, false
+	}
+	for _, device := range parseSwapTable(string(out)) {
+		if filepath.Clean(device.Name) == filepath.Clean(name) {
+			return device.Priority, true
+		}
+	}
+	return 0, false
 }
 
 // allocate reserves the file's blocks. btrfs needs a different sequence: a swap

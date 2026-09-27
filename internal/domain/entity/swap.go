@@ -2,6 +2,7 @@ package entity
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -176,13 +177,65 @@ func ResolveSwapSizeBytes(spec SwapSpec, hw HardwareState) (uint64, error) {
 // untouched. A zram device is not adoptable: it is the fast tier, not a
 // fallback, and the tool does not own it.
 func (h HardwareState) AdoptedDiskSwap() (adopted bool, name string, sizeBytes uint64) {
+	descriptor := h.DiskSwap(SwapSpec{})
+	return descriptor.Adopted, descriptor.Name, descriptor.SizeBytes
+}
+
+// DiskSwapDescriptor describes the disk-backed swap this host has, and whether it
+// is the file this profile owns.
+//
+// The distinction decides what envctl may touch. A swapfile at the profile's
+// declared path is envctl's own state, so its priority is envctl's to converge.
+// Any other device belongs to the operator and is adopted whole: no swapoff, no
+// re-mkswap, no priority change, no fstab edit. Reporting the operator's file as
+// "not created by envctl, so it is left untouched" while silently leaving the
+// profile's own file at the wrong priority is the bug this descriptor exists to
+// prevent.
+type DiskSwapDescriptor struct {
+	Adopted   bool
+	Name      string
+	Type      string
+	SizeBytes uint64
+	UsedBytes uint64
+	Priority  int
+	IsOwnFile bool
+	// Unused reports that the device holds no swapped pages. Reconciling a live
+	// priority means swapoff then swapon, which is free only while the device is
+	// empty: pulling pages back into RAM on a memory-constrained host is not.
+	Unused bool
+}
+
+// DiskSwap returns the disk-backed swap this host has, or a zero descriptor when
+// it has none. Compressed RAM devices are not disk swap: they are the fast tier,
+// not the fallback. The spec is what makes ownership decidable, so it is a
+// parameter rather than something the descriptor guesses.
+func (h HardwareState) DiskSwap(spec SwapSpec) DiskSwapDescriptor {
 	for _, device := range h.Swap {
 		if !IsDiskSwapDevice(device.Name) {
 			continue
 		}
-		return true, device.Name, device.SizeKB * 1024
+		return DiskSwapDescriptor{
+			Adopted:   true,
+			Name:      device.Name,
+			Type:      device.Type,
+			SizeBytes: device.SizeKB * 1024,
+			UsedBytes: device.UsedKB * 1024,
+			Priority:  device.Priority,
+			IsOwnFile: OwnedBy(spec, device.Name),
+			Unused:    device.UsedKB == 0,
+		}
 	}
-	return false, "", 0
+	return DiskSwapDescriptor{}
+}
+
+// OwnedBy reports whether a device path is the file this profile manages. The
+// comparison is on the cleaned absolute path, because /swapfile.envctl and a
+// trailing slash or a relative prefix must not read as two different files.
+func OwnedBy(spec SwapSpec, path string) bool {
+	if strings.TrimSpace(spec.File) == "" {
+		return false
+	}
+	return filepath.Clean(spec.File) == filepath.Clean(strings.TrimSpace(path))
 }
 
 // ParseByteSize parses a decimal size with an optional K/M/G/T suffix. Decimal
@@ -233,3 +286,10 @@ func FormatBytes(bytes uint64) string {
 		return fmt.Sprintf("%dB", bytes)
 	}
 }
+
+// MinSwapPriority is the lowest priority the Linux kernel will store for a swap
+// device. Measured on Ubuntu 26.04 with util-linux 2.41.3: 0, -1, 1 and 100 are
+// stored as asked, while -2 and -5 both come back as -1, and `swapon` exits 0
+// either way. A manifest declaring anything below this floor would be a claim the
+// system silently refuses.
+const MinSwapPriority = -1
