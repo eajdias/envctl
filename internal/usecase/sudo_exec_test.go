@@ -16,7 +16,7 @@ func TestSudoAvailable(t *testing.T) {
 
 func TestRunPrivilegedDegradesWithoutSudo(t *testing.T) {
 	t.Setenv("PATH", "")
-	if _, err := runPrivileged(t.Context(), "true"); err == nil {
+	if err := runPrivileged(t.Context(), "true"); err == nil {
 		t.Fatal("expected an error when sudo is not on PATH")
 	}
 }

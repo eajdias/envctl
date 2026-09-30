@@ -64,3 +64,26 @@ func TestAmdgpuDevices(t *testing.T) {
 		t.Errorf("expected only the AMD device %q, got %v", amdCard, got)
 	}
 }
+
+func TestHostAmdgpuDevice(t *testing.T) {
+	oldDir := amdgpuSysfsDir
+	t.Cleanup(func() { amdgpuSysfsDir = oldDir })
+
+	// No AMD GPU: empty.
+	amdgpuSysfsDir = t.TempDir()
+	if got := hostAmdgpuDevice(); got != "" {
+		t.Errorf("expected no device on an empty sysfs, got %q", got)
+	}
+
+	// AMD present: its device path is returned.
+	amdCard := filepath.Join(amdgpuSysfsDir, "card0", "device")
+	if err := os.MkdirAll(amdCard, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(amdCard, "vendor"), []byte("0x1002\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := hostAmdgpuDevice(); got != amdCard {
+		t.Errorf("expected the AMD device %q, got %q", amdCard, got)
+	}
+}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"strings"
 )
 
 // sudoAvailable reports whether sudo exists and the current user can attempt
@@ -15,11 +14,12 @@ func sudoAvailable() bool {
 	return err == nil
 }
 
-// sudoPreflight refreshes the sudo credential timestamp so subsequent
+// SudoPreflight refreshes the sudo credential timestamp so subsequent
 // `sudo -n` calls in the same run do not prompt mid-way. It is meant to be
-// called once, interactively, at the start of the gаming provision run.
-// The returned error is descriptive enough to print as instruction.
-func sudoPreflight() error {
+// called once, interactively, at the start of the gaming provision run (and
+// any other run that touches privileged files). The returned error is
+// descriptive enough to print as an instruction to the user.
+func SudoPreflight() error {
 	if !sudoAvailable() {
 		return fmt.Errorf("sudo is not available on this system")
 	}
@@ -31,16 +31,22 @@ func sudoPreflight() error {
 }
 
 // runPrivileged executes args through `sudo -n` (non-interactive, uses the
-// timestamp refreshed by sudoPreflight). It never embeds a password.
-func runPrivileged(ctx context.Context, args ...string) (string, error) {
+// timestamp refreshed by SudoPreflight). It never embeds a password. The
+// combined output is folded into the error so a failing step stays
+// diagnosable without leaking anything to stdout.
+func runPrivileged(ctx context.Context, args ...string) error {
 	if !sudoAvailable() {
-		return "", fmt.Errorf("sudo is not available on this system")
+		return fmt.Errorf("sudo is not available on this system")
 	}
 	cmdArgs := append([]string{"-n"}, args...)
 	cmd := exec.CommandContext(ctx, "sudo", cmdArgs...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return strings.TrimSpace(string(out)), fmt.Errorf("sudo -n %s failed: %v (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		msg := string(out)
+		if len(msg) > 300 {
+			msg = msg[:300] + "..."
+		}
+		return fmt.Errorf("sudo -n %s failed: %v (%s)", args[0], err, msg)
 	}
-	return strings.TrimSpace(string(out)), nil
+	return nil
 }

@@ -43,6 +43,17 @@ func hostHasAVX2() bool {
 // variable so tests can point it at a fixture.
 var amdgpuSysfsDir = "/sys/class/drm"
 
+// hostAmdgpuDevice returns the sysfs device path of the first AMD GPU on the
+// host, or "" when none is present. The LACT config step is gated on it: a
+// machine without an AMD GPU skips the tuned config entirely.
+func hostAmdgpuDevice() string {
+	devices := amdgpuDevices(amdgpuSysfsDir)
+	if len(devices) == 0 {
+		return ""
+	}
+	return devices[0]
+}
+
 // amdDeviceID is the PCI vendor ID for AMD. Matching is done on the vendor
 // file content, which sysfs writes as a zero-padded hex string ("0x1002").
 const amdDeviceID = "0x1002"
