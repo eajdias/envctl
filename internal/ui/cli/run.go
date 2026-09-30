@@ -480,6 +480,31 @@ func runGamingProvisioning() {
 	}
 
 	spinner.Success(fmt.Sprintf("Processed %d gaming packages", len(pkgs)))
+
+	// The privileged tuning pass (kernel cmdline, LACT, scx_loader) needs a
+	// sudo timestamp: refresh it once, interactively, so the steps below can
+	// run non-interactively. The user-level steps (kwinrc) run regardless.
+	if err := usecase.SudoPreflight(); err != nil {
+		pterm.Warning.Printf("Privileged tuning steps skipped: %v\n", err)
+		pterm.Info.Println("Run 'sudo envctl run gaming' to also apply kernel cmdline, LACT and scx_loader tuning.")
+	} else {
+		res, tuningErr := appCtx.GamingTuningUC.Provision(ctx)
+		if tuningErr != nil {
+			pterm.Warning.Printf("Some tuning steps failed: %v\n", tuningErr)
+		}
+		if res != nil && res.KwinrcWritten {
+			pterm.Success.Println("kwinrc compositing bypass merged (fullscreen games skip the compositor).")
+		}
+		if res != nil && res.ScxLoaderWritten {
+			pterm.Success.Println("scx_loader scheduler config written (bpfland/Auto) and service enabled.")
+		}
+		if res != nil && res.LactWritten {
+			pterm.Success.Println("LACT fan curve config written and lactd enabled.")
+		}
+		if res != nil && res.KernelCmdlineChanged {
+			pterm.Warning.Println("Kernel cmdline updated: reboot for it to take effect (limine-update already ran).")
+		}
+	}
 }
 
 func runShellProvisioning(categories ...string) {

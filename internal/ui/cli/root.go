@@ -46,6 +46,7 @@ type AppContext struct {
 	ProvisionDebloatUC     *usecase.ProvisionTweaksUseCase
 	ProvisionBootstrapUC   *usecase.ProvisionBootstrapUseCase
 	ProvisionProvidersUC   *usecase.ProvisionProvidersUseCase
+	GamingTuningUC         *usecase.ProvisionGamingTuningUseCase
 	DoctorAuditUC          *usecase.DoctorAuditUseCase
 	SnapshotSyncUC         *usecase.SnapshotSyncUseCase
 	UpdateUC               *usecase.UpdateUseCase
@@ -131,6 +132,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
 		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
 		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
+		GamingTuningUC:       usecase.NewProvisionGamingTuningUseCase(fsManager, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
 		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
