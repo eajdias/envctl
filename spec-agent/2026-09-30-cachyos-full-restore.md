@@ -202,13 +202,30 @@ em cima dos commits de auditoria já feitos. Ordem: T0 → T1 → T2 → T3 → 
 
 | Tarefa | Status | Commit | Resultado |
 |---|---|---|---|
-| T0 | pendente | — | — |
-| T1 | pendente | — | — |
-| T2 | pendente | — | — |
-| T3 | pendente | — | — |
-| T4 | pendente | — | — |
-| T5 | pendente | — | — |
-| T6 | pendente | — | — |
-| T7 | pendente | — | — |
-| T8 | pendente | — | — |
-| T9 | pendente | — | — |
+| T0 | ✅ | `c77a797` | `cpuHasAVX2` + `amdgpuDevices`/`hostAmdgpuDevice` (sysfs vendor 0x1002) |
+| T1 | ✅ | `2833344` | `SudoPreflight` (`sudo -v` interativo) + `runPrivileged` (`sudo -n`, sem senha embutida) |
+| T2 | ✅ | `c9701c6` | 9 templates em `configs/emulators/` + entradas `seed_if_missing` no shell.yaml + teste de paridade vs tabela do doctor |
+| T3 | ✅ | `574fea6` | `mergeKwinrcCompositing` (seção `[Compositing]`, preserva resto; idempotente) |
+| T4 | ✅ | `574fea6` | `scxLoaderConfig` (bpfland/Auto) escrito via `sudo -n` + `systemctl enable` |
+| T5 | ✅ | `574fea6` | `lactConfigFor` — **corrigido no probe live**: LACT v7 exige id completo `PCI_ID-PCI_SUBSYS_ID-PCI_SLOT_NAME` (ex.: `1002:6FDF-1002:0B31-0000:01:00.0`), não só `PCI_ID` |
+| T6 | ✅ | `574fea6` | `applyLimineCmdline` (todas as entradas `KERNEL_CMDLINE[x]+=`) + backup `.envctl-bak` + `limine-update` |
+| T7 | ✅ | `574fea6` | `edenURL(avx2)` legacy/standard + download com `.part` + smoke SIGILL + `.desktop` |
+| T8 | ✅ | `2833344` | `cpu-capability` INFO no doctor (AVX2 presente/ausente) |
+| T9 | ✅ | `574fea6`, `801aeda` | wiring no `run gaming` (sudoPreflight → usecase → avisos) + docs full restore + CHANGELOG |
+
+## Desvios do plano (registrados no live probe)
+
+1. **O live probe reescreveu o `/etc/lact/config.yaml` do dono com device id
+   errado** — `parsePCIIDFromUevent` retornava só `PCI_ID` (`1002:6FDF`), mas o
+   LACT v7 rotula a GPU pelo id completo (`1002:6FDF-1002:0B31-0000:01:00.0` =
+   `PCI_ID-PCI_SUBSYS_ID-PCI_SLOT_NAME`). A curva ficaria inerte no daemon. O
+   parser foi corrigido (teste fixa o id completo), o arquivo foi **restaurado**
+   com o id real e o lactd reiniciado — log confirma
+   `initialized amd controller for GPU 1002:6FDF-1002:0B31-0000:01:00.0`. Lição:
+   **nunca rodar probe de provisionamento em configs vivos sem dry-run; e o
+   formato de config real (LACT v7) manda, não a intenção.**
+2. **`run gaming` sem sudo → 4 passos privilegiados pulados com aviso, passos
+   de usuário executam** — exatamente o contrato da decisão "sudo interativo".
+3. **Idempotência validada ao vivo**: 2ª execução do probe na máquina real =
+   zero writes (todos os `*Changed/*Written = false`), mtime dos arquivos do
+   dono preservado.
