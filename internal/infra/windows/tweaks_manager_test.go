@@ -30,6 +30,114 @@ func TestPSQuoteDoublesSingleQuotes(t *testing.T) {
 	}
 }
 
+// Binary registry values are declared in the manifest as byte lists
+// (e.g. UserPreferencesMask = [144,18,3,128,16,0,0,0]). psValue must render
+// them as a PowerShell byte array, not as the Go slice's %v output.
+func TestPSValueBinaryByteList(t *testing.T) {
+	want := `[byte[]](144,18,3,128,16,0,0,0)`
+	got := psValue([]any{144, 18, 3, 128, 16, 0, 0, 0})
+	if got != want {
+		t.Errorf("psValue([]any{...}) = %q, want %q", got, want)
+	}
+	got = psValue([]int{144, 18, 3, 128, 16, 0, 0, 0})
+	if got != want {
+		t.Errorf("psValue([]int{...}) = %q, want %q", got, want)
+	}
+	if got := psValue([]any{}); got != `[byte[]]()` {
+		t.Errorf("psValue(empty list) = %q, want %q", got, `[byte[]]()`)
+	}
+}
+
+// Binary registry values compare by their space-joined byte string, the form
+// PowerShell emits when a byte[] is stringified ("144 18 3 128 16 0 0 0").
+func TestRegistryExpectedStrBinary(t *testing.T) {
+	want := "144 18 3 128 16 0 0 0"
+	if got := registryExpectedStr([]any{144, 18, 3, 128, 16, 0, 0, 0}); got != want {
+		t.Errorf("registryExpectedStr([]any) = %q, want %q", got, want)
+	}
+	if got := registryExpectedStr([]int{144, 18, 3, 128, 16, 0, 0, 0}); got != want {
+		t.Errorf("registryExpectedStr([]int) = %q, want %q", got, want)
+	}
+	if got := registryExpectedStr(0); got != "0" {
+		t.Errorf("registryExpectedStr(0) = %q, want %q", got, "0")
+	}
+	if got := registryExpectedStr("x"); got != "x" {
+		t.Errorf("registryExpectedStr(%q) = %q, want %q", "x", got, "x")
+	}
+}
+
+// The Tier 3 command tweaks (Teredo, power plan, hibernation) map to fixed,
+// idempotent scripts through a closed set of names — like the startup-entry
+// tokens, an unknown name never reaches PowerShell.
+func TestCommandScriptsClosedSet(t *testing.T) {
+	for _, name := range []string{tier3Teredo, tier3PowerPlan, tier3Hibernation} {
+		check, apply, err := commandScripts(name)
+		if err != nil {
+			t.Fatalf("known command %q rejected: %v", name, err)
+		}
+		if check == "" || apply == "" {
+			t.Errorf("command %q returned an empty script", name)
+		}
+	}
+	if _, _, err := commandScripts("AnythingElse"); err == nil {
+		t.Error("expected an unknown command name to be rejected")
+	}
+}
+
+func TestCommandScriptsEmbedFixedCommands(t *testing.T) {
+	check, apply, _ := commandScripts(tier3Teredo)
+	if !strings.Contains(check, "teredo show state") {
+		t.Errorf("expected the Teredo check to probe its state, got %q", check)
+	}
+	if !strings.Contains(apply, "teredo set state disabled") {
+		t.Errorf("expected the Teredo apply to disable it, got %q", apply)
+	}
+
+	check, apply, _ = commandScripts(tier3PowerPlan)
+	if !strings.Contains(check, "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c") {
+		t.Errorf("expected the power check to probe the High Performance GUID, got %q", check)
+	}
+	if !strings.Contains(apply, "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c") {
+		t.Errorf("expected the power apply to activate the High Performance GUID, got %q", apply)
+	}
+
+	check, apply, _ = commandScripts(tier3Hibernation)
+	if !strings.Contains(check, "hiberfil.sys") {
+		t.Errorf("expected the hibernation check to probe hiberfil.sys, got %q", check)
+	}
+	if !strings.Contains(apply, "powercfg.exe /hibernate off") {
+		t.Errorf("expected the hibernation apply to turn it off, got %q", apply)
+	}
+}
+
+// The OneDrive removal is a fixed script sequence; the check must be
+// idempotent (already removed == conforming) and the apply must NEVER delete
+// the user's OneDrive folder — only the process, the installer, the Run key
+// and the Explorer namespace entries.
+func TestOnedriveScriptsAreIdempotentAndDoNotDeleteFolder(t *testing.T) {
+	check, apply := onedriveScripts()
+	if !strings.Contains(check, "CONFORMING") {
+		t.Errorf("expected the OneDrive check to emit a conforming marker, got %q", check)
+	}
+	// Remove-Item is legitimately used for the explorer namespace CLSIDs; the
+	// prohibition is specifically the user folder under USERPROFILE.
+	for _, forbidden := range []string{"$env:USERPROFILE\\OneDrive", "$env:USERPROFILE\\OneDrive -", "OneDrive} -Recurse"} {
+		if strings.Contains(apply, forbidden) {
+			t.Errorf("OneDrive apply must never delete the user folder (found %q)", forbidden)
+		}
+	}
+	for _, required := range []string{
+		"Stop-Process -Name 'OneDrive'",
+		"OneDriveSetup.exe\" /uninstall",
+		"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+		"018D5C66-4533-4307-9B53-224DE2ED1FE6",
+	} {
+		if !strings.Contains(apply, required) {
+			t.Errorf("OneDrive apply must contain %q, got %q", required, apply)
+		}
+	}
+}
+
 // Adversarial payloads must stay inside single-quoted PowerShell strings:
 // single quotes double, double quotes and $ stay harmless inside them.
 func TestPSScriptEscapesAdversarialTweak(t *testing.T) {

@@ -314,6 +314,43 @@ tweaks:
     type: "DWord"
     category: "gaming"
 
+  # --- Tier 3 absorbed from windows11-clean (2026-09-30) ---
+  # Command tweaks are idempotent script pairs registered in the closed set
+  # (tier3_scripts.go): check prints CONFORMING when the state holds, apply
+  # transitions to it. UserPreferencesMask is a Binary registry value declared
+  # as a byte list.
+  - id: "tier3-teredo"
+    description: "Disable Teredo (network tunneling adds latency for gaming; breaks Xbox party chat)"
+    name: "Teredo"
+    type: "Command"
+    category: "gaming"
+
+  - id: "tier3-power-high-performance"
+    description: "Activate the High Performance power plan (desktop)"
+    name: "PowerPlan"
+    type: "Command"
+    category: "power"
+
+  - id: "tier3-hibernation-off"
+    description: "Disable hibernation (SSD desktops only; breaks laptop hibernation)"
+    name: "Hibernation"
+    type: "Command"
+    category: "power"
+
+  - id: "tier3-user-preferences-mask"
+    description: "Visual effects UserPreferencesMask (best performance, Binary value)"
+    path: 'HKCU:\Control Panel\Desktop'
+    name: "UserPreferencesMask"
+    value: [144, 18, 3, 128, 16, 0, 0, 0]
+    type: "Binary"
+    category: "gaming"
+
+  - id: "tier3-onedrive"
+    description: "Remove OneDrive (process, setup, Run key, Explorer namespace; user folder is never touched)"
+    name: "OneDrive"
+    type: "Onedrive"
+    category: "onedrive"
+
   # --- Apps: remove bloatware Store packages (34 Appx) ---
   # Só o Xbox suite fica de fora (gaming) — ver
   # docs/guides/windows-debloat-tier3.md §8.

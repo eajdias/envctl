@@ -31,8 +31,10 @@ func psQuote(s string) string {
 }
 
 // psValue renders a tweak value as a PowerShell literal: strings are
-// single-quoted (inert to expansion), bools become $true/$false, and
-// ints/floats stay bare (DWord-compatible).
+// single-quoted (inert to expansion), bools become $true/$false, ints/floats
+// stay bare (DWord-compatible), and byte lists (Binary registry) become
+// [byte[]](...). The manifest declares Binary values as YAML lists, which
+// decode as []any or []int depending on the YAML size/type rules.
 func psValue(v any) string {
 	switch t := v.(type) {
 	case string:
@@ -42,9 +44,31 @@ func psValue(v any) string {
 			return "$true"
 		}
 		return "$false"
+	case []any:
+		return formatByteList(t)
+	case []int:
+		return formatByteList(t)
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+
+// formatByteList renders a manifest byte list as a PowerShell byte array
+// literal: [byte[]](144,18,3,128,16,0,0,0). Commas, not spaces: PowerShell
+// array literals use commas.
+func formatByteList(v any) string {
+	var parts []string
+	switch t := v.(type) {
+	case []any:
+		for _, e := range t {
+			parts = append(parts, fmt.Sprintf("%v", e))
+		}
+	case []int:
+		for _, e := range t {
+			parts = append(parts, fmt.Sprintf("%d", e))
+		}
+	}
+	return "[byte[]](" + strings.Join(parts, ",") + ")"
 }
 
 // Startup entries are probed and removed against a closed set: the two Run keys
@@ -380,6 +404,37 @@ if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.S
 		ok, details := startupConforms(tokens)
 		return ok, details, nil
 
+	case "command":
+		// Tier 3 command tweaks: idempotent check script prints CONFORMING
+		// when the desired state holds. The script name comes from the closed
+		// set (tier3_scripts.go), so an unknown name fails the check instead
+		// of reaching PowerShell.
+		checkScript, _, err := commandScripts(tweak.Name)
+		if err != nil {
+			return false, "", err
+		}
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", checkScript)
+		out, cmdErr := cmd.CombinedOutput()
+		if cmdErr != nil {
+			return false, "", fmt.Errorf("failed to run Tier 3 command check %s: %w", tweak.Name, cmdErr)
+		}
+		if strings.Contains(string(out), "CONFORMING") {
+			return true, "Desired state holds", nil
+		}
+		return false, "Desired state does not hold", nil
+
+	case "onedrive":
+		checkScript, _ := onedriveScripts()
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", checkScript)
+		out, cmdErr := cmd.CombinedOutput()
+		if cmdErr != nil {
+			return false, "", fmt.Errorf("failed to check OneDrive: %w", cmdErr)
+		}
+		if strings.Contains(string(out), "CONFORMING") {
+			return true, "OneDrive not present (process + explorer namespace gone)", nil
+		}
+		return false, "OneDrive still present", nil
+
 	default: // Registry DWord, String, Binary, etc.
 		psScript := fmt.Sprintf(`
 $path = '%s'
@@ -401,7 +456,7 @@ if (Test-Path $path) {
 			return false, "", fmt.Errorf("failed to read registry %s\\%s: %w", tweak.Path, tweak.Name, err)
 		}
 		outStr := strings.TrimSpace(string(out))
-		expectedStr := fmt.Sprintf("%v", tweak.Value)
+		expectedStr := registryExpectedStr(tweak.Value)
 		if strings.HasPrefix(outStr, "VALUE:") {
 			ok, details := matchRegistryValue(strings.TrimPrefix(outStr, "VALUE:"), expectedStr)
 			return ok, details, nil
@@ -452,7 +507,7 @@ func (m *TweaksManager) CheckBatch(ctx context.Context, tweaks []entity.WindowsT
 			svcIdx = append(svcIdx, i)
 		case "startupitem":
 			startupIdx = append(startupIdx, i)
-		case "feature", "psmodule":
+		case "feature", "psmodule", "command", "onedrive":
 			singleIdx = append(singleIdx, i)
 		default: // registry DWord, String, QWord, Binary
 			regIdx = append(regIdx, i)
@@ -519,7 +574,7 @@ foreach ($e in $entries) {
 			}
 			outcome := parts[2]
 			if strings.HasPrefix(outcome, "VALUE:") {
-				ok, details := matchRegistryValue(strings.TrimPrefix(outcome, "VALUE:"), fmt.Sprintf("%v", tweaks[i].Value))
+				ok, details := matchRegistryValue(strings.TrimPrefix(outcome, "VALUE:"), registryExpectedStr(tweaks[i].Value))
 				results[i].OK = ok
 				results[i].Details = details
 			} else {
@@ -761,6 +816,37 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		m.logger.LogCommand("powershell.exe", []string{"-Command", startupScript}, exitCode, string(startupOut), startupErr)
 		if startupErr != nil {
 			return fmt.Errorf("failed to remove startup entry %s: %s (%w)", tweak.Name, string(startupOut), startupErr)
+		}
+		return nil
+
+	case "command":
+		_, applyScript, err := commandScripts(tweak.Name)
+		if err != nil {
+			return err
+		}
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", applyScript)
+		out, cmdErr := cmd.CombinedOutput()
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", applyScript}, exitCode, string(out), cmdErr)
+		if cmdErr != nil {
+			return fmt.Errorf("failed to apply Tier 3 command %s: %s (%w)", tweak.Name, string(out), cmdErr)
+		}
+		return nil
+
+	case "onedrive":
+		_, applyScript := onedriveScripts()
+		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", applyScript)
+		out, cmdErr := cmd.CombinedOutput()
+		exitCode := 0
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		m.logger.LogCommand("powershell.exe", []string{"-Command", applyScript}, exitCode, string(out), cmdErr)
+		if cmdErr != nil {
+			return fmt.Errorf("failed to remove OneDrive: %s (%w)", string(out), cmdErr)
 		}
 		return nil
 
