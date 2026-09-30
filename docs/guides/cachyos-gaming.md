@@ -5,10 +5,29 @@
 
 ## Escopo
 
-O `envctl` provisiona **pacotes** (`gaming.yaml`) e **presets de usuário**
-(`gaming.conf`, `MangoHud.conf`) de forma idempotente. Tudo que exige root, reboot ou
-decisão de segurança **não** é provisionado: é documentado aqui como orientação manual,
-e o `doctor` o audita em modo read-only (nunca `--fix`).
+O `envctl` provisiona **tudo** do stack de gaming de forma idempotente num PC
+formatado:
+
+- **Pacotes** (`gaming.yaml`): Steam, emuladores, Proton, LACT, scx, quarteto X11.
+- **Presets de usuário** (`gaming.conf`, `MangoHud.conf`, configs dos 9
+  emuladores em `configs/emulators/`): seed só quando o arquivo não existe —
+  ajustes manuais seus vencem.
+- **Tuning privilegiado** (via sudo interativo, `sudo -v` no início do run):
+  kernel cmdline (`/etc/default/limine` + `limine-update` + reboot), LACT fan
+  curve (GPU AMD detectada via sysfs, curve conservadora embutida),
+  `scx_loader` (bpfland/Auto) e o bypass de compositing no `kwinrc` (merge de
+  seção, preserva suas outras preferências).
+- **Eden AppImage**: download do build pinnado (legacy ou standard conforme a
+  CPU), smoke test SIGILL, launcher `.desktop`, config seed.
+
+O `doctor` audita tudo isso em modo read-only (nunca `--fix`): os checks
+reportam o que o `run gaming` provisiona, em `INFO` quando ausente e em `WARN`
+apenas quando a ausência quebra o stack (ex.: pacotes faltando).
+
+**O que continua manual (decisão de segurança/legal, sem PII no repo):**
+- BIOS/firmware/keys dos emuladores (dump do seu próprio console).
+- ROMs em `~/Games/*` (estrutura de pastas é seedada; conteúdo é seu).
+- Login Steam, launch options e perfis de controle Dolphin (GUI).
 
 Este guia substituiu a skill global `cachyos-gaming-setup`, removida do catálogo de
 agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao tier global.
