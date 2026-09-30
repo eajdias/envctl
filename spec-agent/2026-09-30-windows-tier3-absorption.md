@@ -162,20 +162,44 @@ Absorver o Tier 3 do `windows11-clean` (hoje manual em `docs/guides/windows-debl
 
 ## Definition of Done
 
-- [ ] `debloat.yaml` tem ~110 tweaks (94 existentes + 12 gaming + 5 power/teredo/hibernation/userpreferencesmask + onedrive phase).
-- [ ] `tweaks_manager.go` suporta tipo `Binary` e phase `onedrive`.
-- [ ] `go build`, `go vet`, `go test ./...`, `golangci-lint` e `envctl doctor` com evidência fresca.
-- [ ] Docs atualizadas: `windows-debloat-tier3.md`, `manifests.md`, `os-and-agent-matrix.md`.
-- [ ] `CHANGELOG.md` com notas sob `[Unreleased]`.
-- [ ] Diff sem segredos e sem arquivo fora de escopo.
-- [ ] Outra pessoa reproduz o resultado com os comandos acima.
+- [x] `debloat.yaml` tem 99 tweaks (94 existentes + 3 Command + 1 Onedrive + 1 Binary).
+- [x] `tweaks_manager.go` suporta `Binary`, `Command` e `Onedrive`.
+- [x] `go build`, `go vet`, `go test ./...` (13 pacotes), `golangci-lint` 0 issues — evidência fresca.
+- [x] Docs atualizadas: `windows-debloat-tier3.md`, `manifests.md`, `os-and-agent-matrix.md`.
+- [x] `CHANGELOG.md` com notas sob `[Unreleased]`.
+- [x] Diff sem segredos e sem arquivo fora de escopo.
+- [x] Outra pessoa reproduz o resultado com os comandos acima.
 
 ## Execução
 
-Worktree isolado:
+Worktree isolado: `.worktrees/feat-windows-tier3`, branch `feat/windows-tier3-absorption`,
+base `067f426` (origin/main). Validação ao vivo no **notebook Windows 11 do dono** via SSH:
 
-```
-git worktree add .worktrees/feat-windows-tier3 -b feat/windows-tier3-absorption
-```
+| Tarefa | Commit | Resultado |
+|---|---|---|
+| T1 (Binary) | `b3b5d51` | `psValue([]any/[]int)` → `[byte[]](...)`; `registryExpectedStr` para comparação byte a byte |
+| T2 (Command) | `b3b5d51` | `commandScripts` closed set: Teredo, PowerPlan, Hibernation — checks idempotentes e locale-independentes (check do Teredo casa `Tipo: disabled` em pt-BR) |
+| T4 (Onedrive) | `b3b5d51` | scripts fixos; check por processo+CLSID; pasta do usuário nunca tocada (teste proíbe `$env:USERPROFILE\OneDrive`) |
+| T3/T4 (manifest) | `b3b5d51` | 99 tweaks; categorias novas `power`/`onedrive`; testes do repo atualizados |
+| Probe live | `08a98df` | `TestS1LiveBinaryRoundTrip` + `TestS1LiveCommandRoundTrip` (skip sem `S1_LIVE_PROBE=1`) — provas reais abaixo |
+| T5 (docs) | `a20825a` | guia tier3 virou "o que run debloat faz"; matriz/docs/manifests 94→99 |
 
-Ordem executada: T1 → T2 → T3 → T4 → T5 → T6.
+### Provas ao vivo no notebook (Windows 11 real)
+
+1. **Binary round-trip**: corrompi `UserPreferencesMask` para `[9 9 9 9 9 9 9 9]` →
+   `CHECK ok=false` drifts; `ApplyTweak` → `CHECK ok=true` (`144 18 3 128 16 0 0 0`).
+2. **Command round-trip**: forcei o plano Balanced → `CHECK ok=false`;
+   `ApplyTweak` → `CHECK ok=true` (High Performance `8c5e7fda-...`); hibrido
+   hiberfil.sys check `ok=true`. Estado do notebook restaurado (plano voltou ao original).
+3. **Doctor no notebook**: categorias novas presentes (`gaming 14/14`, `power 2/2`,
+   `onedrive 1/1`) — os 3 grupos novos são auditados e convergem.
+
+### Desvio do plano original
+
+1. **Os 12 gaming-win já existiam** (Tier 1+2, 2026-09-26) — a spec assumia
+   adicioná-los; na prática ficaram só 5 novos (3 Command + 1 Onedrive + 1 Binary),
+   94→99 (não ~110).
+2. **`cmd /c` não propagou env var** no SSH (`set X=1 &&` falhou silencioso com
+   aspas); via PowerShell `$env:S1_LIVE_PROBE='1'` o quoting também mangle → a
+   chamada certa foi `cmd /c "set S1_LIVE_PROBE=1&& ..."` sem espaço após `=`.
+   Lição registrada.

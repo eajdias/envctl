@@ -230,10 +230,10 @@ Ordem recomendada: S1 (mais simples) → S3 (mais complexo). Cada spec tem seu p
 
 | Spec | Status | Commit | Resultado |
 |---|---|---|---|
-| S1 | pendente | — | — |
-| S3 | **concluído** | `c2085bc`, `18a489f`, `04a0c2c` | hardware doc + 3 checks INFO privilegiados + 9 checks INFO emuladores; doctor 231 checks, 0 WARN novos; gate completo verde |
+| S1 | **concluído** | `b3b5d51`, `08a98df`, `a20825a` (branch `feat/windows-tier3-absorption`) | Tier 3 absorvido: Binary + Command + Onedrive; 94→99 tweaks; validado ao vivo no notebook Windows 11 |
+| S3 | **concluído** | `c2085bc`..`723153f` (branch `feat/cachyos-hardware-tuning`) | hardware doc + 3 checks INFO privilegiados + 9 checks INFO emuladores + full restore (AVX2, Eden, LACT, cmdline, scx, kwinrc); doctor 232 checks |
 
-## Log de execução (2026-09-30)
+## Log de execução S3 (2026-09-30)
 
 Branch `feat/cachyos-hardware-tuning`, worktree `.worktrees/feat-cachyos-hardware`.
 Validação real no host descrito pelo cachyos-init (i7-2600 + RX 580): todos os
@@ -247,7 +247,7 @@ Validação real no host descrito pelo cachyos-init (i7-2600 + RX 580): todos os
 | T4 | `04a0c2c` | guia Verificação, matriz, CHANGELOG `[Unreleased]` |
 | T5 | — | `go build`/`vet`/`test` (13 pacotes) + `golangci-lint --new-from-rev` 0 issues; `envctl doctor` 231 checks, único WARN é `REFERENCE.md` pré-existente do main |
 
-### Desvios do plano original
+### Desvios do plano original (S3)
 
 1. **O kwinrc é lido via `fsManager.ReadFile` com `~` literal, não `os.ReadFile`**
    — é arquivo do user profile; o path literal casa com o mock sem expansão

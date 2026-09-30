@@ -240,10 +240,11 @@ tweaks:
 ## 📄 7. `manifests/debloat.yaml`
 
 Debloat do Windows 11 absorvido do `windows11-clean` — aplicado pelo perfil
-`envctl run windows` ou standalone via `envctl run debloat`. São **94 tweaks**
-(36 registro + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4
-startup entries) em 6 categorias. Reusa o schema de `windows.yaml` com três
-tipos extras:
+`envctl run windows` ou standalone via `envctl run debloat`. São **99 tweaks**
+(38 registro + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4
+startup entries + 3 `Command` + 1 `Onedrive` + suporte a `Binary`) em 8
+categorias (`telemetry`, `privacy`, `gaming`, `apps`, `services`, `startup`,
+`power`, `onedrive`). Reusa o schema de `windows.yaml` com tipos extras:
 
 ```yaml
 tweaks:
@@ -275,6 +276,23 @@ tweaks:
     name: "MicrosoftEdge"             # conforme = ausente; sem path e sem value
     type: "StartupItem"               # remove o valor/atalho do Run key / pasta Startup
     category: "startup"
+
+  - id: "tier3-teredo"                # 3 Command tweaks (Teredo, PowerPlan, Hibernation)
+    name: "Teredo"                    # pares check/apply idempotentes no conjunto fechado
+    type: "Command"                   # de tier3_scripts.go (sem path/value no manifest)
+    category: "gaming"
+
+  - id: "tier3-user-preferences-mask" # Binary registry: value = lista de bytes
+    path: "HKCU:\\Control Panel\\Desktop"
+    name: "UserPreferencesMask"
+    value: [144, 18, 3, 128, 16, 0, 0, 0]
+    type: "Binary"
+    category: "gaming"
+
+  - id: "tier3-onedrive"              # scripts fixos; a pasta do usuário nunca é tocada
+    name: "OneDrive"
+    type: "Onedrive"
+    category: "onedrive"
 ```
 
 `StartupItem` sonda e remove contra um conjunto **fechado**: as duas Run keys

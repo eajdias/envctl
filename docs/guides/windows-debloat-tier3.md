@@ -1,10 +1,12 @@
-# Guia: Windows Debloat — Tier 3 (manual, opt-in)
+# Guia: Windows Debloat — Tier 3 (o que `run debloat` agora faz automaticamente)
 
 A parte automatizada e idempotente mora no `envctl run debloat` (`manifests/debloat.yaml`:
 registro de telemetria/privacidade, visuais de gaming, 34 Appx, 9 serviços `Disabled`,
-11 serviços `Manual` e 4 startup entries — 94 tweaks). Tudo abaixo é **destrutivo,
-exige admin/reboot ou decisão caso a caso** — por isso é manual, nunca auto-fix.
-Rode cada bloco só com aprovação explícita do dono.
+11 serviços `Manual`, 4 startup entries, **OneDrive, Teredo, plano de energia High
+Performance, hibernação e `UserPreferencesMask`** — 99 tweaks). Tudo abaixo que um dia
+foi manual já é provisionado pelos tipos `Command` (pares check/apply idempotentes no
+conjunto fechado de `tier3_scripts.go`) e `Onedrive` (scripts fixos — a pasta
+`$env:USERPROFILE\OneDrive` do usuário **nunca** é tocada).
 
 > Este guia substituiu a skill global `windows-debloat`, removida do catálogo de agentes
 > em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao tier global.
@@ -26,43 +28,44 @@ envctl doctor
 envctl run debloat
 ```
 
-## 2. OneDrive (remoção completa)
+## 2. OneDrive (removido pelo `run debloat`)
 
-Remove o processo, o setup, a chave Run e o namespace do Explorer. A pasta
-`$env:USERPROFILE\OneDrive` só apaga com confirmação — **backup antes**:
+O tweak `tier3-onedrive` (type `Onedrive`, scripts fixos) remove o processo, o
+setup, a chave Run e o namespace do Explorer. **A pasta
+`$env:USERPROFILE\OneDrive` nunca é tocada** — backup/manutenção é
+responsabilidade do dono. O check é idempotente: com o processo e o namespace
+ausentes, reporta convergido.
+
+## 3. Energia (agora `Command` no `run debloat`)
+
+O `run debloat` ativa o plano **High Performance** (`tier3-power-high-performance`)
+e desliga a **hibernação** (`tier3-hibernation-off` — só desktops com SSD; quebra
+a hibernação em laptop). O check do plano compara o GUID ativo
+(`8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c`); o da hibernação sonda `hiberfil.sys`
+(locale-independente). Para turbo boost manual, ou para reverter:
 
 ```powershell
-Stop-Process -Name 'OneDrive' -Force -ErrorAction SilentlyContinue
-& "$env:SystemRoot\System32\OneDriveSetup.exe" /uninstall
-$p = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
-if (Get-ItemProperty -Path $p -Name 'OneDrive' -ErrorAction SilentlyContinue) { Remove-ItemProperty -Path $p -Name 'OneDrive' }
-Remove-Item -Path 'HKCR:\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}' -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -Path 'HKCR:\Wow6432Node\CLSID\{018D5C66-4533-4307-9B53-224DE2ED1FE6}' -Recurse -Force -ErrorAction SilentlyContinue
-```
-
-## 3. Energia (desktop vs laptop — decidir caso a caso)
-
-```powershell
-powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c   # High Performance
-powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFBOOSTMODE 2  # turbo boost
+powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PERFBOOSTMODE 2
 powercfg /setactive SCHEME_CURRENT
-powercfg.exe /hibernate off   # SÓ desktop com SSD (quebra hibernação em laptop)
+powercfg.exe /hibernate on   # reverter hibernação
 ```
 
-## 4. Teredo (latência em jogos; quebra party chat do Xbox)
+## 4. Teredo (agora `Command` no `run debloat`)
+
+O tweak `tier3-teredo` roda `netsh interface teredo set state disabled`; o check
+sonda `netsh interface teredo show state` (o `Tipo` sai `disabled` mesmo em
+locales traduzidos). Reverter:
 
 ```powershell
-netsh interface teredo set state disabled
-# reverter: netsh interface teredo set state client
+netsh interface teredo set state client
 ```
 
-## 5. UserPreferencesMask (performance visual, valor binário)
+## 5. UserPreferencesMask (agora `Binary` no `run debloat`)
 
-O `run debloat` não escreve `Binary` (só `DWord`/`String`/`Appx`/`Service`):
-
-```powershell
-Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name 'UserPreferencesMask' -Type Binary -Value ([byte[]](144,18,3,128,16,0,0,0))
-```
+O `debloat.yaml` declara o valor como lista de bytes
+(`value: [144, 18, 3, 128, 16, 0, 0, 0]`, `type: "Binary"`); o check compara o
+byte list lido do registry, e o apply escreve `[byte[]](...)`. Validado ao vivo
+(num Windows 11 real: corromper → drift detectado → apply → convergido).
 
 ## 6. Docker Desktop + WSL (limites de CPU/memória)
 

@@ -143,14 +143,14 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Fatalf("failed to load debloat manifest: %v", err)
 	}
 
-	const expectedDebloat = 94
+	const expectedDebloat = 99
 	if len(debloat) != expectedDebloat {
 		t.Errorf("expected exactly %d debloat tweaks, got %d", expectedDebloat, len(debloat))
 	}
 
 	seenStartup := map[string]bool{}
-	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true, "StartupItem": true}
-	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true, "startup": true}
+	validTypes := map[string]bool{"DWord": true, "String": true, "Appx": true, "Service": true, "StartupItem": true, "Binary": true, "Command": true, "Onedrive": true}
+	validCats := map[string]bool{"telemetry": true, "privacy": true, "gaming": true, "apps": true, "services": true, "startup": true, "power": true, "onedrive": true}
 	seen := map[string]bool{}
 	for _, tw := range debloat {
 		if seen[tw.ID] {
@@ -158,7 +158,7 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		}
 		seen[tw.ID] = true
 		if !validTypes[tw.Type] {
-			t.Errorf("debloat tweak %q has unsupported type %q (want DWord/String/Appx/Service/StartupItem)", tw.ID, tw.Type)
+			t.Errorf("debloat tweak %q has unsupported type %q (want DWord/String/Appx/Service/StartupItem/Binary/Command/Onedrive)", tw.ID, tw.Type)
 		}
 		if !validCats[tw.Category] {
 			t.Errorf("debloat tweak %q has unknown category %q", tw.ID, tw.Category)
@@ -196,6 +196,23 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 			}
 			if tw.Value != nil {
 				t.Errorf("debloat StartupItem tweak %q must not declare a value, got %v", tw.ID, tw.Value)
+			}
+		case "Command":
+			// Tier 3 command tweaks: the name routes to the closed script set
+			// (tier3_scripts.go); no registry path/value involved.
+			if tw.Name == "" {
+				t.Errorf("debloat Command tweak %q must name the command", tw.ID)
+			}
+			if tw.Path != "" || tw.Value != nil {
+				t.Errorf("debloat Command tweak %q must not declare path/value (scripts are the closed set)", tw.ID)
+			}
+		case "Onedrive":
+			// Fixed idempotent script pair; declares nothing but the name.
+			if tw.Name == "" {
+				t.Errorf("debloat Onedrive tweak %q must name the component", tw.ID)
+			}
+			if tw.Path != "" || tw.Value != nil {
+				t.Errorf("debloat Onedrive tweak %q must not declare path/value (scripts are fixed)", tw.ID)
 			}
 		default: // registry
 			if tw.Path == "" || tw.Name == "" {
