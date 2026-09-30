@@ -42,6 +42,7 @@ type FileSystemManager interface {
 type ManifestRepository interface {
 	LoadPackages() ([]entity.Package, error)
 	LoadGamingPackages() ([]entity.Package, error)
+	LoadExtrasPackages() ([]entity.Package, error)
 	LoadConfigFiles() ([]entity.ConfigFile, error)
 	LoadSkills() ([]entity.Skill, error)
 	LoadLSPs() ([]entity.LSP, error)

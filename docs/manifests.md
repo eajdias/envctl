@@ -323,3 +323,27 @@ O `doctor` audita uma linha agregada por categoria (`Debloat / category <nome>`)
 família: registro, Appx, serviços, startup) em vez de 1 por tweak. O Tier 3 destrutivo
 (OneDrive, hibernação, power plan, Teredo, `.wslconfig`, Copilot/Recall) é manual e
 vive em `docs/guides/windows-debloat-tier3.md`.
+
+---
+
+## 📄 8. `manifests/extras.yaml`
+
+Aplicativos **opcionais** preferidos do dono, fora do provisionamento padrão:
+o repo é público e neutro — nada de extras instala sem opt-in explícito.
+São **15 pacotes winget** (Windows) e **12 pacotes pacman** (Arch/CachyOS) de
+apps comuns (Brave, Obsidian, Steam, Tailscale, VLC, ONLYOFFICE, Syncthing,
+Moonlight, WinSCP, Wireshark, Nmap, Termius, TreeSize, BCUninstaller,
+LockHunter; brave-origin-bin, obsidian, onlyoffice-bin, vlc, transmission-qt,
+picard, rustdesk-bin, anydesk-bin, tailscale, boosteroid, alacritty, mpv).
+
+**Zero PII**: só IDs de pacote — apps de negócio/contas ficam fora. `RustDesk` e
+`Npcap` (Windows) não têm pacote winget (installer próprio) — instalação manual,
+documentada no manifesto.
+
+```bash
+envctl run extras                 # só os opcionais
+envctl run all --with-extras      # perfil completo + opcionais
+```
+
+O `doctor` **não** audita extras: são preferência, não stack — a presença é
+verificada pelo próprio `run extras` (idempotente).

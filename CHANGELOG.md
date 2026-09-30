@@ -104,6 +104,10 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   lista de bytes). `debloat.yaml` vai de 94 para 99 tweaks; caminhos Binary e
   Command validados ao vivo num Windows 11 real (corromper → drift → apply →
   convergido).
+- Extras opt-in: `manifests/extras.yaml` (15 winget no Windows + 12 pacman no
+  Arch/CachyOS) provisão de apps opcionais preferidos do dono via `envctl run
+  extras` ou `run all --with-extras` — nunca no perfil default (repo público,
+  zero PII; apps de negócio/contas ficam fora).
 - Debloat Tier 2: fecha o gap do `windows11-clean` — 3 Appx (`MSTeams`,
   `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
   (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e

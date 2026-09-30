@@ -1,0 +1,179 @@
+# extras.yaml - Optional apps the owner prefers, kept out of the core
+# provisioning so the public repo stays neutral. Opt-in via `envctl run extras`
+# or `envctl run all --with-extras`; never installed by the default profile.
+#
+# Zero PII: only package IDs. Business apps, accounts and personal data stay
+# out of this repo by design.
+#
+# Windows entries install via winget; Arch/CachyOS entries via pacman (all
+# verified present in the CachyOS repo, no AUR build needed).
+#
+# Deliberately NOT here (no winget package, self-installer only):
+# - RustDesk, Npcap (installer próprio / ARP) -> manual, see docs.
+# - WhatsApp, Discord, Spotify (owner's decision: demasiado pessoal).
+version: "1.0"
+
+packages:
+  # --- Windows (winget) ---
+  - id: Brave.Brave
+    name: Brave browser
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Obsidian.Obsidian
+    name: Obsidian (markdown notes)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Valve.Steam
+    name: Steam (games)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Tailscale.Tailscale
+    name: Tailscale (private mesh VPN)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: VideoLAN.VLC
+    name: VLC media player
+    type: winget
+    os: windows
+    category: extras
+
+  - id: ONLYOFFICE.DesktopEditors
+    name: ONLYOFFICE Desktop Editors
+    type: winget
+    os: windows
+    category: extras
+
+  - id: BillStewart.SyncthingWindowsSetup
+    name: Syncthing (file sync)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: MoonlightGameStreamingProject.Moonlight
+    name: Moonlight (game streaming client)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: WinSCP.WinSCP
+    name: WinSCP (SFTP client)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: WiresharkFoundation.Wireshark
+    name: Wireshark (network analyzer)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Insecure.Nmap
+    name: Nmap (network scanner)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Termius.Termius
+    name: Termius (SSH client)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: JAMSoftware.TreeSize.Free
+    name: TreeSize Free (disk usage)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: Klocman.BulkCrapUninstaller
+    name: BCUninstaller (bulk app uninstaller)
+    type: winget
+    os: windows
+    category: extras
+
+  - id: CrystalRich.LockHunter
+    name: LockHunter (file unlocker)
+    type: winget
+    os: windows
+    category: extras
+
+  # --- Arch/CachyOS (pacman) ---
+  - id: brave-origin-bin
+    name: Brave browser (CachyOS repo)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: obsidian
+    name: Obsidian (markdown notes)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: onlyoffice-bin
+    name: ONLYOFFICE Desktop Editors
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: vlc
+    name: VLC media player
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: transmission-qt
+    name: Transmission (torrent client)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: picard
+    name: MusicBrainz Picard (music tagger)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: rustdesk-bin
+    name: RustDesk (remote desktop)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: anydesk-bin
+    name: AnyDesk (remote desktop)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: tailscale
+    name: Tailscale (private mesh VPN)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: boosteroid
+    name: Boosteroid (cloud gaming)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: alacritty
+    name: Alacritty (GPU terminal)
+    type: pacman
+    os: arch,cachyos
+    category: extras
+
+  - id: mpv
+    name: mpv (minimal media player)
+    type: pacman
+    os: arch,cachyos
+    category: extras

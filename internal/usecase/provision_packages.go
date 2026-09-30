@@ -61,6 +61,21 @@ func (uc *ProvisionPackagesUseCase) ExecuteGaming(ctx context.Context, onProgres
 	return uc.provisionList(ctx, gamingPkgs, "", onProgress)
 }
 
+// ExecuteExtras provisions the opt-in optional apps manifest (extras.yaml).
+// No type filter and no distro gate: the per-package os: field decides what
+// each platform gets (winget entries install on Windows, pacman entries on
+// Arch/CachyOS). Extras are a preference layer, never part of a default run.
+func (uc *ProvisionPackagesUseCase) ExecuteExtras(ctx context.Context, onProgress PackageProgressHandler) ([]entity.Package, error) {
+	extrasPkgs, err := uc.manifestRepo.LoadExtrasPackages()
+	if err != nil {
+		uc.logger.Error("Failed to load extras manifests: %v", err)
+		return nil, fmt.Errorf("failed to load extras manifests: %w", err)
+	}
+
+	uc.logger.Info("Starting extras provisioning (Total: %d manifests)", len(extrasPkgs))
+	return uc.provisionList(ctx, extrasPkgs, "", onProgress)
+}
+
 // packageOwnershipProbe removes a check command only where a generic command
 // probe would confuse a user-local binary with a distro package. All other
 // package types retain their manifest check behavior.

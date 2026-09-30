@@ -19,6 +19,7 @@ import (
 type mockManifestRepo struct {
 	pkgs             []entity.Package
 	gamingPkgs       []entity.Package
+	extrasPkgs       []entity.Package
 	configFiles      []entity.ConfigFile
 	skills           []entity.Skill
 	lsps             []entity.LSP
@@ -34,6 +35,9 @@ type mockManifestRepo struct {
 func (m *mockManifestRepo) LoadPackages() ([]entity.Package, error) { return m.pkgs, nil }
 func (m *mockManifestRepo) LoadGamingPackages() ([]entity.Package, error) {
 	return m.gamingPkgs, nil
+}
+func (m *mockManifestRepo) LoadExtrasPackages() ([]entity.Package, error) {
+	return m.extrasPkgs, nil
 }
 func (m *mockManifestRepo) LoadConfigFiles() ([]entity.ConfigFile, error) { return m.configFiles, nil }
 func (m *mockManifestRepo) LoadSkills() ([]entity.Skill, error)           { return m.skills, nil }
