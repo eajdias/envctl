@@ -7,6 +7,27 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.11.0](https://github.com/eajdias/envctl/compare/v1.10.1...v1.11.0) (2026-09-30)
+
+
+### Features
+
+* **debloat:** absorb windows11-clean Tier 3 ([768bdb7](https://github.com/eajdias/envctl/commit/768bdb79ba65dbe6d0554d5771f1aec4ce31b1fc))
+* **debloat:** absorb windows11-clean Tier 3 — OneDrive, Teredo, power, hibernation, UserPreferencesMask ([f28ab68](https://github.com/eajdias/envctl/commit/f28ab68b905bb024c2f9d90fa34c1d43e2d421b6))
+* **doctor:** audit emulator configs as info ([18a489f](https://github.com/eajdias/envctl/commit/18a489f6436ecd62446620230b7f0cc210bc2273))
+* **doctor:** audit LACT, scx_loader and kwinrc as info ([c2085bc](https://github.com/eajdias/envctl/commit/c2085bc6d6dbca8b1f619dd0632749c69bd50e37))
+* **doctor:** report CPU capability as gaming context ([2833344](https://github.com/eajdias/envctl/commit/283334496d179301c2f2ad94936826057475bdcd))
+* **extras:** add the optional apps manifest and loader ([8928cd3](https://github.com/eajdias/envctl/commit/8928cd3d7e8856b842655b9b36da63e4451f6be6))
+* **extras:** optional apps profile — 15 winget + 12 pacman, zero PII ([10e7e5e](https://github.com/eajdias/envctl/commit/10e7e5e6f5f115687159aad731e161fe1d7ce45b))
+* **extras:** provision the optional apps manifest ([43f78bc](https://github.com/eajdias/envctl/commit/43f78bc041551a9fcaec00745809498db8a90156))
+* **extras:** wire run extras and the --with-extras flag ([c9548d8](https://github.com/eajdias/envctl/commit/c9548d8b7e8b6c274bd4acff877f0211a2653945))
+* **gaming:** add sudo scaffolding for privileged tuning steps ([2833344](https://github.com/eajdias/envctl/commit/283334496d179301c2f2ad94936826057475bdcd))
+* **gaming:** detect CPU AVX2 and AMD GPU capability ([c77a797](https://github.com/eajdias/envctl/commit/c77a797267c23a330d1ce76ad44352b7b41673eb))
+* **gaming:** full restore — AVX2 detection, privileged tuning, emulator configs, Eden ([123eec2](https://github.com/eajdias/envctl/commit/123eec22511a1f5d447ca85d454956ade29f7084))
+* **gaming:** provision privileged tuning and Eden download ([574fea6](https://github.com/eajdias/envctl/commit/574fea6d87056d378fbf3eec7aa9c7b43f54f6db))
+* **gaming:** seed emulator configs as user templates ([c9701c6](https://github.com/eajdias/envctl/commit/c9701c62b64c944b30c6f1cfca2a5fdaf224bcb0))
+* **gaming:** wire the full restore profile into run gaming ([723153f](https://github.com/eajdias/envctl/commit/723153fd30272bd9e24e698519e3843906ca121a))
+
 ## [1.10.1](https://github.com/eajdias/envctl/compare/v1.10.0...v1.10.1) (2026-09-27)
 
 
