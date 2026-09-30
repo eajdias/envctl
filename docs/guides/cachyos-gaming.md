@@ -13,6 +13,24 @@ e o `doctor` o audita em modo read-only (nunca `--fix`).
 Este guia substituiu a skill global `cachyos-gaming-setup`, removida do catálogo de
 agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao tier global.
 
+## Hardware (host validado: i7-2600 + RX 580 2048SP)
+
+O stack abaixo foi **medido e validado num host específico** (Sandy Bridge
+x86-64-v2 + Polaris). As limitações deste hardware são o teto honesto do stack:
+
+- **Sem AVX2 (x86-64-v2):** só repositórios genéricos (nunca v3/v4), AppImages
+  legacy, e um binário novo pode morrer com SIGILL — testar antes de confiar.
+  Emuladores exigentes são **inviáveis** e não devem ser instalados: RPCS3/PS3,
+  ShadPS4/PS4, Switch AAA, xemu (Xbox) e simple64 (N64) — todos exigem AVX2.
+- **Placa-mãe Sandy Bridge:** sem ReBAR, PCIe 2.0 → perda de ~5-10% na RX 580,
+  normal, não é drift.
+- **Limite de emulação realista:** até PS2/GC/Wii/PSP/3DS confortável; Switch
+  só 2D/indie a 720p/30fps (AAA = 10-20fps slideshow, limite de silício).
+- **RAM DDR3:** 3x8GB @1333 flex dual-channel; se os pentes forem 1600, ativar
+  o perfil no BIOS (ganho pequeno).
+- **BIOS (checklist manual):** XMP/DOCP, HPET off, C-states/EIST on, CSM/UEFI
+  como está se boota.
+
 ## Sistema (verificar, não presumir)
 1. CPU sem AVX2 (ex.: Sandy Bridge, x86-64-v2)? Então: só repos genéricos (nunca v3/v4), AppImages legacy, e testar SIGILL em qualquer binário novo. Emuladores exigentes (RPCS3, ShadPS4, Switch AAA, xemu, simple64) são inviáveis — não instalar.
 2. Kernel cmdline (Limine `/etc/default/limine` + `limine-update` + reboot). Três tiers, porque os params não têm o mesmo significado:

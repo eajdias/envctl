@@ -850,6 +850,123 @@ func TestMultilibEnabled(t *testing.T) {
 	}
 }
 
+func TestKwinrcCompositingEnabled(t *testing.T) {
+	withBoth := []byte("[Compositing]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	if !kwinrcCompositingEnabled(withBoth) {
+		t.Error("expected compositing bypass to be detected when both keys are active")
+	}
+	partial := []byte("[Compositing]\nAllowBlockCompositing=true\n")
+	if kwinrcCompositingEnabled(partial) {
+		t.Error("expected partial compositing settings to be reported as not enabled")
+	}
+	noSection := []byte("[General]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	if kwinrcCompositingEnabled(noSection) {
+		t.Error("expected keys outside [Compositing] to not count")
+	}
+	if kwinrcCompositingEnabled(nil) {
+		t.Error("expected an empty file to not count")
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksLactConfig(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// LACT fan curve is a manual, privileged decision: absent config is INFO,
+	// never WARN, so a host that skipped the tuning stays 0 WARN.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "lact-config")
+	if got == nil {
+		t.Fatalf("expected a lact-config diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when LACT config is absent, got %v: %s", got.Category, got.Details)
+	}
+	ucWith := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{lactConfigPath: true})
+	diags = nil
+	ucWith.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if got := findGamingDiag(diags, "lact-config"); got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when LACT config is present, got %+v", got)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksScxLoaderConfig(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "scx-loader-config")
+	if got == nil {
+		t.Fatalf("expected a scx-loader-config diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when scx_loader config is absent, got %v: %s", got.Category, got.Details)
+	}
+	ucWith := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{scxLoaderConfigPath: true})
+	diags = nil
+	ucWith.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if got := findGamingDiag(diags, "scx-loader-config"); got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when scx_loader config is present, got %+v", got)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksKwinrcCompositing(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// kwinrc lives in the user profile; the audit reads it through the fs
+	// manager so the mock can serve a custom content.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "kwinrc-compositing")
+	if got == nil {
+		t.Fatalf("expected a kwinrc-compositing diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when compositing bypass is absent, got %v: %s", got.Category, got.Details)
+	}
+
+	// With the compositing bypass configured, the check becomes OK.
+	uc = gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	uc.fsManager.(*mockFSManager).fileContents[kwinrcConfigPath] =
+		[]byte("[Compositing]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	diags = nil
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	got = findGamingDiag(diags, "kwinrc-compositing")
+	if got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when the compositing bypass is configured, got %+v", got)
+	}
+}
+
 // mockGamingPackageManager is a minimal repository.PackageManager for the
 // gaming audit tests.
 type mockGamingPackageManager struct {

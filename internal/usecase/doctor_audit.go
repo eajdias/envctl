@@ -1151,6 +1151,42 @@ func missingGamingConfKeys(data []byte) []string {
 // the package present while its rules were removed.
 const ananicyTypesMarker = "/etc/ananicy.d/00-types.types"
 
+// lactConfigPath is the LACT GPU control daemon config. The fan curve is a
+// manual, privileged decision (and the GPU id varies per machine), so the
+// audit only reports whether the config exists — never its content, and never
+// auto-fix.
+const lactConfigPath = "/etc/lact/config.yaml"
+
+// scxLoaderConfigPath is the sched_ext loader config. The scheduler choice is
+// a manual decision; the audit only reports presence.
+const scxLoaderConfigPath = "/etc/scx_loader/config.toml"
+
+// kwinrcConfigPath is the KDE compositor config in the user profile. The
+// fullscreen compositing bypass is what removes stutter in games on the
+// validated Polaris host.
+const kwinrcConfigPath = "~/.config/kwinrc"
+
+// kwinrcCompositingEnabled reports whether kwinrc carries the fullscreen
+// compositing bypass: both AllowBlockCompositing=true and
+// UnredirectFullscreen=true inside the [Compositing] section. Keys outside
+// that section do not count — the section is what scopes them.
+func kwinrcCompositingEnabled(data []byte) bool {
+	section := false
+	haveBlock, haveUnredirect := false, false
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		switch {
+		case strings.HasPrefix(line, "["):
+			section = line == "[Compositing]"
+		case section && line == "AllowBlockCompositing=true":
+			haveBlock = true
+		case section && line == "UnredirectFullscreen=true":
+			haveUnredirect = true
+		}
+	}
+	return haveBlock && haveUnredirect
+}
+
 // missingCmdlineParams returns the wanted kernel parameters absent from cmdline.
 func missingCmdlineParams(cmdline string, wanted []string) []string {
 	var missing []string
@@ -1455,6 +1491,59 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				Details:  "[multilib] enabled",
 			})
 		}
+	}
+
+	// Privileged tuning files are informational by design: the fan curve, the
+	// scheduler choice and the compositor bypass are manual decisions (root or
+	// reboot required), so absence is context, not a health problem. Presence
+	// of the file means the owner did the manual step.
+	if !uc.fsManager.Exists(lactConfigPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "lact-config",
+			Details:  "/etc/lact/config.yaml missing (no fan curve or power tuning applied)",
+			FixHint:  "manual: set the fan curve in LACT (lact gui) — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "lact-config",
+			Details:  "LACT config present (fan curve/tuning applied)",
+		})
+	}
+	if !uc.fsManager.Exists(scxLoaderConfigPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "scx-loader-config",
+			Details:  "/etc/scx_loader/config.toml missing (scheduler stayed at the package default)",
+			FixHint:  "manual: choose the scheduler in /etc/scx_loader/config.toml — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "scx-loader-config",
+			Details:  "scx_loader config present (scheduler chosen)",
+		})
+	}
+	if data, err := uc.fsManager.ReadFile(kwinrcConfigPath); err != nil || !kwinrcCompositingEnabled(data) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "kwinrc-compositing",
+			Details:  "~/.config/kwinrc missing the fullscreen compositing bypass (AllowBlockCompositing + UnredirectFullscreen in [Compositing])",
+			FixHint:  "manual: set the two keys in [Compositing] on kwinrc and relog — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "kwinrc-compositing",
+			Details:  "fullscreen compositing bypass active",
+		})
 	}
 }
 
