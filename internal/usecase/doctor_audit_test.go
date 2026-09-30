@@ -967,6 +967,49 @@ func TestDoctorAudit_GamingTuningChecksKwinrcCompositing(t *testing.T) {
 	}
 }
 
+func TestDoctorAudit_GamingTuningChecksCpuCapability(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+
+	// An AVX2 host: the check reports the capability as context (INFO), never
+	// as a health problem. The emulator ceiling and the Eden build depend on
+	// it, but the CPU cannot be changed — the value is informational.
+	oldPath := cpuinfoPath
+	cpuinfoPath = writeTempCPUInfo(t, "flags\t\t: fpu avx avx2 sse\n")
+	t.Cleanup(func() { cpuinfoPath = oldPath })
+
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "cpu-capability")
+	if got == nil {
+		t.Fatalf("expected a cpu-capability diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO for cpu capability, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.Details, "AVX2") {
+		t.Errorf("expected AVX2 to be named in the detail, got %q", got.Details)
+	}
+}
+
+func writeTempCPUInfo(t *testing.T, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/cpuinfo"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func TestGamingEmulatorConfigs_CoverRealMachine(t *testing.T) {
 	// The validated machine runs every emulator with a Vulkan backend. This
 	// test pins the source of truth (the files the owner tuned by hand) so the

@@ -1344,6 +1344,24 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 			}
 		}
 	}
+	// CPU capability is informational context: it gates the emulator ceiling
+	// (x86-64-v2 without AVX2 cannot run v3/v4 builds) and the Eden build
+	// choice, but the hardware cannot be changed — INFO, never WARN.
+	if hostHasAVX2() {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "cpu-capability",
+			Details:  "CPU supports AVX2 (full emulator ceiling; Eden standard build)",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "cpu-capability",
+			Details:  "CPU lacks AVX2 (x86-64-v2: keep generic repos and AppImage legacy builds; RPCS3/PS3, xemu, simple64 and Switch AAA are not viable)",
+		})
+	}
 	if !uc.fsManager.Exists(ananicyTypesMarker) {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
