@@ -96,6 +96,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - CachyOS gaming: guia documenta as limitações de hardware do host validado
   (x86-64-v2 sem AVX2, ReBAR/PCIe 2.0, teto de emulação) e a seção de
   Verificação cobre os checks novos.
+- Debloat Tier 3: absorve o restante do `windows11-clean` — OneDrive (scripts
+  fixos idempotentes, pasta do usuário nunca tocada), Teredo, plano de energia
+  High Performance e hibernação (novo tipo `Command`: pares check/apply num
+  conjunto fechado, idempotentes e locale-independentes) e
+  `UserPreferencesMask` (novo suporte `Binary` a registry, valor declarado como
+  lista de bytes). `debloat.yaml` vai de 94 para 99 tweaks; caminhos Binary e
+  Command validados ao vivo num Windows 11 real (corromper → drift → apply →
+  convergido).
 - Debloat Tier 2: fecha o gap do `windows11-clean` — 3 Appx (`MSTeams`,
   `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
   (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e
