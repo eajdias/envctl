@@ -81,6 +81,12 @@ x86-64-v2 + Polaris). As limitações deste hardware são o teto honesto do stac
   - `sched_ext` habilitado;
   - cmdline em 3 tiers: universal, AMD (só com `amdgpu`), panic (INFO);
   - RADV ativo, preset `gaming.conf` com as 2 chaves, preset `MangoHud.conf` presente;
+  - tuning privilegiado em `INFO` (contexto, nunca WARN): `/etc/lact/config.yaml`,
+    `/etc/scx_loader/config.toml` e o bypass de compositing no kwinrc
+    (`[Compositing]` com `AllowBlockCompositing` + `UnredirectFullscreen`);
+  - configs de emuladores em `INFO`: cada emulador com o renderer Vulkan
+    aplicado (Dolphin, RetroArch, PPSSPP, PCSX2, DuckStation, Azahar, Eden,
+    Vita3K, Cemu) — ausência significa que o dono não fez o ajuste, não é drift;
   - `/usr/bin/X` e `[multilib]` ativo.
 - `envctl doctor`, seção Performance: `.pacnew` pendentes em `/etc` (INFO, via `pacdiff`), swap/zram, governor, scheduler de I/O, journald, `fstrim.timer` e os 5 daemons.
-- Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, `/etc/scx_loader/config.toml`, fan curve em `/etc/lact/config.yaml`, `[Compositing]` no kwinrc, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.
+- Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.
