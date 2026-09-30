@@ -108,6 +108,14 @@ func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
+func (m *manifestRepository) LoadExtrasPackages() ([]entity.Package, error) {
+	manifest, err := loadManifestFile(m, "extras.yaml", func() *packagesManifest { return &packagesManifest{} })
+	if err != nil {
+		return nil, err
+	}
+	return manifest.Packages, nil
+}
+
 type shellManifest struct {
 	EnvVars     []entity.EnvironmentVar `yaml:"environment_variables"`
 	ConfigFiles []entity.ConfigFile     `yaml:"config_files"`
