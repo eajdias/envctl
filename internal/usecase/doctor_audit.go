@@ -1187,6 +1187,46 @@ func kwinrcCompositingEnabled(data []byte) bool {
 	return haveBlock && haveUnredirect
 }
 
+// emulatorConfigCheck pins one emulator config file and the key that proves
+// the Vulkan backend tuning was applied on the validated host.
+type emulatorConfigCheck struct {
+	target string // doctor diagnostic target
+	path   string // config file under the user profile
+	key    string // line fragment that must be present, uncommented
+}
+
+// gamingEmulatorConfigs are the renderer settings the validated host applied
+// by hand (Vulkan everywhere; resolution is the sane ceiling for its CPU).
+// They are informational by design: each emulator has its own GUI and config
+// conventions, so the audit never auto-fixes them.
+var gamingEmulatorConfigs = []emulatorConfigCheck{
+	{target: "emulator-config dolphin", path: "~/.config/dolphin-emu/Dolphin.ini", key: "GFXBackend = Vulkan"},
+	{target: "emulator-config retroarch", path: "~/.config/retroarch/retroarch.cfg", key: `video_driver = "vulkan"`},
+	{target: "emulator-config ppsspp", path: "~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini", key: "GraphicsBackend = 3"},
+	{target: "emulator-config pcsx2", path: "~/.config/PCSX2/inis/PCSX2.ini", key: "Renderer = 14"},
+	{target: "emulator-config duckstation", path: "~/.config/duckstation/settings.ini", key: "Renderer = Vulkan"},
+	{target: "emulator-config azahar", path: "~/.config/azahar-emu/qt-config.ini", key: "graphics_api=2"},
+	{target: "emulator-config eden", path: "~/.config/eden/qt-config.ini", key: "backend=1"},
+	{target: "emulator-config vita3k", path: "~/.config/Vita3K/config.yml", key: "backend-renderer: Vulkan"},
+	{target: "emulator-config cemu", path: "~/.config/Cemu/settings.xml", key: "<api>1</api>"},
+}
+
+// configHasKey reports whether data contains line containing key, ignoring
+// commented-out lines (# or ;). Emulator configs mix INI, YAML and XML; the
+// fragment match is deliberately loose so the same helper works across them.
+func configHasKey(data []byte, key string) bool {
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.Contains(line, key) {
+			return true
+		}
+	}
+	return false
+}
+
 // missingCmdlineParams returns the wanted kernel parameters absent from cmdline.
 func missingCmdlineParams(cmdline string, wanted []string) []string {
 	var missing []string
@@ -1544,6 +1584,29 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 			Target:   "kwinrc-compositing",
 			Details:  "fullscreen compositing bypass active",
 		})
+	}
+
+	// Emulator renderer configs are informational by design: each emulator has
+	// its own GUI, so the audit only records whether the Vulkan tuning the
+	// validated host applies by hand is present.
+	for _, check := range gamingEmulatorConfigs {
+		data, err := uc.fsManager.ReadFile(check.path)
+		if err != nil || !configHasKey(data, check.key) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Gaming",
+				Target:   check.target,
+				Details:  fmt.Sprintf("%s missing the Vulkan tuning (%s)", check.path, check.key),
+				FixHint:  "manual: set the renderer to Vulkan in the emulator GUI — optional, see docs/guides/cachyos-gaming.md",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   check.target,
+				Details:  "Vulkan tuning applied",
+			})
+		}
 	}
 }
 
