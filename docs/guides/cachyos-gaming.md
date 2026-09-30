@@ -5,13 +5,50 @@
 
 ## Escopo
 
-O `envctl` provisiona **pacotes** (`gaming.yaml`) e **presets de usuário**
-(`gaming.conf`, `MangoHud.conf`) de forma idempotente. Tudo que exige root, reboot ou
-decisão de segurança **não** é provisionado: é documentado aqui como orientação manual,
-e o `doctor` o audita em modo read-only (nunca `--fix`).
+O `envctl` provisiona **tudo** do stack de gaming de forma idempotente num PC
+formatado:
+
+- **Pacotes** (`gaming.yaml`): Steam, emuladores, Proton, LACT, scx, quarteto X11.
+- **Presets de usuário** (`gaming.conf`, `MangoHud.conf`, configs dos 9
+  emuladores em `configs/emulators/`): seed só quando o arquivo não existe —
+  ajustes manuais seus vencem.
+- **Tuning privilegiado** (via sudo interativo, `sudo -v` no início do run):
+  kernel cmdline (`/etc/default/limine` + `limine-update` + reboot), LACT fan
+  curve (GPU AMD detectada via sysfs, curve conservadora embutida),
+  `scx_loader` (bpfland/Auto) e o bypass de compositing no `kwinrc` (merge de
+  seção, preserva suas outras preferências).
+- **Eden AppImage**: download do build pinnado (legacy ou standard conforme a
+  CPU), smoke test SIGILL, launcher `.desktop`, config seed.
+
+O `doctor` audita tudo isso em modo read-only (nunca `--fix`): os checks
+reportam o que o `run gaming` provisiona, em `INFO` quando ausente e em `WARN`
+apenas quando a ausência quebra o stack (ex.: pacotes faltando).
+
+**O que continua manual (decisão de segurança/legal, sem PII no repo):**
+- BIOS/firmware/keys dos emuladores (dump do seu próprio console).
+- ROMs em `~/Games/*` (estrutura de pastas é seedada; conteúdo é seu).
+- Login Steam, launch options e perfis de controle Dolphin (GUI).
 
 Este guia substituiu a skill global `cachyos-gaming-setup`, removida do catálogo de
 agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao tier global.
+
+## Hardware (host validado: i7-2600 + RX 580 2048SP)
+
+O stack abaixo foi **medido e validado num host específico** (Sandy Bridge
+x86-64-v2 + Polaris). As limitações deste hardware são o teto honesto do stack:
+
+- **Sem AVX2 (x86-64-v2):** só repositórios genéricos (nunca v3/v4), AppImages
+  legacy, e um binário novo pode morrer com SIGILL — testar antes de confiar.
+  Emuladores exigentes são **inviáveis** e não devem ser instalados: RPCS3/PS3,
+  ShadPS4/PS4, Switch AAA, xemu (Xbox) e simple64 (N64) — todos exigem AVX2.
+- **Placa-mãe Sandy Bridge:** sem ReBAR, PCIe 2.0 → perda de ~5-10% na RX 580,
+  normal, não é drift.
+- **Limite de emulação realista:** até PS2/GC/Wii/PSP/3DS confortável; Switch
+  só 2D/indie a 720p/30fps (AAA = 10-20fps slideshow, limite de silício).
+- **RAM DDR3:** 3x8GB @1333 flex dual-channel; se os pentes forem 1600, ativar
+  o perfil no BIOS (ganho pequeno).
+- **BIOS (checklist manual):** XMP/DOCP, HPET off, C-states/EIST on, CSM/UEFI
+  como está se boota.
 
 ## Sistema (verificar, não presumir)
 1. CPU sem AVX2 (ex.: Sandy Bridge, x86-64-v2)? Então: só repos genéricos (nunca v3/v4), AppImages legacy, e testar SIGILL em qualquer binário novo. Emuladores exigentes (RPCS3, ShadPS4, Switch AAA, xemu, simple64) são inviáveis — não instalar.
@@ -63,6 +100,12 @@ agentes em 2026-09-26: é conhecimento do produto e pertence ao repo, não ao ti
   - `sched_ext` habilitado;
   - cmdline em 3 tiers: universal, AMD (só com `amdgpu`), panic (INFO);
   - RADV ativo, preset `gaming.conf` com as 2 chaves, preset `MangoHud.conf` presente;
+  - tuning privilegiado em `INFO` (contexto, nunca WARN): `/etc/lact/config.yaml`,
+    `/etc/scx_loader/config.toml` e o bypass de compositing no kwinrc
+    (`[Compositing]` com `AllowBlockCompositing` + `UnredirectFullscreen`);
+  - configs de emuladores em `INFO`: cada emulador com o renderer Vulkan
+    aplicado (Dolphin, RetroArch, PPSSPP, PCSX2, DuckStation, Azahar, Eden,
+    Vita3K, Cemu) — ausência significa que o dono não fez o ajuste, não é drift;
   - `/usr/bin/X` e `[multilib]` ativo.
 - `envctl doctor`, seção Performance: `.pacnew` pendentes em `/etc` (INFO, via `pacdiff`), swap/zram, governor, scheduler de I/O, journald, `fstrim.timer` e os 5 daemons.
-- Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, `/etc/scx_loader/config.toml`, fan curve em `/etc/lact/config.yaml`, `[Compositing]` no kwinrc, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.
+- Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.

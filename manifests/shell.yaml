@@ -323,6 +323,91 @@ config_files:
     os: arch,cachyos
     seed_if_missing: true
 
+  # --- Emulator configs (seed only: written when absent, user edits win) ---
+  # The server-side check (doctor Gaming / emulator-config *) reads the exact
+  # keys below, so a template and the audit can never drift: the parity test
+  # TestShellManifestDeclaresEmulatorConfigs pins them together.
+  - id: emulator_dolphin
+    description: "Dolphin Vulkan seed (GFXBackend Vulkan + async ubershaders; seed only)"
+    source: "configs/emulators/dolphin-emu.ini"
+    destination: "~/.config/dolphin-emu/Dolphin.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_retroarch
+    description: "RetroArch Vulkan seed (video_driver vulkan + ozone; seed only)"
+    source: "configs/emulators/retroarch.cfg"
+    destination: "~/.config/retroarch/retroarch.cfg"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_ppsspp
+    description: "PPSSPP Vulkan seed (backend 3 + 4x resolution; seed only)"
+    source: "configs/emulators/ppsspp.ini"
+    destination: "~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_pcsx2
+    description: "PCSX2 Vulkan seed (renderer 14 + MTVU + 3x; seed only)"
+    source: "configs/emulators/pcsx2.ini"
+    destination: "~/.config/PCSX2/inis/PCSX2.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_duckstation
+    description: "DuckStation Vulkan seed (renderer Vulkan + 5x, PGXP off; seed only)"
+    source: "configs/emulators/duckstation.ini"
+    destination: "~/.config/duckstation/settings.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_azahar
+    description: "Azahar Vulkan seed (graphics_api 2 + async shaders + 4x; seed only)"
+    source: "configs/emulators/azahar.ini"
+    destination: "~/.config/azahar-emu/qt-config.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_eden
+    description: "Eden Vulkan seed (backend 1 + async GPU/shaders + 1X CPU-bound; seed only)"
+    source: "configs/emulators/eden.ini"
+    destination: "~/.config/eden/qt-config.ini"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_vita3k
+    description: "Vita3K Vulkan seed (backend Vulkan + 2x; seed only)"
+    source: "configs/emulators/vita3k.yml"
+    destination: "~/.config/Vita3K/config.yml"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
+  - id: emulator_cemu
+    description: "Cemu Vulkan seed (api 1 + AsyncCompile; seed only)"
+    source: "configs/emulators/cemu.xml"
+    destination: "~/.config/Cemu/settings.xml"
+    strict_acl: false
+    category: "gaming"
+    os: arch,cachyos
+    seed_if_missing: true
+
 directories:
   - path: "~/Documents/SSH-keys"
     strict_acl: true

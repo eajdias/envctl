@@ -1,0 +1,4 @@
+# Vita3K (PS Vita) — seed provisioned by envctl (seed_if_missing).
+# Vulkan + 2x resolution (=1920x1088) on the validated host.
+backend-renderer: Vulkan
+resolution-multiplier: 2

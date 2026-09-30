@@ -1,0 +1,6 @@
+# Cemu (Wii U) — seed provisioned by envctl (seed_if_missing).
+# Vulkan + async compile on the validated host.
+# Keys are NOT provisioned: dump them from your own console (legal requirement).
+<api>1</api>
+<AsyncCompile>true</AsyncCompile>
+<check_update>false</check_update>

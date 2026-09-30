@@ -1151,6 +1151,82 @@ func missingGamingConfKeys(data []byte) []string {
 // the package present while its rules were removed.
 const ananicyTypesMarker = "/etc/ananicy.d/00-types.types"
 
+// lactConfigPath is the LACT GPU control daemon config. The fan curve is a
+// manual, privileged decision (and the GPU id varies per machine), so the
+// audit only reports whether the config exists — never its content, and never
+// auto-fix.
+const lactConfigPath = "/etc/lact/config.yaml"
+
+// scxLoaderConfigPath is the sched_ext loader config. The scheduler choice is
+// a manual decision; the audit only reports presence.
+const scxLoaderConfigPath = "/etc/scx_loader/config.toml"
+
+// kwinrcConfigPath is the KDE compositor config in the user profile. The
+// fullscreen compositing bypass is what removes stutter in games on the
+// validated Polaris host.
+const kwinrcConfigPath = "~/.config/kwinrc"
+
+// kwinrcCompositingEnabled reports whether kwinrc carries the fullscreen
+// compositing bypass: both AllowBlockCompositing=true and
+// UnredirectFullscreen=true inside the [Compositing] section. Keys outside
+// that section do not count — the section is what scopes them.
+func kwinrcCompositingEnabled(data []byte) bool {
+	section := false
+	haveBlock, haveUnredirect := false, false
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		switch {
+		case strings.HasPrefix(line, "["):
+			section = line == "[Compositing]"
+		case section && line == "AllowBlockCompositing=true":
+			haveBlock = true
+		case section && line == "UnredirectFullscreen=true":
+			haveUnredirect = true
+		}
+	}
+	return haveBlock && haveUnredirect
+}
+
+// emulatorConfigCheck pins one emulator config file and the key that proves
+// the Vulkan backend tuning was applied on the validated host.
+type emulatorConfigCheck struct {
+	target string // doctor diagnostic target
+	path   string // config file under the user profile
+	key    string // line fragment that must be present, uncommented
+}
+
+// gamingEmulatorConfigs are the renderer settings the validated host applied
+// by hand (Vulkan everywhere; resolution is the sane ceiling for its CPU).
+// They are informational by design: each emulator has its own GUI and config
+// conventions, so the audit never auto-fixes them.
+var gamingEmulatorConfigs = []emulatorConfigCheck{
+	{target: "emulator-config dolphin", path: "~/.config/dolphin-emu/Dolphin.ini", key: "GFXBackend = Vulkan"},
+	{target: "emulator-config retroarch", path: "~/.config/retroarch/retroarch.cfg", key: `video_driver = "vulkan"`},
+	{target: "emulator-config ppsspp", path: "~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini", key: "GraphicsBackend = 3"},
+	{target: "emulator-config pcsx2", path: "~/.config/PCSX2/inis/PCSX2.ini", key: "Renderer = 14"},
+	{target: "emulator-config duckstation", path: "~/.config/duckstation/settings.ini", key: "Renderer = Vulkan"},
+	{target: "emulator-config azahar", path: "~/.config/azahar-emu/qt-config.ini", key: "graphics_api=2"},
+	{target: "emulator-config eden", path: "~/.config/eden/qt-config.ini", key: "backend=1"},
+	{target: "emulator-config vita3k", path: "~/.config/Vita3K/config.yml", key: "backend-renderer: Vulkan"},
+	{target: "emulator-config cemu", path: "~/.config/Cemu/settings.xml", key: "<api>1</api>"},
+}
+
+// configHasKey reports whether data contains line containing key, ignoring
+// commented-out lines (# or ;). Emulator configs mix INI, YAML and XML; the
+// fragment match is deliberately loose so the same helper works across them.
+func configHasKey(data []byte, key string) bool {
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		if strings.Contains(line, key) {
+			return true
+		}
+	}
+	return false
+}
+
 // missingCmdlineParams returns the wanted kernel parameters absent from cmdline.
 func missingCmdlineParams(cmdline string, wanted []string) []string {
 	var missing []string
@@ -1267,6 +1343,24 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				})
 			}
 		}
+	}
+	// CPU capability is informational context: it gates the emulator ceiling
+	// (x86-64-v2 without AVX2 cannot run v3/v4 builds) and the Eden build
+	// choice, but the hardware cannot be changed — INFO, never WARN.
+	if hostHasAVX2() {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "cpu-capability",
+			Details:  "CPU supports AVX2 (full emulator ceiling; Eden standard build)",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "cpu-capability",
+			Details:  "CPU lacks AVX2 (x86-64-v2: keep generic repos and AppImage legacy builds; RPCS3/PS3, xemu, simple64 and Switch AAA are not viable)",
+		})
 	}
 	if !uc.fsManager.Exists(ananicyTypesMarker) {
 		addDiag(entity.Diagnostic{
@@ -1453,6 +1547,82 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 				System:   "Gaming",
 				Target:   "multilib repo",
 				Details:  "[multilib] enabled",
+			})
+		}
+	}
+
+	// Privileged tuning files are informational by design: the fan curve, the
+	// scheduler choice and the compositor bypass are manual decisions (root or
+	// reboot required), so absence is context, not a health problem. Presence
+	// of the file means the owner did the manual step.
+	if !uc.fsManager.Exists(lactConfigPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "lact-config",
+			Details:  "/etc/lact/config.yaml missing (no fan curve or power tuning applied)",
+			FixHint:  "manual: set the fan curve in LACT (lact gui) — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "lact-config",
+			Details:  "LACT config present (fan curve/tuning applied)",
+		})
+	}
+	if !uc.fsManager.Exists(scxLoaderConfigPath) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "scx-loader-config",
+			Details:  "/etc/scx_loader/config.toml missing (scheduler stayed at the package default)",
+			FixHint:  "manual: choose the scheduler in /etc/scx_loader/config.toml — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "scx-loader-config",
+			Details:  "scx_loader config present (scheduler chosen)",
+		})
+	}
+	if data, err := uc.fsManager.ReadFile(kwinrcConfigPath); err != nil || !kwinrcCompositingEnabled(data) {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagInfo,
+			System:   "Gaming",
+			Target:   "kwinrc-compositing",
+			Details:  "~/.config/kwinrc missing the fullscreen compositing bypass (AllowBlockCompositing + UnredirectFullscreen in [Compositing])",
+			FixHint:  "manual: set the two keys in [Compositing] on kwinrc and relog — optional, see docs/guides/cachyos-gaming.md",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Gaming",
+			Target:   "kwinrc-compositing",
+			Details:  "fullscreen compositing bypass active",
+		})
+	}
+
+	// Emulator renderer configs are informational by design: each emulator has
+	// its own GUI, so the audit only records whether the Vulkan tuning the
+	// validated host applies by hand is present.
+	for _, check := range gamingEmulatorConfigs {
+		data, err := uc.fsManager.ReadFile(check.path)
+		if err != nil || !configHasKey(data, check.key) {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagInfo,
+				System:   "Gaming",
+				Target:   check.target,
+				Details:  fmt.Sprintf("%s missing the Vulkan tuning (%s)", check.path, check.key),
+				FixHint:  "manual: set the renderer to Vulkan in the emulator GUI — optional, see docs/guides/cachyos-gaming.md",
+			})
+		} else {
+			addDiag(entity.Diagnostic{
+				Category: entity.DiagOK,
+				System:   "Gaming",
+				Target:   check.target,
+				Details:  "Vulkan tuning applied",
 			})
 		}
 	}

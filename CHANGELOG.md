@@ -74,6 +74,28 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Adicionado
 
+- CachyOS gaming **full restore**: `run gaming` agora provisiona o tuning
+  manual (antes só auditado) — kernel cmdline via sudo (`/etc/default/limine`
+  + `limine-update`), LACT fan curve (GPU AMD detectada via sysfs, curve
+  conservadora embutida), `scx_loader` (bpfland/Auto), kwinrc compositing
+  bypass (merge de seção) e download do Eden AppImage pinnado (build legacy ou
+  standard conforme AVX2, smoke test SIGILL, `.desktop`).
+- CachyOS gaming: configs dos 9 emuladores seedadas de `configs/emulators/`
+  via `run shell` (`seed_if_missing` — ajustes manuais vencem), com teste de
+  paridade contra a auditoria do doctor.
+- CachyOS gaming: detecção de capacidade — `cpu-capability` INFO no doctor
+  reporta AVX2 (teto de emulação + build do Eden); passo AMD gated por sysfs.
+- CachyOS gaming: auditoria da camada de tuning privilegiado como `INFO` (nunca
+  `WARN`, nunca `--fix`): `/etc/lact/config.yaml`, `/etc/scx_loader/config.toml`
+  e o bypass de compositing no kwinrc (`[Compositing]` com
+  `AllowBlockCompositing` + `UnredirectFullscreen`).
+- CachyOS gaming: auditoria das configs de emuladores como `INFO` — os 9
+  emuladores do host validado com renderer Vulkan (Dolphin, RetroArch, PPSSPP,
+  PCSX2, DuckStation, Azahar, Eden, Vita3K, Cemu). Ausência é contexto, não
+  drift.
+- CachyOS gaming: guia documenta as limitações de hardware do host validado
+  (x86-64-v2 sem AVX2, ReBAR/PCIe 2.0, teto de emulação) e a seção de
+  Verificação cobre os checks novos.
 - Debloat Tier 2: fecha o gap do `windows11-clean` — 3 Appx (`MSTeams`,
   `OutlookForWindows`, provider do Windows AI), 11 serviços em `Manual`
   (`WSearch`, `SysMain`, `NgcSvc`, `wbengine`, `OneSyncSvc`, `Dell*`, `fb*`) e

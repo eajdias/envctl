@@ -850,6 +850,262 @@ func TestMultilibEnabled(t *testing.T) {
 	}
 }
 
+func TestKwinrcCompositingEnabled(t *testing.T) {
+	withBoth := []byte("[Compositing]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	if !kwinrcCompositingEnabled(withBoth) {
+		t.Error("expected compositing bypass to be detected when both keys are active")
+	}
+	partial := []byte("[Compositing]\nAllowBlockCompositing=true\n")
+	if kwinrcCompositingEnabled(partial) {
+		t.Error("expected partial compositing settings to be reported as not enabled")
+	}
+	noSection := []byte("[General]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	if kwinrcCompositingEnabled(noSection) {
+		t.Error("expected keys outside [Compositing] to not count")
+	}
+	if kwinrcCompositingEnabled(nil) {
+		t.Error("expected an empty file to not count")
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksLactConfig(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// LACT fan curve is a manual, privileged decision: absent config is INFO,
+	// never WARN, so a host that skipped the tuning stays 0 WARN.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "lact-config")
+	if got == nil {
+		t.Fatalf("expected a lact-config diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when LACT config is absent, got %v: %s", got.Category, got.Details)
+	}
+	ucWith := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{lactConfigPath: true})
+	diags = nil
+	ucWith.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if got := findGamingDiag(diags, "lact-config"); got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when LACT config is present, got %+v", got)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksScxLoaderConfig(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "scx-loader-config")
+	if got == nil {
+		t.Fatalf("expected a scx-loader-config diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when scx_loader config is absent, got %v: %s", got.Category, got.Details)
+	}
+	ucWith := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{scxLoaderConfigPath: true})
+	diags = nil
+	ucWith.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if got := findGamingDiag(diags, "scx-loader-config"); got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when scx_loader config is present, got %+v", got)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksKwinrcCompositing(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// kwinrc lives in the user profile; the audit reads it through the fs
+	// manager so the mock can serve a custom content.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "kwinrc-compositing")
+	if got == nil {
+		t.Fatalf("expected a kwinrc-compositing diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO when compositing bypass is absent, got %v: %s", got.Category, got.Details)
+	}
+
+	// With the compositing bypass configured, the check becomes OK.
+	uc = gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	uc.fsManager.(*mockFSManager).fileContents[kwinrcConfigPath] =
+		[]byte("[Compositing]\nAllowBlockCompositing=true\nUnredirectFullscreen=true\n")
+	diags = nil
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	got = findGamingDiag(diags, "kwinrc-compositing")
+	if got == nil || got.Category != entity.DiagOK {
+		t.Errorf("expected OK when the compositing bypass is configured, got %+v", got)
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksCpuCapability(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+
+	// An AVX2 host: the check reports the capability as context (INFO), never
+	// as a health problem. The emulator ceiling and the Eden build depend on
+	// it, but the CPU cannot be changed — the value is informational.
+	oldPath := cpuinfoPath
+	cpuinfoPath = writeTempCPUInfo(t, "flags\t\t: fpu avx avx2 sse\n")
+	t.Cleanup(func() { cpuinfoPath = oldPath })
+
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	got := findGamingDiag(diags, "cpu-capability")
+	if got == nil {
+		t.Fatalf("expected a cpu-capability diagnostic, got none (targets: %v)", gamingTargets(diags))
+	}
+	if got.Category != entity.DiagInfo {
+		t.Errorf("expected INFO for cpu capability, got %v: %s", got.Category, got.Details)
+	}
+	if !strings.Contains(got.Details, "AVX2") {
+		t.Errorf("expected AVX2 to be named in the detail, got %q", got.Details)
+	}
+}
+
+func writeTempCPUInfo(t *testing.T, content string) string {
+	t.Helper()
+	path := t.TempDir() + "/cpuinfo"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestGamingEmulatorConfigs_CoverRealMachine(t *testing.T) {
+	// The validated machine runs every emulator with a Vulkan backend. This
+	// test pins the source of truth (the files the owner tuned by hand) so the
+	// audit table cannot silently drift from what the real host uses.
+	realConfigs := map[string]string{
+		"~/.config/dolphin-emu/Dolphin.ini":      "GFXBackend = Vulkan",
+		"~/.config/retroarch/retroarch.cfg":      `video_driver = "vulkan"`,
+		"~/.config/ppsspp/PSP/SYSTEM/ppsspp.ini": "GraphicsBackend = 3",
+		"~/.config/PCSX2/inis/PCSX2.ini":         "Renderer = 14",
+		"~/.config/duckstation/settings.ini":     "Renderer = Vulkan",
+		"~/.config/azahar-emu/qt-config.ini":     "graphics_api=2",
+		"~/.config/eden/qt-config.ini":           "backend=1",
+		"~/.config/Vita3K/config.yml":            "backend-renderer: Vulkan",
+		"~/.config/Cemu/settings.xml":            "<api>1</api>",
+	}
+	for _, check := range gamingEmulatorConfigs {
+		want, ok := realConfigs[check.path]
+		if !ok {
+			t.Errorf("emulator config %q (%s) is not part of the tuned machine set", check.path, check.target)
+			continue
+		}
+		if want != check.key {
+			t.Errorf("emulator config %q: expected key %q, table has %q", check.path, want, check.key)
+		}
+	}
+}
+
+func TestConfigHasKey(t *testing.T) {
+	ini := []byte("# comment\nGFXBackend = Vulkan\n[General]\nfoo=bar\n")
+	if !configHasKey(ini, "GFXBackend = Vulkan") {
+		t.Error("expected the real key to be found")
+	}
+	if configHasKey(ini, "foo = bar") {
+		t.Error("expected a key with a different spacing to not match")
+	}
+	if configHasKey(ini, "# comment") {
+		t.Error("expected commented lines to not count")
+	}
+	yaml := []byte("backend-renderer: Vulkan\nresolution-multiplier: 2\n")
+	if !configHasKey(yaml, "backend-renderer: Vulkan") {
+		t.Error("expected the YAML key to be found")
+	}
+	xml := []byte("<api>3</api>\n<api>1</api>\n")
+	if !configHasKey(xml, "<api>1</api>") {
+		t.Error("expected the XML key to be found")
+	}
+	if configHasKey(nil, "anything") {
+		t.Error("expected an empty file to not match")
+	}
+}
+
+func TestDoctorAudit_GamingTuningChecksEmulatorConfigs(t *testing.T) {
+	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
+		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
+	}
+	pkgs := []entity.Package{{ID: "steam", Type: entity.PackageTypePacman, OS: "arch,cachyos"}}
+	managers := map[entity.PackageType]repository.PackageManager{
+		entity.PackageTypePacman: &mockGamingPackageManager{
+			available: true, installed: map[string]string{"steam": "1.0.0.87-3"},
+		},
+	}
+
+	// No emulator config present: every check is INFO, never WARN — the
+	// renderer choice is the owner's manual decision.
+	uc := gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	var diags []entity.Diagnostic
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	for _, check := range gamingEmulatorConfigs {
+		got := findGamingDiag(diags, check.target)
+		if got == nil {
+			t.Fatalf("expected a %s diagnostic, got none (targets: %v)", check.target, gamingTargets(diags))
+		}
+		if got.Category != entity.DiagInfo {
+			t.Errorf("expected INFO for missing %s, got %v: %s", check.target, got.Category, got.Details)
+		}
+	}
+
+	// All configs present with the tuned keys: every check is OK.
+	uc = gamingStackUseCaseWithFS(pkgs, managers, map[string]bool{})
+	mock := uc.fsManager.(*mockFSManager)
+	for _, check := range gamingEmulatorConfigs {
+		mock.fileContents[check.path] = []byte(check.key + "\n")
+	}
+	diags = nil
+	uc.auditGamingStack(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	for _, check := range gamingEmulatorConfigs {
+		got := findGamingDiag(diags, check.target)
+		if got == nil {
+			t.Fatalf("expected a %s diagnostic when config is present, got none", check.target)
+		}
+		if got.Category != entity.DiagOK {
+			t.Errorf("expected OK for tuned %s, got %v: %s", check.target, got.Category, got.Details)
+		}
+	}
+}
+
 // mockGamingPackageManager is a minimal repository.PackageManager for the
 // gaming audit tests.
 type mockGamingPackageManager struct {
