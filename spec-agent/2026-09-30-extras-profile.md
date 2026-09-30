@@ -60,16 +60,34 @@
 
 ## DoD
 
-- [ ] `envctl run extras` instala os 15 winget no Windows e os 12 pacman no CachyOS, idempotente.
-- [ ] `run all --with-extras` inclui extras sem quebrar os perfis existentes.
-- [ ] Zero PII no diff (só IDs de pacote).
-- [ ] Gates: `go build`, `go vet`, `go test ./...`, `golangci-lint` 0 issues.
-- [ ] Validação ao vivo: notebook (winget) + desktop (pacman).
+- [x] `envctl run extras` instala os 15 winget no Windows e os 12 pacman no CachyOS, idempotente — **validado ao vivo**: CachyOS 12/12 already installed; notebook Windows 13/13 já instalados + Brave e Syncthing instalados via winget.
+- [x] `run all --with-extras` inclui extras sem quebrar os perfis existentes (flag persistente no `run`; filho `all` + RunE do pai cobrem `run all` e `run` puro).
+- [x] Zero PII no diff: só IDs de pacote; teste proíbe zscan/whatsapp/discord/spotify/path of exile/npcap.
+- [x] Gates: `go build`, `go vet`, `go test ./...` (13 pacotes), `golangci-lint` 0 issues.
+- [x] Validação ao vivo: notebook (winget) + desktop (pacman).
 
 ## Execução
 
-Worktree `.worktrees/feat-windows-tier3` (branch `feat/windows-tier3-absorption`)? **Não** — extras é feature própria:
+Worktree `.worktrees/feat-extras`, branch `feat/extras-optional-apps`, base `067f426`.
 
-```
-git worktree add .worktrees/feat-extras -b feat/extras-optional-apps origin/main
-```
+| Tarefa | Commit | Resultado |
+|---|---|---|
+| T1 | `extras-manifest-1` | `manifests/extras.yaml` (15 winget + 12 pacman) + `LoadExtrasPackages` + teste de paridade |
+| T2 | `extras-usecase-2` | `ExecuteExtras` (provisionList sem gate de distro; `os:` por pacote decide) |
+| T3 | `extras-cli-3` | `run extras` + flag `--with-extras` persistente no `run` |
+| T4 | `extras-docs-4` | `manifests.md` §8 + matriz (linha Extras) + CHANGELOG |
+
+### Desvios e achados
+
+1. **RustDesk e Npcap (Windows) não têm pacote winget** — verificados com
+   `winget search`/`list` (ARP puro): ficam FORA do manifest, documentados como
+   manuais no header do YAML. RustDesk segue no CachyOS (pacman legítimo).
+2. **Syncthing no Windows usa `BillStewart.SyncthingWindowsSetup`**, não
+   `Syncthing.Syncthing` (o search confirmou o id da winget) — o notebook
+   instalava via ARP; o `run extras` o instalou via winget.
+3. **IDs confirmados ao vivo** (não chutados): Obsidian.Obsidian,
+   ONLYOFFICE.DesktopEditors, MoonlightGameStreamingProject.Moonlight,
+   Klocman.BulkCrapUninstaller, CrystalRich.LockHunter etc. — todos resolvidos
+   por `winget search` no notebook.
+4. **O teste do roteamento chamou o progress 4x** (2 por tipo) — o provisionList
+   reporta fases; o teste passou a verificar tipos em vez da contagem exata.
