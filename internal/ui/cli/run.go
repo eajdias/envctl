@@ -21,6 +21,9 @@ func newRunCmd() *cobra.Command {
 		Long:  `Executes idempotent provisioning tasks for system packages, shell, skills, and LSPs.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 || args[0] == "all" {
+				if withExtras {
+					runExtrasProvisioning()
+				}
 				if err := runAllProvisioning(); err != nil {
 					pterm.Error.Printf("%v\n", err)
 					os.Exit(1)
@@ -36,6 +39,11 @@ func newRunCmd() *cobra.Command {
 		Use:   "all",
 		Short: "Provision the full profile for this machine (dispatches to windows, vps or cachyos)",
 		Run: func(cmd *cobra.Command, args []string) {
+			// --with-extras makes `run all` also install the owner's optional
+			// apps (extras.yaml); without it the default profile stays neutral.
+			if withExtras {
+				runExtrasProvisioning()
+			}
 			if err := runAllProvisioning(); err != nil {
 				pterm.Error.Printf("%v\n", err)
 				os.Exit(1)
@@ -109,6 +117,15 @@ func newRunCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			runGamingProvisioning()
+		},
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "extras",
+		Short: "Provision opt-in optional apps (owner preferences; never part of a default run)",
+		Run: func(cmd *cobra.Command, args []string) {
+			PrintBanner()
+			runExtrasProvisioning()
 		},
 	})
 
@@ -230,8 +247,16 @@ func newRunCmd() *cobra.Command {
 		},
 	})
 
+	// --with-extras opts `run all` (or the bare `run`) into the optional apps
+	// manifest (extras.yaml). Default stays neutral: the public repo never
+	// installs the owner's preference apps without an explicit opt-in.
+	cmd.PersistentFlags().BoolVar(&withExtras, "with-extras", false,
+		"Also provision the optional owner-preferred apps (extras.yaml)")
 	return cmd
 }
+
+// withExtras gates the optional apps layer on `run` / `run all`.
+var withExtras bool
 
 func runAllProvisioning() error {
 	PrintBanner()
@@ -505,6 +530,26 @@ func runGamingProvisioning() {
 			pterm.Warning.Println("Kernel cmdline updated: reboot for it to take effect (limine-update already ran).")
 		}
 	}
+}
+
+func runExtrasProvisioning() {
+	spinner, _ := pterm.DefaultSpinner.Start("Inspecting and installing optional apps (extras)...")
+	ctx := context.Background()
+
+	pkgs, err := appCtx.ProvisionPkgsUC.ExecuteExtras(ctx, func(pkg entity.Package, status string, err error) {
+		if err != nil {
+			pterm.Warning.Printf("  • %s: %s (%v)\n", pkg, status, err)
+		} else {
+			pterm.Success.Printf("  • %s: %s\n", pkg, status)
+		}
+	})
+
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("Failed extras provisioning: %v", err))
+		return
+	}
+
+	spinner.Success(fmt.Sprintf("Processed %d optional apps", len(pkgs)))
 }
 
 func runShellProvisioning(categories ...string) {
