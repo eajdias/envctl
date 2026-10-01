@@ -9,10 +9,17 @@ permissions:
   contents: write
   pull-requests: write
 
+# Serialize release runs: two quick merges to main must not race the bot into
+# two release PRs. Queue instead of cancel so no run is dropped.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     name: Open or update release PR
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}

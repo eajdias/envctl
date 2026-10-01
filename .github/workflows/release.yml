@@ -29,6 +29,7 @@ jobs:
   build-release:
     name: Build & Attach Multi-OS Binaries
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -54,7 +55,7 @@ jobs:
           fi
           # Fail fast on manual rebuilds of a non-existent release.
           gh release view "$VERSION" >/dev/null
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building Release version: ${VERSION}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
