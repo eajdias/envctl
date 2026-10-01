@@ -5,6 +5,18 @@
       "args": ["-y", "@upstash/context7-mcp@latest"],
       "type": "stdio"
     },
+    "brave": {
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server@2.1.4", "--transport", "stdio"],
+      "type": "stdio",
+      "env": { "BRAVE_API_KEY": "${BRAVE_API_KEY:-}" }
+    },
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp",
+      "headers": { "x-api-key": "${EXA_API_KEY:-}" },
+      "enabled": true
+    },
     "chrome-devtools": {
       "command": "bunx",
       "args": ["chrome-devtools-mcp@1.8.0", "--no-usage-statistics"],

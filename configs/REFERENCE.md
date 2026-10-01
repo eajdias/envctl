@@ -13,6 +13,20 @@
 
 DCP removido em 2026-09-22 (plugin V1 quebra o boot do v2; `dcp.jsonc` era config sem consumidor — YAGNI). Pruning agora é o compaction nativo (`compaction.keep.tokens` + checkpoints); CommandCode usa `/compact` nativo. Chame `compress` proativamente ao trocar de assunto bruscamente ou ao concluir uma sub-tarefa cujo contexto verbatim não será mais usado.
 
+## Canal do opencode (pacman)
+
+- Update: `paru -Syu opencode` (nunca `opencode update`). O AUR `opencode-beta` remove o pacote do repo ao instalar; config/DB são XDG, então trocar de canal não migra nada. Reversão: `pacman -S opencode`.
+
+## Busca na web (brave → exa → nativa)
+
+- **Ordem:** `brave` primeiro, `exa` como fallback e o `websearch` nativo por último (use-o só se os dois MCP falharem). No CommandCode a mesma ordem, com o `web_search` nativo no fim. A precedência é reforçada no `AGENTS.md` — é steering de prompt, não um gate de runtime.
+- **`websearch` nativo (mantido ligado).** No opencode v2 ele depende de provider próprio/`*_API_KEY` e falha nos planos free — por isso é só o último recurso; num plano pago (ou com `EXA_API_KEY`/`FIRECRAWL_API_KEY`/`TAVILY_API_KEY`/`PARALLEL_API_KEY`) ele volta a funcionar. Para removê-lo de vez: `"websearch": false`.
+- **Brave** (`brave`, MCP **local stdio**, `@brave/brave-search-mcp-server@2.1.4`, MIT): índice próprio keyword — bom para nome de pacote/erro verbatim e notícia fresca. Tools: `brave_web_search`, `brave_llm_context`, `brave_news_search`, `brave_local_search`, `brave_video_search`, `brave_image_search`, `brave_summarizer`, `brave_place_search`. **Não existe endpoint hospedado** (só stdio; HTTP apenas self-hosted em `127.0.0.1:8080/mcp`). Exige chave: exporte `BRAVE_API_KEY` (o template a injeta via `environment`/`env`); sem a chave o processo sai com erro e o brave fica indisponível — o exa segue keyless. Plano: sem free standalone, $5/mês de créditos (~1.000 buscas) e cartão para ativar.
+- **Exa** (`exa`, MCP remoto, `https://mcp.exa.ai/mcp`): busca semântica/neural — bom para "achar a doc que explica X". Keyless por padrão (rate limit grátis); com `EXA_API_KEY` usa o limite da conta (`headers.x-api-key: {env:EXA_API_KEY}` + `oauth: false`). Tools: `web_search_exa`, `web_fetch_exa`. Alternativa por arquivo: `{file:~/.config/opencode/secrets/exa.key}` (0600) — aí o arquivo **precisa existir**, senão o opencode recusa iniciar.
+- Verificação: `opencode mcp list` (ou `/mcp`). A config **não** é hot-reload — reinicie o opencode e confirme com `opencode debug config`.
+- CommandCode: `~/.commandcode/mcp.json` com `brave` (stdio, `BRAVE_API_KEY`) e `exa` (`type: http`, `${EXA_API_KEY:-}`); o `web_search` nativo continua como último recurso.
+- Nunca versione as chaves (`configs/*.json` vai para toda máquina).
+
 ## Agentes customizados
 
 Definidos no `opencode.json` — **não** existe mais `~/.config/opencode/agents/` (o provisioning remove o diretório; um `.md` lá sobrescreveria o JSON silenciosamente).
