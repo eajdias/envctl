@@ -756,6 +756,32 @@
         "url": "https://mcp.context7.com/mcp",
         "disabled": false
       },
+      "brave": {
+        "type": "local",
+        "command": [
+          "bunx",
+          "@brave/brave-search-mcp-server@2.1.4",
+          "--transport",
+          "stdio"
+        ],
+        "environment": {
+          "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+        },
+        "disabled": false,
+        "timeout": {
+          "catalog": 30000,
+          "execution": 30000
+        }
+      },
+      "exa": {
+        "type": "remote",
+        "url": "https://mcp.exa.ai/mcp",
+        "headers": {
+          "x-api-key": "{env:EXA_API_KEY}"
+        },
+        "oauth": false,
+        "disabled": false
+      },
       "ssh-manager": {
         "type": "local",
         "command": [
