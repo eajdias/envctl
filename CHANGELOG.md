@@ -7,6 +7,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.12.0](https://github.com/eajdias/envctl/compare/v1.11.0...v1.12.0) (2026-10-01)
+
+
+### Features
+
+* **mcp:** brave and exa web search with a native fallback order ([ed63acf](https://github.com/eajdias/envctl/commit/ed63acf4fe1f0979860ab8c464592b35fab64c76))
+* **mcp:** ship brave and exa web search and steer the fallback order ([da27a68](https://github.com/eajdias/envctl/commit/da27a685e9b1a52beb41e25792d14946a580d34b))
+
 ## [1.11.0](https://github.com/eajdias/envctl/compare/v1.10.1...v1.11.0) (2026-09-30)
 
 
