@@ -390,6 +390,8 @@ check_go() {
 
 	# Lint parity with CI, which reports issues introduced by the change: the
 	# existing debt never blocks a push, and new findings are advisory here.
+	# Mirror of .github/workflows/ci.yml (lint + test jobs): keep the two in
+	# sync — `make lint` runs this same --new-from-rev gate locally.
 	if have golangci-lint && [ -n "$base" ]; then
 		check_soft "advisory" "golangci-lint (new issues vs ${base})" golangci-lint run --new-from-rev="$base" ./...
 	fi

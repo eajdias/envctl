@@ -37,11 +37,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
-          cache: true
-
-      - name: Download Dependencies
-        run: go mod download
+          go-version-file: go.mod
 
       - name: Determine Version
         id: get_version
