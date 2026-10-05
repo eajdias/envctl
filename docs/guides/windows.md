@@ -70,9 +70,9 @@ go run ./cmd/envctl run windows
 # 3. Ou compile o binário standalone otimizado
 go build -ldflags "-s -w -X main.Version=v1.0.13" -o envctl.exe ./cmd/envctl
 
-# 4. Ou utilize o Taskfile / Makefile
-task build   # ou: make build
-task doctor  # ou: make doctor
+# 4. Ou utilize o Makefile
+make build
+make doctor
 ```
 
 ---
