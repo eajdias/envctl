@@ -30,6 +30,11 @@ type ProvisionProvidersUseCase struct {
 	fsManager    repository.FileSystemManager
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
+	// latestVersionFn resolves the newest available version of a standalone
+	// provider binary. It is a field (not a bare function) so tests can inject a
+	// deterministic latest without hitting the network; production wires the
+	// default below.
+	latestVersionFn func(ctx context.Context, binary string) string
 }
 
 func NewProvisionProvidersUseCase(
@@ -39,10 +44,11 @@ func NewProvisionProvidersUseCase(
 	logger repository.Logger,
 ) *ProvisionProvidersUseCase {
 	return &ProvisionProvidersUseCase{
-		manifestRepo: manifestRepo,
-		fsManager:    fsManager,
-		managers:     managers,
-		logger:       logger,
+		manifestRepo:    manifestRepo,
+		fsManager:       fsManager,
+		managers:        managers,
+		logger:          logger,
+		latestVersionFn: defaultLatestProviderVersion,
 	}
 }
 
@@ -365,6 +371,26 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		uc.logInfo("Providers: upgrading %s to major v%d (%s -> official installer)", tool.name, tool.requiredMajor, installed)
 		uc.installStandaloneProvider(ctx, tool, add, source != sourceSystem)
 
+	case tool.binary == "opencode" && tool.voltaPkg == "":
+		// Same major, but the official channel may have moved on within it
+		// (2.0.15 -> 2.0.23). The required-major guard above already passed, so
+		// only a genuine newer minor/patch triggers the standalone installer.
+		latest := uc.latestVersionFn(ctx, tool.binary)
+		if latest == "" {
+			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (latest unknown — kept as-is)", installed), "")
+			return
+		}
+		if !openCodeWithinMajorUpdateNeeded(installed, latest, tool.requiredMajor) {
+			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (current)", installed), "")
+			return
+		}
+		if !standaloneProviderCanReplace(source, pacmanOwns) {
+			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (%s; newer v%s available, update with its own manager)", installed, sourceLabel(source), latest), "")
+			return
+		}
+		uc.logInfo("Providers: updating %s %s -> %s", tool.name, installed, latest)
+		uc.installStandaloneProvider(ctx, tool, add, source != sourceSystem)
+
 	case tool.voltaPkg != "" && source == sourceVolta:
 		latest := npmLatest(ctx, tool.voltaPkg)
 		if latest == "" || !versionsDiffer(installed, latest) {
@@ -638,6 +664,73 @@ func firstVersionToken(output string) string {
 		}
 	}
 	return ""
+}
+
+// defaultLatestProviderVersion resolves the newest version of a standalone
+// provider. OpenCode publishes its own update channel, separate from npm (which
+// lags the release line); the official installer itself reads this same URL.
+func defaultLatestProviderVersion(ctx context.Context, binary string) string {
+	switch binary {
+	case "opencode":
+		out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://opencode.ai/update/api/latest/cli/npm")
+		if err != nil {
+			return ""
+		}
+		idx := strings.Index(out, `"version":"`)
+		if idx < 0 {
+			return ""
+		}
+		rest := out[idx+len(`"version":"`):]
+		if end := strings.Index(rest, `"`); end > 0 {
+			return rest[:end]
+		}
+		return ""
+	default:
+		return ""
+	}
+}
+
+// openCodeWithinMajorUpdateNeeded reports whether the installed OpenCode is
+// older than latest while still on the required major (2.0.15 -> 2.0.23). A
+// version on a higher major than required is never downgraded; an unparseable
+// version is never updated (fail closed). Comparison is by major.minor.patch
+// with the guard that the two majors are equal and match requiredMajor.
+func openCodeWithinMajorUpdateNeeded(installed, latest string, requiredMajor int) bool {
+	iMaj, iMin, iPat, okInst := parseSemver(installed)
+	lMaj, lMin, lPat, okLatest := parseSemver(latest)
+	if !okInst || !okLatest {
+		return false
+	}
+	if iMaj != requiredMajor || lMaj != requiredMajor || iMaj != lMaj {
+		return false
+	}
+	if iMin != lMin {
+		return iMin < lMin
+	}
+	return iPat < lPat
+}
+
+// parseSemver reads the first three numeric segments of a semver-ish string,
+// tolerating a leading "v" and surrounding whitespace. Anything beyond the
+// patch (prerelease/build metadata) is ignored: provider updates are decided
+// on the numeric release triple only.
+func parseSemver(version string) (major, minor, patch int, ok bool) {
+	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if idx := strings.IndexAny(v, "-+"); idx >= 0 {
+		v = v[:idx]
+	}
+	parts := strings.Split(v, ".")
+	if len(parts) < 3 {
+		return 0, 0, 0, false
+	}
+	var errs [3]error
+	major, errs[0] = strconv.Atoi(parts[0])
+	minor, errs[1] = strconv.Atoi(parts[1])
+	patch, errs[2] = strconv.Atoi(parts[2])
+	if errs[0] != nil || errs[1] != nil || errs[2] != nil {
+		return 0, 0, 0, false
+	}
+	return major, minor, patch, true
 }
 
 // versionsDiffer reports whether two version strings disagree once normalized
