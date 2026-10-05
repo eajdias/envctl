@@ -141,6 +141,10 @@ func InitApp(embeddedFS fs.FS, version string) {
 		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
+	// The doctor's freshness audit compares the running binary against the repo
+	// checkout; wire the ldflags-injected version through so it can.
+	appCtx.DoctorAuditUC.SetEnvctlVersion(appVersion)
+
 	registerCommands()
 }
 
