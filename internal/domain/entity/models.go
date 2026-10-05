@@ -72,6 +72,13 @@ const (
 	// template, unioning `dependencies`/`devDependencies` so user-added
 	// entries survive while template entries stay current.
 	MergeJSONDeps MergeMode = "json_deps"
+	// MergeMarkdownSections keeps a delimited "user" block of a Markdown file
+	// (agent memory, lessons) across provisioning runs: the template owns the
+	// "managed" block and is replaced wholesale, while anything the user wrote
+	// in the "user" block is preserved byte-for-byte. Markers are HTML comments
+	// on their own line; a destination without any marker is treated as fully
+	// user-owned content on the first migration, so nothing is ever lost.
+	MergeMarkdownSections MergeMode = "markdown_sections"
 )
 
 // ConfigFile represents a system or user configuration file.

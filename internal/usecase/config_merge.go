@@ -202,6 +202,89 @@ func mergeJSONDeps(template, existing []byte) ([]byte, error) {
 	return append(out, '\n'), nil
 }
 
+// Markdown section markers. HTML comments on their own line keep them inert to
+// every Markdown renderer while still giving the merge a stable, exact anchor.
+// The user block is the only part a machine's operator is expected to edit; the
+// managed block is replaced wholesale from the template on every run.
+const (
+	markdownManagedStart = "<!-- envctl:managed:start -->"
+	markdownManagedEnd   = "<!-- envctl:managed:end -->"
+	markdownUserStart    = "<!-- envctl:user:start -->"
+	markdownUserEnd      = "<!-- envctl:user:end -->"
+)
+
+// mergeMarkdownSections combines the template with the destination, preserving
+// the destination's user block verbatim. The template wins for the managed
+// block (so the baseline stays current); the destination wins for the user
+// block (so lessons and preferences survive a provisioning run).
+//
+// The template is the source of truth for both blocks' markers: the merged
+// output is always the template's managed block plus whatever user content the
+// destination carries. A destination without any marker — a file written before
+// this merge mode existed, or a first-run file edited directly — is preserved
+// whole as user content, because losing it would be worse than keeping a stale
+// managed block.
+func mergeMarkdownSections(template, existing []byte) []byte {
+	tpl := string(template)
+
+	managed := sectionBetween(tpl, markdownManagedStart, markdownManagedEnd)
+	if managed == "" && !strings.Contains(tpl, markdownManagedStart) {
+		// The template carries no managed markers: everything is managed.
+		managed = tpl
+	}
+
+	// The user block seed lives in the template's own user section, so a fresh
+	// destination inherits it; the destination's block replaces it afterwards.
+	user := sectionBetween(tpl, markdownUserStart, markdownUserEnd)
+
+	if len(existing) > 0 {
+		if strings.Contains(string(existing), markdownUserStart) || strings.Contains(string(existing), markdownManagedStart) {
+			// Already-marked destination: preserve exactly its user block.
+			user = sectionBetween(string(existing), markdownUserStart, markdownUserEnd)
+		} else {
+			// Legacy destination with no markers at all: keep everything.
+			user = strings.TrimRight(string(existing), "\n")
+		}
+	}
+
+	managed = strings.TrimRight(managed, "\n")
+	user = strings.TrimRight(user, "\n")
+
+	var b strings.Builder
+	b.WriteString(markdownManagedStart)
+	b.WriteString("\n")
+	b.WriteString(managed)
+	b.WriteString("\n")
+	b.WriteString(markdownManagedEnd)
+	b.WriteString("\n")
+	b.WriteString(markdownUserStart)
+	b.WriteString("\n")
+	if user != "" {
+		b.WriteString(user)
+		b.WriteString("\n")
+	}
+	b.WriteString(markdownUserEnd)
+	b.WriteString("\n")
+	return []byte(b.String())
+}
+
+// sectionBetween returns the text strictly between the start and end markers,
+// or "" when either marker is absent. The markers must sit on their own line:
+// the split trims surrounding newlines so callers never depend on incidental
+// indentation or trailing whitespace.
+func sectionBetween(content, start, end string) string {
+	startIdx := strings.Index(content, start)
+	if startIdx < 0 {
+		return ""
+	}
+	bodyStart := startIdx + len(start)
+	endIdx := strings.Index(content[bodyStart:], end)
+	if endIdx < 0 {
+		return ""
+	}
+	return strings.Trim(content[bodyStart:bodyStart+endIdx], "\n")
+}
+
 func decodeJSONObject(data []byte) (map[string]json.RawMessage, error) {
 	object := make(map[string]json.RawMessage)
 	if len(strings.TrimSpace(string(data))) == 0 {

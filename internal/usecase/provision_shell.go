@@ -243,6 +243,8 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				switch cf.Merge {
 				case entity.MergeSSHHosts:
 					content = mergeSSHHosts(content, existingContent)
+				case entity.MergeMarkdownSections:
+					content = mergeMarkdownSections(content, existingContent)
 				case entity.MergeJSONDeps:
 					mergedContent, mergeErr := mergeJSONDeps(content, existingContent)
 					if mergeErr != nil {

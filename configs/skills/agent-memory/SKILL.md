@@ -30,6 +30,15 @@ No CommandCode os mesmos conteúdos vivem como seções `## Erros / Lições` e
 crie os arquivos `lessons.md`/`patterns.md` apenas quando estiver no OpenCode.
 Se o arquivo de projeto não existir, crie-o com o template da seção "Formato".
 
+> **CommandCode `AGENTS.md` é merge-managed.** O arquivo global/projeto do
+> CommandCode é provisionado pelo envctl com dois blocos delimitados por
+> comentários HTML: `<!-- envctl:managed:start/end -->` (conteúdo do template,
+> sobrescrito a cada `run shell`/`run all`) e `<!-- envctl:user:start/end -->`
+> (conteúdo local, preservado byte a byte). Grave lições/patterns **apenas**
+> dentro do bloco `user` — nunca edite o bloco `managed`, que o próximo run
+> sobrescreve. Um arquivo legado sem marcadores é preservado inteiro como bloco
+> `user` na primeira migração.
+
 ## Fluxo obrigatório (LOAD → ACT → SAVE → REFLECT)
 
 ### 1. LOAD — OBRIGATÓRIO no início de QUALQUER tarefa

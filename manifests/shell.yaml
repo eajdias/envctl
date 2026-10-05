@@ -120,6 +120,7 @@ config_files:
     strict_acl: false
     category: "commandcode"
     os: windows
+    merge: markdown_sections
 
   - id: commandcode_agents_manifest_linux
     description: "CommandCode global rules manifesto for Ubuntu/Debian servers (no PowerShell/Windows paths)"
@@ -128,6 +129,7 @@ config_files:
     strict_acl: false
     category: "commandcode"
     os: debian,ubuntu
+    merge: markdown_sections
 
   - id: commandcode_agents_manifest_arch
     description: "CommandCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
@@ -136,6 +138,7 @@ config_files:
     strict_acl: false
     category: "commandcode"
     os: arch,cachyos
+    merge: markdown_sections
 
   - id: commandcode_skill_index
     description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
