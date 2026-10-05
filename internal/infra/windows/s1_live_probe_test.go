@@ -60,6 +60,7 @@ func TestS1LiveCommandRoundTrip(t *testing.T) {
 		t.Fatalf("hibernation check failed: %v", err)
 	}
 }
+
 // It corrupts the UserPreferencesMask value, applies the tweak, and verifies
 // the byte list comes back — proving the Binary registry apply + check agree.
 // Run manually on a Windows host: GOOS is not enforced here because the

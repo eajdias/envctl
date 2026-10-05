@@ -10,8 +10,8 @@ import (
 // startup-entry tokens, a name outside this set is rejected: nothing unknown
 // ever reaches PowerShell.
 const (
-	tier3Teredo     = "Teredo"
-	tier3PowerPlan  = "PowerPlan"
+	tier3Teredo      = "Teredo"
+	tier3PowerPlan   = "PowerPlan"
 	tier3Hibernation = "Hibernation"
 )
 
