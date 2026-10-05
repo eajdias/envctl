@@ -14,6 +14,11 @@ O projeto evoluiu de um script inicial de prototipagem focado exclusivamente em 
 irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
 ```
 
+> **Rodando a partir de um checkout do repo?** Rebuild antes do `run all`, porque os
+> templates são embutidos no binário (`//go:embed`):
+> `go build -ldflags "-X main.Version=$(git describe --tags --always)" -o envctl.exe ./cmd/envctl`
+> — o `doctor` acusa binário defasado como "Binary freshness".
+
 ### 🐧 Linux (Ubuntu / Debian / Servidores VPS)
 ```bash
 curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
