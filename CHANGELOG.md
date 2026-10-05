@@ -7,6 +7,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.13.1](https://github.com/eajdias/envctl/compare/v1.13.0...v1.13.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* gofmt the pre-existing unformatted files ([999b73a](https://github.com/eajdias/envctl/commit/999b73ab8bad8da438b90a01ddaf999eec961add))
+* gofmt the pre-existing unformatted files ([b75377b](https://github.com/eajdias/envctl/commit/b75377b6812c381172855a3e8954826a351c6b38))
+
 ## [1.13.0](https://github.com/eajdias/envctl/compare/v1.12.0...v1.13.0) (2026-10-05)
 
 
