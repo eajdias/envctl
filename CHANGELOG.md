@@ -7,6 +7,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.13.0](https://github.com/eajdias/envctl/compare/v1.12.0...v1.13.0) (2026-10-05)
+
+
+### Features
+
+* bootstrap freshness, PATH audit and non-destructive CommandCode AGENTS.md ([8f42461](https://github.com/eajdias/envctl/commit/8f42461f7043f075c3e30d71d0f8bcc5ba73337c))
+* **commandcode:** merge local sections into AGENTS.md instead of overwriting ([8b85e9a](https://github.com/eajdias/envctl/commit/8b85e9ac879f8e4795c75236f4a928e0365d587e))
+* **doctor:** audit envctl PATH and binary freshness ([6376e64](https://github.com/eajdias/envctl/commit/6376e64793a432dc92294e922983262ef4f20fb2))
+* **providers:** update OpenCode within its major ([8c2f5a8](https://github.com/eajdias/envctl/commit/8c2f5a8de6faf46da772be84d82119b4c426bdc3))
+* **temp:** classify third-party caches and attribute TempFolder by owner ([4567885](https://github.com/eajdias/envctl/commit/4567885c15622f52a7d26d71a96f854752df278e))
+
 ## [Unreleased]
 
 ### Features
