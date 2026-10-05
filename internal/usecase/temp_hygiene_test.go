@@ -54,6 +54,13 @@ func TestClassifyTempEntry(t *testing.T) {
 		{name: "project-backup.zip", want: false},
 		{name: "my-script.py", want: false},
 		{name: "README.md", want: false},
+		// third-party installer/updater caches are safe to prune
+		{name: "DockerDesktop", isDir: true, want: true},
+		{name: "DockerDesktopUpdates", isDir: true, want: true},
+		{name: "DockerDesktopInstallers", isDir: true, want: true},
+		{name: "BraveComponentUpdater_chrome_url_fetcher_6420_123", isDir: true, want: true},
+		{name: "scoped_dir3136_2118523775", isDir: true, want: true},
+		{name: "WinGet", isDir: true, want: true},
 	}
 
 	for _, tt := range tests {
@@ -99,6 +106,76 @@ func TestTempRoots(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("tempRoots() duplicated entry for %v: %v", dir, roots)
+	}
+}
+
+func TestTempOwner(t *testing.T) {
+	cases := []struct {
+		name string
+		want string
+	}{
+		{"opencode", tempOwnerScratch},
+		{"opencode-session", tempOwnerScratch},
+		{"commandcode", tempOwnerScratch},
+		{"node-compile-cache", tempOwnerScratch},
+		{"tsx-someuser", tempOwnerScratch},
+		{"zscan-assist-LBbuFs", tempOwnerScratch},
+		{"DockerDesktop", tempOwnerThirdParty},
+		{"DockerDesktopUpdates", tempOwnerThirdParty},
+		{"BraveComponentUpdater_chrome_url_fetcher_6420_123", tempOwnerThirdParty},
+		{"scoped_dir3136_2118523775", tempOwnerThirdParty},
+		{"WinGet", tempOwnerThirdParty},
+		{"vscode-stable-user-x64", tempOwnerThirdParty},
+		{"random-user-file.txt", tempOwnerUnknown},
+	}
+	for _, tc := range cases {
+		if got := tempOwner(tc.name); got != tc.want {
+			t.Errorf("tempOwner(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestDominantTempOwner(t *testing.T) {
+	// Scratch-dominant: the agent's own cache out-sizes third-party caches.
+	scratchDir := t.TempDir()
+	opencodeDir := filepath.Join(scratchDir, "opencode")
+	if err := os.MkdirAll(opencodeDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(opencodeDir, "big.bin"), make([]byte, 4096), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(scratchDir, "DockerDesktop"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(scratchDir, "DockerDesktop", "small.bin"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := dominantTempOwner(scratchDir); got != tempOwnerScratch {
+		t.Errorf("dominantTempOwner(scratch) = %q, want %q", got, tempOwnerScratch)
+	}
+
+	// Third-party-dominant: Docker cache out-sizes any scratch.
+	thirdDir := t.TempDir()
+	dockerDir := filepath.Join(thirdDir, "DockerDesktop")
+	if err := os.MkdirAll(dockerDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dockerDir, "big.bin"), make([]byte, 8192), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(thirdDir, "opencode"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(thirdDir, "opencode", "small.bin"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := dominantTempOwner(thirdDir); got != tempOwnerThirdParty {
+		t.Errorf("dominantTempOwner(third-party) = %q, want %q", got, tempOwnerThirdParty)
+	}
+
+	if got := dominantTempOwner(filepath.Join(t.TempDir(), "does-not-exist")); got != tempOwnerScratch {
+		t.Errorf("dominantTempOwner(missing) = %q, want %q", got, tempOwnerScratch)
 	}
 }
 

@@ -28,6 +28,12 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 Depois: `envctl run all` e `envctl doctor`. Rodar de novo é seguro (idempotente) e
 é também o jeito de **atualizar** uma máquina já provisionada.
 
+> **Repositorio local:** se o envctl for executado a partir de um checkout do repo
+> (`C:\projetos\publico\envctl`), rebuildar ANTES de `run all`:
+> `go build -ldflags "-X main.Version=$(git describe --tags --always)" -o envctl.exe ./cmd/envctl`.
+> Os templates são embutidos no binário (`//go:embed`), então um binário antigo
+> provisiona configs de versões atrás; o `doctor` acusa isso como "Binary freshness".
+
 ## Auditar a máquina atual
 
 ```bash
@@ -68,5 +74,7 @@ envctl commandcode    # só a camada CommandCode
 
 1. Rode `envctl doctor` **antes** de investigar: na maioria das vezes o diagnóstico
    já está na linha do warning.
-2. Leia o log da execução em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log`.
+2. Leia o log da execução em `~/.envctl/logs/envctl-YYYYMMDD-HHMMSS.log` **antes**
+   de assumir falha: a linha "Session Closed" prova que o trabalho concluiu (uma
+   task em background pode seguir "running" presa num pipe de processo filho).
 3. Corrija, rode o comando de novo e confirme no `doctor`.

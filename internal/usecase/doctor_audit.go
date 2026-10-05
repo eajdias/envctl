@@ -30,6 +30,14 @@ type DoctorAuditUseCase struct {
 	// production leaves it nil and gets entity.DetectedPlatform.
 	platform func() entity.PlatformInfo
 	logger   repository.Logger
+	// envctlVersion is the version baked into the running binary (main.Version,
+	// injected via -ldflags). Empty or "dev" means an untagged build, which the
+	// freshness audit flags when a repo checkout is available to compare.
+	envctlVersion string
+	// gitDescribe runs `git describe --tags --always` in the repo checkout and
+	// returns its trimmed output. A function so the freshness audit is testable
+	// without a real checkout; production wires the git-backed default.
+	gitDescribe func(ctx context.Context, repoDir string) (string, error)
 }
 
 func NewDoctorAuditUseCase(
@@ -55,7 +63,22 @@ func NewDoctorAuditUseCase(
 		managers:             managers,
 		performanceInspector: performanceInspector,
 		logger:               logger,
+		gitDescribe:          defaultGitDescribe,
 	}
+}
+
+// SetEnvctlVersion records the version baked into the running binary, so the
+// freshness audit can compare it against the repo checkout. Production wires it
+// from main.Version via InitApp; tests call it directly.
+func (uc *DoctorAuditUseCase) SetEnvctlVersion(version string) {
+	uc.envctlVersion = version
+}
+
+// defaultGitDescribe reports the repo's describe output from repoDir, or an
+// error when the directory is not a git checkout (or git is missing).
+func defaultGitDescribe(ctx context.Context, repoDir string) (string, error) {
+	out, err := runWithToolchain(ctx, "git", "-C", repoDir, "describe", "--tags", "--always")
+	return out, err
 }
 
 type AuditReport struct {
@@ -163,6 +186,26 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				FixHint:  "run 'envctl run shell' to prepend ~/.local/bin to the user PATH",
 			})
 		}
+	}
+
+	// 1.6. Audit that envctl itself resolves on PATH. A fresh machine out of
+	// bootstrap runs `envctl doctor` from a shell the bootstrap cannot refresh,
+	// so the audit (not the install) is what confirms the binary is reachable.
+	if envctlPath, err := exec.LookPath("envctl"); err != nil || envctlPath == "" {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagWarning,
+			System:   "Envctl",
+			Target:   "PATH",
+			Details:  "envctl is not on PATH — the bootstrap install dir was not persisted",
+			FixHint:  "run 'bootstrap.ps1 -Force' (Windows) or add the install dir to PATH, then open a new shell",
+		})
+	} else {
+		addDiag(entity.Diagnostic{
+			Category: entity.DiagOK,
+			System:   "Envctl",
+			Target:   "PATH",
+			Details:  fmt.Sprintf("envctl resolves at %s", envctlPath),
+		})
 	}
 
 	// 2. Audit Git Global Configurations
@@ -273,6 +316,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditAgentsIdentityCoverage(addDiag, configFiles)
 	uc.auditOpenCodeConfigShape(addDiag)
 	uc.auditOpenCodeVersionSkew(ctx, addDiag)
+	uc.auditEnvctlFreshness(ctx, addDiag)
 
 	// 5. Audit Packages
 	packages, _ := uc.manifestRepo.LoadPackages()
@@ -907,11 +951,22 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			FixHint:  "run 'envctl run shell' to create it",
 		})
 	} else if tempSize, err := dirSize(tempDir); err == nil && tempSize > 500*1024*1024 {
+		// A large temp folder is only a warning when the agent's own scratch is
+		// the dominant owner. Third-party caches (Docker Desktop, WinGet, Brave
+		// updaters) are regenerable by their owning app and should never keep
+		// the doctor red — otherwise the operator learns to ignore the warning.
+		dominant := dominantTempOwner(tempDir)
+		category := entity.DiagInfo
+		details := fmt.Sprintf("Agent temp folder is %.1f MB, mostly third-party caches — regenerable by their owning apps", float64(tempSize)/(1024*1024))
+		if dominant == tempOwnerScratch {
+			category = entity.DiagWarning
+			details = fmt.Sprintf("Agent temp folder is %.1f MB — clean stale scratch", float64(tempSize)/(1024*1024))
+		}
 		addDiag(entity.Diagnostic{
-			Category: entity.DiagWarning,
+			Category: category,
 			System:   "TempFolder",
 			Target:   tempDir,
-			Details:  fmt.Sprintf("Agent temp folder is %.1f MB — clean stale scratch", float64(tempSize)/(1024*1024)),
+			Details:  details,
 			FixHint:  "run 'envctl run cleanup' or delete its contents manually",
 		})
 	} else {
@@ -1765,6 +1820,71 @@ func (uc *DoctorAuditUseCase) auditOpenCodeVersionSkew(_ context.Context, addDia
 			Details:  fmt.Sprintf("opencode v%s + V2 config (agents/permissions/plugins/skills/mcp.servers): v1 discards keys, inverts MCP flags and fails V2 plugins", version),
 			FixHint:  "upgrade opencode to 2.x (envctl run providers), then 'opencode debug config'",
 		})
+	}
+}
+
+// auditEnvctlFreshness warns when the running binary predates the repo checkout
+// it would provision from. The templates are embedded at build time, so a stale
+// binary provisions configs from as many releases ago as it is old — silently.
+// The audit only runs when a repo checkout is reachable; a binary outside a
+// checkout cannot be compared and is left alone (not an error, just no source).
+func (uc *DoctorAuditUseCase) auditEnvctlFreshness(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if uc.envctlVersion == "" || uc.gitDescribe == nil {
+		return
+	}
+	repoDir, err := repoRootFinder()
+	if err != nil {
+		return
+	}
+	describe, err := uc.gitDescribe(ctx, repoDir)
+	if err != nil || strings.TrimSpace(describe) == "" {
+		return
+	}
+	if envctlBinaryFresh(uc.envctlVersion, describe) {
+		return
+	}
+	addDiag(entity.Diagnostic{
+		Category: entity.DiagWarning,
+		System:   "Envctl",
+		Target:   "Binary freshness",
+		Details:  fmt.Sprintf("running binary reports %s but the repo checkout is at %s — embedded templates are stale", printableVersion(uc.envctlVersion), describe),
+		FixHint:  `rebuild: go build -ldflags "-X main.Version=$(git describe --tags --always)" -o envctl.exe ./cmd/envctl`,
+	})
+}
+
+// envctlBinaryFresh reports whether the running binary matches the repo describe.
+// A "dev" build never matches a tagged checkout: an unversioned binary is the
+// signature of a plain `go build` without the release ldflags, which is exactly
+// the stale-template risk this check exists to catch.
+func envctlBinaryFresh(builtVersion, repoDescribe string) bool {
+	built := strings.TrimPrefix(strings.TrimSpace(builtVersion), "v")
+	describe := strings.TrimPrefix(strings.TrimSpace(repoDescribe), "v")
+	if built == "" || built == "dev" || describe == "" {
+		return false
+	}
+	return built == describe
+}
+
+// findRepoRoot walks up from the working directory to the nearest .git, so the
+// freshness audit compares against the checkout the user actually ran from.
+// repoRootFinder is the package-level seam tests override to avoid depending on
+// the host's working directory.
+var repoRootFinder = findRepoRoot
+
+func findRepoRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("no git checkout found above %s", dir)
+		}
+		dir = parent
 	}
 }
 

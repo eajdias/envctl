@@ -1350,6 +1350,105 @@ func TestDoctorAudit_GamingStackAuditsPackagesWhenOptedIn(t *testing.T) {
 	}
 }
 
+func TestEnvctlBinaryFresh(t *testing.T) {
+	cases := []struct {
+		built    string
+		describe string
+		want     bool
+	}{
+		{"v1.12.0", "v1.12.0", true},
+		{"1.12.0", "v1.12.0", true},
+		{"v1.12.0", "1.12.0", true},
+		{"dev", "v1.12.0-9-g1f6992d", false},
+		{"", "v1.12.0", false},
+		{"v1.6.0", "v1.12.0-9-g1f6992d", false},
+		{"v1.12.0", "", false},
+	}
+	for _, tc := range cases {
+		if got := envctlBinaryFresh(tc.built, tc.describe); got != tc.want {
+			t.Errorf("envctlBinaryFresh(%q, %q) = %v, want %v", tc.built, tc.describe, got, tc.want)
+		}
+	}
+}
+
+func TestAuditEnvctlFreshnessWarnsWhenStale(t *testing.T) {
+	old := repoRootFinder
+	t.Cleanup(func() { repoRootFinder = old })
+	repoRootFinder = func() (string, error) { return t.TempDir(), nil }
+
+	uc := &DoctorAuditUseCase{
+		envctlVersion: "v1.6.0",
+		gitDescribe: func(_ context.Context, _ string) (string, error) {
+			return "v1.12.0-9-g1f6992d", nil
+		},
+	}
+
+	var diags []entity.Diagnostic
+	uc.auditEnvctlFreshness(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+
+	if len(diags) != 1 {
+		t.Fatalf("expected 1 freshness diagnostic, got %d: %v", len(diags), diags)
+	}
+	d := diags[0]
+	if d.Category != entity.DiagWarning || d.System != "Envctl" || d.Target != "Binary freshness" {
+		t.Errorf("unexpected diagnostic: %+v", d)
+	}
+	if !strings.Contains(d.FixHint, "go build") {
+		t.Errorf("expected a rebuild FixHint, got %q", d.FixHint)
+	}
+}
+
+func TestAuditEnvctlFreshnessSilentWhenCurrent(t *testing.T) {
+	old := repoRootFinder
+	t.Cleanup(func() { repoRootFinder = old })
+	repoRootFinder = func() (string, error) { return t.TempDir(), nil }
+
+	uc := &DoctorAuditUseCase{
+		envctlVersion: "v1.12.0",
+		gitDescribe: func(_ context.Context, _ string) (string, error) {
+			return "v1.12.0", nil
+		},
+	}
+
+	var diags []entity.Diagnostic
+	uc.auditEnvctlFreshness(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic when the binary matches the checkout, got %v", diags)
+	}
+}
+
+func TestAuditEnvctlFreshnessSkipsWithoutRepo(t *testing.T) {
+	uc := &DoctorAuditUseCase{
+		envctlVersion: "v1.6.0",
+		gitDescribe: func(_ context.Context, _ string) (string, error) {
+			return "v1.12.0-9-g1f6992d", nil
+		},
+	}
+	// No repo: envctlVersion present but gitDescribe returns an error → silence.
+	uc.gitDescribe = func(_ context.Context, _ string) (string, error) {
+		return "", fmt.Errorf("not a git repository")
+	}
+	var diags []entity.Diagnostic
+	uc.auditEnvctlFreshness(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic without a reachable repo checkout, got %v", diags)
+	}
+}
+
+func TestAuditEnvctlFreshnessSkipsWithoutVersion(t *testing.T) {
+	uc := &DoctorAuditUseCase{
+		envctlVersion: "",
+		gitDescribe: func(_ context.Context, _ string) (string, error) {
+			return "v1.12.0", nil
+		},
+	}
+	var diags []entity.Diagnostic
+	uc.auditEnvctlFreshness(context.Background(), func(d entity.Diagnostic) { diags = append(diags, d) })
+	if len(diags) != 0 {
+		t.Errorf("expected no diagnostic when the binary version is unknown, got %v", diags)
+	}
+}
+
 func TestAuditOpenCodeVersionSkewParsesMajor(t *testing.T) {
 	cases := []struct {
 		output string

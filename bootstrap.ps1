@@ -54,6 +54,15 @@ if (Test-Path $LocalExe -and -not $Force) {
     }
     $TargetExe = Join-Path $InstallDir "envctl.exe"
 
+    # Persist the install dir on the user PATH so `envctl` resolves in any new
+    # shell. Idempotent: only prepend when the dir is not already present, the
+    # same guard the OpenCode installer uses for ~/.local/bin.
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    if ($userPath -notlike "*$InstallDir*") {
+        [Environment]::SetEnvironmentVariable('Path', "$userPath;$InstallDir", 'User') | Out-Null
+        Write-Host "[+] Added $InstallDir to the user PATH" -ForegroundColor Green
+    }
+
     # Download from GitHub Releases
     $Repo = "eajdias/envctl"
     $ZipPath = Join-Path $env:TEMP "envctl.zip"

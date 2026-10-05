@@ -74,6 +74,14 @@ func classifyTempEntry(name string, isDir bool, age time.Duration) tempMatch {
 		lower == "vscode-stable-user-x64" {
 		return always("package manager / editor cache")
 	}
+	// Third-party installer/updater caches that accumulate in the shared agent
+	// temp folder but are regenerable by the owning app (Docker Desktop, Brave,
+	// Playwright/Brave scoped download dirs).
+	if strings.HasPrefix(lower, "bravecomponentupdater_") ||
+		strings.HasPrefix(lower, "dockerdesktop") ||
+		strings.HasPrefix(lower, "scoped_dir") {
+		return always("third-party updater/installer cache")
+	}
 	// Stray native installer/tool logs.
 	if strings.HasPrefix(lower, "dd_vcredist_") ||
 		strings.HasPrefix(lower, "microsoft.net.workload_") ||
@@ -183,6 +191,64 @@ func dirSize(path string) (int64, error) {
 		return nil
 	})
 	return size, nil
+}
+
+// Temp folder owners, used to decide whether a bloated ENVCTL_TEMP is a real
+// scratch leak (WARN) or just third-party caches the owning app regenerates
+// (INFO).
+const (
+	tempOwnerScratch    = "scratch"
+	tempOwnerThirdParty = "third-party"
+	tempOwnerUnknown    = "unknown"
+)
+
+// dominantTempOwner names the owner of the largest entry in the temp folder.
+// Scratch is the agent's own working set (opencode, commandcode, node/tsx
+// caches); third-party is Docker Desktop, WinGet, Brave updaters and the like.
+// An empty or unreadable directory reports scratch, which errs toward warning.
+func dominantTempOwner(tempDir string) string {
+	entries, err := os.ReadDir(tempDir)
+	if err != nil || len(entries) == 0 {
+		return tempOwnerScratch
+	}
+	var dominant string
+	var dominantSize int64
+	for _, e := range entries {
+		size, sizeErr := dirSize(filepath.Join(tempDir, e.Name()))
+		if sizeErr != nil || size <= dominantSize {
+			continue
+		}
+		dominantSize = size
+		dominant = tempOwner(e.Name())
+	}
+	if dominant == "" {
+		return tempOwnerScratch
+	}
+	return dominant
+}
+
+// tempOwner classifies a top-level temp entry by who owns it. The split mirrors
+// classifyTempEntry's allowlist: agent scratch and toolchain caches are
+// "scratch"; regenerable third-party installer/updater caches are "third-party".
+func tempOwner(name string) string {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasPrefix(lower, "opencode"),
+		strings.HasPrefix(lower, "commandcode"),
+		strings.HasPrefix(lower, "node-compile-cache"),
+		strings.HasPrefix(lower, "tsx-"),
+		strings.HasPrefix(lower, "bunx-"),
+		strings.HasPrefix(lower, "zscan-"):
+		return tempOwnerScratch
+	case lower == "winget",
+		strings.HasPrefix(lower, "dockerdesktop"),
+		strings.HasPrefix(lower, "bravecomponentupdater_"),
+		strings.HasPrefix(lower, "scoped_dir"),
+		lower == "vscode-stable-user-x64":
+		return tempOwnerThirdParty
+	default:
+		return tempOwnerUnknown
+	}
 }
 
 // Cleanup prunes stale temp artifacts, skipping entries locked by running processes.

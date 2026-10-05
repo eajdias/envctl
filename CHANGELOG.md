@@ -7,6 +7,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [Unreleased]
+
+### Features
+
+- **doctor:** audit that `envctl` resolves on PATH and warn when the running binary
+  predates the repo checkout ("Binary freshness" — embedded templates go stale).
+- **providers:** update OpenCode within its major when the official channel moves on
+  (2.0.15 → 2.0.23), never downgrading and never via npm.
+- **commandcode:** merge local content into `~/.commandcode/AGENTS.md` with
+  `merge: markdown_sections` (managed block + preserved user block) instead of
+  overwriting, so agent-memory lessons survive provisioning.
+- **bootstrap:** persist the envctl install dir on the user PATH on Windows.
+- **temp:** classify third-party installer/updater caches and attribute the
+  TempFolder warning by dominant owner (scratch = WARN, third-party = INFO).
+
 ## [1.12.0](https://github.com/eajdias/envctl/compare/v1.11.0...v1.12.0) (2026-10-01)
 
 

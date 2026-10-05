@@ -26,7 +26,16 @@ envctl doctor
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
+   - `Envctl / PATH`: o próprio `envctl` resolvível no `PATH` (bootstrap persiste o install dir; senão `WARN`).
+   - `Envctl / Binary freshness`: quando o binário é executado a partir de um checkout do repo,
+     compara a versão embutida com `git describe --tags --always` — binário mais antigo que o
+     checkout (ou build `dev`) vira `WARN` pedindo rebuild, porque os templates são `//go:embed`.
+   - `TempFolder`: pasta acima de 500 MB vira `WARN` quando o dono dominante é scratch do agente
+     (`opencode`, `commandcode`, `node-compile-cache`, `tsx-*`), e `INFO` quando o dominante é
+     cache de terceiros (Docker Desktop, WinGet, Brave updaters) — regenerável pelo app dono.
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
+   - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
+     como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
 4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.

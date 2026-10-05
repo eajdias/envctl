@@ -57,7 +57,7 @@ provisionamento, para uma máquina nova chegar aos agentes sem passo manual (e p
 | Volta | instala se faltar | Linux: instalador oficial · Windows: `winget` `Volta.Volta`. Sem `volta self-update`: atualizar = rodar o instalador |
 | Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`volta install node@…`), para os dois não divergirem |
 | `command-code` (`cmdc`) | instala/atualiza via Volta | Compara a versão instalada com o `latest` do npm; Volta resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
-| `opencode` | instala/atualiza para **v2** se faltar ou se encontrar um v1 user-local; **nunca** por npm | Arch: pacote `extra` (binário do sistema não é sombreado) · Windows: instalador oficial V2 PowerShell (zip → `~/.local/bin`) · demais: instalador oficial V2 (`~/.opencode/bin`) |
+| `opencode` | instala/atualiza para **v2** se faltar ou se encontrar um v1 user-local; **nunca** por npm; atualiza **dentro do major** quando o canal oficial avança (2.0.15 → 2.0.23) | Arch: pacote `extra` (binário do sistema não é sombreado) · Windows: instalador oficial V2 PowerShell (zip → `~/.local/bin`) · demais: instalador oficial V2 (`~/.opencode/bin`). No Windows o caminho de upgrade é **o instalador PS** — `opencode upgrade --method curl` quebra (bash path mangling) |
 
 **Regra que a fase 0 respeita:** o envctl substitui binários que são dele
 (`~/.local/bin`, `~/.opencode/bin`) ou do Volta. Binários de pacote do SO são
@@ -89,7 +89,7 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | LSP | sem bloco `lsp` (removido 2026-09-22 — inerte no runtime v2; binários seguem provisionados p/ shell/IDE e `doctor` checa presença+handshake como toolchain) | **nenhuma** — `get_diagnostics` é IDE-only |
 | Plugins | 1 (goal-plugin only; `dcp.jsonc` removido do provisioning em 2026-09-22 — YAGNI) | — |
 | Contexto / pruning | nativo (`compaction` do v2; DCP removido) | — |
-| Memória | seeds `lessons.md` + `patterns.md`, dir `memory` | — (memória vive no `AGENTS.md`; dir `memory` é limpo) |
+| Memória | seeds `lessons.md` + `patterns.md`, dir `memory` | memória vive no `AGENTS.md` (**merge-managed**: bloco `envctl:managed` sobrescrito, bloco `envctl:user` preservado); dir `memory` é limpo |
 | Agentes custom | `review` (primary) + `planner`, `reviewer`, `verifier`, `docs-writer`, `memory-keeper` (subagent dispatchable, read-only por design) + `plan` (regra de `spec-agent/**` no built-in) | `agents/`: `code-reviewer`, `verifier`, `docs-writer`, `memory-keeper` (4 dispatchable) |
 | Permissões | no `opencode.json` | `settings.json`: 12 allow · 6 ask · 4 deny |
 | Hooks | — | `Stop` → `envctl-verify --hook` |
@@ -186,8 +186,10 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 1. Escolha a categoria (`opencode`, `commandcode`) para que `envctl opencode`/`commandcode`
    não toquem no outro agente.
 2. Variante por OS quando o conteúdo difere (`.linux.` no nome do arquivo em `configs/`).
-3. Se o usuário edita o arquivo, declare `merge:` (`ssh_hosts`, `json_deps`) — sobrescrever
-   só é seguro para arquivos 100% gerenciados.
+3. Se o usuário edita o arquivo, declare `merge:` (`ssh_hosts`, `json_deps`,
+   `markdown_sections`) — sobrescrever só é seguro para arquivos 100% gerenciados.
+   `markdown_sections` é o padrão para `AGENTS.md`: bloco `envctl:managed` (template)
+   + bloco `envctl:user` (preservado byte a byte).
 4. `seed_if_missing: true` para baselines que não devem ser sobrescritas.
 5. `executable: true` para scripts (o provisioning aplica 0755).
 

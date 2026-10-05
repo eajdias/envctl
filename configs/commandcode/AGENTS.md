@@ -1,3 +1,4 @@
+<!-- envctl:managed:start -->
 # CommandCode Environment Manifest
 
 ## Ambiente
@@ -43,3 +44,10 @@
 - **Skills instaladas:** `~/.commandcode/skills/<nome>/SKILL.md`
 - **Servidores SSH / chaves:** `~/.config/opencode/extras/ssh_servers.md` e `~/.ssh-manager/.env` (inventário local por máquina — NUNCA versionar)
 - **Ambiente:** provisionado pelo envctl. Para auditar: `envctl doctor` (0 WARN/0 ERROR = saudável). Para alterar ou provisionar: skill `envctl`.
+<!-- envctl:managed:end -->
+
+<!-- envctl:user:start -->
+## Erros / Lições (não repetir)
+
+## Padrões / Preferências (o que funciona)
+<!-- envctl:user:end -->

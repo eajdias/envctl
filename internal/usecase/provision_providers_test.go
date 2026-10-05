@@ -235,3 +235,55 @@ func TestStandaloneProviderCanReplace(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenCodeWithinMajorUpdateNeeded(t *testing.T) {
+	cases := []struct {
+		name      string
+		installed string
+		latest    string
+		major     int
+		want      bool
+	}{
+		{"same minor", "2.0.23", "2.0.23", 2, false},
+		{"older minor needs update", "2.0.15", "2.0.23", 2, true},
+		{"older patch, same minor", "2.0.15", "2.0.20", 2, true},
+		{"installed newer minor", "2.1.0", "2.0.23", 2, false},
+		{"different major never downgrades", "3.0.0", "2.0.23", 2, false},
+		{"installed below required major", "1.18.32", "2.0.23", 2, false},
+		{"leading v tolerated", "v2.0.15", "v2.0.23", 2, true},
+		{"unparseable installed", "not-a-version", "2.0.23", 2, false},
+		{"unparseable latest", "2.0.15", "latest", 2, false},
+	}
+	for _, tc := range cases {
+		if got := openCodeWithinMajorUpdateNeeded(tc.installed, tc.latest, tc.major); got != tc.want {
+			t.Errorf("%s: openCodeWithinMajorUpdateNeeded(%q, %q, %d) = %v, want %v",
+				tc.name, tc.installed, tc.latest, tc.major, got, tc.want)
+		}
+	}
+}
+
+func TestParseSemver(t *testing.T) {
+	cases := []struct {
+		version string
+		major   int
+		minor   int
+		patch   int
+		ok      bool
+	}{
+		{"2.0.23", 2, 0, 23, true},
+		{"v2.15.0", 2, 15, 0, true},
+		{" 1.18.32 ", 1, 18, 32, true},
+		{"2.0.23-rc1", 2, 0, 23, true},
+		{"3", 0, 0, 0, false},
+		{"2.0", 0, 0, 0, false},
+		{"", 0, 0, 0, false},
+		{"no.version", 0, 0, 0, false},
+	}
+	for _, tc := range cases {
+		major, minor, patch, ok := parseSemver(tc.version)
+		if major != tc.major || minor != tc.minor || patch != tc.patch || ok != tc.ok {
+			t.Errorf("parseSemver(%q) = (%d, %d, %d, %v), want (%d, %d, %d, %v)",
+				tc.version, major, minor, patch, ok, tc.major, tc.minor, tc.patch, tc.ok)
+		}
+	}
+}
