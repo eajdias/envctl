@@ -354,9 +354,15 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 
 	case "appx":
 		// Conforming = absent: the package was removed (or never installed).
+		// -AllUsers requires elevation; fall back to current-user scope when
+		// the elevated query is denied (non-admin shell).
 		appxScript := fmt.Sprintf(
-			`if (Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue) { Write-Output "INSTALLED" } else { Write-Output "ABSENT" }`,
-			executil.PSQuote(tweak.Name))
+			`try {`+
+				` if (Get-AppxPackage -Name '%s' -AllUsers -ErrorAction Stop) { Write-Output "INSTALLED" } else { Write-Output "ABSENT" }`+
+				` } catch {`+
+				` if (Get-AppxPackage -Name '%s' -ErrorAction SilentlyContinue) { Write-Output "INSTALLED" } else { Write-Output "ABSENT" }`+
+				` }`,
+			executil.PSQuote(tweak.Name), executil.PSQuote(tweak.Name))
 		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
 		appxOut, appErr := appxCmd.CombinedOutput()
 		if appErr != nil {
