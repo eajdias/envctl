@@ -7,6 +7,16 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [1.13.2](https://github.com/eajdias/envctl/compare/v1.13.1...v1.13.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **bootstrap:** parenthesize Test-Path -and (binding bug) ([7272603](https://github.com/eajdias/envctl/commit/72726035f622f6c68b35c6422b58ac02f4cc5180))
+* **env:** nao criar fish config sem fish instalado ([f3b824f](https://github.com/eajdias/envctl/commit/f3b824ff1eb87065e83331cb4e9fdff4f02eba53))
+* **overlay:** normalize CRLF da checkout (CI windows) ([c7ff43a](https://github.com/eajdias/envctl/commit/c7ff43ac31f842e6f9850f22599b291f4247b61b))
+* **test:** fixture CRLF idempotente no teste do overlay ([866c8fc](https://github.com/eajdias/envctl/commit/866c8fc10505bce5c60a3d5923c83ee552f9113f))
+
 ## [1.13.1](https://github.com/eajdias/envctl/compare/v1.13.0...v1.13.1) (2026-10-05)
 
 
