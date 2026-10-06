@@ -787,7 +787,7 @@ hook.
       Verificação: `TestLoadManifestsFromDiskOrEmbed` + deployado por OS
       idêntico + gate cheio. Rollback: revert por PR.
 - [x] **T2 — rename `debloat.yaml` → `debloat_windows.yaml`.** (feito 2026-10-06: `manifests/debloat.yaml` renomeado para `debloat_windows.yaml` com simetria para `debloat_linux.yaml`, atualizado em `manifest_repo.go`, docs e usecase)
-- [ ] **T3 — hooks git ×6 → 1 shim.** (parcial 2026-10-06: pre-push reusa `_envctl-delegate`, fim do chain duplicado; falta consolidação das 8 entradas `shell.yaml` — exige campo lista no loader, Go pós-Fase-2)
+- [x] **T3 — hooks git ×6 → 1 shim.** (feito 2026-10-06: `configs/git/hooks/_envctl-shim` deriva o nome do hook do próprio filename e delega via `_envctl-delegate`; os 6 scripts por-hook deletados, `pre-push` mantém script próprio; `shell.yaml` 8→3 entradas via campo novo `instances:` na entity `ConfigFile` — expansão `{{name}}` em id/source/destination dentro de `LoadConfigFiles`, então provision/doctor/snapshot veem as mesmas 6 entradas de antes; teste do loader pina a expansão + shim smoke-testado contra chain real; RESSALVA: os hooks instalados não são byte-idênticos aos antigos por construção — o nome vem de `basename $0` e não do comentário; funcionalmente idênticos) Detalhe original:
       `configs/git/hooks/pre-commit:1-6` idênticos exceto nome +
       `_envctl-delegate:1-24` + `pre-push:1-36` que reinventa o delegate
       (`:11-16`). Fix: 1 shim parametrizado (ou symlinks gerados) + 1
