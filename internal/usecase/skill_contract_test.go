@@ -204,7 +204,6 @@ func TestSkillDescription(t *testing.T) {
 	}
 }
 
-
 // The CommandCode catalog is `25 + N*391` chars; above COMMANDCODE_SKILL_CATALOG_CHAR_BUDGET
 // it silently falls back to names-only, which turns auto-activation off. The catalog must be
 // reported before that happens, not discovered later.

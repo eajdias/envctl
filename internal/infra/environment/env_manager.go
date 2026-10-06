@@ -406,6 +406,7 @@ func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bo
 			return changed, err
 		}
 		if len(data) > 0 {
+			//nolint:gosec // backup path derived from rc.path in user home
 			if err := os.WriteFile(shellBackupPath(rc.path), data, 0600); err != nil {
 				return changed, fmt.Errorf("failed to back up %s: %w", rc.path, err)
 			}

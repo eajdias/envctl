@@ -112,7 +112,6 @@ func skillDescription(skillDir string) string {
 	return strings.TrimSpace(fm.Description)
 }
 
-
 // Measured from the CommandCode 1.65.0 bundle: the model-facing catalog is
 // `<skill><name>…<location>…` per entry (142 chars measured) plus the description
 // capped at 249 chars (`Vs=250`, `slice(0, 248) + "…"`), wrapped in 25 chars of

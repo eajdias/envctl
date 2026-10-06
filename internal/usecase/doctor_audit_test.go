@@ -12,8 +12,6 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
-
-
 func TestMissingCmdlineParams(t *testing.T) {
 	full := "quiet rw preempt=full split_lock_detect=off amdgpu.ppfeaturemask=0xffffffff zswap.enabled=0 mitigations=off"
 	if missing := missingCmdlineParams(full, gamingKernelParams); len(missing) != 0 {
