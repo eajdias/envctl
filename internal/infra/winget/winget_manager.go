@@ -38,6 +38,7 @@ func (w *wingetManager) IsInstalled(ctx context.Context, pkg entity.Package) (bo
 	}
 
 	// Fallback to winget list
+	//nolint:gosec // G204: pkg.ID comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, "winget", "list", "--id", pkg.ID, "--exact", "--accept-source-agreements")
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), pkg.ID) {

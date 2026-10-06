@@ -38,6 +38,7 @@ func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, manife
 
 // userHome expands ~ to the current user's home directory.
 func (uc *ProvisionBootstrapUseCase) userHome() string {
+	//nolint:errcheck // an unresolvable home falls back to the toolchain env built from "".
 	home, _ := uc.fsManager.ExpandUserPath("~")
 	return home
 }
@@ -79,6 +80,7 @@ func linuxToolchainEnv(home string) []string {
 func toolAvailable(ctx context.Context, name string) bool {
 	if runtime.GOOS == "linux" {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			//nolint:gosec // G204: name is a manifest-declared tool name, not user input.
 			c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+name+" >/dev/null 2>&1")
 			c.Env = linuxToolchainEnv(home)
 			return c.Run() == nil

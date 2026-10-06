@@ -28,6 +28,7 @@ func NewCleanupCommandCodeUseCase(
 func (uc *CleanupCommandCodeUseCase) Execute(ctx context.Context) (*CleanupResult, error) {
 	result := &CleanupResult{}
 
+	//nolint:errcheck // best-effort cleanup: without a resolvable home there is nothing to prune.
 	homeDir, _ := uc.fsManager.ExpandUserPath("~")
 	ccDir := filepath.Join(homeDir, ".commandcode")
 

@@ -43,6 +43,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 	result := &SnapshotResult{}
 
 	// 1. Sync Config files from system to configs/ (only when content differs)
+	//nolint:errcheck // snapshot degrades to "nothing to sync" when the manifest fails to load.
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
 		if !entity.MatchesOS(cf.OS) {
@@ -75,10 +76,12 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 			if current, err := os.ReadFile(cf.Source); err == nil && string(current) == string(data) {
 				continue // no drift: leave the curated file untouched
 			}
+			//nolint:gosec // G301: configs/ is repo content (shared, not secrets).
 			if err := os.MkdirAll(filepath.Dir(cf.Source), 0755); err != nil {
 				uc.logger.Warn("Snapshot: failed to create dir for '%s': %v", cf.Source, err)
 				continue
 			}
+			//nolint:gosec // G306: configs/ is repo content (world-readable by design), never secrets.
 			if err := os.WriteFile(cf.Source, data, 0644); err != nil {
 				uc.logger.Warn("Snapshot: failed to write '%s': %v", cf.Source, err)
 				continue
@@ -96,6 +99,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 	discoveredByName := map[string]bool{}
 	var discoveredSkills []entity.Skill
 	for _, skillsDirRaw := range []string{"~/.config/opencode/skills", "~/.commandcode/skills"} {
+		//nolint:errcheck // an unresolvable path yields ""; ReadDir then fails and the loop continues.
 		skillsDir, _ := uc.fsManager.ExpandUserPath(skillsDirRaw)
 		entries, err := os.ReadDir(skillsDir)
 		if err != nil {
@@ -132,6 +136,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 	}
 
 	if len(discoveredSkills) > 0 {
+		//nolint:errcheck // snapshot merges with an empty set when the manifest fails to load.
 		existingSkills, _ := uc.manifestRepo.LoadSkills()
 		existingByName := map[string]entity.Skill{}
 		for _, s := range existingSkills {
@@ -171,6 +176,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 			result.DiscoveredSkills = len(discoveredSkills)
 		} else if len(merged) > 0 {
 			result.DiscoveredSkills = len(discoveredSkills)
+			//nolint:errcheck // best-effort snapshot write; the discovery result is still reported.
 			_ = uc.manifestRepo.SaveSkills(merged)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/skills.yaml")
 			uc.logger.Info("Snapshot discovered and cataloged %d agent skills", len(discoveredSkills))
@@ -184,6 +190,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 		"delta.navigate", "delta.light", "delta.side-by-side", "delta.line-numbers",
 	}
 	// Preserve the OS constraint from the existing manifest so it is not lost on snapshot.
+	//nolint:errcheck // snapshot merges with an empty set when the manifest fails to load.
 	existingGitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
 	osByKey := map[string]string{}
 	for _, gc := range existingGitConfigs {
@@ -218,6 +225,7 @@ func (uc *SnapshotSyncUseCase) Execute(ctx context.Context) (*SnapshotResult, er
 			}
 		}
 		if !gitConfigsEqual(existingGitConfigs, currentGitConfigs) {
+			//nolint:errcheck // best-effort snapshot write; the capture result is still reported.
 			_ = uc.manifestRepo.SaveGitConfigs(currentGitConfigs)
 			result.UpdatedFiles = append(result.UpdatedFiles, "manifests/git.yaml")
 			uc.logger.Info("Snapshot captured %d global Git configurations", len(currentGitConfigs))
@@ -301,6 +309,7 @@ func (uc *SnapshotSyncUseCase) copyDir(src, dst string) error {
 		}
 		target := filepath.Join(dst, rel)
 		if info.IsDir() {
+			//nolint:gosec // G301: skill dirs are repo content (shared, not secrets).
 			return os.MkdirAll(target, 0755)
 		}
 		// A provisioning backup is machine-local history, not curated content.
@@ -309,11 +318,22 @@ func (uc *SnapshotSyncUseCase) copyDir(src, dst string) error {
 		if isProvisioningBackup(info.Name()) {
 			return nil
 		}
+		//nolint:gosec // G122: src is a symlink-resolved skill source dir under user control, not an attacker path.
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		_ = os.MkdirAll(filepath.Dir(target), 0755)
-		return os.WriteFile(target, data, 0644)
+		return writeSnapshotFile(target, data)
 	})
+}
+
+// writeSnapshotFile creates the parent dir and writes repo content (shared,
+// world-readable), matching the config sync above.
+func writeSnapshotFile(target string, data []byte) error {
+	//nolint:gosec // G301: skill dirs are repo content (shared, not secrets).
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		return err
+	}
+	//nolint:gosec // G306: repo content, never secrets.
+	return os.WriteFile(target, data, 0644)
 }

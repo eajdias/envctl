@@ -46,6 +46,7 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 		logDir = filepath.Join(userHome, ".envctl", "logs")
 	}
 
+	//nolint:gosec // G301: ~/.envctl/logs is a shared log dir, not secrets.
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory %s: %w", logDir, err)
 	}
@@ -75,6 +76,7 @@ func NewFileLogger(customDir string) (repository.Logger, error) {
 		getUsername(),
 		getOSInfo(),
 	)
+	//nolint:errcheck // best-effort session header; a write failure must not abort logging setup.
 	_, _ = f.WriteString(header)
 
 	return l, nil
@@ -94,6 +96,7 @@ func (l *fileLogger) writeEntry(level, message string) {
 
 	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 	line := fmt.Sprintf("[%s] [%-5s] %s\n", timestamp, level, sanitizeText(message))
+	//nolint:errcheck // best-effort log write; a failure here has no recovery path.
 	_, _ = l.file.WriteString(line)
 }
 
@@ -142,6 +145,7 @@ func (l *fileLogger) LogCommand(cmd string, args []string, exitCode int, output 
 		entry += fmt.Sprintf("               Output: | %s\n", indented)
 	}
 
+	//nolint:errcheck // best-effort log write; a failure here has no recovery path.
 	_, _ = l.file.WriteString(entry)
 }
 
@@ -160,6 +164,7 @@ func (l *fileLogger) LogIdempotency(system, target string, skipped bool, reason 
 	}
 
 	line := fmt.Sprintf("[%s] [%-15s] [%s] %s -> %s\n", timestamp, action, system, target, sanitizeText(reason))
+	//nolint:errcheck // best-effort log write; a failure here has no recovery path.
 	_, _ = l.file.WriteString(line)
 }
 
@@ -178,6 +183,7 @@ func (l *fileLogger) Close() error {
 				"================================================================================\n",
 			time.Now().Format(time.RFC3339),
 		)
+		//nolint:errcheck // best-effort session footer; the Close error below is what callers need.
 		_, _ = l.file.WriteString(footer)
 		err := l.file.Close()
 		l.file = nil

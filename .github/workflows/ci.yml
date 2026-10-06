@@ -74,10 +74,6 @@ jobs:
           # with no code change. Dependabot bumps the action tag weekly; bump
           # this string alongside it and the local toolchain.
           version: v2.14.0
-          # Legacy debt (68 pre-existing findings, mostly Windows/SSH paths
-          # untestable on Linux) is tracked for later; the gate blocks only
-          # issues introduced by new changes.
-          only-new-issues: true
 
   # Runs in parallel with lint on purpose: an agent gets both verdicts from a
   # single run instead of a lint failure hiding whether the tests pass.

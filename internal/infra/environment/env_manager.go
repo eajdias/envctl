@@ -30,7 +30,7 @@ func (e *envManager) GetEnvVar(scope, name string) (string, error) {
 		// The rc files are the source of truth for vars persisted by envctl:
 		// they keep the portable $HOME form, while the process environment
 		// may hold the shell-expanded copy inherited from the login shell.
-		if val, _ := e.getEnvVarFromRC(name); val != "" {
+		if val := e.getEnvVarFromRC(name); val != "" {
 			return val, nil
 		}
 		if val := os.Getenv(name); val != "" {
@@ -250,7 +250,7 @@ func isStaleToolShimReference(line string) bool {
 }
 
 // getEnvVarFromRC reads the current value of a variable from the shell rc files.
-func (e *envManager) getEnvVarFromRC(name string) (string, error) {
+func (e *envManager) getEnvVarFromRC(name string) string {
 	for _, rc := range e.rcFiles() {
 		if rc.path == "" {
 			continue
@@ -267,11 +267,11 @@ func (e *envManager) getEnvVarFromRC(name string) (string, error) {
 			}
 			val := strings.Trim(strings.TrimPrefix(trimmed, prefix), "\"'")
 			if val != "" {
-				return val, nil
+				return val
 			}
 		}
 	}
-	return "", nil
+	return ""
 }
 
 // declarationsAligned reports whether every supported shell startup file
@@ -303,7 +303,10 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 			continue
 		}
 
-		currentVal, _ := e.GetEnvVar(v.Scope, v.Name)
+		currentVal, err := e.GetEnvVar(v.Scope, v.Name)
+		if err != nil {
+			currentVal = ""
+		}
 		aligned := currentVal == v.Value
 		if aligned && runtime.GOOS != "windows" {
 			aligned = e.declarationsAligned(v.Name, v.Value)

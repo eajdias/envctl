@@ -169,6 +169,7 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 	}
 
 	dir := filepath.Dir(expanded)
+	//nolint:gosec // G301: config dirs (~/.config, ~/.local) are shared content, not secrets.
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
@@ -184,6 +185,7 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 
 			// Content changed: create timestamped backup (same permission as target file)
 			backupPath = backupPathFor(expanded)
+			//nolint:gosec // G703: backupPath derives from ExpandUserPath(expanded), not raw user input.
 			if err := os.WriteFile(backupPath, existingData, perm); err != nil {
 				return "", fmt.Errorf("failed to create backup file %s: %w", backupPath, err)
 			}
@@ -210,9 +212,10 @@ func (f *fsManager) SetStrictWindowsACL(path string) error {
 	if runtime.GOOS != "windows" {
 		fi, err := os.Stat(expanded)
 		if err != nil {
-			return nil
+			return err
 		}
 		if fi.IsDir() {
+			//nolint:gosec // G302: directories need the exec bit (0700) to be traversable.
 			return os.Chmod(expanded, 0700)
 		}
 		return os.Chmod(expanded, 0600)
@@ -227,6 +230,7 @@ func (f *fsManager) SetStrictWindowsACL(path string) error {
 	}
 
 	// icacls command: disable inheritance and grant full control to current user
+	//nolint:gosec // G702: fixed icacls invocation; currentUser comes from the environment (USERNAME/USER), not raw input.
 	cmd := exec.Command("icacls.exe", expanded, "/inheritance:r", "/grant:r", fmt.Sprintf("%s:(OI)(CI)F", currentUser))
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -258,6 +262,7 @@ func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir stri
 		targetPath := filepath.Join(expandedTarget, relPath)
 
 		if d.IsDir() {
+			//nolint:gosec // G301: deployed skill/config dirs are shared content, not secrets.
 			return os.MkdirAll(targetPath, 0755)
 		}
 
@@ -268,6 +273,7 @@ func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir stri
 		}
 
 		// Ensure parent directory exists
+		//nolint:gosec // G301: deployed skill/config dirs are shared content, not secrets.
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 			return err
 		}

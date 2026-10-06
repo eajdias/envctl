@@ -80,6 +80,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	// limits the run to one agent subsystem).
 	envVars, err := uc.manifestRepo.LoadEnvVars()
 	if err == nil && len(envVars) > 0 && len(categories) == 0 {
+		//nolint:errcheck // per-var failures surface as diagnostics inside diags, not as a use-case error.
 		diags, _ := uc.envManager.EnsureEnvVars(ctx, envVars)
 		result.EnvDiagnostics = diags
 		for _, d := range diags {
@@ -105,6 +106,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			}
 			applicable = append(applicable, gc)
 		}
+		//nolint:errcheck // per-key failures surface as diagnostics inside diags, not as a use-case error.
 		diags, _ := uc.gitManager.EnsureGlobalConfigs(ctx, applicable)
 		result.GitDiagnostics = diags
 		for _, d := range diags {
@@ -141,7 +143,9 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 		if dirErr != nil && runtime.GOOS == "linux" {
 			// Root-level directories (e.g. /temp) require sudo; retry via
 			// NOPASSWD sudo and leave a world-writable sticky scratch folder.
+			//nolint:gosec // G204: dir.Path comes from the manifests/directories.yaml spec, not user input.
 			if _, serr := exec.Command("sudo", "-n", "mkdir", "-p", dir.Path).CombinedOutput(); serr == nil {
+				//nolint:errcheck // best-effort sticky-bit fixup; the mkdir above already succeeded.
 				_ = exec.Command("sudo", "-n", "chmod", "1777", dir.Path).Run()
 				dirErr = nil
 				uc.logger.Info("Created root-level directory '%s' via sudo", dir.Path)
@@ -294,7 +298,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			// Report what actually happened: a newly created file and an
 			// already-identical one both skip the backup, but only the latter
 			// is "up to date".
-			detail := "Config written successfully"
+			var detail string
 			switch {
 			case backupPath != "":
 				result.CreatedBackups[cf.Destination] = backupPath
@@ -372,6 +376,7 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	}
 
 	// 5. OpenCode Plugins npm dependencies installation (opencode subsystem only)
+	//nolint:errcheck // an unresolvable path is guarded by the Exists check below.
 	opencodeConfigDir, _ := uc.fsManager.ExpandUserPath("~/.config/opencode")
 	packageJsonPath := filepath.Join(opencodeConfigDir, "package.json")
 	if categoryAllowed("opencode", categories) && uc.fsManager.Exists(packageJsonPath) {
@@ -408,14 +413,15 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 	// 6. User Home npm dependencies (agent automation libs: axios, cheerio, papaparse).
 	// Browser automation is MCP-only with the bundled browser — no Playwright
 	// Node API module and no separate Chromium provisioning here.
+	//nolint:errcheck // an unresolvable home yields an empty path; the Exists check below skips.
 	userHomeDir, _ := uc.fsManager.ExpandUserPath("~")
 	userPackageJsonPath := filepath.Join(userHomeDir, "package.json")
 	if categoryAllowed("runtimes", categories) && uc.fsManager.Exists(userPackageJsonPath) {
 		userNodeModulesPath := filepath.Join(userHomeDir, "node_modules")
 		nodeModulesMissing := !uc.fsManager.Exists(userNodeModulesPath)
-		pkgJsonInfo, _ := os.Stat(userPackageJsonPath)
-		nmInfo, _ := os.Stat(userNodeModulesPath)
-		depsOutdated := pkgJsonInfo != nil && nmInfo != nil && pkgJsonInfo.ModTime().After(nmInfo.ModTime())
+		pkgJsonInfo, pkgJSONErr := os.Stat(userPackageJsonPath)
+		nmInfo, nodeModulesErr := os.Stat(userNodeModulesPath)
+		depsOutdated := pkgJSONErr == nil && nodeModulesErr == nil && pkgJsonInfo.ModTime().After(nmInfo.ModTime())
 		if nodeModulesMissing || depsOutdated {
 			uc.logger.Info("Installing user root dependencies (agent libs) in %s via npm", userHomeDir)
 			cmd := exec.CommandContext(ctx, "npm", "install", "--no-audit", "--no-fund")

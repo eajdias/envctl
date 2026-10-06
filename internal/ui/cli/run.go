@@ -30,7 +30,9 @@ func newRunCmd() *cobra.Command {
 				}
 				return nil
 			}
-			_ = cmd.Help()
+			if err := cmd.Help(); err != nil {
+				return err
+			}
 			return fmt.Errorf("unknown subsystem '%s' (valid: all, windows, vps, cachyos, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, cleanup)", args[0])
 		},
 	}

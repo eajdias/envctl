@@ -124,7 +124,7 @@ func isRandomTempDir(lower string) bool {
 	if len(lower) == 32 {
 		allHex := true
 		for _, r := range lower {
-			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')) {
+			if r < '0' || (r > '9' && r < 'a') || r > 'f' {
 				allHex = false
 				break
 			}
@@ -160,6 +160,7 @@ func tempRoots() []string {
 		if seen[p] {
 			return
 		}
+		//nolint:gosec // G703: p is a cleaned env/os temp dir (TMP/TEMP/TMPDIR), not raw user input.
 		if st, err := os.Stat(p); err == nil && st.IsDir() {
 			seen[p] = true
 			out = append(out, p)
@@ -177,10 +178,12 @@ func tempRoots() []string {
 	return out
 }
 
-func dirSize(path string) (int64, error) {
+func dirSize(path string) int64 {
 	var size int64
+	//nolint:errcheck // WalkDir error only means the path is unreadable; the partial size is still useful for the report.
 	_ = filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
+			//nolint:nilerr // unreadable entry: skip it and keep summing the rest of the tree.
 			return nil
 		}
 		if d.Type().IsRegular() {
@@ -190,7 +193,7 @@ func dirSize(path string) (int64, error) {
 		}
 		return nil
 	})
-	return size, nil
+	return size
 }
 
 // Temp folder owners, used to decide whether a bloated ENVCTL_TEMP is a real
@@ -214,8 +217,8 @@ func dominantTempOwner(tempDir string) string {
 	var dominant string
 	var dominantSize int64
 	for _, e := range entries {
-		size, sizeErr := dirSize(filepath.Join(tempDir, e.Name()))
-		if sizeErr != nil || size <= dominantSize {
+		size := dirSize(filepath.Join(tempDir, e.Name()))
+		if size <= dominantSize {
 			continue
 		}
 		dominantSize = size
@@ -275,12 +278,12 @@ func (uc *TempHygieneUseCase) Cleanup(ctx context.Context) (*TempCleanupReport, 
 			}
 			name := e.Name()
 			if !classifyTempEntry(name, e.IsDir(), now.Sub(info.ModTime())).remove {
-				size, _ := dirSize(filepath.Join(root, name))
+				size := dirSize(filepath.Join(root, name))
 				report.Remaining += size
 				continue
 			}
 			path := filepath.Join(root, name)
-			size, _ := dirSize(path)
+			size := dirSize(path)
 			if err := os.RemoveAll(path); err != nil {
 				report.Skipped = append(report.Skipped, fmt.Sprintf("%s (in use: %v)", path, err))
 				report.Remaining += size

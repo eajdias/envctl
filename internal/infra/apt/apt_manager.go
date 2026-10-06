@@ -38,6 +38,7 @@ func (a *aptManager) Type() entity.PackageType {
 }
 
 func (a *aptManager) IsAvailable(ctx context.Context) bool {
+	//nolint:gosec // G204: fixed binary --version probe, no user input.
 	cmd := exec.CommandContext(ctx, a.aptPath, "--version")
 	return cmd.Run() == nil
 }
@@ -50,6 +51,7 @@ func (a *aptManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 	}
 
 	// Query package status via dpkg-query
+	//nolint:gosec // G204: pkg.ID comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, a.dpkgPath, "-W", "-f=${Status}\t${Version}", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -87,8 +89,10 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 	// VPS instances (e.g. AWS Ubuntu) typically grant passwordless sudo (sudo -n).
 	var cmd *exec.Cmd
 	if executil.IsNonRoot() {
+		//nolint:gosec // G204: pkg.ID/args come from the embedded manifest, never from user input.
 		cmd = exec.CommandContext(ctx, "sudo", append([]string{"-n", a.aptPath}, args...)...)
 	} else {
+		//nolint:gosec // G204: pkg.ID/args come from the embedded manifest, never from user input.
 		cmd = exec.CommandContext(ctx, a.aptPath, args...)
 	}
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
@@ -104,8 +108,10 @@ func (a *aptManager) Install(ctx context.Context, pkg entity.Package) error {
 func (a *aptManager) updatePackageLists(ctx context.Context) error {
 	var cmd *exec.Cmd
 	if executil.IsNonRoot() {
+		//nolint:gosec // G204: fixed apt-get invocation (sudo -n apt-get update).
 		cmd = exec.CommandContext(ctx, "sudo", "-n", a.aptPath, "update")
 	} else {
+		//nolint:gosec // G204: fixed apt-get invocation (apt-get update).
 		cmd = exec.CommandContext(ctx, a.aptPath, "update")
 	}
 	cmd.Env = append(cmd.Environ(), "DEBIAN_FRONTEND=noninteractive")
@@ -117,6 +123,7 @@ func (a *aptManager) updatePackageLists(ctx context.Context) error {
 }
 
 func (a *aptManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	//nolint:gosec // G204: fixed dpkg query, no user input.
 	cmd := exec.CommandContext(ctx, a.dpkgPath, "-W", "-f=${Package}\t${Version}\t${Status}\n")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

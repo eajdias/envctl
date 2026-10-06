@@ -60,6 +60,7 @@ func lookPathWithEnv(name, path string) (string, error) {
 			dir = "."
 		}
 		candidate := filepath.Join(dir, name)
+		//nolint:gosec // G703: candidate is a PATH lookup under the caller-controlled toolchain dirs, not raw user input.
 		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
 			if fi.Mode()&0111 != 0 {
 				return candidate, nil
@@ -186,6 +187,7 @@ func (p *PipManager) IsAvailable(ctx context.Context) bool {
 	if execTool(ctx, "uv", "--version").Run() == nil {
 		return true
 	}
+	// #nosec G204 -- fixed binary probe (python -m pip --version), no user input.
 	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "--version")
 	return cmd.Run() == nil
 }
@@ -196,6 +198,7 @@ func (p *PipManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool,
 			return true, out, nil
 		}
 	}
+	// #nosec G204 -- pkg.ID comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "show", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), "Name: "+pkg.ID) {
@@ -241,6 +244,7 @@ func pythonExternallyManaged(ctx context.Context) bool {
 }
 
 func (p *PipManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	// #nosec G204 -- fixed binary invocation (python -m pip list), no user input.
 	cmd := exec.CommandContext(ctx, pipPythonBin(), "-m", "pip", "list", "--format=freeze")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

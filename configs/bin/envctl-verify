@@ -388,8 +388,8 @@ check_go() {
 	check_soft "blocking" "GOOS=windows go build ./..." env GOOS=windows go build ./...
 	check_soft "blocking" "GOOS=windows go vet ./..." env GOOS=windows go vet ./...
 
-	# Lint parity with CI, which reports issues introduced by the change: the
-	# existing debt never blocks a push, and new findings are advisory here.
+	# Lint parity with CI, which gates the full tree: the local run scopes to
+	# the change (--new-from-rev) and reports findings advisory here.
 	# Mirror of .github/workflows/ci.yml (lint + test jobs): keep the two in
 	# sync — `make lint` runs this same --new-from-rev gate locally.
 	if have golangci-lint && [ -n "$base" ]; then

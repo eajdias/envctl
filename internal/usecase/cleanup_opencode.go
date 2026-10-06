@@ -49,6 +49,7 @@ type CleanupResult struct {
 func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, error) {
 	result := &CleanupResult{}
 
+	//nolint:errcheck // best-effort cleanup: without a resolvable home there is nothing to prune.
 	homeDir, _ := uc.fsManager.ExpandUserPath("~")
 
 	// 1. Remove legacy opencode config files (standardized on opencode.json).
@@ -129,7 +130,7 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 				continue
 			}
 			path := filepath.Join(tempDir, entry.Name())
-			size, _ := dirSize(path)
+			size := dirSize(path)
 			if err := os.RemoveAll(path); err != nil {
 				continue
 			}

@@ -89,10 +89,7 @@ func TestGetEnvVarFromRCReadsFishDeclarations(t *testing.T) {
 	}
 
 	manager := &envManager{}
-	got, err := manager.getEnvVarFromRC("ENVCTL_TEMP")
-	if err != nil {
-		t.Fatalf("getEnvVarFromRC: %v", err)
-	}
+	got := manager.getEnvVarFromRC("ENVCTL_TEMP")
 	if got != "/temp" {
 		t.Errorf("getEnvVarFromRC = %q, want %q", got, "/temp")
 	}

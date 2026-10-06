@@ -4,13 +4,17 @@ import (
 	"fmt"
 
 	"github.com/pterm/pterm"
+	"github.com/pterm/pterm/putils"
 )
 
 func PrintBanner() {
-	bannerText, _ := pterm.DefaultBigText.WithLetters(
-		pterm.NewLettersFromStringWithStyle("ENV", pterm.NewStyle(pterm.FgCyan, pterm.Bold)),
-		pterm.NewLettersFromStringWithStyle("CTL", pterm.NewStyle(pterm.FgLightMagenta, pterm.Bold)),
+	bannerText, err := pterm.DefaultBigText.WithLetters(
+		putils.LettersFromStringWithStyle("ENV", pterm.NewStyle(pterm.FgCyan, pterm.Bold)),
+		putils.LettersFromStringWithStyle("CTL", pterm.NewStyle(pterm.FgLightMagenta, pterm.Bold)),
 	).Srender()
+	if err != nil {
+		bannerText = "ENVCTL"
+	}
 
 	pterm.Println(bannerText)
 	pterm.DefaultCenter.Println(pterm.LightCyan("🚀 Universal Environment Provisioner (Windows 11 PRO & Ubuntu Linux)"))

@@ -39,6 +39,7 @@ func (m *paruManager) Type() entity.PackageType {
 }
 
 func (m *paruManager) IsAvailable(ctx context.Context) bool {
+	//nolint:gosec // G204: fixed binary --version probe, no user input.
 	cmd := exec.CommandContext(ctx, m.paruPath, "--version")
 	return cmd.Run() == nil
 }
@@ -51,6 +52,7 @@ func (m *paruManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool
 	}
 
 	// AUR and repo packages share the pacman database
+	//nolint:gosec // G204: pkg.ID comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, m.pacmanPath, "-Q", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -73,6 +75,7 @@ func (m *paruManager) Install(ctx context.Context, pkg entity.Package) error {
 
 	// paru handles privilege escalation itself; it needs passwordless
 	// sudo (or root) to run non-interactively.
+	//nolint:gosec // G204: pkg.ID/args come from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, m.paruPath, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -83,6 +86,7 @@ func (m *paruManager) Install(ctx context.Context, pkg entity.Package) error {
 
 func (m *paruManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
 	// Same database as pacman; tag results with the paru type.
+	//nolint:gosec // G204: fixed pacman query (-Qm), no user input.
 	cmd := exec.CommandContext(ctx, m.pacmanPath, "-Qm")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

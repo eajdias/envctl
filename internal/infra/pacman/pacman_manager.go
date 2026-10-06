@@ -31,6 +31,7 @@ func (m *pacmanManager) Type() entity.PackageType {
 }
 
 func (m *pacmanManager) IsAvailable(ctx context.Context) bool {
+	//nolint:gosec // G204: fixed binary --version probe, no user input.
 	cmd := exec.CommandContext(ctx, m.pacmanPath, "--version")
 	return cmd.Run() == nil
 }
@@ -43,6 +44,7 @@ func (m *pacmanManager) IsInstalled(ctx context.Context, pkg entity.Package) (bo
 	}
 
 	// Query package status via pacman -Q (exit 0 means installed)
+	//nolint:gosec // G204: pkg.ID comes from the embedded manifest, never from user input.
 	cmd := exec.CommandContext(ctx, m.pacmanPath, "-Q", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil {
@@ -66,8 +68,10 @@ func (m *pacmanManager) Install(ctx context.Context, pkg entity.Package) error {
 	// Elevated privileges are required when running as a non-root user.
 	var cmd *exec.Cmd
 	if executil.IsNonRoot() {
+		//nolint:gosec // G204: pkg.ID/args come from the embedded manifest, never from user input.
 		cmd = exec.CommandContext(ctx, "sudo", append([]string{"-n", m.pacmanPath}, args...)...)
 	} else {
+		//nolint:gosec // G204: pkg.ID/args come from the embedded manifest, never from user input.
 		cmd = exec.CommandContext(ctx, m.pacmanPath, args...)
 	}
 	out, err := cmd.CombinedOutput()
@@ -78,6 +82,7 @@ func (m *pacmanManager) Install(ctx context.Context, pkg entity.Package) error {
 }
 
 func (m *pacmanManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
+	//nolint:gosec // G204: fixed pacman query (-Q), no user input.
 	cmd := exec.CommandContext(ctx, m.pacmanPath, "-Q")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

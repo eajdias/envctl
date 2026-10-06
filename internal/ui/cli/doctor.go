@@ -18,9 +18,10 @@ func renderReport(report *usecase.AuditReport) {
 
 	for _, d := range report.Diagnostics {
 		statusStr := pterm.Green("✔ OK")
-		if d.Category == entity.DiagWarning {
+		switch d.Category {
+		case entity.DiagWarning:
 			statusStr = pterm.Yellow("⚠ WARN")
-		} else if d.Category == entity.DiagError {
+		case entity.DiagError:
 			statusStr = pterm.Red("✘ FAIL")
 		}
 
@@ -39,7 +40,9 @@ func renderReport(report *usecase.AuditReport) {
 	}
 
 	pterm.Println()
-	_ = pterm.DefaultTable.WithHasHeader().WithBoxed().WithData(tableData).Render()
+	if err := pterm.DefaultTable.WithHasHeader().WithBoxed().WithData(tableData).Render(); err != nil {
+		pterm.Error.Printf("failed to render report table: %v\n", err)
+	}
 
 	// Summary Box
 	healthColor := pterm.FgLightGreen

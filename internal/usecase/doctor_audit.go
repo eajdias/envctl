@@ -116,6 +116,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 1. Audit Environment Variables
+	//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 	envVars, _ := uc.manifestRepo.LoadEnvVars()
 	for _, ev := range envVars {
 		if !entity.MatchesOS(ev.OS) {
@@ -156,6 +157,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			}
 		} else {
 			for _, rc := range []string{filepath.Join(os.Getenv("HOME"), ".profile"), filepath.Join(os.Getenv("HOME"), ".bashrc")} {
+				//nolint:gosec // G703: rc paths are fixed $HOME/.profile and $HOME/.bashrc, not user input.
 				if data, err := os.ReadFile(rc); err == nil && strings.Contains(string(data), localBin) {
 					onPath = true
 					break
@@ -209,6 +211,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 2. Audit Git Global Configurations
+	//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 	gitConfigs, _ := uc.manifestRepo.LoadGitConfigs()
 	for _, gc := range gitConfigs {
 		if !entity.MatchesOS(gc.OS) {
@@ -234,6 +237,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 3. Audit Config Files
+	//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
 		if !entity.MatchesOS(cf.OS) {
@@ -319,6 +323,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditEnvctlFreshness(ctx, addDiag)
 
 	// 5. Audit Packages
+	//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 	packages, _ := uc.manifestRepo.LoadPackages()
 	for _, pkg := range packages {
 		if !entity.MatchesPackage(pkg) {
@@ -334,6 +339,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			continue
 		}
 
+		//nolint:errcheck // an IsInstalled error is indistinguishable from "not installed" here; the diagnostic reflects it.
 		installed, info, _ := mgr.IsInstalled(ctx, pkg)
 		if !installed {
 			addDiag(entity.Diagnostic{
@@ -375,6 +381,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	// 7. Audit LSPs
+	//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 	lsps, _ := uc.manifestRepo.LoadLSPs()
 	for _, lsp := range lsps {
 		if !entity.MatchesOS(lsp.OS) {
@@ -407,6 +414,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
 	if runtime.GOOS == "windows" && uc.tweaksManager != nil {
+		//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
 		tweaks, _ := uc.manifestRepo.LoadWindowsTweaks()
 		for _, tw := range tweaks {
 			targetName := fmt.Sprintf("%s\\%s", tw.Path, tw.Name)
@@ -518,10 +526,12 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
 			browserCacheDir = filepath.Join(localAppData, "ms-playwright")
 		}
+		//nolint:errcheck // an unresolvable home yields an empty path and the check below is skipped.
 		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
 			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
 		}
 	} else {
+		//nolint:errcheck // an unresolvable home yields an empty path and the check below is skipped.
 		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
 			browserCacheDir = filepath.Join(homeDir, ".cache", "ms-playwright")
 			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
@@ -559,6 +569,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 9.3 Audit pw wrapper: the hang-safe runner must be provisioned, or
 	// agents fall back to raw playwright-cli and hang on Windows.
 	if pwWrapper == "" {
+		//nolint:errcheck // an unresolvable home yields an empty path and the check below is skipped.
 		if homeDir, _ := uc.fsManager.ExpandUserPath("~"); homeDir != "" {
 			pwWrapper = filepath.Join(homeDir, ".local", "bin", "pw.cjs")
 		}
@@ -731,6 +742,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 				}
 			} else {
 				found = func() bool {
+					//nolint:gosec // G204: t.name is a manifest-declared tool name, not user input.
 					c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+t.name+" >/dev/null 2>&1")
 					c.Env = env
 					return c.Run() == nil
@@ -909,7 +921,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	}
 
 	toolOutputDir := filepath.Join(opencodeDataDir, "tool-output")
-	if toolSize, err := dirSize(toolOutputDir); err == nil && toolSize > 50*1024*1024 {
+	if toolSize := dirSize(toolOutputDir); toolSize > 50*1024*1024 {
 		addDiag(entity.Diagnostic{
 			Category: entity.DiagWarning,
 			System:   "OpenCode",
@@ -950,7 +962,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			Details:  "Standardized agent temp folder (ENVCTL_TEMP) missing",
 			FixHint:  "run 'envctl run shell' to create it",
 		})
-	} else if tempSize, err := dirSize(tempDir); err == nil && tempSize > 500*1024*1024 {
+	} else if tempSize := dirSize(tempDir); tempSize > 500*1024*1024 {
 		// A large temp folder is only a warning when the agent's own scratch is
 		// the dominant owner. Third-party caches (Docker Desktop, WinGet, Brave
 		// updaters) are regenerable by their owning app and should never keep
@@ -1019,6 +1031,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 			})
 		}
 
+		//nolint:errcheck // an unresolvable home yields an empty path and the check below is skipped.
 		ccConfigDir, _ := uc.fsManager.ExpandUserPath("~/.commandcode")
 		if uc.fsManager.Exists(ccConfigDir) {
 			addDiag(entity.Diagnostic{
@@ -1773,6 +1786,7 @@ func (uc *DoctorAuditUseCase) auditOpenCodeFileRefs(addDiag func(entity.Diagnost
 		if err != nil {
 			resolved = ref
 		}
+		//nolint:gosec // G703: resolved derives from ExpandUserPath of a manifest-controlled ref.
 		if _, statErr := os.Stat(resolved); statErr != nil {
 			missing = append(missing, ref)
 		}

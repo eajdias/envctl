@@ -346,7 +346,11 @@ func saveManifestFile(localDir, filename string, manifest any) error {
 	if localDir != "" {
 		dest = filepath.Join(localDir, "manifests", filename)
 	}
-	_ = os.MkdirAll(filepath.Dir(dest), 0755)
+	//nolint:gosec // G301: manifests are repo content (shared, not secrets).
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("failed to create manifest dir for %s: %w", dest, err)
+	}
+	//nolint:gosec // G306: manifests are repo content (world-readable by design), never secrets.
 	return os.WriteFile(dest, data, 0644)
 }
 
