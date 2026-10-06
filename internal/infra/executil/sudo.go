@@ -1,4 +1,4 @@
-package usecase
+package executil
 
 import (
 	"context"
@@ -6,21 +6,21 @@ import (
 	"os/exec"
 )
 
-// sudoAvailable reports whether sudo exists and the current user can attempt
+// SudoAvailable reports whether sudo exists and the current user can attempt
 // privilege elevation. It does not confirm a valid credential — that is
 // `sudo -v`'s job at the start of a privileged run.
-func sudoAvailable() bool {
+func SudoAvailable() bool {
 	_, err := exec.LookPath("sudo")
 	return err == nil
 }
 
 // SudoPreflight refreshes the sudo credential timestamp so subsequent
 // `sudo -n` calls in the same run do not prompt mid-way. It is meant to be
-// called once, interactively, at the start of the gaming provision run (and
-// any other run that touches privileged files). The returned error is
-// descriptive enough to print as an instruction to the user.
+// called once, interactively, at the start of a run that touches privileged
+// files. The returned error is descriptive enough to print as an instruction
+// to the user.
 func SudoPreflight() error {
-	if !sudoAvailable() {
+	if !SudoAvailable() {
 		return fmt.Errorf("sudo is not available on this system")
 	}
 	cmd := exec.Command("sudo", "-v")
@@ -30,12 +30,12 @@ func SudoPreflight() error {
 	return nil
 }
 
-// runPrivileged executes args through `sudo -n` (non-interactive, uses the
+// RunPrivileged executes args through `sudo -n` (non-interactive, uses the
 // timestamp refreshed by SudoPreflight). It never embeds a password. The
 // combined output is folded into the error so a failing step stays
 // diagnosable without leaking anything to stdout.
-func runPrivileged(ctx context.Context, args ...string) error {
-	if !sudoAvailable() {
+func RunPrivileged(ctx context.Context, args ...string) error {
+	if !SudoAvailable() {
 		return fmt.Errorf("sudo is not available on this system")
 	}
 	cmdArgs := append([]string{"-n"}, args...)

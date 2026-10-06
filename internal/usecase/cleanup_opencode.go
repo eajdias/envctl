@@ -108,5 +108,17 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 		}
 	}
 
+	// 5. Remove the stale CommandCode settings variant (single-file legacy
+	// of settings.json, same shape as step 1).
+	ccStale := filepath.Join(homeDir, ".commandcode", "settings.jsonc")
+	if uc.fsManager.Exists(ccStale) {
+		if info, err := os.Stat(ccStale); err == nil {
+			os.Remove(ccStale)
+			result.RemovedFiles = append(result.RemovedFiles, ccStale)
+			result.FreedBytes += info.Size()
+			uc.logger.Info("[CLEANUP] removed stale CommandCode config %s", ccStale)
+		}
+	}
+
 	return result, nil
 }

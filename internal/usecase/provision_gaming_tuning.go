@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
@@ -74,20 +75,20 @@ func (uc *ProvisionGamingTuningUseCase) provisionScxLoader(ctx context.Context, 
 		uc.logger.Info("scx_loader config already correct")
 		return nil
 	}
-	if err := runPrivileged(ctx, "tee", scxLoaderConfigPath); err != nil {
+	if err := executil.RunPrivileged(ctx, "tee", scxLoaderConfigPath); err != nil {
 		return fmt.Errorf("cannot write %s: %w", scxLoaderConfigPath, err)
 	}
 	// Write through a temp file then mv, so a partial write never lands on a
 	// live config. The mkstemp approach gives us the sudo pattern: the whole
 	// operation is one sudo call chain.
-	if err := runPrivileged(ctx, "bash", "-c",
+	if err := executil.RunPrivileged(ctx, "bash", "-c",
 		fmt.Sprintf("printf '%s' > %s.envctl-tmp && mv %s.envctl-tmp %s", want, scxLoaderConfigPath, scxLoaderConfigPath, scxLoaderConfigPath)); err != nil {
 		return fmt.Errorf("cannot write %s: %w", scxLoaderConfigPath, err)
 	}
 	res.ScxLoaderWritten = true
 	uc.logger.Info("scx_loader config written (bpfland/Auto)")
 	// Enable the loader service only when the file actually changed.
-	if err := runPrivileged(ctx, "systemctl", "enable", "--now", "scx_loader"); err != nil {
+	if err := executil.RunPrivileged(ctx, "systemctl", "enable", "--now", "scx_loader"); err != nil {
 		return fmt.Errorf("cannot enable scx_loader: %w", err)
 	}
 	return nil
@@ -115,13 +116,13 @@ func (uc *ProvisionGamingTuningUseCase) provisionLact(ctx context.Context, res *
 		uc.logger.Info("LACT config already correct")
 		return nil
 	}
-	if err := runPrivileged(ctx, "bash", "-c",
+	if err := executil.RunPrivileged(ctx, "bash", "-c",
 		fmt.Sprintf("printf '%s' > %s.envctl-tmp && mv %s.envctl-tmp %s", want, lactConfigPath, lactConfigPath, lactConfigPath)); err != nil {
 		return fmt.Errorf("cannot write %s: %w", lactConfigPath, err)
 	}
 	res.LactWritten = true
 	uc.logger.Info("LACT config written (fan curve + auto performance level)")
-	if err := runPrivileged(ctx, "systemctl", "enable", "--now", "lactd"); err != nil {
+	if err := executil.RunPrivileged(ctx, "systemctl", "enable", "--now", "lactd"); err != nil {
 		return fmt.Errorf("cannot enable lactd: %w", err)
 	}
 	return nil
@@ -146,14 +147,14 @@ func (uc *ProvisionGamingTuningUseCase) provisionKernelCmdline(ctx context.Conte
 		return nil
 	}
 	// Backup, write, update: three sudo calls, each independently verifiable.
-	if err := runPrivileged(ctx, "cp", "-a", limineDefault, limineDefault+".envctl-bak"); err != nil {
+	if err := executil.RunPrivileged(ctx, "cp", "-a", limineDefault, limineDefault+".envctl-bak"); err != nil {
 		return fmt.Errorf("cannot back up %s: %w", limineDefault, err)
 	}
-	if err := runPrivileged(ctx, "bash", "-c",
+	if err := executil.RunPrivileged(ctx, "bash", "-c",
 		fmt.Sprintf("printf '%s' > %s.envctl-tmp && mv %s.envctl-tmp %s", string(merged), limineDefault, limineDefault, limineDefault)); err != nil {
 		return fmt.Errorf("cannot write %s: %w", limineDefault, err)
 	}
-	if err := runPrivileged(ctx, "limine-update"); err != nil {
+	if err := executil.RunPrivileged(ctx, "limine-update"); err != nil {
 		return fmt.Errorf("limine-update failed (bootloader not rebuilt): %w", err)
 	}
 	res.KernelCmdlineChanged = true

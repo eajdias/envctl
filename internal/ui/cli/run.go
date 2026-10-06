@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/usecase"
 )
 
@@ -190,7 +191,11 @@ func runAllProvisioning() error {
 // requireSudoNOPASSWD warns once on Linux when passwordless sudo is missing,
 // since package installs and performance tuning fail without it.
 func requireSudoNOPASSWD() {
-	if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
+	privileged := executil.SudoAvailable()
+	if privileged {
+		privileged = exec.Command("sudo", "-n", "true").Run() == nil
+	}
+	if !privileged {
 		user := os.Getenv("USER")
 		if user == "" {
 			user = "$USER"
@@ -423,7 +428,7 @@ func runGamingProvisioning() {
 	// The privileged tuning pass (kernel cmdline, LACT, scx_loader) needs a
 	// sudo timestamp: refresh it once, interactively, so the steps below can
 	// run non-interactively. The user-level steps (kwinrc) run regardless.
-	if err := usecase.SudoPreflight(); err != nil {
+	if err := executil.SudoPreflight(); err != nil {
 		pterm.Warning.Printf("Privileged tuning steps skipped: %v\n", err)
 		pterm.Info.Println("Run 'sudo envctl run gaming' to also apply kernel cmdline, LACT and scx_loader tuning.")
 	} else {
@@ -599,14 +604,6 @@ func runCleanup() {
 			freed += tempReport.FreedBytes
 			removed = append(removed, tempReport.Skipped...)
 			removed = append(removed, tempReport.Failed...)
-		}
-	}
-
-	if appCtx.CleanupCommandCodeUC != nil {
-		ccReport, ccErr := appCtx.CleanupCommandCodeUC.Execute(ctx)
-		if ccErr == nil && len(ccReport.RemovedFiles) > 0 {
-			removed = append(removed, ccReport.RemovedFiles...)
-			freed += ccReport.FreedBytes
 		}
 	}
 

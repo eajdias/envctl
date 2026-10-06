@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"testing"
+
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 // TestSudoAvailable covers the lookup path only: real elevation is
@@ -9,14 +11,14 @@ import (
 // PATH) is what the scaffolding must degrade to.
 func TestSudoAvailable(t *testing.T) {
 	t.Setenv("PATH", "")
-	if sudoAvailable() {
+	if executil.SudoAvailable() {
 		t.Error("expected sudo to be reported unavailable with an empty PATH")
 	}
 }
 
 func TestRunPrivilegedDegradesWithoutSudo(t *testing.T) {
 	t.Setenv("PATH", "")
-	if err := runPrivileged(t.Context(), "true"); err == nil {
+	if err := executil.RunPrivileged(t.Context(), "true"); err == nil {
 		t.Fatal("expected an error when sudo is not on PATH")
 	}
 }

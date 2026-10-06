@@ -51,7 +51,6 @@ type AppContext struct {
 	UpdateUC               *usecase.UpdateUseCase
 	TempHygieneUC          *usecase.TempHygieneUseCase
 	CleanupOpenCodeUC      *usecase.CleanupOpenCodeUseCase
-	CleanupCommandCodeUC   *usecase.CleanupCommandCodeUseCase
 }
 
 var (
@@ -137,7 +136,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
 		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
 		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
-		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
 	// The doctor's freshness audit compares the running binary against the repo
