@@ -35,9 +35,6 @@ envctl run lsp
 
 # Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)
 envctl run cleanup
-
-# Snapshot reverso (salva o estado atual da máquina de volta nos manifestos)
-envctl snapshot
 ```
 
 ---

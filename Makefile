@@ -1,4 +1,4 @@
-.PHONY: build test coverage lint doctor doctor-fix run-all snapshot install clean
+.PHONY: build test coverage lint doctor doctor-fix run-all install clean
 
 BINARY_NAME=envctl
 SRC=./cmd/envctl
@@ -30,9 +30,6 @@ doctor-fix:
 
 run-all:
 	go run $(SRC) run all
-
-snapshot:
-	go run $(SRC) snapshot
 
 install: build
 	@mkdir -p $$HOME/.local/bin

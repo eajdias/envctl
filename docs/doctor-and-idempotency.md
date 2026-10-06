@@ -119,12 +119,7 @@ O backup atômico é ilimitado por padrão, então cada execução que diverge d
 - Aplicada em `~/.config/opencode` e `~/.commandcode` com `keep_newest: 1` (um backup por arquivo, o suficiente para rollback de edição manual).
 - Arquivos com conteúdo **idêntico** não geram backup nenhum (diff-gate por hash), então redeploy sem mudança não deixa rastro.
 
-### 3. Backups Nunca Entram no Repositório
-O `snapshot` é sync **reverso** (máquina → repo) e copia a árvore de skills implantada para `configs/skills/`. Backup de provisionamento é histórico local da máquina, nunca conteúdo curado:
-
-- `copyDir` **ignora** qualquer `<nome>.bak.YYYYMMDD-HHMMSS` ao sincronizar. Sem isso, um snapshot levaria texto stale (ex.: a descrição antiga das 50 skills) para o repo, e o próximo deploy distribuiria esse conteúdo para toda máquina nova.
-
-### 4. Idempotência em Gerenciadores de Pacotes
+### 3. Idempotência em Gerenciadores de Pacotes
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.

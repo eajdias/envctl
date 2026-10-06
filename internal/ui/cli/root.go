@@ -47,7 +47,6 @@ type AppContext struct {
 	ProvisionProvidersUC   *usecase.ProvisionProvidersUseCase
 	GamingTuningUC         *usecase.ProvisionGamingTuningUseCase
 	DoctorAuditUC          *usecase.DoctorAuditUseCase
-	SnapshotSyncUC         *usecase.SnapshotSyncUseCase
 	UpdateUC               *usecase.UpdateUseCase
 	TempHygieneUC          *usecase.TempHygieneUseCase
 	CleanupOpenCodeUC      *usecase.CleanupOpenCodeUseCase
@@ -132,7 +131,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, envManager, pkgManagers, fileLogger),
 		GamingTuningUC:       usecase.NewProvisionGamingTuningUseCase(fsManager, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
-		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
 		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
 		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
@@ -163,7 +161,6 @@ func registerCommands() {
 	rootCmd.AddCommand(newCommandCodeCmd())
 	rootCmd.AddCommand(newOpenCodeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
-	rootCmd.AddCommand(newSnapshotCmd())
 	rootCmd.AddCommand(runUpdateCommand())
 	rootCmd.AddCommand(newVersionCmd())
 }

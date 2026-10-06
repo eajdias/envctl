@@ -62,7 +62,7 @@ dos usecases + `internal/ui/cli/root.go` (wire) + `internal/infra/*` (Fase 2);
 repo (só docs de evidência).
 
 **Contratos que NÃO mudam em nenhuma fase:** CLI (`run`, `doctor`, `update`,
-`snapshot`, `opencode`, `commandcode`, flags `--fix/--dry-run/--only`),
+`opencode`, `commandcode`, flags `--fix/--dry-run/--only`),
 exit codes, `manifests/*.yaml` (source of truth), `configs/` (templates),
 nomes dos 11 assets de release (contrato com `bootstrap.sh:74` e
 `bootstrap.ps1:77,93`), formato do `doctor` (219 checks) e do gate
