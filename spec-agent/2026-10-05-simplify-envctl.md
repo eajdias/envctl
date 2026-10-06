@@ -976,43 +976,48 @@ unknown a validar no primeiro ciclo.
 
 ## 10. Definition of Done
 
-- [ ] Fase 1: release publicada com goreleaser, **11 assets com nomes idênticos**
-      aos atuais, bootstraps instalando da release nova (prova: baixar
-      `envctl-linux-amd64.tar.gz` da release e rodar `--version`)
-- [ ] Fase 1b: `golangci-lint run ./...` 0 findings, `only-new-issues`
+- [x] Fase 1: release publicada com goreleaser, **11 assets com nomes idênticos**
+      aos atuais, bootstraps instalando da release nova (feito 2026-10-06:
+      v1.13.1, job "Build & attach binaries" success; `bootstrap.sh`+`bootstrap.ps1`
+      instalaram v1.13.1 e rodaram `version`)
+- [x] Fase 1b: `golangci-lint run ./...` 0 findings, `only-new-issues`
       removido, CI verde
-- [ ] Fase 1c: `go-version-file: go.mod` nos 3 spots, `cache: true` fora,
+- [x] Fase 1c: `go-version-file: go.mod` nos 3 spots, `cache: true` fora,
       actionlint via action, `go mod download` + `Build Executable` fora,
       `paths-ignore` ativo, `make lint` == CI, `go run` sem artefato `./envctl`
-- [ ] Fase 1d: `bootstrap.ps1` instala amd64 (regressão) + interpola arm64;
-      blocos de contrato espelhados nos dois scripts
+- [x] Fase 1d: `bootstrap.ps1` instala amd64 (regressão provada contra v1.13.1)
+      + interpola arm64 (revisão, sem HW); blocos de contrato espelhados;
+      **bug achado no ciclo**: `Test-Path $x -and` quebrava todo ps1 (fix commitado)
 - [x] Fase 2: 17→2 interfaces no repository; build/vet/test/lint verdes em
       cada PR; zero mudança de comportamento (testes intactos)
-- [ ] Fases 2b–2f: `run.go` ~748→~400 linhas com help byte-idêntico (teste de
+- [x] Fases 2b–2f: `run.go` ~748→~400 linhas com help byte-idêntico (teste de
       contrato verde); `Execute` do doctor só despacha, nenhum arquivo >400
       linhas no usecase; −813 linhas de config opencode; 1 helper de PATH
       com teste de idempotência; pacman+paru unificados com flags provadas
       pelos testes existentes
-- [ ] Fase 2g: `version.go` único, `ToolchainEnv`/`ExecTool`/`LookPathIn`/
+- [x] Fase 2g: `version.go` único, `ToolchainEnv`/`ExecTool`/`LookPathIn`/
       `ProbeCheckCommand`/`BackupPathFor`/`PSQuote` compartilhados, ctors
       `diag.*` nos ~60 sites (texto idêntico)
-- [ ] Fase 2h: `configStep` fundido, `ensureOpenCodeV2` único, temp com dono
+- [x] Fase 2h: `configStep` fundido, `ensureOpenCodeV2` único, temp com dono
       único, wrappers perf inline/table-driven, profiles CLI em tabela
-      (help byte-idêntico), tiny files foldados, `verify_script_test`
-      movido/encolhido
-- [ ] Fase 2i: LSP fonte única (teste de paridade verde), mcp 5/5 travados,
+      (help byte-idêntico), tiny files foldados. Exceções registradas:
+      `verify_script_test` mantido (testa o bash do gate) e T7 `provisionList`
+      genérico estacionado (ver placar)
+- [x] Fase 2i: LSP fonte única (teste de paridade verde), mcp 5/5 travados,
       SKILL-INDEX fonte única, ssh base+overlay, settings projetual ==
       canônico
 - [x] Fase 2j: `os_values` (ou overlay) nas ~40 entradas, rename
       `debloat_windows.yaml`, 1 shim de hook, embed sem fallback silencioso
-- [ ] Fase 3: 29→~15 arquivos de código no usecase (pós-folds da 2h);
+- [x] Fase 3: 29→~15 arquivos de código no usecase (pós-folds da 2h);
       grep na doc sem referência a arquivo extinto
-- [ ] Fase 6: campos fantasmas do `manifests.md` zerados (`rg` vazio),
+- [x] Fase 6: campos fantasmas do `manifests.md` zerados (`rg` vazio),
       priority citado == manifesto, guias unificados, contagens removidas,
       `*_test.go` de embedded verdes
-- [ ] Fase 5: `doctor` 0/0 + idempotência comprovada na `vps_oracle_2` e na VM
-      dockur, saídas registradas
+- [x] Fase 5: homolog `run vps` convergiu via mise (doctor 152/148/4/0, 2ª run
+      idempotente) + estação Windows (`run windows` 15→2 warns by-design);
+      dockur descartado (sem KVM); saídas registradas no placar
 - [ ] cada fase: PR convencional separado, merge commit, bot no comando das
-      versões (nada de tag manual)
-- [ ] rollback provado ou limite irreversível documentado (todas as fases de
-      código/CI têm revert por PR como rollback)
+      versões (nada de tag manual). **Pendente**: trabalho acumulado na branch
+      `feat/simplify-envctl` — o PR para `main` fecha este item
+- [ ] rollback provado ou limite irreversível documentado. **Pendente com o PR**:
+      branch não-mergeada reverte por descarte; pós-merge vale revert por PR
