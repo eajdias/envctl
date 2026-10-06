@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Bootstrap installer and runner for envctl (Windows 11 PRO).
 .DESCRIPTION
@@ -35,9 +35,29 @@ $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 chcp 65001 | Out-Null
 
-Write-Host "================================================================" -ForegroundColor Cyan
-Write-Host "  🚀 envctl: Development Environment Provisioner Bootstrap" -ForegroundColor Cyan
-Write-Host "================================================================" -ForegroundColor Cyan
+# Write-Status: status line without Write-Host (PSScriptAnalyzer
+# PSAvoidUsingWriteHost — Write-Host bypasses stdout, so it can neither be
+# captured nor redirected). Colors via inline ANSI escapes keep the UX while
+# the message stays on the output stream.
+$Script:AnsiColors = @{
+    Cyan   = "$([char]27)[36m"
+    Green  = "$([char]27)[32m"
+    Yellow = "$([char]27)[33m"
+    Reset  = "$([char]27)[0m"
+}
+
+function Write-Status {
+    param([string]$Message = "", [string]$Color)
+    if ($Color -and $Script:AnsiColors.ContainsKey($Color)) {
+        Write-Output "$($Script:AnsiColors[$Color])$Message$($Script:AnsiColors.Reset)"
+    } else {
+        Write-Output $Message
+    }
+}
+
+Write-Status "================================================================" -Color Cyan
+Write-Status "  🚀 envctl: Development Environment Provisioner Bootstrap" -Color Cyan
+Write-Status "================================================================" -Color Cyan
 
 # 1. Architecture detection: 64-bit Windows, amd64 or arm64. The release ships
 #    both envctl-windows-{amd64,arm64}.{exe,zip} (see .goreleaser.yml builds).
@@ -55,7 +75,7 @@ $LocalExe = Join-Path (Get-Location) "envctl.exe"
 $TargetExe = $null
 
 if (Test-Path $LocalExe -and -not $Force) {
-    Write-Host "[*] Found local envctl binary at $LocalExe" -ForegroundColor Green
+    Write-Status "[*] Found local envctl binary at $LocalExe" -Color Green
     $TargetExe = $LocalExe
 } else {
     # 3. Destination folder
@@ -71,7 +91,7 @@ if (Test-Path $LocalExe -and -not $Force) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     if ($userPath -notlike "*$InstallDir*") {
         [Environment]::SetEnvironmentVariable('Path', "$userPath;$InstallDir", 'User') | Out-Null
-        Write-Host "[+] Added $InstallDir to the user PATH" -ForegroundColor Green
+        Write-Status "[+] Added $InstallDir to the user PATH" -Color Green
     }
 
     # Download from GitHub Releases
@@ -82,7 +102,7 @@ if (Test-Path $LocalExe -and -not $Force) {
     # 1. Try via GitHub CLI if available (handles private repository authentication)
     $ghCmd = Get-Command "gh" -ErrorAction SilentlyContinue
     if ($ghCmd) {
-        Write-Host "[*] Downloading envctl via GitHub CLI..." -ForegroundColor Yellow
+        Write-Status "[*] Downloading envctl via GitHub CLI..." -Color Yellow
         try {
             $tagArg = if ($Version -eq "latest") { @() } else { @($Version) }
             gh release download @tagArg --repo $Repo --pattern "envctl-windows-$arch.zip" --dir $env:TEMP --clobber
@@ -90,7 +110,7 @@ if (Test-Path $LocalExe -and -not $Force) {
             if (Test-Path $downloadedZip) {
                 Expand-Archive -Path $downloadedZip -DestinationPath $InstallDir -Force
                 Remove-Item $downloadedZip -Force -ErrorAction SilentlyContinue
-                Write-Host "[+] Download complete via GitHub CLI: $TargetExe" -ForegroundColor Green
+                Write-Status "[+] Download complete via GitHub CLI: $TargetExe" -Color Green
                 $downloaded = $true
             }
         } catch {
@@ -106,7 +126,7 @@ if (Test-Path $LocalExe -and -not $Force) {
             "https://github.com/$Repo/releases/download/$Version/envctl-windows-$arch.zip"
         }
 
-        Write-Host "[*] Downloading envctl ($Version) from GitHub releases..." -ForegroundColor Yellow
+        Write-Status "[*] Downloading envctl ($Version) from GitHub releases..." -Color Yellow
         try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
             $headers = @{}
@@ -114,10 +134,10 @@ if (Test-Path $LocalExe -and -not $Force) {
                 $headers["Authorization"] = "token $env:GITHUB_TOKEN"
             }
             Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -Headers $headers -UseBasicParsing
-            Write-Host "[*] Extracting package..." -ForegroundColor Yellow
+            Write-Status "[*] Extracting package..." -Color Yellow
             Expand-Archive -Path $ZipPath -DestinationPath $InstallDir -Force
             Remove-Item $ZipPath -Force -ErrorAction SilentlyContinue
-            Write-Host "[+] Download complete: $TargetExe" -ForegroundColor Green
+            Write-Status "[+] Download complete: $TargetExe" -Color Green
             $downloaded = $true
         } catch {
             Write-Warning "Direct web download failed: $_"
@@ -128,7 +148,7 @@ if (Test-Path $LocalExe -and -not $Force) {
     if (-not $downloaded) {
         $GoCmd = Get-Command "go" -ErrorAction SilentlyContinue
         if ($GoCmd) {
-            Write-Host "[*] Go toolchain detected. Attempting to build from source..." -ForegroundColor Yellow
+            Write-Status "[*] Go toolchain detected. Attempting to build from source..." -Color Yellow
             $SourceDir = Join-Path $env:TEMP "envctl-source"
             if (Test-Path $SourceDir) { Remove-Item -Recurse -Force $SourceDir }
             git clone --depth 1 "https://github.com/$Repo.git" $SourceDir
@@ -136,7 +156,7 @@ if (Test-Path $LocalExe -and -not $Force) {
             go build -ldflags "-s -w" -o $TargetExe ./cmd/envctl
             Pop-Location
             Remove-Item -Recurse -Force $SourceDir -ErrorAction SilentlyContinue
-            Write-Host "[+] Build from source complete!" -ForegroundColor Green
+            Write-Status "[+] Build from source complete!" -Color Green
             $downloaded = $true
         } else {
             Write-Error "Failed to acquire envctl binary and Go is not installed. Please authenticate gh CLI or install Go."
@@ -151,12 +171,12 @@ if ($Command) { $ArgsList += $Command }
 if ($Subsystem -and $Command -eq "run") { $ArgsList += $Subsystem }
 if ($DryRun) { $ArgsList += "--dry-run" }
 
-Write-Host "[*] Launching: $TargetExe $($ArgsList -join ' ')" -ForegroundColor Cyan
+Write-Status "[*] Launching: $TargetExe $($ArgsList -join ' ')" -Color Cyan
 & $TargetExe @ArgsList
 
 if ($LASTEXITCODE -eq 0 -and $Command -eq "run") {
-    Write-Host ""
-    Write-Host "⚠️  Provisionamento concluído. Reinicie o OpenCode para aplicar o novo shell PowerShell." -ForegroundColor Yellow
-    Write-Host "   Arquivos temporários dos agentes LLM agora usam C:\temp (ENVCTL_TEMP)." -ForegroundColor Yellow
-    Write-Host ""
+    Write-Status ""
+    Write-Status "⚠️  Provisionamento concluído. Reinicie o OpenCode para aplicar o novo shell PowerShell." -Color Yellow
+    Write-Status "   Arquivos temporários dos agentes LLM agora usam C:\temp (ENVCTL_TEMP)." -Color Yellow
+    Write-Status ""
 }
