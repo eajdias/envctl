@@ -225,6 +225,17 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			content = withWindowsShellOverlay(content)
 		}
 
+		// OS overlay for the single ssh-config base: the template carries no
+		// OS-only lines (the old linux copy differed only in the Control*
+		// block, the header suffix and the windows key lookups), so each OS
+		// entry injects its delta at deploy time.
+		if cf.ID == "ssh_config" {
+			content = withSSHOSOverlay(content, false)
+		}
+		if cf.ID == "ssh_config_linux" {
+			content = withSSHOSOverlay(content, true)
+		}
+
 		// Write with atomic backup; sensitive files get strict permissions.
 		perm := os.FileMode(0644)
 		if cf.StrictACL {

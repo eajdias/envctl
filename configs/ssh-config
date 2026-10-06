@@ -19,8 +19,6 @@ Host *
     # Identity file default lookup
     IdentityFile ~/.ssh/id_ed25519
     IdentityFile ~/.ssh/id_rsa
-    IdentityFile ~/Documents/SSH-keys/id_ed25519
-    IdentityFile ~/Documents/SSH-keys/id_rsa
 
 # GitHub SSH Optimization
 Host github.com

@@ -301,7 +301,7 @@ config_files:
 
   - id: ssh_config_linux
     description: "OpenSSH client configuration for Linux (no Windows-only key paths; user Host stanzas are preserved)"
-    source: "configs/ssh-config.linux"
+    source: "configs/ssh-config"
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
