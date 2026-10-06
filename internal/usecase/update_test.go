@@ -51,37 +51,6 @@ func (f *fakeUpdateEnv) wasApplied(target string) bool {
 
 // The manifest already carries "@latest" in some install_target values, so the
 // command must not append a second one.
-// A tool can report the same release with different padding depending on which
-// command is asked: yt-dlp --version says 2026.08.19 while uv tool list says
-// v2026.8.19. Treating that as a difference runs an update that changes nothing.
-func TestVersionsDifferIgnoresPaddingAndPrefix(t *testing.T) {
-	same := [][2]string{
-		{"2026.08.19", "2026.8.19"},
-		{"v1.2.3", "1.2.3"},
-		{"1.2.3", "1.2.3+build.5"},
-		{"0.0.1", "0.0.1"},
-		{"1.10.0", "1.10.0"},
-	}
-	for _, pair := range same {
-		if versionsDiffer(pair[0], pair[1]) {
-			t.Errorf("versionsDiffer(%q, %q) = true, want false: same release", pair[0], pair[1])
-		}
-	}
-
-	different := [][2]string{
-		{"1.2.3", "1.2.4"},
-		{"5.9.2", "5.4.2"},
-		{"1.2.3", "1.2.3.1"},
-		{"0.0.1", "0.1.0"},
-		{"1.10.0", "1.9.0"},
-	}
-	for _, pair := range different {
-		if !versionsDiffer(pair[0], pair[1]) {
-			t.Errorf("versionsDiffer(%q, %q) = false, want true", pair[0], pair[1])
-		}
-	}
-}
-
 func TestUpdateCommandIsWellFormed(t *testing.T) {
 	if got := updateCommand(GroupGo, "golang.org/x/tools/gopls"); got != "go install golang.org/x/tools/gopls@latest" {
 		t.Errorf("go command = %q", got)

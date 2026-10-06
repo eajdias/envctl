@@ -11,6 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 func TestMergeKwinrcCompositing(t *testing.T) {
@@ -176,7 +177,7 @@ func TestEdenSmokeFailsOnIllegalInstruction(t *testing.T) {
 	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
 		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
 	}
-	uc := NewProvisionGamingTuningUseCase(&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, &mockLogger{})
+	uc := NewProvisionGamingTuningUseCase(filesystem.NewFileSystemManager(), &mockLogger{})
 	// A script that prints the AVX2 fingerprint and exits 132 is what a
 	// wrong-build AppImage looks like to the smoke test.
 	fake := filepath.Join(t.TempDir(), "eden.SIGILL")
@@ -193,7 +194,7 @@ func TestEdenSmokeAcceptsARunningBuild(t *testing.T) {
 	if runtime.GOOS != "linux" || !entity.MatchesOS("arch,cachyos") {
 		t.Skip("gaming presence gate only resolves on Arch/CachyOS")
 	}
-	uc := NewProvisionGamingTuningUseCase(&mockFSManager{existingPaths: map[string]bool{}, fileContents: map[string][]byte{}}, &mockLogger{})
+	uc := NewProvisionGamingTuningUseCase(filesystem.NewFileSystemManager(), &mockLogger{})
 	fake := filepath.Join(t.TempDir(), "eden.run")
 	if err := os.WriteFile(fake, []byte("#!/bin/sh\nprintf 'Eden v0.2.1'\n"), 0o755); err != nil {
 		t.Fatal(err)

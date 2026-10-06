@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 const sysctlDropinPath = "/etc/sysctl.d/90-envctl-performance.conf"
@@ -19,7 +18,7 @@ type commandRunner func(ctx context.Context, name string, args ...string) ([]byt
 // effectiveValueFunc reads the value a sysctl key currently has on the host.
 type effectiveValueFunc func(key string) (string, bool)
 
-type sysctlManager struct {
+type SysctlManager struct {
 	writer *dropinWriter
 	read   effectiveValueFunc
 	// sysctlDirs are the drop-in directories systemd-sysctl reads, in
@@ -28,7 +27,7 @@ type sysctlManager struct {
 }
 
 // NewSysctlManager creates the production Linux sysctl adapter.
-func NewSysctlManager() repository.SysctlManager {
+func NewSysctlManager() *SysctlManager {
 	manager := newSysctlManager(
 		sysctlDropinPath,
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {
@@ -54,18 +53,18 @@ func newSysctlManager(
 	now func() time.Time,
 	elevate bool,
 	readers ...effectiveValueFunc,
-) *sysctlManager {
+) *SysctlManager {
 	read := effectiveValueFunc(readSysctlValue)
 	if len(readers) > 0 && readers[0] != nil {
 		read = readers[0]
 	}
-	return &sysctlManager{
+	return &SysctlManager{
 		writer: newDropinWriter(destination, run, now, elevate),
 		read:   read,
 	}
 }
 
-func (m *sysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetting, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *SysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetting, dryRun bool) ([]entity.Diagnostic, error) {
 	if len(settings) == 0 {
 		return nil, nil
 	}
@@ -82,39 +81,35 @@ func (m *sysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetti
 
 	content, err := renderSysctlConfig(applicable)
 	if err != nil {
-		return append(skipped, entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  err.Error(),
-		}), err
+		return append(skipped, entity.Error(
+			"Performance",
+			m.writer.destination,
+			err.Error(),
+		)), err
 	}
 
 	if dryRun {
-		return append(skipped, entity.Diagnostic{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  fmt.Sprintf("would write %d sysctl setting(s) to %s", len(applicable), m.writer.destination),
-		}), nil
+		return append(skipped, entity.Info(
+			"Performance",
+			m.writer.destination,
+			fmt.Sprintf("would write %d sysctl setting(s) to %s", len(applicable), m.writer.destination),
+		)), nil
 	}
 
 	changed, backup, err := m.writer.Install(content, 0o644, false)
 	if err != nil {
-		return append(skipped, entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  err.Error(),
-		}), err
+		return append(skipped, entity.Error(
+			"Performance",
+			m.writer.destination,
+			err.Error(),
+		)), err
 	}
 	if !changed {
-		return append(skipped, entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  "sysctl drop-in already up to date",
-		}), nil
+		return append(skipped, entity.OK(
+			"Performance",
+			m.writer.destination,
+			"sysctl drop-in already up to date",
+		)), nil
 	}
 
 	if out, applyErr := m.writer.command(ctx, "sysctl", "-p", m.writer.destination); applyErr != nil {
@@ -122,31 +117,29 @@ func (m *sysctlManager) Apply(ctx context.Context, settings []entity.SysctlSetti
 		if backup != "" {
 			detail += fmt.Sprintf("; backup=%s", backup)
 		}
-		return append(skipped, entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  detail,
-		}), applyErr
+		return append(skipped, entity.Error(
+			"Performance",
+			m.writer.destination,
+			detail,
+		)), applyErr
 	}
 
 	detail := "sysctl drop-in applied"
 	if backup != "" {
 		detail = fmt.Sprintf("sysctl drop-in applied (backup=%s)", backup)
 	}
-	return append(skipped, entity.Diagnostic{
-		Category: entity.DiagOK,
-		System:   "Performance",
-		Target:   m.writer.destination,
-		Details:  detail,
-	}), nil
+	return append(skipped, entity.OK(
+		"Performance",
+		m.writer.destination,
+		detail,
+	)), nil
 }
 
 // applyPolicy splits the declared settings into the ones this host must be
 // changed to and the ones it already satisfies. A min-policy key is never
 // lowered: the fleet ships fs.file-max at the int64 ceiling and the previous
 // manifest overwrote it with 2097152.
-func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable []entity.SysctlSetting, skipped []entity.Diagnostic, err error) {
+func (m *SysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable []entity.SysctlSetting, skipped []entity.Diagnostic, err error) {
 	applicable = make([]entity.SysctlSetting, 0, len(settings))
 	for _, setting := range settings {
 		switch setting.Policy {
@@ -154,24 +147,22 @@ func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable
 			effective, ok := m.read(setting.Key)
 			if !ok {
 				detail := fmt.Sprintf("cannot read the current value of %s; refusing to apply a %q policy blind", setting.Key, setting.Policy)
-				return nil, append(skipped, entity.Diagnostic{
-					Category: entity.DiagError,
-					System:   "Performance",
-					Target:   setting.Key,
-					Details:  detail,
-				}), fmt.Errorf("%s", detail)
+				return nil, append(skipped, entity.Error(
+					"Performance",
+					setting.Key,
+					detail,
+				)), fmt.Errorf("%s", detail)
 			}
 			cmp := entity.CompareSysctlValues(effective, setting.Value)
 			keep := (setting.Policy == entity.SysctlPolicyMin && cmp >= 0) ||
 				(setting.Policy == entity.SysctlPolicyMax && cmp <= 0)
 			if keep {
-				skipped = append(skipped, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "Performance",
-					Target:   setting.Key,
-					Details: fmt.Sprintf("host value %s is at or above the declared %s; left untouched",
+				skipped = append(skipped, entity.OK(
+					"Performance",
+					setting.Key,
+					fmt.Sprintf("host value %s is at or above the declared %s; left untouched",
 						effective, setting.Value),
-				})
+				))
 				continue
 			}
 		}
@@ -184,7 +175,7 @@ func (m *sysctlManager) applyPolicy(settings []entity.SysctlSetting) (applicable
 // reporting each one. Writing them anyway would be theatre: the next boot would
 // restore the host's value, the run would report a change it cannot keep, and the
 // profile's own file would claim a setting that never takes effect.
-func (m *sysctlManager) yieldToHostDropins(settings []entity.SysctlSetting) ([]entity.SysctlSetting, []entity.Diagnostic) {
+func (m *SysctlManager) yieldToHostDropins(settings []entity.SysctlSetting) ([]entity.SysctlSetting, []entity.Diagnostic) {
 	if len(settings) == 0 || m.sysctlDirs == nil {
 		return settings, nil
 	}
@@ -203,17 +194,16 @@ func (m *sysctlManager) yieldToHostDropins(settings []entity.SysctlSetting) ([]e
 			applicable = append(applicable, setting)
 			continue
 		}
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Performance",
-			Target:   setting.Key,
-			Details: fmt.Sprintf(
+		diags = append(diags, entity.Warn(
+			"Performance",
+			setting.Key,
+			fmt.Sprintf(
 				"left at the host's %s, declared %s: %s wins at boot because it sorts after this profile's drop-in",
 				assignment.Boot, setting.Value, assignment.File),
-			FixHint: fmt.Sprintf(
+			fmt.Sprintf(
 				"remove or rename %s to let this profile own %s, or keep it to hold the host's value",
 				assignment.File, setting.Key),
-		})
+		))
 	}
 	return applicable, diags
 }

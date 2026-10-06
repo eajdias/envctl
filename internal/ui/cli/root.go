@@ -12,13 +12,12 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/apt"
+	"github.com/eajdias/envctl/internal/infra/arch"
 	"github.com/eajdias/envctl/internal/infra/embedded"
 	"github.com/eajdias/envctl/internal/infra/environment"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 	"github.com/eajdias/envctl/internal/infra/git"
 	"github.com/eajdias/envctl/internal/infra/logger"
-	"github.com/eajdias/envctl/internal/infra/pacman"
-	"github.com/eajdias/envctl/internal/infra/paru"
 	"github.com/eajdias/envctl/internal/infra/performance"
 	"github.com/eajdias/envctl/internal/infra/toolchain"
 	"github.com/eajdias/envctl/internal/infra/windows"
@@ -28,11 +27,11 @@ import (
 
 type AppContext struct {
 	EmbeddedFS      fs.FS
-	ManifestRepo    repository.ManifestRepository
-	FSManager       repository.FileSystemManager
-	EnvManager      repository.WindowsEnvManager
-	GitManager      repository.GitManager
-	TweaksManager   repository.WindowsTweaksManager
+	ManifestRepo    *embedded.ManifestRepository
+	FSManager       *filesystem.FileSystemManager
+	EnvManager      *environment.WindowsEnvManager
+	GitManager      *git.GitManager
+	TweaksManager   *windows.TweaksManager
 	Logger          repository.Logger
 	PackageManagers map[entity.PackageType]repository.PackageManager
 
@@ -100,8 +99,8 @@ func InitApp(embeddedFS fs.FS, version string) {
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget: winget.NewWingetManager(),
 		entity.PackageTypeApt:    apt.NewAptManager(),
-		entity.PackageTypePacman: pacman.NewPacmanManager(),
-		entity.PackageTypeParu:   paru.NewParuManager(),
+		entity.PackageTypePacman: arch.NewPacmanManager(),
+		entity.PackageTypeParu:   arch.NewParuManager(),
 		entity.PackageTypeVolta:  toolchain.NewVoltaManager(),
 		entity.PackageTypeNpm:    toolchain.NewNpmManager(),
 		entity.PackageTypePip:    toolchain.NewPipManager(),

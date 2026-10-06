@@ -11,10 +11,9 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type performanceInspector struct {
+type PerformanceInspector struct {
 	root string
 	run  commandRunner
 	// sysctlDirs are the drop-in directories systemd-sysctl reads, in
@@ -23,17 +22,17 @@ type performanceInspector struct {
 }
 
 // NewPerformanceInspector creates a read-only Linux performance inspector.
-func NewPerformanceInspector() repository.PerformanceInspector {
+func NewPerformanceInspector() *PerformanceInspector {
 	return newPerformanceInspector("/", func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return exec.CommandContext(ctx, name, args...).CombinedOutput()
 	})
 }
 
-func newPerformanceInspector(root string, run commandRunner) *performanceInspector {
-	return &performanceInspector{root: root, run: run, sysctlDirs: sysctlDropinDirs}
+func newPerformanceInspector(root string, run commandRunner) *PerformanceInspector {
+	return &PerformanceInspector{root: root, run: run, sysctlDirs: sysctlDropinDirs}
 }
 
-func (i *performanceInspector) Snapshot(ctx context.Context) entity.PerformanceSnapshot {
+func (i *PerformanceInspector) Snapshot(ctx context.Context) entity.PerformanceSnapshot {
 	journaldConfig := i.output(ctx, "systemd-analyze", "cat-config", "systemd/journald.conf")
 	snapshot := entity.PerformanceSnapshot{
 		Swap:            readSwapTable(filepath.Join(i.root, "proc/swaps")),
@@ -64,7 +63,7 @@ func (i *performanceInspector) Snapshot(ctx context.Context) entity.PerformanceS
 	return snapshot
 }
 
-func (i *performanceInspector) output(ctx context.Context, name string, args ...string) string {
+func (i *PerformanceInspector) output(ctx context.Context, name string, args ...string) string {
 	if i.run == nil {
 		return ""
 	}
@@ -75,7 +74,7 @@ func (i *performanceInspector) output(ctx context.Context, name string, args ...
 	return string(out)
 }
 
-func (i *performanceInspector) readZRAM(ctx context.Context) entity.ZRAMState {
+func (i *PerformanceInspector) readZRAM(ctx context.Context) entity.ZRAMState {
 	root := filepath.Join(i.root, "sys/block/zram0")
 	algorithm := readTrimmed(filepath.Join(root, "comp_algorithm"))
 	if selected, _ := parseScheduler(algorithm); selected != "" {
@@ -97,7 +96,7 @@ func (i *performanceInspector) readZRAM(ctx context.Context) entity.ZRAMState {
 	return state
 }
 
-func (i *performanceInspector) readTimer(ctx context.Context, name string) entity.TimerState {
+func (i *PerformanceInspector) readTimer(ctx context.Context, name string) entity.TimerState {
 	return entity.TimerState{
 		Name:    name,
 		Enabled: strings.TrimSpace(i.output(ctx, "systemctl", "is-enabled", name)),
@@ -105,7 +104,7 @@ func (i *performanceInspector) readTimer(ctx context.Context, name string) entit
 	}
 }
 
-func (i *performanceInspector) readServices(ctx context.Context, names []string) []entity.ServiceState {
+func (i *PerformanceInspector) readServices(ctx context.Context, names []string) []entity.ServiceState {
 	services := make([]entity.ServiceState, 0, len(names))
 	for _, name := range names {
 		services = append(services, entity.ServiceState{

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 // The CommandCode catalog is `25 + N*391` chars; above COMMANDCODE_SKILL_CATALOG_CHAR_BUDGET
@@ -47,5 +46,3 @@ func TestCatalogCharsEstimate(t *testing.T) {
 		t.Errorf("12 skills should exceed the wrapper overhead, got %d", got)
 	}
 }
-
-var _ = repository.GitManager(nil)

@@ -11,23 +11,18 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
-// TweaksManager implements repository.WindowsTweaksManager.
+// TweaksManager checks and applies Windows 11 system registry tweaks, features and fonts.
 type TweaksManager struct {
 	logger repository.Logger
 }
 
-func NewWindowsTweaksManager(logger repository.Logger) repository.WindowsTweaksManager {
+func NewWindowsTweaksManager(logger repository.Logger) *TweaksManager {
 	return &TweaksManager{
 		logger: logger,
 	}
-}
-
-// psQuote mirrors environment.psQuote (single-quote escape for PowerShell
-// string literals); duplicated to avoid an infra→infra import for 3 lines.
-func psQuote(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
 }
 
 // psValue renders a tweak value as a PowerShell literal: strings are
@@ -38,7 +33,7 @@ func psQuote(s string) string {
 func psValue(v any) string {
 	switch t := v.(type) {
 	case string:
-		return "'" + psQuote(t) + "'"
+		return "'" + executil.PSQuote(t) + "'"
 	case bool:
 		if t {
 			return "$true"
@@ -128,7 +123,7 @@ func startupTargetsTable(targets []startupTarget) string {
 		if tgt.kind == startupKindDir {
 			path = fmt.Sprintf("(Join-Path ([Environment]::GetFolderPath('%s')) '%s')", tgt.env, startupFolderSuffix)
 		} else {
-			path = "'" + psQuote(tgt.path) + "'"
+			path = "'" + executil.PSQuote(tgt.path) + "'"
 		}
 		rows = append(rows, fmt.Sprintf("  '%s' = @{ Kind = '%s'; Path = %s }", tgt.token, tgt.kind, path))
 	}
@@ -143,7 +138,7 @@ func startupTargetsTable(targets []startupTarget) string {
 func startupProbeScript(names []string) string {
 	quoted := make([]string, 0, len(names))
 	for _, n := range names {
-		quoted = append(quoted, "'"+psQuote(n)+"'")
+		quoted = append(quoted, "'"+executil.PSQuote(n)+"'")
 	}
 	return fmt.Sprintf(`
 $targets = %s
@@ -183,7 +178,7 @@ func startupRemovalScript(name string, targets []startupTarget) string {
 if ((Test-Path -LiteralPath $p) -and (@((Get-Item -LiteralPath $p).GetValueNames()) -contains '%s')) {
   Remove-ItemProperty -LiteralPath $p -Name ([WildcardPattern]::Escape('%s')) -Force -ErrorAction Stop
 }
-`, tgt.token, psQuote(name), psQuote(name))
+`, tgt.token, executil.PSQuote(name), executil.PSQuote(name))
 		} else {
 			fmt.Fprintf(&b, `$p = $targets['%s'].Path
 if (Test-Path -LiteralPath $p) {
@@ -191,7 +186,7 @@ if (Test-Path -LiteralPath $p) {
     Where-Object { -not $_.PSIsContainer -and $_.BaseName -eq '%s' } |
     Remove-Item -Force -ErrorAction Stop
 }
-`, tgt.token, psQuote(name))
+`, tgt.token, executil.PSQuote(name))
 		}
 	}
 	return b.String()
@@ -324,7 +319,7 @@ func (m *TweaksManager) CheckTweak(ctx context.Context, tweak entity.WindowsTwea
 		psScript := fmt.Sprintf(`
 $f = Get-WindowsOptionalFeature -Online -FeatureName '%s' -ErrorAction SilentlyContinue
 if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Output "DISABLED" }
-`, psQuote(tweak.Name))
+`, executil.PSQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -346,7 +341,7 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		// runs unprivileged.
 		checkPsScript := fmt.Sprintf(
 			`try { Import-Module -Name '%s' -Force -ErrorAction Stop; Write-Output "INSTALLED" } catch { Write-Output "MISSING" }`,
-			psQuote(tweak.Name))
+			executil.PSQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", checkPsScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -361,7 +356,7 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		// Conforming = absent: the package was removed (or never installed).
 		appxScript := fmt.Sprintf(
 			`if (Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue) { Write-Output "INSTALLED" } else { Write-Output "ABSENT" }`,
-			psQuote(tweak.Name))
+			executil.PSQuote(tweak.Name))
 		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
 		appxOut, appErr := appxCmd.CombinedOutput()
 		if appErr != nil {
@@ -380,7 +375,7 @@ if ($f -and $f.State -eq 'Enabled') { Write-Output "ENABLED" } else { Write-Outp
 		svcScript := fmt.Sprintf(`
 $s = Get-Service -Name '%s' -ErrorAction SilentlyContinue
 if (-not $s) { Write-Output "NOT_PRESENT" } else { Write-Output ("STATE:" + $s.StartType.ToString()) }
-`, psQuote(tweak.Name))
+`, executil.PSQuote(tweak.Name))
 		svcCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", svcScript)
 		svcOut, svcErr := svcCmd.CombinedOutput()
 		if svcErr != nil {
@@ -449,7 +444,7 @@ if (Test-Path $path) {
 } else {
     Write-Output "PATH_NOT_FOUND"
 }
-`, psQuote(tweak.Path), psQuote(tweak.Name))
+`, executil.PSQuote(tweak.Path), executil.PSQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -537,7 +532,7 @@ func (m *TweaksManager) checkRegistryBatch(ctx context.Context, tweaks []entity.
 	var entryLines []string
 	for _, i := range idx {
 		entryLines = append(entryLines, fmt.Sprintf("  @{ Id = '%s'; Path = '%s'; Name = '%s' }",
-			psQuote(tweaks[i].ID), psQuote(tweaks[i].Path), psQuote(tweaks[i].Name)))
+			executil.PSQuote(tweaks[i].ID), executil.PSQuote(tweaks[i].Path), executil.PSQuote(tweaks[i].Name)))
 	}
 	// No trailing comma: `@( @{...}, )` is a parse error in powershell 5.1.
 	script := fmt.Sprintf(`
@@ -628,7 +623,7 @@ func (m *TweaksManager) checkServiceBatch(ctx context.Context, tweaks []entity.W
 	}
 	quoted := make([]string, 0, len(idx))
 	for _, i := range idx {
-		quoted = append(quoted, "'"+psQuote(tweaks[i].Name)+"'")
+		quoted = append(quoted, "'"+executil.PSQuote(tweaks[i].Name)+"'")
 	}
 	// Per-name loop: a single Get-Service -Name a,b,c exits 1 when ANY name
 	// is missing (SilentlyContinue only hides the message), which would fail
@@ -699,7 +694,7 @@ func (m *TweaksManager) ApplyTweak(ctx context.Context, tweak entity.WindowsTwea
 
 	switch strings.ToLower(tweak.Type) {
 	case "feature":
-		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName '%s' -NoRestart -ErrorAction Stop`, psQuote(tweak.Name))
+		psScript := fmt.Sprintf(`Enable-WindowsOptionalFeature -Online -FeatureName '%s' -NoRestart -ErrorAction Stop`, executil.PSQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		exitCode := 0
@@ -735,7 +730,7 @@ if (Get-Command Install-PSResource -ErrorAction SilentlyContinue) {
     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
     Install-Module -Name '%s' -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 }
-Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name), psQuote(tweak.Name))
+Import-Module -Name '%s' -Force -ErrorAction Stop`, executil.PSQuote(tweak.Name), executil.PSQuote(tweak.Name), executil.PSQuote(tweak.Name), executil.PSQuote(tweak.Name))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		exitCode := 0
@@ -751,7 +746,7 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 	case "appx":
 		// -AllUsers needs elevation; without it the error surfaces with the
 		// admin hint added by the caller.
-		appxScript := fmt.Sprintf(`Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction Stop`, psQuote(tweak.Name))
+		appxScript := fmt.Sprintf(`Get-AppxPackage -Name '%s' -AllUsers -ErrorAction SilentlyContinue | Remove-AppxPackage -AllUsers -ErrorAction Stop`, executil.PSQuote(tweak.Name))
 		appxCmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxScript)
 		appxOut, appErr := appxCmd.CombinedOutput()
 		exitCode := 0
@@ -771,9 +766,9 @@ Import-Module -Name '%s' -Force -ErrorAction Stop`, psQuote(tweak.Name), psQuote
 		var svcScript string
 		switch strings.ToLower(expectedState) {
 		case "disabled":
-			svcScript = fmt.Sprintf(`Stop-Service -Name '%s' -Force -ErrorAction SilentlyContinue; Set-Service -Name '%s' -StartupType Disabled -ErrorAction Stop`, psQuote(tweak.Name), psQuote(tweak.Name))
+			svcScript = fmt.Sprintf(`Stop-Service -Name '%s' -Force -ErrorAction SilentlyContinue; Set-Service -Name '%s' -StartupType Disabled -ErrorAction Stop`, executil.PSQuote(tweak.Name), executil.PSQuote(tweak.Name))
 		case "manual":
-			svcScript = fmt.Sprintf(`Set-Service -Name '%s' -StartupType Manual -ErrorAction Stop`, psQuote(tweak.Name))
+			svcScript = fmt.Sprintf(`Set-Service -Name '%s' -StartupType Manual -ErrorAction Stop`, executil.PSQuote(tweak.Name))
 		default:
 			return fmt.Errorf("unsupported service state %q for %s (want Disabled or Manual)", expectedState, tweak.Name)
 		}
@@ -864,7 +859,7 @@ if (-not (Test-Path $path)) {
     New-Item -Path $path -Force | Out-Null
 }
 Set-ItemProperty -Path $path -Name $name -Value $val -Type $type -Force | Out-Null
-`, psQuote(tweak.Path), psQuote(tweak.Name), psValue(tweak.Value), psQuote(valType))
+`, executil.PSQuote(tweak.Path), executil.PSQuote(tweak.Name), psValue(tweak.Value), executil.PSQuote(valType))
 		cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", psScript)
 		out, err := cmd.CombinedOutput()
 		exitCode := 0
@@ -890,23 +885,21 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 		ok, details, err := m.CheckTweak(ctx, tw)
 		if err != nil {
 			m.logger.Error("Windows tweak check failed for %s: %v", targetName, err)
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Windows11",
-				Target:   targetName,
-				Details:  fmt.Sprintf("Failed to check tweak: %v", err),
-			})
+			diags = append(diags, entity.Error(
+				"Windows11",
+				targetName,
+				fmt.Sprintf("Failed to check tweak: %v", err),
+			))
 			continue
 		}
 
 		if ok {
 			m.logger.LogIdempotency("Windows11", targetName, true, "Already configured correctly: "+details)
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Windows11",
-				Target:   targetName,
-				Details:  details,
-			})
+			diags = append(diags, entity.OK(
+				"Windows11",
+				targetName,
+				details,
+			))
 			continue
 		}
 
@@ -914,21 +907,19 @@ func (m *TweaksManager) EnsureTweaks(ctx context.Context, tweaks []entity.Window
 		m.logger.Info("Applying Windows tweak %s (current: %s)", targetName, details)
 		if err := m.ApplyTweak(ctx, tw); err != nil {
 			m.logger.Error("Failed to apply Windows tweak %s: %v", targetName, err)
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Windows11",
-				Target:   targetName,
-				Details:  fmt.Sprintf("Failed to apply: %v", err),
-				FixHint:  "Run terminal as Administrator if required for HKLM settings",
-			})
+			diags = append(diags, entity.Error(
+				"Windows11",
+				targetName,
+				fmt.Sprintf("Failed to apply: %v", err),
+				"Run terminal as Administrator if required for HKLM settings",
+			))
 		} else {
 			m.logger.LogIdempotency("Windows11", targetName, false, "Applied successfully")
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Windows11",
-				Target:   targetName,
-				Details:  "Applied successfully",
-			})
+			diags = append(diags, entity.OK(
+				"Windows11",
+				targetName,
+				"Applied successfully",
+			))
 		}
 	}
 	return diags, nil

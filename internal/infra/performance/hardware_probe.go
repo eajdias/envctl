@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 // fsStat is the injectable slice of statfs(2), so the swap policy can be tested
@@ -20,28 +19,28 @@ type fsStat struct {
 
 type statfsFunc func(path string) (fsStat, error)
 
-type hardwareProbe struct {
+type HardwareProbe struct {
 	root   string
 	statfs statfsFunc
 	run    commandRunner
 }
 
 // NewHardwareProbe creates the production read-only hardware probe.
-func NewHardwareProbe() repository.HardwareProbe {
+func NewHardwareProbe() *HardwareProbe {
 	return newHardwareProbe("/", statfsRoot, func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return nil, nil
 	})
 }
 
-func newHardwareProbe(root string, statfs statfsFunc, run commandRunner) *hardwareProbe {
-	return &hardwareProbe{root: root, statfs: statfs, run: run}
+func newHardwareProbe(root string, statfs statfsFunc, run commandRunner) *HardwareProbe {
+	return &HardwareProbe{root: root, statfs: statfs, run: run}
 }
 
 // Snapshot reads the host's hardware and swap topology. Every source is
 // optional: a missing procfs entry, an unreadable statfs, or an unknown
 // filesystem magic degrades to a zero value so the caller can decide policy
 // rather than crash the run.
-func (h *hardwareProbe) Snapshot(ctx context.Context) entity.HardwareState {
+func (h *HardwareProbe) Snapshot(ctx context.Context) entity.HardwareState {
 	memTotalKB := parseMemTotalKB(readTrimmed(filepath.Join(h.root, "proc", "meminfo")))
 
 	rootFS, free := "", uint64(0)
@@ -66,7 +65,7 @@ func (h *hardwareProbe) Snapshot(ctx context.Context) entity.HardwareState {
 	)
 }
 
-func (h *hardwareProbe) output(ctx context.Context, name string, args ...string) string {
+func (h *HardwareProbe) output(ctx context.Context, name string, args ...string) string {
 	if h.run == nil {
 		return ""
 	}

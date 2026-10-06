@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 // TestLookPathInEnvFindsAToolchainOnlyBinary isolates the resolution rule.
@@ -17,17 +19,17 @@ func TestLookPathInEnvFindsAToolchainOnlyBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := lookPathInEnv("volta", dir)
+	got, err := executil.LookPathIn(dir, "volta")
 	if err != nil {
 		t.Fatalf("a binary present in the supplied PATH was not found: %v", err)
 	}
 	if got != tool {
 		t.Fatalf("resolved %q, want %q", got, tool)
 	}
-	if _, err := lookPathInEnv("volta", t.TempDir()); err == nil {
+	if _, err := executil.LookPathIn(t.TempDir(), "volta"); err == nil {
 		t.Fatal("expected a miss when the PATH does not contain the binary")
 	}
-	if _, err := lookPathInEnv("volta", ""); err == nil {
+	if _, err := executil.LookPathIn("", "volta"); err == nil {
 		t.Fatal("expected a miss when the environment declares no PATH")
 	}
 }

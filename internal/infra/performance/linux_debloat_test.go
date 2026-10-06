@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 type debloatFixture struct {
@@ -18,7 +17,7 @@ type debloatFixture struct {
 	installed map[string]string
 	calls     [][]string
 	writer    *dropinWriter
-	removers  map[entity.PackageType]repository.PackageRemover
+	removers  map[entity.PackageType]packageRemover
 	failOn    map[string]error
 }
 
@@ -62,7 +61,7 @@ func newDebloatFixture(t *testing.T) *debloatFixture {
 		}
 		return nil, nil
 	}, func() time.Time { return time.Unix(1, 0) }, false)
-	f.removers = map[entity.PackageType]repository.PackageRemover{
+	f.removers = map[entity.PackageType]packageRemover{
 		entity.PackageTypeApt: newAptRemover(f.run, f.isInstalled, false),
 	}
 	return f
@@ -92,7 +91,7 @@ func (f *debloatFixture) issued(want string) bool {
 	return false
 }
 
-func (f *debloatFixture) manager() *linuxDebloatManager {
+func (f *debloatFixture) manager() *LinuxDebloatManager {
 	return newLinuxDebloatManager(f.writer, f.removers)
 }
 

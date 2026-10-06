@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 // selectThreshold is the soft descriptor limit above which select(2) stops
@@ -16,14 +15,14 @@ import (
 // descriptors >= 1024".
 const selectThreshold = 1024
 
-type limitsManager struct {
+type ResourceLimitsManager struct {
 	system *dropinWriter
 	pam    *dropinWriter
 	paths  entity.LimitsSpec
 }
 
 // NewResourceLimitsManager creates the production file-descriptor limit adapter.
-func NewResourceLimitsManager() repository.ResourceLimitsManager {
+func NewResourceLimitsManager() *ResourceLimitsManager {
 	run := func(ctx context.Context, name string, args ...string) ([]byte, error) {
 		return execCommand(ctx, name, args...)
 	}
@@ -37,8 +36,8 @@ func NewResourceLimitsManager() repository.ResourceLimitsManager {
 	)
 }
 
-func newLimitsManager(system, pam *dropinWriter, paths entity.LimitsSpec) *limitsManager {
-	return &limitsManager{system: system, pam: pam, paths: paths}
+func newLimitsManager(system, pam *dropinWriter, paths entity.LimitsSpec) *ResourceLimitsManager {
+	return &ResourceLimitsManager{system: system, pam: pam, paths: paths}
 }
 
 // Apply installs both limit drop-ins and, when a drop-in actually changed,
@@ -53,61 +52,55 @@ func newLimitsManager(system, pam *dropinWriter, paths entity.LimitsSpec) *limit
 // only when a file changed, and it can be turned off with the
 // --no-daemon-reexec flag; man 1 systemctl documents that all sockets stay
 // accessible while the manager is being reexecuted.
-func (m *limitsManager) Apply(ctx context.Context, spec entity.LimitsSpec, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *ResourceLimitsManager) Apply(ctx context.Context, spec entity.LimitsSpec, dryRun bool) ([]entity.Diagnostic, error) {
 	systemContent, err := renderSystemLimits(spec)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.system.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.system.destination,
+			err.Error(),
+		)}, err
 	}
 	pamContent, err := renderPAMLimits(spec)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.pam.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.pam.destination,
+			err.Error(),
+		)}, err
 	}
 
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   m.system.destination,
-			Details: fmt.Sprintf("would write nofile soft=%s to %s and %s",
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			m.system.destination,
+			fmt.Sprintf("would write nofile soft=%s to %s and %s",
 				orUnknown(strconv.Itoa(spec.NofileSoft)), m.system.destination, m.pam.destination),
-		}}, nil
+		)}, nil
 	}
 
 	systemChanged, systemBackup, err := m.system.Install(systemContent, 0o644, false)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.system.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.system.destination,
+			err.Error(),
+		)}, err
 	}
 	pamChanged, pamBackup, err := m.pam.Install(pamContent, 0o644, false)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.pam.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.pam.destination,
+			err.Error(),
+		)}, err
 	}
 
-	diags := []entity.Diagnostic{{
-		Category: entity.DiagOK,
-		System:   "Performance",
-		Target:   m.system.destination,
-		Details:  describeInstall("systemd", systemChanged, systemBackup),
-	}, {
+	diags := []entity.Diagnostic{entity.OK(
+		"Performance",
+		m.system.destination,
+		describeInstall("systemd", systemChanged, systemBackup),
+	), {
 		Category: entity.DiagOK,
 		System:   "Performance",
 		Target:   m.pam.destination,
@@ -119,52 +112,47 @@ func (m *limitsManager) Apply(ctx context.Context, spec entity.LimitsSpec, dryRu
 	}
 
 	if _, err := m.system.command(ctx, "systemctl", "daemon-reload"); err != nil {
-		return append(diags, entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "systemctl",
-			Details:  fmt.Sprintf("daemon-reload failed: %v", err),
-		}), err
+		return append(diags, entity.Error(
+			"Performance",
+			"systemctl",
+			fmt.Sprintf("daemon-reload failed: %v", err),
+		)), err
 	}
 
 	if !spec.Reexec {
-		return append(diags, entity.Diagnostic{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "systemd",
-			Details: "the drop-ins were written but PID 1 was not re-executed (opt-out); " +
+		return append(diags, entity.Info(
+			"Performance",
+			"systemd",
+			"the drop-ins were written but PID 1 was not re-executed (opt-out); "+
 				"existing units keep their current limits until a reboot or a manual `systemctl daemon-reexec`",
-		}), nil
+		)), nil
 	}
 
 	if _, err := m.system.command(ctx, "systemctl", "daemon-reexec"); err != nil {
-		return append(diags, entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "systemd",
-			Details:  fmt.Sprintf("daemon-reexec failed: %v; the drop-ins are written and apply on the next reboot", err),
-		}), err
+		return append(diags, entity.Error(
+			"Performance",
+			"systemd",
+			fmt.Sprintf("daemon-reexec failed: %v; the drop-ins are written and apply on the next reboot", err),
+		)), err
 	}
 
-	diags = append(diags, entity.Diagnostic{
-		Category: entity.DiagOK,
-		System:   "Performance",
-		Target:   "systemd",
-		Details:  "PID 1 re-executed; the new defaults apply to units started from now on",
-	})
+	diags = append(diags, entity.OK(
+		"Performance",
+		"systemd",
+		"PID 1 re-executed; the new defaults apply to units started from now on",
+	))
 
 	if spec.NofileSoft > selectThreshold {
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "DefaultLimitNOFILE",
-			Details: fmt.Sprintf(
+		diags = append(diags, entity.Info(
+			"Performance",
+			"DefaultLimitNOFILE",
+			fmt.Sprintf(
 				"soft limit raised to %d, above the %d threshold: man 5 systemd.exec warns that select(2) "+
 					"cannot use file descriptors >= 1024, so software still calling select(2) instead of poll/epoll "+
 					"may misbehave. The hard limit was left at the host's own value.",
 				spec.NofileSoft, selectThreshold,
 			),
-		})
+		))
 	}
 	return diags, nil
 }

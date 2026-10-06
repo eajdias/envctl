@@ -13,22 +13,26 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
+	"github.com/eajdias/envctl/internal/infra/git"
 )
 
 type ProvisionShellUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
-	envManager   repository.WindowsEnvManager
-	gitManager   repository.GitManager
+	manifestRepo *embedded.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
+	envManager   *environment.WindowsEnvManager
+	gitManager   *git.GitManager
 	embeddedFS   fs.FS
 	logger       repository.Logger
 }
 
 func NewProvisionShellUseCase(
-	manifestRepo repository.ManifestRepository,
-	fsManager repository.FileSystemManager,
-	envManager repository.WindowsEnvManager,
-	gitManager repository.GitManager,
+	manifestRepo *embedded.ManifestRepository,
+	fsManager *filesystem.FileSystemManager,
+	envManager *environment.WindowsEnvManager,
+	gitManager *git.GitManager,
 	embeddedFS fs.FS,
 	logger repository.Logger,
 ) *ProvisionShellUseCase {
@@ -153,12 +157,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 		}
 		if dirErr != nil {
 			uc.logger.Error("Failed to ensure directory '%s': %v", dir.Path, dirErr)
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Directory",
-				Target:   dir.Path,
-				Details:  fmt.Sprintf("Failed to create directory: %v", dirErr),
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Error(
+				"Directory",
+				dir.Path,
+				fmt.Sprintf("Failed to create directory: %v", dirErr),
+			))
 			continue
 		}
 
@@ -171,12 +174,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			result.RestrictedDirs = append(result.RestrictedDirs, dir.Path)
 		}
 
-		result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Directory",
-			Target:   dir.Path,
-			Details:  "Directory verified and permissions secured",
-		})
+		result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+			"Directory",
+			dir.Path,
+			"Directory verified and permissions secured",
+		))
 	}
 
 	// 4. Configuration Files (.bashrc, .bash_profile, nsswitch.conf, opencode.jsonc, AGENTS.md)
@@ -208,13 +210,19 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 
 		if readErr != nil {
 			uc.logger.Error("Source file missing for '%s' (%s): %v", cf.Destination, cf.Source, readErr)
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "ConfigFile",
-				Target:   cf.Destination,
-				Details:  fmt.Sprintf("Source file missing (%s): %v", cf.Source, readErr),
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Error(
+				"ConfigFile",
+				cf.Destination,
+				fmt.Sprintf("Source file missing (%s): %v", cf.Source, readErr),
+			))
 			continue
+		}
+
+		// Windows overlay for the single opencode.json base: the template
+		// carries no shell key (the old linux copy differed only here), so
+		// the Windows entry injects "shell": "pwsh" at deploy time.
+		if cf.ID == "opencode_config" {
+			content = withWindowsShellOverlay(content)
 		}
 
 		// Write with atomic backup; sensitive files get strict permissions.
@@ -228,12 +236,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 		// never be overwritten by provisioning).
 		if cf.SeedIfMissing && uc.fsManager.Exists(cf.Destination) {
 			uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "seed baseline skipped (destination already exists with per-machine content)")
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "ConfigFile",
-				Target:   cf.Destination,
-				Details:  "Seed baseline present (destination already exists — per-machine content preserved)",
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+				"ConfigFile",
+				cf.Destination,
+				"Seed baseline present (destination already exists — per-machine content preserved)",
+			))
 			continue
 		}
 
@@ -254,13 +261,12 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 					if mergeErr != nil {
 						// Never replace an unparseable user file with the template.
 						uc.logger.Warn("Keeping '%s' untouched: %v", cf.Destination, mergeErr)
-						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-							Category: entity.DiagWarning,
-							System:   "ConfigFile",
-							Target:   cf.Destination,
-							Details:  fmt.Sprintf("Preserved user content (not mergeable: %v)", mergeErr),
-							FixHint:  "Fix the JSON syntax so provisioning can merge the managed baseline",
-						})
+						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Warn(
+							"ConfigFile",
+							cf.Destination,
+							fmt.Sprintf("Preserved user content (not mergeable: %v)", mergeErr),
+							"Fix the JSON syntax so provisioning can merge the managed baseline",
+						))
 						continue
 					}
 					content = mergedContent
@@ -271,12 +277,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 		backupPath, writeErr := uc.fsManager.WriteWithBackup(cf.Destination, content, perm)
 		if writeErr != nil {
 			uc.logger.Error("Failed to write config file '%s': %v", cf.Destination, writeErr)
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "ConfigFile",
-				Target:   cf.Destination,
-				Details:  fmt.Sprintf("Failed to write config: %v", writeErr),
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Error(
+				"ConfigFile",
+				cf.Destination,
+				fmt.Sprintf("Failed to write config: %v", writeErr),
+			))
 		} else {
 			if cf.StrictACL {
 				if err := uc.fsManager.SetStrictWindowsACL(cf.Destination); err != nil {
@@ -312,12 +317,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "content byte-for-byte identical, skipped backup/write")
 			}
 
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "ConfigFile",
-				Target:   cf.Destination,
-				Details:  detail,
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+				"ConfigFile",
+				cf.Destination,
+				detail,
+			))
 		}
 	}
 
@@ -347,12 +351,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				}
 				uc.logger.Info("Pruned %d old backup(s) in %s (%s)", len(pruned), expandedPath, item.Description)
 				if len(pruned) > 0 {
-					result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-						Category: entity.DiagOK,
-						System:   "Cleanup",
-						Target:   expandedPath,
-						Details:  fmt.Sprintf("Pruned %d old backup(s), kept newest %d per file: %s", len(pruned), item.KeepNewest, item.Description),
-					})
+					result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+						"Cleanup",
+						expandedPath,
+						fmt.Sprintf("Pruned %d old backup(s), kept newest %d per file: %s", len(pruned), item.KeepNewest, item.Description),
+					))
 				}
 				continue
 			}
@@ -365,12 +368,11 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				uc.logger.Warn("Failed to remove stale file '%s': %v", expandedPath, err)
 			} else {
 				uc.logger.Info("Removed stale file: %s (%s)", expandedPath, item.Description)
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "Cleanup",
-					Target:   expandedPath,
-					Details:  "Stale file removed: " + item.Description,
-				})
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+					"Cleanup",
+					expandedPath,
+					"Stale file removed: "+item.Description,
+				))
 			}
 		}
 	}
@@ -388,22 +390,20 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				uc.logger.Warn("Failed to install OpenCode plugins via npm: %s (%v)", string(out), err)
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagWarning,
-					System:   "OpenCodePlugins",
-					Target:   packageJsonPath,
-					Details:  fmt.Sprintf("npm install warning: %v", err),
-					FixHint:  "Run 'npm install' manually inside ~/.config/opencode",
-				})
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Warn(
+					"OpenCodePlugins",
+					packageJsonPath,
+					fmt.Sprintf("npm install warning: %v", err),
+					"Run 'npm install' manually inside ~/.config/opencode",
+				))
 			} else {
 				uc.logger.Info("Successfully installed OpenCode plugins in ~/.config/opencode")
 				uc.logger.LogIdempotency("OpenCodePlugins", packageJsonPath, false, "Installed plugins successfully")
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "OpenCodePlugins",
-					Target:   packageJsonPath,
-					Details:  "OpenCode plugins installed (@opencode/plugin)",
-				})
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+					"OpenCodePlugins",
+					packageJsonPath,
+					"OpenCode plugins installed (@opencode/plugin)",
+				))
 			}
 		} else {
 			uc.logger.LogIdempotency("OpenCodePlugins", packageJsonPath, true, "node_modules already exists in ~/.config/opencode")
@@ -429,31 +429,28 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				uc.logger.Warn("Failed to install user root dependencies via npm: %s (%v)", string(out), err)
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagWarning,
-					System:   "UserRuntime",
-					Target:   userPackageJsonPath,
-					Details:  fmt.Sprintf("npm install warning: %v", err),
-					FixHint:  "Run 'npm install' in user home directory",
-				})
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Warn(
+					"UserRuntime",
+					userPackageJsonPath,
+					fmt.Sprintf("npm install warning: %v", err),
+					"Run 'npm install' in user home directory",
+				))
 			} else {
 				uc.logger.Info("Successfully installed user root npm dependencies")
 				uc.logger.LogIdempotency("UserRuntime", userPackageJsonPath, false, "Installed user root dependencies")
-				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "UserRuntime",
-					Target:   userPackageJsonPath,
-					Details:  "User root npm dependencies installed (axios, cheerio, papaparse)",
-				})
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+					"UserRuntime",
+					userPackageJsonPath,
+					"User root npm dependencies installed (axios, cheerio, papaparse)",
+				))
 			}
 		} else {
 			uc.logger.LogIdempotency("UserRuntime", userPackageJsonPath, true, "user node_modules already up to date")
-			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "UserRuntime",
-				Target:   userPackageJsonPath,
-				Details:  "User root npm dependencies verified in user root",
-			})
+			result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+				"UserRuntime",
+				userPackageJsonPath,
+				"User root npm dependencies verified in user root",
+			))
 		}
 
 	}

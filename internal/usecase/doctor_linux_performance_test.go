@@ -1,37 +1,31 @@
 package usecase
 
 import (
-	"context"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/eajdias/envctl"
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/embedded"
 )
-
-type performanceInspectorStub struct {
-	snapshot entity.PerformanceSnapshot
-}
-
-func (m performanceInspectorStub) Snapshot(context.Context) entity.PerformanceSnapshot {
-	return m.snapshot
-}
 
 func TestAuditLinuxPerformanceDoesNotWarnOnOptionalState(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("Linux performance audit is Linux-only")
 	}
 
-	uc := &DoctorAuditUseCase{
-		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
-			Swap:            nil,
-			ZRAM:            entity.ZRAMState{},
-			CPUGovernors:    []string{"schedutil"},
-			BlockSchedulers: []entity.BlockScheduler{{Device: "nvme0n1", Selected: "kyber"}},
-		}},
+	uc := &DoctorAuditUseCase{}
+	snapshot := entity.PerformanceSnapshot{
+		Swap:            nil,
+		ZRAM:            entity.ZRAMState{},
+		CPUGovernors:    []string{"schedutil"},
+		BlockSchedulers: []entity.BlockScheduler{{Device: "nvme0n1", Selected: "kyber"}},
 	}
 	var diagnostics []entity.Diagnostic
-	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+	uc.auditLinuxPerformance(snapshot, func(diagnostic entity.Diagnostic) {
 		diagnostics = append(diagnostics, diagnostic)
 	})
 
@@ -53,13 +47,12 @@ func TestAuditLinuxPerformancePacnewIsNeverWarning(t *testing.T) {
 		t.Skip("Linux performance audit is Linux-only")
 	}
 
-	uc := &DoctorAuditUseCase{
-		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
-			ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Algorithm: "zstd", SizeBytes: 22_400_000_000},
-		}},
+	uc := &DoctorAuditUseCase{}
+	snapshot := entity.PerformanceSnapshot{
+		ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Algorithm: "zstd", SizeBytes: 22_400_000_000},
 	}
 	var diagnostics []entity.Diagnostic
-	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+	uc.auditLinuxPerformance(snapshot, func(diagnostic entity.Diagnostic) {
 		diagnostics = append(diagnostics, diagnostic)
 	})
 
@@ -83,13 +76,12 @@ func TestAuditLinuxPerformanceReportsActiveZRAM(t *testing.T) {
 		t.Skip("Linux performance audit is Linux-only")
 	}
 
-	uc := &DoctorAuditUseCase{
-		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
-			ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Algorithm: "zstd", SizeBytes: 22_400_000_000},
-		}},
+	uc := &DoctorAuditUseCase{}
+	snapshot := entity.PerformanceSnapshot{
+		ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Algorithm: "zstd", SizeBytes: 22_400_000_000},
 	}
 	var diagnostics []entity.Diagnostic
-	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+	uc.auditLinuxPerformance(snapshot, func(diagnostic entity.Diagnostic) {
 		diagnostics = append(diagnostics, diagnostic)
 	})
 
@@ -113,44 +105,55 @@ func TestAuditLinuxPerformanceReportsAHostDropInThatWins(t *testing.T) {
 		t.Skip("Linux performance audit is Linux-only")
 	}
 
+	dir := t.TempDir()
+	manifestsDir := filepath.Join(dir, "manifests")
+	if err := os.MkdirAll(manifestsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fixture := `profile: ubuntu-server
+sysctls:
+  - key: net.core.somaxconn
+    value: "65535"
+tiers:
+  - id: small
+    mem_total_max_mib: 1024
+    rationale: "derived: the test host measures 951 MiB"
+    sysctls:
+      - key: vm.vfs_cache_pressure
+        value: "50"
+`
+	if err := os.WriteFile(filepath.Join(manifestsDir, "performance_ubuntu.yaml"), []byte(fixture), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	uc := &DoctorAuditUseCase{
-		manifestRepo: &mockManifestRepo{performanceSpecs: map[entity.PerformanceProfile]entity.PerformanceSpec{
-			entity.PerformanceProfileUbuntuServer: {
-				Profile: entity.PerformanceProfileUbuntuServer,
-				Sysctls: []entity.SysctlSetting{{Key: "net.core.somaxconn", Value: "65535"}},
-				Tiers: []entity.PerformanceTier{{
-					ID: "small", MatchMemTotalMax: 1024,
-					Rationale: "derived: the test host measures 951 MiB",
-					Sysctls:   []entity.SysctlSetting{{Key: "vm.vfs_cache_pressure", Value: "50"}},
-				}},
-			},
-		}},
+		manifestRepo: embedded.NewManifestRepository(envctl.EmbeddedFS, dir),
 		platform: func() entity.PlatformInfo {
 			return entity.PlatformInfo{GOOS: "linux", Family: "debian", ID: "ubuntu", VersionID: "26.04"}
 		},
-		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
-			MemoryKB: 974092,
-			Swap: []entity.SwapDevice{
-				{Name: "/swapfile", Type: "file", SizeKB: 8388608, Priority: -1},
-				{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+	}
+	snapshot := entity.PerformanceSnapshot{
+		MemoryKB: 974092,
+		Swap: []entity.SwapDevice{
+			{Name: "/swapfile", Type: "file", SizeKB: 8388608, Priority: -1},
+			{Name: "/dev/zram0", Type: "partition", SizeKB: 486912, Priority: 100},
+		},
+		ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Priority: 100},
+		Sysctls: []entity.SysctlAssignment{
+			{Key: "vm.swappiness", File: "/etc/sysctl.d/99-swappiness.conf", Boot: "10", Live: "10"},
+			{
+				Key: "vm.vfs_cache_pressure", File: "/etc/sysctl.d/90-envctl-performance.conf",
+				Boot: "50", Live: "50", Managed: true,
 			},
-			ZRAM: entity.ZRAMState{Present: true, Name: "/dev/zram0", Priority: 100},
-			Sysctls: []entity.SysctlAssignment{
-				{Key: "vm.swappiness", File: "/etc/sysctl.d/99-swappiness.conf", Boot: "10", Live: "10"},
-				{
-					Key: "vm.vfs_cache_pressure", File: "/etc/sysctl.d/90-envctl-performance.conf",
-					Boot: "50", Live: "50", Managed: true,
-				},
-				{
-					Key: "net.core.somaxconn", File: "/etc/sysctl.d/90-envctl-performance.conf",
-					Boot: "65535", Live: "65535", Managed: true,
-				},
+			{
+				Key: "net.core.somaxconn", File: "/etc/sysctl.d/90-envctl-performance.conf",
+				Boot: "65535", Live: "65535", Managed: true,
 			},
-		}},
+		},
 	}
 
 	var diagnostics []entity.Diagnostic
-	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+	uc.auditLinuxPerformance(snapshot, func(diagnostic entity.Diagnostic) {
 		diagnostics = append(diagnostics, diagnostic)
 	})
 
@@ -184,17 +187,17 @@ func TestAuditLinuxPerformanceSkipsTheIntentOnAnotherOS(t *testing.T) {
 	}
 
 	uc := &DoctorAuditUseCase{
-		manifestRepo: &mockManifestRepo{},
+		manifestRepo: embedded.NewManifestRepository(envctl.EmbeddedFS, ""),
 		platform: func() entity.PlatformInfo {
 			return entity.PlatformInfo{GOOS: "linux", Family: "arch", ID: "cachyos"}
 		},
-		performanceInspector: performanceInspectorStub{snapshot: entity.PerformanceSnapshot{
-			Sysctls: []entity.SysctlAssignment{{Key: "vm.swappiness", File: "/x.conf", Boot: "100"}},
-		}},
+	}
+	snapshot := entity.PerformanceSnapshot{
+		Sysctls: []entity.SysctlAssignment{{Key: "vm.swappiness", File: "/x.conf", Boot: "100"}},
 	}
 
 	var diagnostics []entity.Diagnostic
-	uc.auditLinuxPerformance(context.Background(), func(diagnostic entity.Diagnostic) {
+	uc.auditLinuxPerformance(snapshot, func(diagnostic entity.Diagnostic) {
 		diagnostics = append(diagnostics, diagnostic)
 	})
 	if _, ok := intentKey(diagnostics, "vm.swappiness"); ok {

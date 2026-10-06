@@ -6,17 +6,18 @@ import (
 	"path/filepath"
 
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // CleanupCommandCodeUseCase prunes CommandCode storage accumulation:
 // stale config variants and oversized artifacts.
 type CleanupCommandCodeUseCase struct {
-	fsManager repository.FileSystemManager
+	fsManager *filesystem.FileSystemManager
 	logger    repository.Logger
 }
 
 func NewCleanupCommandCodeUseCase(
-	fsManager repository.FileSystemManager,
+	fsManager *filesystem.FileSystemManager,
 	logger repository.Logger,
 ) *CleanupCommandCodeUseCase {
 	return &CleanupCommandCodeUseCase{

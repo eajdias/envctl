@@ -9,10 +9,9 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type swapfileManager struct {
+type SwapManager struct {
 	run      commandRunner
 	fstab    *dropinWriter
 	exists   func(absolute string) bool
@@ -22,7 +21,7 @@ type swapfileManager struct {
 }
 
 // NewSwapfileManager creates the production swapfile adapter.
-func NewSwapfileManager() repository.SwapManager {
+func NewSwapfileManager() *SwapManager {
 	return newSwapfileManager(
 		execCommand,
 		newDropinWriter("/etc/fstab", execCommand, nowFunc, needsElevation()),
@@ -43,8 +42,8 @@ func newSwapfileManager(
 	readFile func(string) ([]byte, error),
 	hasBtrfs func() bool,
 	elevate bool,
-) *swapfileManager {
-	return &swapfileManager{
+) *SwapManager {
+	return &SwapManager{
 		run: run, fstab: fstab, exists: exists, readFile: readFile, hasBtrfs: hasBtrfs, elevate: elevate,
 	}
 }
@@ -69,7 +68,7 @@ func newSwapfileManager(
 // deactivated, because pulling those pages back into RAM to fix a number is a bad
 // trade on a memory-constrained host; the fstab entry already carries the
 // declared priority, so the next boot resolves it on its own.
-func (m *swapfileManager) holdOwnSwapfile(
+func (m *SwapManager) holdOwnSwapfile(
 	ctx context.Context,
 	spec entity.SwapSpec,
 	disk entity.DiskSwapDescriptor,
@@ -77,37 +76,34 @@ func (m *swapfileManager) holdOwnSwapfile(
 ) ([]entity.Diagnostic, error) {
 	inEffect := fmt.Sprintf("in effect at priority %d as declared", spec.Priority)
 	if disk.Priority == spec.Priority {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf(
+		return []entity.Diagnostic{entity.OK(
+			"Performance",
+			"swap",
+			fmt.Sprintf(
 				"this profile's own swapfile %s (%s) is active, %s",
 				disk.Name, entity.FormatBytes(disk.SizeBytes), inEffect),
-		}}, nil
+		)}, nil
 	}
 
 	if !disk.Unused {
-		return []entity.Diagnostic{{
-			Category: entity.DiagWarning,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf(
+		return []entity.Diagnostic{entity.Warn(
+			"Performance",
+			"swap",
+			fmt.Sprintf(
 				"this profile's own swapfile %s is active at priority %d, declared %d, and holds %s of pages: not deactivated to change it",
 				disk.Name, disk.Priority, spec.Priority, entity.FormatBytes(disk.UsedBytes)),
-			FixHint: "the fstab entry already declares the priority, so the next boot applies it; to apply it now, free the device first and re-run",
-		}}, nil
+			"the fstab entry already declares the priority, so the next boot applies it; to apply it now, free the device first and re-run",
+		)}, nil
 	}
 
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf(
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"swap",
+			fmt.Sprintf(
 				"would re-activate this profile's swapfile %s at the declared priority %d (currently %d)",
 				disk.Name, spec.Priority, disk.Priority),
-		}}, nil
+		)}, nil
 	}
 
 	if out, err := m.command(ctx, "swapoff", disk.Name); err != nil {
@@ -124,19 +120,18 @@ func (m *swapfileManager) holdOwnSwapfile(
 		disk.Name, entity.FormatBytes(disk.SizeBytes), disk.Priority), spec), nil
 }
 
-func (m *swapfileManager) Ensure(
+func (m *SwapManager) Ensure(
 	ctx context.Context,
 	spec entity.SwapSpec,
 	hw entity.HardwareState,
 	dryRun bool,
 ) ([]entity.Diagnostic, error) {
 	if !spec.Enabled() {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "swap",
-			Details:  "the swap policy is disabled; the host's swap is left exactly as it is",
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"swap",
+			"the swap policy is disabled; the host's swap is left exactly as it is",
+		)}, nil
 	}
 	if err := entity.ValidateSwapSpec(spec); err != nil {
 		return swapError(err.Error()), err
@@ -153,30 +148,28 @@ func (m *swapfileManager) Ensure(
 	disk := hw.DiskSwap(spec)
 	if disk.Adopted {
 		if !disk.IsOwnFile {
-			return []entity.Diagnostic{{
-				Category: entity.DiagOK,
-				System:   "Performance",
-				Target:   "swap",
-				Details: fmt.Sprintf(
+			return []entity.Diagnostic{entity.OK(
+				"Performance",
+				"swap",
+				fmt.Sprintf(
 					"adopting the existing disk swap %s (%s, priority %d); it was not created by envctl, so it is left untouched",
 					disk.Name, entity.FormatBytes(disk.SizeBytes), disk.Priority,
 				),
-			}}, nil
+			)}, nil
 		}
 		return m.holdOwnSwapfile(ctx, spec, disk, dryRun)
 	}
 
 	switch entity.ResolveSwapFilesystem(spec, hw.RootFSType) {
 	case entity.SwapFilesystemRefuse:
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf(
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"swap",
+			fmt.Sprintf(
 				"not creating a swapfile: the root filesystem is %s and the policy only allows %v (btrfs: %s)",
 				orUnknown(hw.RootFSType), spec.FSAllow, orUnknown(spec.FSBtrfs),
 			),
-		}}, nil
+		)}, nil
 	}
 
 	size, err := entity.ResolveSwapSizeBytes(spec, hw)
@@ -192,13 +185,12 @@ func (m *swapfileManager) Ensure(
 	}
 
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf("would create a %s swapfile at %s with priority %d and register it in fstab",
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"swap",
+			fmt.Sprintf("would create a %s swapfile at %s with priority %d and register it in fstab",
 				entity.FormatBytes(size), spec.File, spec.Priority),
-		}}, nil
+		)}, nil
 	}
 
 	btrfs := entity.ResolveSwapFilesystem(spec, hw.RootFSType) == entity.SwapFilesystemCreateBtrfs
@@ -232,40 +224,37 @@ func (m *swapfileManager) Ensure(
 // unachievable priority would otherwise be reported as applied for ever, which is
 // the same shape of bug as a sysctl drop-in shadowed by another file: the tool
 // wrote what it intended and never learned that the system kept something else.
-func (m *swapfileManager) activationDiagnostics(action string, spec entity.SwapSpec) []entity.Diagnostic {
+func (m *SwapManager) activationDiagnostics(action string, spec entity.SwapSpec) []entity.Diagnostic {
 	effective, ok := m.effectivePriority(spec.File)
 	if !ok {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   "swap",
-			Details: fmt.Sprintf("%s, requesting priority %d (the kernel's view could not be read back)",
+		return []entity.Diagnostic{entity.OK(
+			"Performance",
+			"swap",
+			fmt.Sprintf("%s, requesting priority %d (the kernel's view could not be read back)",
 				action, spec.Priority),
-		}}
+		)}
 	}
 	if effective == spec.Priority {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   "swap",
-			Details:  fmt.Sprintf("%s, active at priority %d", action, effective),
-		}}
+		return []entity.Diagnostic{entity.OK(
+			"Performance",
+			"swap",
+			fmt.Sprintf("%s, active at priority %d", action, effective),
+		)}
 	}
-	return []entity.Diagnostic{{
-		Category: entity.DiagWarning,
-		System:   "Performance",
-		Target:   "swap",
-		Details: fmt.Sprintf(
+	return []entity.Diagnostic{entity.Warn(
+		"Performance",
+		"swap",
+		fmt.Sprintf(
 			"%s, but the kernel holds priority %d: %d was requested and the kernel refused it (swap priority has a floor of %d and `swapon` exits 0 when it clamps)",
 			action, effective, spec.Priority, entity.MinSwapPriority),
-		FixHint: fmt.Sprintf(
+		fmt.Sprintf(
 			"set the profile's swap priority to %d or higher in the manifest; %s already carries the same request for the next boot",
 			effective, spec.File),
-	}}
+	)}
 }
 
 // effectivePriority reads the kernel's view of a swap device from /proc/swaps.
-func (m *swapfileManager) effectivePriority(name string) (int, bool) {
+func (m *SwapManager) effectivePriority(name string) (int, bool) {
 	if m.run == nil {
 		return 0, false
 	}
@@ -284,7 +273,7 @@ func (m *swapfileManager) effectivePriority(name string) (int, bool) {
 // allocate reserves the file's blocks. btrfs needs a different sequence: a swap
 // file must be NODATACOW, fully allocated and hole-free, which is exactly what
 // truncate + chattr + fallocate produces.
-func (m *swapfileManager) allocate(path string, size uint64, btrfs bool) error {
+func (m *SwapManager) allocate(path string, size uint64, btrfs bool) error {
 	if btrfs {
 		if m.hasBtrfs != nil && m.hasBtrfs() {
 			if out, err := m.command(context.Background(), "btrfs", "filesystem", "mkswapfile",
@@ -313,7 +302,7 @@ func (m *swapfileManager) allocate(path string, size uint64, btrfs bool) error {
 	return nil
 }
 
-func (m *swapfileManager) registerFstab(spec entity.SwapSpec) error {
+func (m *SwapManager) registerFstab(spec entity.SwapSpec) error {
 	if m.readFile != nil {
 		if data, err := m.readFile("/etc/fstab"); err == nil {
 			if fstabHasSwapEntry(string(data), spec.File) {
@@ -341,7 +330,7 @@ func (m *swapfileManager) registerFstab(spec entity.SwapSpec) error {
 	return nil
 }
 
-func (m *swapfileManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
+func (m *SwapManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
 	if m.elevate {
 		return m.run(ctx, "sudo", append([]string{"-n", name}, args...)...)
 	}
@@ -349,12 +338,11 @@ func (m *swapfileManager) command(ctx context.Context, name string, args ...stri
 }
 
 func swapError(detail string) []entity.Diagnostic {
-	return []entity.Diagnostic{{
-		Category: entity.DiagError,
-		System:   "Performance",
-		Target:   "swap",
-		Details:  detail,
-	}}
+	return []entity.Diagnostic{entity.Error(
+		"Performance",
+		"swap",
+		detail,
+	)}
 }
 
 // renderFstabEntry emits one swap line. The priority is explicit rather than

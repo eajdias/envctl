@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // ProvisionProvidersUseCase is the "phase 0" preflight: before packages,
@@ -26,8 +26,8 @@ import (
 // ownership; on Ubuntu/Debian, a legacy system v1 is the one deliberate
 // exception because it cannot load the V2-native config.
 type ProvisionProvidersUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
+	manifestRepo *embedded.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 	// latestVersionFn resolves the newest available version of a standalone
@@ -38,8 +38,8 @@ type ProvisionProvidersUseCase struct {
 }
 
 func NewProvisionProvidersUseCase(
-	manifestRepo repository.ManifestRepository,
-	fsManager repository.FileSystemManager,
+	manifestRepo *embedded.ManifestRepository,
+	fsManager *filesystem.FileSystemManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *ProvisionProvidersUseCase {
@@ -59,12 +59,14 @@ func (uc *ProvisionProvidersUseCase) logInfo(format string, args ...any) {
 
 // toolchainEnv builds the environment used for provider probes, so Volta shims
 // resolve even when envctl runs from a non-login shell (ssh, systemd, agent).
+// The directory list lives in executil; this stays a thin wrapper because a
+// Windows process PATH is already complete and must pass through untouched.
 func toolchainEnv() []string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" || runtime.GOOS == "windows" {
 		return os.Environ()
 	}
-	return linuxToolchainEnv(home)
+	return executil.ToolchainEnv(home)
 }
 
 // runWithToolchain runs a command against the toolchain PATH and returns its
@@ -87,7 +89,7 @@ func runWithToolchainEnv(ctx context.Context, env []string, name string, args ..
 	// Fall back to the bare name so a genuinely absent tool still produces the
 	// familiar error from exec, naming the binary the operator expects.
 	resolved := name
-	if path, err := lookPathInEnv(name, pathValueFromEnv(env)); err == nil {
+	if path, err := executil.LookPathIn(pathValueFromEnv(env), name); err == nil {
 		resolved = path
 	}
 	cmd := exec.CommandContext(ctx, resolved, args...)
@@ -106,30 +108,8 @@ func pathValueFromEnv(env []string) string {
 	return ""
 }
 
-// lookPathInEnv resolves a bare command name against an explicit PATH value,
-// mirroring exec.LookPath. An empty PATH is an explicit miss, not a reason to
-// fall back to the process PATH.
-func lookPathInEnv(name, pathValue string) (string, error) {
-	if pathValue == "" {
-		return "", fmt.Errorf("environment declares no PATH")
-	}
-	if filepath.IsAbs(name) {
-		return name, nil
-	}
-	for _, dir := range filepath.SplitList(pathValue) {
-		if dir == "" {
-			dir = "."
-		}
-		candidate := filepath.Join(dir, name)
-		if isExecutableFile(candidate) {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("%s not found in PATH", name)
-}
-
 // resolveOnToolchainPath resolves against the PATH built by toolchainEnv(), so
-// probes see what execution sees. It shares lookPathInEnv with the runner, which
+// probes see what execution sees. It shares executil.LookPathIn with the runner, which
 // matters: a probe and the command it guards must resolve a tool identically or
 // the probe reports a tool as absent while the command could have run it.
 func resolveOnToolchainPath(name string) (string, error) {
@@ -137,7 +117,7 @@ func resolveOnToolchainPath(name string) (string, error) {
 	if pathValue == "" {
 		return exec.LookPath(name)
 	}
-	return lookPathInEnv(name, pathValue)
+	return executil.LookPathIn(pathValue, name)
 }
 
 // openCodeLinuxV2Installer installs the official OpenCode V2 channel. The
@@ -166,16 +146,6 @@ if command -v fish >/dev/null 2>&1; then
     printf '\n# OpenCode (via envctl)\nset -gx PATH "$HOME/.opencode/bin" $PATH\n' >> "$f"
   fi
 fi`
-
-// versionMajorAtLeast reports whether version's numeric major is at least
-// major. It intentionally rejects malformed versions instead of treating an
-// unparseable provider as compatible with the V2-native configuration.
-func versionMajorAtLeast(version string, major int) bool {
-	normalized := normalizeVersion(version)
-	majorToken, _, _ := strings.Cut(normalized, ".")
-	parsed, err := strconv.Atoi(majorToken)
-	return err == nil && parsed >= major
-}
 
 // standaloneProviderCanReplace reports whether envctl may replace a standalone
 // binary. User-local installs are owned by envctl. A system-owned binary is
@@ -326,22 +296,14 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 	// A user-local copy must never keep winning over a package that pacman
 	// owns. Archive every active non-system copy, then let the next probe see
 	// the system binary; the package path is verified below before success.
-	for pacmanOwns && source != sourceSystem {
-		path, err := resolveOnToolchainPath(tool.binary)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("could not locate the user-local binary to archive: %v", err),
-				"Remove the stale user-local opencode binary, then run 'envctl run providers' again")
-			return
-		}
-		backup, err := archiveUserOpenCode(path)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err),
-				"Move the stale user-local binary aside, then run 'envctl run providers' again")
-			return
-		}
-		uc.logInfo("Providers: archived user-local opencode at %s; pacman remains authoritative", backup)
-		installed = installedVersion(ctx, tool.binary)
-		source = installSource(tool.binary)
+	var ok bool
+	installed, source, ok = archiveShadowedUserCopies(ctx, uc.logInfo, tool.name, tool.binary,
+		"Remove the stale user-local opencode binary, then run 'envctl run providers' again",
+		"Move the stale user-local binary aside, then run 'envctl run providers' again",
+		pacmanOwns, installed, source,
+		func(target, details, fixHint string) { add(entity.DiagWarning, target, details, fixHint) })
+	if !ok {
+		return
 	}
 
 	switch {
@@ -554,30 +516,6 @@ func (uc *ProvisionProvidersUseCase) pacmanOwnsOpenCode(ctx context.Context) boo
 	return err == nil && installed
 }
 
-// archiveUserOpenCode moves an envctl-owned user-local binary aside when the
-// distro package is authoritative. The timestamped backup follows the same
-// convention as config provisioning and keeps a rollback path.
-func archiveUserOpenCode(path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("empty opencode path")
-	}
-	if _, err := os.Lstat(path); err != nil {
-		return "", err
-	}
-	stamp := time.Now().Format("20060102-150405")
-	candidate := fmt.Sprintf("%s.bak.%s", path, stamp)
-	for i := 1; ; i++ {
-		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
-			break
-		}
-		candidate = fmt.Sprintf("%s.bak.%s-%d", path, stamp, i)
-	}
-	if err := os.Rename(path, candidate); err != nil {
-		return "", err
-	}
-	return candidate, nil
-}
-
 // requireStandaloneProviderVersion verifies the minimum major after an
 // installer returns successfully. A successful download alone is not enough:
 // the repository's V2-native config would still fail against a v1 binary.
@@ -595,177 +533,6 @@ func (uc *ProvisionProvidersUseCase) requireStandaloneProviderVersion(ctx contex
 	return false
 }
 
-func printableVersion(version string) string {
-	if version == "" {
-		return "(missing)"
-	}
-	return "v" + version
-}
-
-// installedVersion runs `<binary> --version` and reduces the output to the first
-// version-looking token (tools report "opencode v2.0.5", "1.55.1", ...).
-func installedVersion(ctx context.Context, binary string) string {
-	resolved, err := resolveOnToolchainPath(binary)
-	if err != nil {
-		return ""
-	}
-	// exec.Cmd.Env does not affect binary resolution (LookPath uses the
-	// process PATH), so execute the resolved absolute path.
-	out, err := runWithToolchain(ctx, resolved, "--version")
-	if err != nil {
-		return ""
-	}
-	return firstVersionToken(out)
-}
-
-// installSource classifies where a binary comes from, which decides whether
-// envctl may touch it.
-func installSource(binary string) string {
-	path, err := resolveOnToolchainPath(binary)
-	if err != nil {
-		return sourceAbsent
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-	return classifyInstallSource(path, home)
-}
-
-// npmLatest reads the "latest" dist-tag of an npm package.
-func npmLatest(ctx context.Context, pkg string) string {
-	out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://registry.npmjs.org/"+pkg+"/latest")
-	if err != nil {
-		return ""
-	}
-	// Deliberately dependency-free: the registry answers with a JSON object whose
-	// "version" field is all this needs.
-	idx := strings.Index(out, `"version":"`)
-	if idx < 0 {
-		return ""
-	}
-	rest := out[idx+len(`"version":"`):]
-	if end := strings.Index(rest, `"`); end > 0 {
-		return rest[:end]
-	}
-	return ""
-}
-
-// firstVersionToken extracts the first token that starts with a digit, dropping
-// the tool name and any leading "v".
-func firstVersionToken(output string) string {
-	for _, field := range strings.Fields(output) {
-		candidate := strings.TrimPrefix(field, "v")
-		if candidate == "" {
-			continue
-		}
-		if candidate[0] >= '0' && candidate[0] <= '9' {
-			return strings.TrimRight(candidate, ".,;")
-		}
-	}
-	return ""
-}
-
-// defaultLatestProviderVersion resolves the newest version of a standalone
-// provider. OpenCode publishes its own update channel, separate from npm (which
-// lags the release line); the official installer itself reads this same URL.
-func defaultLatestProviderVersion(ctx context.Context, binary string) string {
-	switch binary {
-	case "opencode":
-		out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://opencode.ai/update/api/latest/cli/npm")
-		if err != nil {
-			return ""
-		}
-		idx := strings.Index(out, `"version":"`)
-		if idx < 0 {
-			return ""
-		}
-		rest := out[idx+len(`"version":"`):]
-		if end := strings.Index(rest, `"`); end > 0 {
-			return rest[:end]
-		}
-		return ""
-	default:
-		return ""
-	}
-}
-
-// openCodeWithinMajorUpdateNeeded reports whether the installed OpenCode is
-// older than latest while still on the required major (2.0.15 -> 2.0.23). A
-// version on a higher major than required is never downgraded; an unparseable
-// version is never updated (fail closed). Comparison is by major.minor.patch
-// with the guard that the two majors are equal and match requiredMajor.
-func openCodeWithinMajorUpdateNeeded(installed, latest string, requiredMajor int) bool {
-	iMaj, iMin, iPat, okInst := parseSemver(installed)
-	lMaj, lMin, lPat, okLatest := parseSemver(latest)
-	if !okInst || !okLatest {
-		return false
-	}
-	if iMaj != requiredMajor || lMaj != requiredMajor || iMaj != lMaj {
-		return false
-	}
-	if iMin != lMin {
-		return iMin < lMin
-	}
-	return iPat < lPat
-}
-
-// parseSemver reads the first three numeric segments of a semver-ish string,
-// tolerating a leading "v" and surrounding whitespace. Anything beyond the
-// patch (prerelease/build metadata) is ignored: provider updates are decided
-// on the numeric release triple only.
-func parseSemver(version string) (major, minor, patch int, ok bool) {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if idx := strings.IndexAny(v, "-+"); idx >= 0 {
-		v = v[:idx]
-	}
-	parts := strings.Split(v, ".")
-	if len(parts) < 3 {
-		return 0, 0, 0, false
-	}
-	var errs [3]error
-	major, errs[0] = strconv.Atoi(parts[0])
-	minor, errs[1] = strconv.Atoi(parts[1])
-	patch, errs[2] = strconv.Atoi(parts[2])
-	if errs[0] != nil || errs[1] != nil || errs[2] != nil {
-		return 0, 0, 0, false
-	}
-	return major, minor, patch, true
-}
-
-// versionsDiffer reports whether two version strings disagree once normalized
-// (leading "v" and surrounding whitespace removed).
-func versionsDiffer(installed, latest string) bool {
-	return normalizeVersion(installed) != normalizeVersion(latest)
-}
-
-// normalizeVersion reduces a version to a comparable form: no "v" prefix, no
-// leading zeros inside numeric segments, and no build metadata.
-//
-// The zero-padding case is real, not theoretical: yt-dlp reports
-// "2026.08.19" from --version while `uv tool list` reports "v2026.8.19" for the
-// same release. Comparing the raw strings would report a difference and run an
-// update that changes nothing.
-func normalizeVersion(version string) string {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if idx := strings.IndexAny(v, "+"); idx > 0 {
-		v = v[:idx]
-	}
-	if !strings.Contains(v, ".") {
-		return v
-	}
-	segments := strings.Split(v, ".")
-	for i, segment := range segments {
-		trimmed := strings.TrimLeft(segment, "0")
-		if trimmed == "" && segment != "" {
-			// A segment of only zeros is zero, not empty.
-			trimmed = "0"
-		}
-		segments[i] = trimmed
-	}
-	return strings.Join(segments, ".")
-}
-
 // Install sources. These are stable identifiers compared against in code; use
 // sourceLabel for anything a human reads.
 const (
@@ -774,24 +541,6 @@ const (
 	sourceEnvctl = "envctl"
 	sourceSystem = "system"
 )
-
-// classifyInstallSource names the owner of a binary path: Volta's tool image,
-// envctl's own prefix, or the system. Only the envctl prefix and Volta are safe
-// for envctl to replace.
-func classifyInstallSource(path, home string) string {
-	normalized := filepath.ToSlash(path)
-	switch {
-	case home == "":
-		return sourceSystem
-	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".volta"))):
-		return sourceVolta
-	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".local"))),
-		strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".opencode"))):
-		return sourceEnvctl
-	default:
-		return sourceSystem
-	}
-}
 
 // sourceLabel renders an install source for diagnostics.
 func sourceLabel(source string) string {

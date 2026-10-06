@@ -9,10 +9,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type manifestRepository struct {
+type ManifestRepository struct {
 	embeddedFS  fs.FS
 	localDir    string
 	shellCache  *shellManifest
@@ -21,14 +20,14 @@ type manifestRepository struct {
 }
 
 // NewManifestRepository creates a ManifestRepository backed by embedded assets and optional local directory.
-func NewManifestRepository(embeddedFS fs.FS, localDir string) repository.ManifestRepository {
-	return &manifestRepository{
+func NewManifestRepository(embeddedFS fs.FS, localDir string) *ManifestRepository {
+	return &ManifestRepository{
 		embeddedFS: embeddedFS,
 		localDir:   localDir,
 	}
 }
 
-func (m *manifestRepository) readManifestFile(filename string) ([]byte, error) {
+func (m *ManifestRepository) readManifestFile(filename string) ([]byte, error) {
 	readLocal := func(path string) ([]byte, error) {
 		data, err := os.ReadFile(path)
 		if err == nil {
@@ -69,7 +68,7 @@ type packagesManifest struct {
 	Packages []entity.Package `yaml:"packages"`
 }
 
-func loadManifestFile[T any](m *manifestRepository, filename string, newManifest func() T) (T, error) {
+func loadManifestFile[T any](m *ManifestRepository, filename string, newManifest func() T) (T, error) {
 	var zero T
 	data, err := m.readManifestFile(filename)
 	if err != nil {
@@ -82,7 +81,7 @@ func loadManifestFile[T any](m *manifestRepository, filename string, newManifest
 	return manifest, nil
 }
 
-func (m *manifestRepository) loadShell() (*shellManifest, error) {
+func (m *ManifestRepository) loadShell() (*shellManifest, error) {
 	if m.shellLoaded {
 		return m.shellCache, m.shellErr
 	}
@@ -92,7 +91,7 @@ func (m *manifestRepository) loadShell() (*shellManifest, error) {
 	return m.shellCache, m.shellErr
 }
 
-func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "packages.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -100,7 +99,7 @@ func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
-func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadGamingPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "gaming.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -108,7 +107,7 @@ func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
-func (m *manifestRepository) LoadExtrasPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadExtrasPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "extras.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -123,7 +122,7 @@ type shellManifest struct {
 	Cleanup     []entity.CleanupItem    `yaml:"cleanup"`
 }
 
-func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
+func (m *ManifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
@@ -131,7 +130,7 @@ func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
 	return manifest.ConfigFiles, nil
 }
 
-func (m *manifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
+func (m *ManifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
@@ -139,7 +138,7 @@ func (m *manifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
 	return manifest.EnvVars, nil
 }
 
-func (m *manifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
+func (m *ManifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
@@ -147,7 +146,7 @@ func (m *manifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
 	return manifest.Directories, nil
 }
 
-func (m *manifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
+func (m *ManifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
@@ -159,7 +158,7 @@ type skillsManifest struct {
 	Skills []entity.Skill `yaml:"skills"`
 }
 
-func (m *manifestRepository) LoadSkills() ([]entity.Skill, error) {
+func (m *ManifestRepository) LoadSkills() ([]entity.Skill, error) {
 	manifest, err := loadManifestFile(m, "skills.yaml", func() *skillsManifest { return &skillsManifest{} })
 	if err != nil {
 		return nil, err
@@ -171,7 +170,7 @@ type lspManifest struct {
 	LSPs []entity.LSP `yaml:"lsps"`
 }
 
-func (m *manifestRepository) LoadLSPs() ([]entity.LSP, error) {
+func (m *ManifestRepository) LoadLSPs() ([]entity.LSP, error) {
 	manifest, err := loadManifestFile(m, "lsp.yaml", func() *lspManifest { return &lspManifest{} })
 	if err != nil {
 		return nil, err
@@ -183,7 +182,7 @@ type gitManifest struct {
 	Configs []entity.GitConfig `yaml:"configs"`
 }
 
-func (m *manifestRepository) LoadGitConfigs() ([]entity.GitConfig, error) {
+func (m *ManifestRepository) LoadGitConfigs() ([]entity.GitConfig, error) {
 	manifest, err := loadManifestFile(m, "git.yaml", func() *gitManifest { return &gitManifest{} })
 	if err != nil {
 		return nil, err
@@ -195,7 +194,7 @@ type windowsManifest struct {
 	Tweaks []entity.WindowsTweak `yaml:"tweaks"`
 }
 
-func (m *manifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
+func (m *ManifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
 	manifest, err := loadManifestFile(m, "windows.yaml", func() *windowsManifest { return &windowsManifest{} })
 	if err != nil {
 		return nil, err
@@ -203,7 +202,7 @@ func (m *manifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) 
 	return manifest.Tweaks, nil
 }
 
-func (m *manifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
+func (m *ManifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
 	manifest, err := loadManifestFile(m, "debloat.yaml", func() *windowsManifest { return &windowsManifest{} })
 	if err != nil {
 		return nil, err
@@ -249,7 +248,7 @@ func performanceManifestFile(profile entity.PerformanceProfile) (string, bool) {
 	return "", false
 }
 
-func (m *manifestRepository) parsePerformanceManifest(filename string, expected entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+func (m *ManifestRepository) parsePerformanceManifest(filename string, expected entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	data, err := m.readManifestFile(filename)
 	if err != nil {
 		return entity.PerformanceSpec{}, err
@@ -287,7 +286,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 	}, nil
 }
 
-func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+func (m *ManifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	filename, ok := performanceManifestFile(profile)
 	if !ok {
 		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
@@ -296,7 +295,7 @@ func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfi
 }
 
 // LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
-func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+func (m *ManifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
 	data, err := m.readManifestFile(linuxDebloatManifest)
 	if err != nil {
 		return entity.DebloatSpec{}, err
@@ -321,7 +320,7 @@ func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) 
 
 // ListPerformanceProfiles reports every shipped profile with the release floor
 // its manifest declares, so the CLI can select one without knowing a version.
-func (m *manifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
+func (m *ManifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
 	metas := make([]entity.PerformanceProfileMeta, 0, len(performanceManifests))
 	for _, entry := range performanceManifests {
 		spec, err := m.parsePerformanceManifest(entry.File, entry.Profile)
@@ -354,10 +353,10 @@ func saveManifestFile(localDir, filename string, manifest any) error {
 	return os.WriteFile(dest, data, 0644)
 }
 
-func (m *manifestRepository) SaveSkills(skills []entity.Skill) error {
+func (m *ManifestRepository) SaveSkills(skills []entity.Skill) error {
 	return saveManifestFile(m.localDir, "skills.yaml", skillsManifest{Skills: skills})
 }
 
-func (m *manifestRepository) SaveGitConfigs(configs []entity.GitConfig) error {
+func (m *ManifestRepository) SaveGitConfigs(configs []entity.GitConfig) error {
 	return saveManifestFile(m.localDir, "git.yaml", gitManifest{Configs: configs})
 }

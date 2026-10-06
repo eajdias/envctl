@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
+	"strings"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
@@ -13,6 +15,49 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/usecase"
 )
+
+// runTarget is one boilerplate run subcommand: banner plus a single
+// provisioning call. Anything with flags or dispatch logic (all, windows,
+// vps, cachyos, performance) stays an explicit command below.
+type runTarget struct {
+	name  string
+	short string
+	run   func()
+}
+
+// runTargets generates the trivial subcommands. Adding a subsystem means
+// adding one row here; the help text and the unknown-subsystem error list
+// both derive from the registered commands, so neither can drift again.
+var runTargets = []runTarget{
+	{"winget", "Provision Winget system packages and CLI tools", func() { runPackagesProvisioning(entity.PackageTypeWinget) }},
+	{"apt", "Provision Debian/Ubuntu APT packages", func() { runPackagesProvisioning(entity.PackageTypeApt) }},
+	{"pacman", "Provision Arch/CachyOS pacman packages", func() { runPackagesProvisioning(entity.PackageTypePacman) }},
+	{"paru", "Provision Arch AUR packages via paru", func() { runPackagesProvisioning(entity.PackageTypeParu) }},
+	{"gaming", "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS", func() { runGamingProvisioning() }},
+	{"extras", "Provision opt-in optional apps (owner preferences; never part of a default run)", func() { runExtrasProvisioning() }},
+	{"debloat", "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)", func() { runDebloatProvisioning() }},
+	{"providers", "Phase 0 preflight: ensure Volta, Node and the OpenCode/CommandCode CLIs are present and current", func() { runProvidersProvisioning() }},
+	{"bootstrap", "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)", func() { runBootstrapProvisioning() }},
+	{"volta", "Provision Volta Node.js toolchains and global ecosystem (pnpm, stylelint, etc.)", func() { runPackagesProvisioning(entity.PackageTypeVolta) }},
+	{"pip", "Provision global Python packages (pyyaml, requests, etc.)", func() { runPackagesProvisioning(entity.PackageTypePip) }},
+	{"shell", "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)", func() { runShellProvisioning() }},
+	{"skills", "Provision and deploy agent skills (OpenCode + CommandCode)", func() { runSkillsProvisioning() }},
+	{"lsp", "Provision Language Server Protocol tools", func() { runLSPProvisioning() }},
+	{"tweaks", "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)", func() { runWindowsProvisioning() }},
+	{"cleanup", "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)", func() { runCleanup() }},
+}
+
+// runSubsystemNames lists every registered run target in help order, so the
+// unknown-subsystem error can never drift behind the Use: lines again (it
+// once omitted tweaks and extras entirely).
+func runSubsystemNames(cmd *cobra.Command) []string {
+	names := make([]string, 0, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		names = append(names, sub.Name())
+	}
+	sort.Strings(names)
+	return names
+}
 
 func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -33,7 +78,7 @@ func newRunCmd() *cobra.Command {
 			if err := cmd.Help(); err != nil {
 				return err
 			}
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, windows, vps, cachyos, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, cleanup)", args[0])
+			return fmt.Errorf("unknown subsystem '%s' (valid: %s)", args[0], strings.Join(runSubsystemNames(cmd), ", "))
 		},
 	}
 
@@ -77,59 +122,16 @@ func newRunCmd() *cobra.Command {
 		},
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "winget",
-		Short: "Provision Winget system packages and CLI tools",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeWinget)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "apt",
-		Short: "Provision Debian/Ubuntu APT packages",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeApt)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "pacman",
-		Short: "Provision Arch/CachyOS pacman packages",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypePacman)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "paru",
-		Short: "Provision Arch AUR packages via paru",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeParu)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "gaming",
-		Short: "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runGamingProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "extras",
-		Short: "Provision opt-in optional apps (owner preferences; never part of a default run)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runExtrasProvisioning()
-		},
-	})
+	for _, target := range runTargets {
+		cmd.AddCommand(&cobra.Command{
+			Use:   target.name,
+			Short: target.short,
+			Run: func(cmd *cobra.Command, args []string) {
+				PrintBanner()
+				target.run()
+			},
+		})
+	}
 
 	performanceCmd := &cobra.Command{
 		Use:   "performance",
@@ -158,96 +160,6 @@ func newRunCmd() *cobra.Command {
 	performanceCmd.Flags().Bool("debloat-only", false, "Run only the package removal, skipping every other step")
 	performanceCmd.Flags().Bool("force-reboot-pending", false, "Proceed even though /var/run/reboot-required exists")
 	cmd.AddCommand(performanceCmd)
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "debloat",
-		Short: "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runDebloatProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "providers",
-		Short: "Phase 0 preflight: ensure Volta, Node and the OpenCode/CommandCode CLIs are present and current",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runProvidersProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "bootstrap",
-		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runBootstrapProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "volta",
-		Short: "Provision Volta Node.js toolchains and global ecosystem (pnpm, stylelint, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeVolta)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "pip",
-		Short: "Provision global Python packages (pyyaml, requests, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypePip)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "shell",
-		Short: "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runShellProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "skills",
-		Short: "Provision and deploy agent skills (OpenCode + CommandCode)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runSkillsProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "lsp",
-		Short: "Provision Language Server Protocol tools",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runLSPProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "tweaks",
-		Short: "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runWindowsProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "cleanup",
-		Short: "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runCleanup()
-		},
-	})
 
 	// --with-extras opts `run all` (or the bare `run`) into the optional apps
 	// manifest (extras.yaml). Default stays neutral: the public repo never

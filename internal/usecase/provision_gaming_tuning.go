@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // GamingTuningResult reports what the privileged tuning pass changed, so the
@@ -31,11 +32,11 @@ type GamingTuningResult struct {
 // `sudo -n` after an interactive `sudo -v`; user files (kwinrc) go through
 // the fs manager with its atomic backup.
 type ProvisionGamingTuningUseCase struct {
-	fsManager repository.FileSystemManager
+	fsManager *filesystem.FileSystemManager
 	logger    repository.Logger
 }
 
-func NewProvisionGamingTuningUseCase(fsManager repository.FileSystemManager, logger repository.Logger) *ProvisionGamingTuningUseCase {
+func NewProvisionGamingTuningUseCase(fsManager *filesystem.FileSystemManager, logger repository.Logger) *ProvisionGamingTuningUseCase {
 	return &ProvisionGamingTuningUseCase{fsManager: fsManager, logger: logger}
 }
 

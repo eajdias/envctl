@@ -14,7 +14,7 @@ import (
 
 // newTimezoneManagerForTest builds a manager over a temporary root that carries
 // the IANA zones the tests write, so the enforce path can reach its validation.
-func newTimezoneManagerForTest(t *testing.T, current string, failOn map[string]error, calls *[][]string) *timezoneManager {
+func newTimezoneManagerForTest(t *testing.T, current string, failOn map[string]error, calls *[][]string) *TimezoneManager {
 	t.Helper()
 	root := t.TempDir()
 	for _, zone := range []string{"Etc/UTC", "America/Sao_Paulo"} {

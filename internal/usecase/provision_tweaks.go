@@ -7,6 +7,8 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/windows"
 )
 
 type tweakCheck struct {
@@ -26,8 +28,8 @@ type tweakStackConfig struct {
 }
 
 type ProvisionTweaksUseCase struct {
-	manifestRepo  repository.ManifestRepository
-	tweaksManager repository.WindowsTweaksManager
+	manifestRepo  *embedded.ManifestRepository
+	tweaksManager *windows.TweaksManager
 	logger        repository.Logger
 	stack         tweakStackConfig
 }
@@ -40,8 +42,8 @@ func TweakDisplayName(tweak entity.WindowsTweak) string {
 }
 
 func NewProvisionWindowsUseCase(
-	manifestRepo repository.ManifestRepository,
-	tweaksManager repository.WindowsTweaksManager,
+	manifestRepo *embedded.ManifestRepository,
+	tweaksManager *windows.TweaksManager,
 	logger repository.Logger,
 ) *ProvisionTweaksUseCase {
 	return &ProvisionTweaksUseCase{
@@ -59,8 +61,8 @@ func NewProvisionWindowsUseCase(
 }
 
 func NewProvisionDebloatUseCase(
-	manifestRepo repository.ManifestRepository,
-	tweaksManager repository.WindowsTweaksManager,
+	manifestRepo *embedded.ManifestRepository,
+	tweaksManager *windows.TweaksManager,
 	logger repository.Logger,
 ) *ProvisionTweaksUseCase {
 	uc := NewProvisionWindowsUseCase(manifestRepo, tweaksManager, logger)
@@ -133,12 +135,11 @@ func (u *ProvisionTweaksUseCase) applyOne(
 		}
 	}
 	fail := func(format string, args ...any) entity.Diagnostic {
-		return entity.Diagnostic{
-			Category: entity.DiagError,
-			System:   u.stack.system,
-			Target:   targetName,
-			Details:  fmt.Sprintf(format, args...),
-		}
+		return entity.Error(
+			u.stack.system,
+			targetName,
+			fmt.Sprintf(format, args...),
+		)
 	}
 
 	progress("checking", "Verifying current system state")
@@ -150,12 +151,11 @@ func (u *ProvisionTweaksUseCase) applyOne(
 	if c.OK {
 		u.logger.LogIdempotency(u.stack.system, targetName, true, c.Details)
 		progress("skipped", c.Details)
-		return entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   u.stack.system,
-			Target:   targetName,
-			Details:  c.Details,
-		}
+		return entity.OK(
+			u.stack.system,
+			targetName,
+			c.Details,
+		)
 	}
 
 	progress("applying", "Applying Windows configuration")
@@ -169,10 +169,9 @@ func (u *ProvisionTweaksUseCase) applyOne(
 	}
 	u.logger.LogIdempotency(u.stack.system, targetName, false, "Applied successfully")
 	progress("applied", "Applied successfully")
-	return entity.Diagnostic{
-		Category: entity.DiagOK,
-		System:   u.stack.system,
-		Target:   targetName,
-		Details:  "Applied successfully",
-	}
+	return entity.OK(
+		u.stack.system,
+		targetName,
+		"Applied successfully",
+	)
 }

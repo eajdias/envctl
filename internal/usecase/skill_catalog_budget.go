@@ -43,21 +43,19 @@ func skillCatalogBudgetFindings(skillCount int, budget string) []entity.Diagnost
 	details := fmt.Sprintf("%d skill(s) project to ~%d chars of model catalog; effective budget is %s",
 		skillCount, projected, source)
 	if projected <= effective {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Skills",
-			Target:   "Catalog budget",
-			Details:  details,
-		}}
+		return []entity.Diagnostic{entity.OK(
+			"Skills",
+			"Catalog budget",
+			details,
+		)}
 	}
-	return []entity.Diagnostic{{
-		Category: entity.DiagWarning,
-		System:   "Skills",
-		Target:   "Catalog budget",
-		Details:  details + " — above the budget the runtime degrades the catalog to names-only and skill auto-activation stops",
-		FixHint: fmt.Sprintf("shrink the catalog (merge into code-playbooks/references, promote to AGENTS.md, or %s >= %d)",
+	return []entity.Diagnostic{entity.Warn(
+		"Skills",
+		"Catalog budget",
+		details+" — above the budget the runtime degrades the catalog to names-only and skill auto-activation stops",
+		fmt.Sprintf("shrink the catalog (merge into code-playbooks/references, promote to AGENTS.md, or %s >= %d)",
 			catalogBudgetEnvVar, projected),
-	}}
+	)}
 }
 
 // auditSkillCatalogBudget reports whether the shipped skill catalog still fits the

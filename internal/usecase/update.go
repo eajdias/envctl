@@ -56,13 +56,6 @@ func updateCommand(group UpdateGroup, target string) string {
 	}
 }
 
-// providerRuntimePrefix marks manifest ids that pin a runtime version rather
-// than naming a tool. The providers phase owns those (node@24.19.0), and
-// "volta install node@24.19.0@latest" is not a thing you can run.
-func isProviderRuntime(id string) bool {
-	return strings.Contains(id, "@")
-}
-
 // UpdateEnv is the machine behind the use case. The real implementation reuses
 // the providers helpers (installedVersion, npmLatest, runWithToolchain) so there
 // is exactly one way to resolve a version in this codebase; tests fake it.

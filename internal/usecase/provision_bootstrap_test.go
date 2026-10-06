@@ -9,6 +9,9 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 func TestOpenCodePathInstallerPersistsPOSIXProfiles(t *testing.T) {
@@ -52,7 +55,7 @@ func TestLinuxToolchainEnvIncludesOpenCodePath(t *testing.T) {
 	}
 	home := t.TempDir()
 	want := filepath.Join(home, ".opencode", "bin")
-	for _, entry := range linuxToolchainEnv(home) {
+	for _, entry := range executil.ToolchainEnv(home) {
 		if !strings.HasPrefix(entry, "PATH=") {
 			continue
 		}
@@ -268,7 +271,7 @@ func TestConfigStepLabelsTheGoPathWriteHonestly(t *testing.T) {
 	}
 
 	logger := &idempotencyRecorder{}
-	uc := NewProvisionBootstrapUseCase(&mockFSManager{}, nil, nil, logger)
+	uc := NewProvisionBootstrapUseCase(filesystem.NewFileSystemManager(), nil, nil, logger)
 	const target = "Persist Go PATH in shell profiles"
 
 	first := &BootstrapResult{}
@@ -279,7 +282,7 @@ func TestConfigStepLabelsTheGoPathWriteHonestly(t *testing.T) {
 	if got, want := first.Diagnostics[0].Details, "Written to the shell profiles"; got != want {
 		t.Errorf("first run label = %q, want %q", got, want)
 	}
-	if got, want := logger.calls[0], "LinuxBootstrap|"+target+"|skipped=false|written"; got != want {
+	if got, want := logger.calls[0], "LinuxBootstrap|"+target+"|skipped=false|Written to the shell profiles"; got != want {
 		t.Errorf("first run idempotency line = %q, want %q", got, want)
 	}
 
@@ -291,7 +294,7 @@ func TestConfigStepLabelsTheGoPathWriteHonestly(t *testing.T) {
 	if got, want := second.Diagnostics[0].Details, "Already present in the shell profiles"; got != want {
 		t.Errorf("second run label = %q, want %q — the step must stop claiming a write it did not do", got, want)
 	}
-	if got, want := logger.calls[1], "LinuxBootstrap|"+target+"|skipped=true|already present"; got != want {
+	if got, want := logger.calls[1], "LinuxBootstrap|"+target+"|skipped=true|Already present in the shell profiles"; got != want {
 		t.Errorf("second run idempotency line = %q, want %q", got, want)
 	}
 

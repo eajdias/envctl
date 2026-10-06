@@ -15,61 +15,6 @@ import (
 	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
-// execTool builds an exec.Cmd resolved against the Volta/user-local/Go
-// toolchain PATH on Linux. envctl often runs from non-login shells (ssh,
-// systemd) where those shims are absent from the default PATH — without this,
-// every toolchain check would falsely report packages as missing.
-func execTool(ctx context.Context, name string, args ...string) *exec.Cmd {
-	if runtime.GOOS == "linux" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			toolchainPath := strings.Join([]string{
-				filepath.Join(home, ".volta", "bin"),
-				filepath.Join(home, ".local", "bin"),
-				"/usr/local/go/bin",
-				filepath.Join(home, "go", "bin"),
-				os.Getenv("PATH"),
-			}, string(os.PathListSeparator))
-			// exec.LookPath only consults the process PATH, so resolve the
-			// binary explicitly against the toolchain PATH and hand the
-			// absolute path to exec.Command.
-			if resolved, err := lookPathWithEnv(name, toolchainPath); err == nil {
-				cmd := exec.CommandContext(ctx, resolved, args...)
-				env := os.Environ()
-				for i, kv := range env {
-					if strings.HasPrefix(kv, "PATH=") {
-						env[i] = "PATH=" + toolchainPath
-						break
-					}
-				}
-				cmd.Env = env
-				return cmd
-			}
-		}
-	}
-	return exec.CommandContext(ctx, name, args...)
-}
-
-// lookPathWithEnv searches for an executable in the given PATH string,
-// honoring the Unix executable-bit convention.
-func lookPathWithEnv(name, path string) (string, error) {
-	if filepath.IsAbs(name) {
-		return name, nil
-	}
-	for _, dir := range filepath.SplitList(path) {
-		if dir == "" {
-			dir = "."
-		}
-		candidate := filepath.Join(dir, name)
-		//nolint:gosec // G703: candidate is a PATH lookup under the caller-controlled toolchain dirs, not raw user input.
-		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
-			if fi.Mode()&0111 != 0 {
-				return candidate, nil
-			}
-		}
-	}
-	return "", fmt.Errorf("executable %q not found in toolchain PATH", name)
-}
-
 // NpmManager handles global npm packages.
 type NpmManager struct{}
 
@@ -82,19 +27,17 @@ func (n *NpmManager) Type() entity.PackageType {
 }
 
 func (n *NpmManager) IsAvailable(ctx context.Context) bool {
-	cmd := execTool(ctx, "npm", "-v")
+	cmd := executil.ExecTool(ctx, "npm", "-v")
 	return cmd.Run() == nil
 }
 
 func (n *NpmManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		cmd := execTool(ctx, parts[0], parts[1:]...)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return true, strings.TrimSpace(string(out)), nil
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
-	cmd := execTool(ctx, "npm", "list", "-g", "--depth=0", pkg.ID)
+	cmd := executil.ExecTool(ctx, "npm", "list", "-g", "--depth=0", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err == nil && strings.Contains(string(out), pkg.ID+"@") {
 		return true, "installed globally via npm", nil
@@ -111,7 +54,7 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 		args = append(args, "--prefix", prefix)
 	}
 	args = append(args, strings.Fields(pkg.ID)...)
-	cmd := execTool(ctx, "npm", args...)
+	cmd := executil.ExecTool(ctx, "npm", args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("npm install -g %s failed: %s (%w)", pkg.ID, string(out), err)
@@ -135,7 +78,7 @@ func userLocalPrefix() (string, error) {
 }
 
 func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := execTool(ctx, "npm", "list", "-g", "--depth=0", "--json")
+	cmd := executil.ExecTool(ctx, "npm", "list", "-g", "--depth=0", "--json")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
@@ -184,7 +127,7 @@ func (p *PipManager) IsAvailable(ctx context.Context) bool {
 	// uv is the preferred installer (isolated tool envs, PEP 668-safe) and it
 	// needs no system pip — which Arch does not ship by default, so a
 	// pip-only check would silently skip every Python tool there.
-	if execTool(ctx, "uv", "--version").Run() == nil {
+	if executil.ExecTool(ctx, "uv", "--version").Run() == nil {
 		return true
 	}
 	// #nosec G204 -- fixed binary probe (python -m pip --version), no user input.
@@ -211,8 +154,8 @@ func (p *PipManager) Install(ctx context.Context, pkg entity.Package) error {
 	// uv installs into an isolated tool environment, which is the supported
 	// path on PEP 668 "externally managed" hosts (Arch/CachyOS, Ubuntu 24.04+).
 	// Prefer it and fall back to pip where uv is unavailable.
-	if execTool(ctx, "uv", "--version").Run() == nil {
-		cmd := execTool(ctx, "uv", "tool", "install", "--upgrade", pkg.ID)
+	if executil.ExecTool(ctx, "uv", "--version").Run() == nil {
+		cmd := executil.ExecTool(ctx, "uv", "tool", "install", "--upgrade", pkg.ID)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("uv tool install %s failed: %s (%w)", pkg.ID, string(out), err)
 		}
@@ -279,16 +222,14 @@ func (g *GoManager) Type() entity.PackageType {
 }
 
 func (g *GoManager) IsAvailable(ctx context.Context) bool {
-	cmd := execTool(ctx, "go", "version")
+	cmd := executil.ExecTool(ctx, "go", "version")
 	return cmd.Run() == nil
 }
 
 func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
 	if pkg.CheckCommand != "" {
-		parts := strings.Fields(pkg.CheckCommand)
-		cmd := execTool(ctx, parts[0], parts[1:]...)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return true, strings.TrimSpace(string(out)), nil
+		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
+			return true, out, nil
 		}
 	}
 	binName := pkg.Name
@@ -298,13 +239,13 @@ func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, 
 		binName = strings.Split(last, "@")[0]
 	}
 	if runtime.GOOS == "windows" {
-		cmd := execTool(ctx, "where.exe", binName)
+		cmd := executil.ExecTool(ctx, "where.exe", binName)
 		if out, err := cmd.CombinedOutput(); err == nil {
 			return true, strings.TrimSpace(string(out)), nil
 		}
 	} else {
 		// Resolve against the toolchain PATH (covers ~/go/bin, /usr/local/go/bin).
-		cmd := execTool(ctx, "bash", "-lc", "command -v "+binName+" >/dev/null 2>&1")
+		cmd := executil.ExecTool(ctx, "bash", "-lc", "command -v "+binName+" >/dev/null 2>&1")
 		if cmd.Run() == nil {
 			return true, "in toolchain PATH", nil
 		}
@@ -313,7 +254,7 @@ func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, 
 }
 
 func (g *GoManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := execTool(ctx, "go", "install", pkg.ID)
+	cmd := executil.ExecTool(ctx, "go", "install", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go install %s failed: %s (%w)", pkg.ID, string(out), err)

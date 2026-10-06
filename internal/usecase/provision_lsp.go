@@ -6,16 +6,17 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
 )
 
 type ProvisionLSPsUseCase struct {
-	manifestRepo repository.ManifestRepository
+	manifestRepo *embedded.ManifestRepository
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 }
 
 func NewProvisionLSPsUseCase(
-	manifestRepo repository.ManifestRepository,
+	manifestRepo *embedded.ManifestRepository,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *ProvisionLSPsUseCase {
@@ -50,7 +51,7 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 		}
 		// Check if binary is already in PATH
 		if lsp.CheckBinary != "" {
-			if toolAvailable(ctx, lsp.CheckBinary) {
+			if toolAvailable(lsp.CheckBinary) {
 				uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("binary '%s' found in PATH", lsp.CheckBinary))
 				results = append(results, LSPResult{
 					LSP:     lsp,

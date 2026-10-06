@@ -5,29 +5,28 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"time"
 
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 const (
 	cleanupToolOutputMinBytes = 10 * 1024 * 1024
-	cleanupTempMaxAge         = 24 * time.Hour
 )
 
-// CleanupOpenCodeUseCase prunes OpenCode storage accumulation: legacy configs,
-// oversized tool-output files and stale scratch in the standardized agent temp
-// folder (ENVCTL_TEMP). Plugin cache entries are NOT pruned — opencode
-// recreates the full referenced set on every start (verified empirically), so
-// pruning them only causes re-download churn.
+// CleanupOpenCodeUseCase prunes OpenCode storage accumulation: legacy configs
+// and oversized tool-output files. Temp scratch has a single owner —
+// TempHygieneUseCase, which runs right after this one and classifies entries
+// instead of purging everything older than a day. Plugin cache entries are
+// NOT pruned — opencode recreates the full referenced set on every start
+// (verified empirically), so pruning them only causes re-download churn.
 type CleanupOpenCodeUseCase struct {
-	fsManager repository.FileSystemManager
+	fsManager *filesystem.FileSystemManager
 	logger    repository.Logger
 }
 
 func NewCleanupOpenCodeUseCase(
-	fsManager repository.FileSystemManager,
+	fsManager *filesystem.FileSystemManager,
 	logger repository.Logger,
 ) *CleanupOpenCodeUseCase {
 	return &CleanupOpenCodeUseCase{
@@ -106,37 +105,6 @@ func (uc *CleanupOpenCodeUseCase) Execute(ctx context.Context) (*CleanupResult, 
 			result.StoreNote = fmt.Sprintf("%.1f MB of live session data (0 MB reclaimable — prune sessions to shrink it)",
 				float64(store.SizeBytes)/(1024*1024))
 			uc.logger.Info("[CLEANUP] opencode.db holds %.1f MB of live data; nothing to reclaim", float64(store.SizeBytes)/(1024*1024))
-		}
-	}
-
-	// 4. Prune stale scratch in the standardized agent temp folder (ENVCTL_TEMP).
-	var tempDir string
-	if runtime.GOOS == "windows" {
-		tempDir = `C:\temp`
-	} else {
-		tempDir = "/temp"
-	}
-	if entries, err := os.ReadDir(tempDir); err == nil {
-		now := time.Now()
-		for _, entry := range entries {
-			if ctx.Err() != nil {
-				return result, ctx.Err()
-			}
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			if now.Sub(info.ModTime()) <= cleanupTempMaxAge {
-				continue
-			}
-			path := filepath.Join(tempDir, entry.Name())
-			size := dirSize(path)
-			if err := os.RemoveAll(path); err != nil {
-				continue
-			}
-			result.RemovedFiles = append(result.RemovedFiles, path)
-			result.FreedBytes += size
-			uc.logger.Info("[CLEANUP] removed stale scratch %s", path)
 		}
 	}
 

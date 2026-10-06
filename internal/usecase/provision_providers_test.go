@@ -10,6 +10,7 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 func TestFirstVersionToken(t *testing.T) {
@@ -33,6 +34,10 @@ func TestFirstVersionToken(t *testing.T) {
 }
 
 func TestVersionsDiffer(t *testing.T) {
+	// A tool can report the same release with different padding depending on
+	// which command is asked: yt-dlp --version says 2026.08.19 while
+	// uv tool list says v2026.8.19. Treating that as a difference runs an
+	// update that changes nothing.
 	cases := []struct {
 		installed string
 		latest    string
@@ -42,6 +47,14 @@ func TestVersionsDiffer(t *testing.T) {
 		{"1.55.1", "v1.55.1", false},
 		{"2.0.5", "2.0.5", false},
 		{" 1.0.0 ", "1.0.0", false},
+		{"2026.08.19", "2026.8.19", false},
+		{"v1.2.3", "1.2.3", false},
+		{"1.2.3", "1.2.3+build.5", false},
+		{"1.2.3", "1.2.4", true},
+		{"5.9.2", "5.4.2", true},
+		{"1.2.3", "1.2.3.1", true},
+		{"0.0.1", "0.1.0", true},
+		{"1.10.0", "1.9.0", true},
 	}
 	for _, tc := range cases {
 		if got := versionsDiffer(tc.installed, tc.latest); got != tc.want {
@@ -199,14 +212,14 @@ func TestPacmanOwnsOpenCodeUsesPackageDatabase(t *testing.T) {
 	}
 }
 
-func TestArchiveUserOpenCode(t *testing.T) {
+func TestFilesystemArchivePathMovesLiveAside(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "opencode")
 	if err := os.WriteFile(path, []byte("v1"), 0755); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	backup, err := archiveUserOpenCode(path)
+	backup, err := filesystem.ArchivePath(path)
 	if err != nil {
-		t.Fatalf("archiveUserOpenCode: %v", err)
+		t.Fatalf("filesystem.ArchivePath: %v", err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("live path still exists after archive: %v", err)

@@ -27,7 +27,7 @@ func fishConfigPath(home string) string {
 func TestPersistEnvVarTargetsFishWithFishSyntax(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 
 	if err := manager.persistEnvVar("ENVCTL_TEMP", "/temp"); err != nil {
 		t.Fatalf("persistEnvVar: %v", err)
@@ -60,7 +60,7 @@ func TestPersistEnvVarReplacesExistingDeclaration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	if err := manager.persistEnvVar("ENVCTL_TEMP", "/temp"); err != nil {
 		t.Fatalf("persistEnvVar: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestGetEnvVarFromRCReadsFishDeclarations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	got := manager.getEnvVarFromRC("ENVCTL_TEMP")
 	if got != "/temp" {
 		t.Errorf("getEnvVarFromRC = %q, want %q", got, "/temp")
@@ -106,7 +106,7 @@ func TestEnsureEnvVarsAlignsEveryShell(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	vars := []entity.EnvironmentVar{{Name: "ENVCTL_TEMP", Value: "/temp", Scope: "User", OS: "linux"}}
 	if _, err := manager.EnsureEnvVars(context.Background(), vars); err != nil {
 		t.Fatalf("EnsureEnvVars: %v", err)
@@ -159,7 +159,7 @@ func TestEnsurePathEntryAddsFishPathOnce(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	dir := filepath.Join(home, ".local", "bin")
 
 	changed, err := manager.EnsurePathEntry(context.Background(), dir)

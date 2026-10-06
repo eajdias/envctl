@@ -10,19 +10,17 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type fsManager struct{}
+type FileSystemManager struct{}
 
 // NewFileSystemManager creates a new FileSystemManager instance.
-func NewFileSystemManager() repository.FileSystemManager {
-	return &fsManager{}
+func NewFileSystemManager() *FileSystemManager {
+	return &FileSystemManager{}
 }
 
 // ExpandUserPath resolves paths with ~, %USERPROFILE%, %APPDATA%, and forward slashes.
-func (f *fsManager) ExpandUserPath(path string) (string, error) {
+func (f *FileSystemManager) ExpandUserPath(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("empty path provided")
 	}
@@ -89,7 +87,7 @@ func (f *fsManager) ExpandUserPath(path string) (string, error) {
 }
 
 // Exists checks if a file or directory exists.
-func (f *fsManager) Exists(path string) bool {
+func (f *FileSystemManager) Exists(path string) bool {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {
 		return false
@@ -99,7 +97,7 @@ func (f *fsManager) Exists(path string) bool {
 }
 
 // EnsureDirectory creates directory hierarchy if not present.
-func (f *fsManager) EnsureDirectory(path string, perm os.FileMode) error {
+func (f *FileSystemManager) EnsureDirectory(path string, perm os.FileMode) error {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {
 		return err
@@ -108,7 +106,7 @@ func (f *fsManager) EnsureDirectory(path string, perm os.FileMode) error {
 }
 
 // ReadFile reads the full contents of a file.
-func (f *fsManager) ReadFile(path string) ([]byte, error) {
+func (f *FileSystemManager) ReadFile(path string) ([]byte, error) {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {
 		return nil, err
@@ -116,9 +114,11 @@ func (f *fsManager) ReadFile(path string) ([]byte, error) {
 	return os.ReadFile(expanded)
 }
 
-// backupPathFor returns a unique timestamped backup path for a live file.
-// Same-second second writes get -1, -2, … suffixes so no backup is destroyed.
-func backupPathFor(livePath string) string {
+// BackupPathFor returns a unique timestamped backup path for a live file.
+// Same-second writes get -1, -2, … suffixes so no backup is destroyed.
+// Stat (not Lstat) decides collisions: a dangling symlink is not a live file
+// worth preserving under a new stamp.
+func BackupPathFor(livePath string) string {
 	stamp := time.Now().Format("20060102-150405")
 	candidate := fmt.Sprintf("%s.bak.%s", livePath, stamp)
 	for i := 1; ; i++ {
@@ -127,6 +127,54 @@ func backupPathFor(livePath string) string {
 		}
 		candidate = fmt.Sprintf("%s.bak.%s-%d", livePath, stamp, i)
 	}
+}
+
+// ArchivePath moves a live path aside to a unique timestamped backup name
+// and returns it. Lstat (not Stat) decides collisions: a symlink itself is
+// archived, never followed. This is the single implementation behind every
+// "move aside" in provisioning; name clashes resolve with -1, -2, … suffixes.
+func ArchivePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("empty path")
+	}
+	if _, err := os.Lstat(path); err != nil {
+		return "", err
+	}
+	stamp := time.Now().Format("20060102-150405")
+	candidate := fmt.Sprintf("%s.bak.%s", path, stamp)
+	for i := 1; ; i++ {
+		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
+			break
+		}
+		candidate = fmt.Sprintf("%s.bak.%s-%d", path, stamp, i)
+	}
+	if err := os.Rename(path, candidate); err != nil {
+		return "", err
+	}
+	return candidate, nil
+}
+
+// storeWithBackup writes content to an already-expanded absolute target path,
+// backing up differing live bytes first. existing carries the live bytes when
+// the caller already read them (nil = target absent or unreadable, write
+// straight through). The backup keeps backupMode while the live file gets
+// perm; identical content is a no-op returning "".
+func storeWithBackup(target string, existing, content []byte, perm, backupMode os.FileMode) (string, error) {
+	var backupPath string
+	if existing != nil {
+		if bytes.Equal(existing, content) {
+			return "", nil
+		}
+		backupPath = BackupPathFor(target)
+		//nolint:gosec // G703: target derives from ExpandUserPath / the manifest-controlled embedded tree, not raw user input.
+		if err := os.WriteFile(backupPath, existing, backupMode); err != nil {
+			return "", fmt.Errorf("failed to create backup file %s: %w", target, err)
+		}
+	}
+	if err := writeAtomic(target, content, perm); err != nil {
+		return "", fmt.Errorf("failed to write file %s: %w", target, err)
+	}
+	return backupPath, nil
 }
 
 // writeAtomic writes content to destPath via tmp+rename in the same directory,
@@ -162,7 +210,7 @@ func writeAtomic(destPath string, content []byte, perm os.FileMode) error {
 
 // WriteWithBackup writes content to target file. If destination exists and differs,
 // an atomic timestamped backup (.bak.YYYYMMDD-HHMMSS) is created first.
-func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.FileMode) (string, error) {
+func (f *FileSystemManager) WriteWithBackup(destPath string, content []byte, perm os.FileMode) (string, error) {
 	expanded, err := f.ExpandUserPath(destPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to expand path %s: %w", destPath, err)
@@ -174,36 +222,21 @@ func (f *fsManager) WriteWithBackup(destPath string, content []byte, perm os.Fil
 		return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	var backupPath string
+	var existing []byte
 	if f.Exists(expanded) {
-		existingData, err := os.ReadFile(expanded)
-		if err == nil {
-			// If content is already identical, no-op
-			if bytes.Equal(existingData, content) {
-				return "", nil
-			}
-
-			// Content changed: create timestamped backup (same permission as target file)
-			backupPath = backupPathFor(expanded)
-			//nolint:gosec // G703: backupPath derives from ExpandUserPath(expanded), not raw user input.
-			if err := os.WriteFile(backupPath, existingData, perm); err != nil {
-				return "", fmt.Errorf("failed to create backup file %s: %w", backupPath, err)
-			}
+		if data, err := os.ReadFile(expanded); err == nil {
+			existing = data
 		}
 	}
 
-	// Write the new content atomically
-	if err := writeAtomic(expanded, content, perm); err != nil {
-		return "", fmt.Errorf("failed to write file %s: %w", expanded, err)
-	}
-
-	return backupPath, nil
+	// Write the new content atomically, backing up differing live bytes first.
+	return storeWithBackup(expanded, existing, content, perm, perm)
 }
 
 // SetStrictWindowsACL restricts file/directory permissions to the current user only.
 // On Windows, it uses icacls to remove inheritance and grant full control to the user.
 // On Linux it sets POSIX mode 0700 for directories or 0600 for files.
-func (f *fsManager) SetStrictWindowsACL(path string) error {
+func (f *FileSystemManager) SetStrictWindowsACL(path string) error {
 	expanded, err := f.ExpandUserPath(path)
 	if err != nil {
 		return err
@@ -241,7 +274,7 @@ func (f *fsManager) SetStrictWindowsACL(path string) error {
 }
 
 // CopyEmbeddedTree copies all files from an embedded fs.FS folder into a target directory.
-func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir string) (int, error) {
+func (f *FileSystemManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir string) (int, error) {
 	expandedTarget, err := f.ExpandUserPath(targetDir)
 	if err != nil {
 		return 0, err
@@ -283,34 +316,29 @@ func (f *fsManager) CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir stri
 		// Diff-gate: identical content is a no-op (not counted), so
 		// user-customized files that match the template cost nothing and
 		// differing ones always leave a timestamped backup first.
-		if existing, err := os.ReadFile(targetPath); err == nil {
-			if bytes.Equal(existing, data) {
-				// Refresh the mode when the content matches but the exec
-				// bit drifted (e.g. template gained a shebang).
-				if fi, statErr := os.Stat(targetPath); statErr == nil {
-					if fi.Mode().Perm() != mode.Perm() {
-						if chmodErr := os.Chmod(targetPath, mode); chmodErr != nil {
-							return fmt.Errorf("failed to set mode on %s: %w", targetPath, chmodErr)
-						}
+		var existing []byte
+		if data, err := os.ReadFile(targetPath); err == nil {
+			existing = data
+		}
+		if existing != nil && bytes.Equal(existing, data) {
+			// Refresh the mode when the content matches but the exec
+			// bit drifted (e.g. template gained a shebang).
+			if fi, statErr := os.Stat(targetPath); statErr == nil {
+				if fi.Mode().Perm() != mode.Perm() {
+					if chmodErr := os.Chmod(targetPath, mode); chmodErr != nil {
+						return fmt.Errorf("failed to set mode on %s: %w", targetPath, chmodErr)
 					}
 				}
-				return nil
 			}
-			// Backup preserves the live file's own mode (fallback 0600).
-			backupMode := os.FileMode(0600)
-			if fi, statErr := os.Stat(targetPath); statErr == nil {
-				backupMode = fi.Mode().Perm()
-			}
-			backupPath := backupPathFor(targetPath)
-			//nolint:gosec // G703: target derives from the manifest-controlled embedded tree + ExpandUserPath, not from raw user input.
-			if err := os.WriteFile(backupPath, existing, backupMode); err != nil {
-				return fmt.Errorf("failed to back up %s: %w", targetPath, err)
-			}
+			return nil
 		}
-
-		// Write to disk atomically
-		if err := writeAtomic(targetPath, data, mode); err != nil {
-			return fmt.Errorf("failed to write %s: %w", targetPath, err)
+		// Backup preserves the live file's own mode (fallback 0600).
+		backupMode := os.FileMode(0600)
+		if fi, statErr := os.Stat(targetPath); statErr == nil {
+			backupMode = fi.Mode().Perm()
+		}
+		if _, err := storeWithBackup(targetPath, existing, data, mode, backupMode); err != nil {
+			return err
 		}
 
 		count++

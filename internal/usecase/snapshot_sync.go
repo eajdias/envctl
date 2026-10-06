@@ -9,19 +9,22 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
+	"github.com/eajdias/envctl/internal/infra/git"
 )
 
 type SnapshotSyncUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
-	gitManager   repository.GitManager
+	manifestRepo *embedded.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
+	gitManager   *git.GitManager
 	logger       repository.Logger
 }
 
 func NewSnapshotSyncUseCase(
-	manifestRepo repository.ManifestRepository,
-	fsManager repository.FileSystemManager,
-	gitManager repository.GitManager,
+	manifestRepo *embedded.ManifestRepository,
+	fsManager *filesystem.FileSystemManager,
+	gitManager *git.GitManager,
 	logger repository.Logger,
 ) *SnapshotSyncUseCase {
 	return &SnapshotSyncUseCase{

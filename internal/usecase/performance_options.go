@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/infra/performance"
 )
 
 // rebootRequiredPath is the marker Ubuntu and Debian write when a package change
@@ -100,13 +99,6 @@ func (o PerformanceOptions) Validate() error {
 	return nil
 }
 
-// assessJournald projects the read-only journald snapshot onto the declared
-// policy. It reports a host nobody has provisioned as INFO, never WARNING, so
-// a fresh machine is not a failure.
-func assessJournald(state entity.JournaldState) (capped bool, category entity.DiagnosticStatus, detail string) {
-	return performance.AssessJournaldPolicy(state)
-}
-
 // assessSysctlIntent projects what a profile wants onto what the host will
 // actually apply, and reports only the keys that need a decision.
 //
@@ -142,15 +134,14 @@ func assessSysctlIntent(intent []entity.SysctlSetting, resolved []entity.SysctlA
 			if setting.Policy != entity.SysctlPolicySet {
 				continue
 			}
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Performance",
-				Target:   setting.Key,
-				Details: fmt.Sprintf(
+			diags = append(diags, entity.Warn(
+				"Performance",
+				setting.Key,
+				fmt.Sprintf(
 					"declared %s, but no sysctl drop-in declares it: the running value will not survive a reboot",
 					setting.Value),
-				FixHint: fmt.Sprintf("run 'envctl run performance' to write the %s drop-in", setting.Key),
-			})
+				fmt.Sprintf("run 'envctl run performance' to write the %s drop-in", setting.Key),
+			))
 			continue
 		}
 
@@ -159,17 +150,16 @@ func assessSysctlIntent(intent []entity.SysctlSetting, resolved []entity.SysctlA
 			// The kernel holds what the profile wants, but the file that will
 			// decide the next boot belongs to somebody else and says otherwise.
 			// Reporting OK here would be a lie that a reboot collects.
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Performance",
-				Target:   setting.Key,
-				Details: fmt.Sprintf(
+			diags = append(diags, entity.Warn(
+				"Performance",
+				setting.Key,
+				fmt.Sprintf(
 					"this profile declares %s and the kernel currently holds it, but the next boot applies %s from %s, which sorts after this profile's drop-in",
 					setting.Value, assignment.Boot, assignment.File),
-				FixHint: fmt.Sprintf(
+				fmt.Sprintf(
 					"remove or rename %s to let this profile own %s, or keep it to hold the host's %s",
 					assignment.File, setting.Key, assignment.Boot),
-			})
+			))
 			continue
 		}
 
@@ -179,49 +169,45 @@ func assessSysctlIntent(intent []entity.SysctlSetting, resolved []entity.SysctlA
 			if entity.SysctlSettingSatisfied(setting, assignment.Boot) {
 				continue
 			}
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Performance",
-				Target:   setting.Key,
-				Details: fmt.Sprintf(
+			diags = append(diags, entity.Warn(
+				"Performance",
+				setting.Key,
+				fmt.Sprintf(
 					"left at the host's %s, declared %s: %s decides this key at boot because it sorts after this profile's drop-in",
 					assignment.Boot, setting.Value, assignment.File),
-				FixHint: fmt.Sprintf(
+				fmt.Sprintf(
 					"remove or rename %s to let this profile own %s, or keep it to hold the host's %s",
 					assignment.File, setting.Key, assignment.Boot),
-			})
+			))
 			continue
 		}
 
 		// The profile owns the key: it only has to be in effect.
 		if assignment.Live == "" {
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Performance",
-				Target:   setting.Key,
-				Details: fmt.Sprintf("%s (declared %s; the running value is unreadable)",
+			diags = append(diags, entity.OK(
+				"Performance",
+				setting.Key,
+				fmt.Sprintf("%s (declared %s; the running value is unreadable)",
 					setting.Value, setting.Value),
-			})
+			))
 			continue
 		}
 		if entity.SysctlSettingSatisfied(setting, assignment.Live) {
-			diags = append(diags, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Performance",
-				Target:   setting.Key,
-				Details:  fmt.Sprintf("%s as declared", assignment.Live),
-			})
+			diags = append(diags, entity.OK(
+				"Performance",
+				setting.Key,
+				fmt.Sprintf("%s as declared", assignment.Live),
+			))
 			continue
 		}
-		diags = append(diags, entity.Diagnostic{
-			Category: entity.DiagWarning,
-			System:   "Performance",
-			Target:   setting.Key,
-			Details: fmt.Sprintf(
+		diags = append(diags, entity.Warn(
+			"Performance",
+			setting.Key,
+			fmt.Sprintf(
 				"the kernel holds %s but the drop-in declares %s: something changed it after the run, and the next boot restores the declared value",
 				assignment.Live, assignment.Boot),
-			FixHint: "run 'envctl run performance' to re-apply the declared value",
-		})
+			"run 'envctl run performance' to re-apply the declared value",
+		))
 	}
 	return diags
 }
@@ -258,14 +244,13 @@ func (uc *DoctorAuditUseCase) auditSysctlIntent(snapshot entity.PerformanceSnaps
 			// Reported rather than skipped. An audit that silently gives up is
 			// indistinguishable from an audit that found nothing, which is the
 			// failure mode this check exists to remove.
-			addDiag(entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Performance",
-				Target:   "sysctl",
-				Details: fmt.Sprintf(
+			addDiag(entity.Warn(
+				"Performance",
+				"sysctl",
+				fmt.Sprintf(
 					"the memory tier could not be resolved, so the sysctl intent was not audited: %v", tierErr),
-				FixHint: "check the profile's tiers in manifests/performance_ubuntu.yaml",
-			})
+				"check the profile's tiers in manifests/performance_ubuntu.yaml",
+			))
 			return
 		}
 		tier = selected

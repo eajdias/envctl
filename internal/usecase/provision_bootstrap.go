@@ -7,11 +7,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
@@ -20,8 +22,8 @@ import (
 // (gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd).
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
-	fsManager    repository.FileSystemManager
-	manifestRepo repository.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
+	manifestRepo *embedded.ManifestRepository
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 }
@@ -32,7 +34,7 @@ type BootstrapResult struct {
 }
 
 // NewProvisionBootstrapUseCase builds the Linux toolchain bootstrap use case.
-func NewProvisionBootstrapUseCase(fsManager repository.FileSystemManager, manifestRepo repository.ManifestRepository, managers map[entity.PackageType]repository.PackageManager, logger repository.Logger) *ProvisionBootstrapUseCase {
+func NewProvisionBootstrapUseCase(fsManager *filesystem.FileSystemManager, manifestRepo *embedded.ManifestRepository, managers map[entity.PackageType]repository.PackageManager, logger repository.Logger) *ProvisionBootstrapUseCase {
 	return &ProvisionBootstrapUseCase{fsManager: fsManager, manifestRepo: manifestRepo, managers: managers, logger: logger}
 }
 
@@ -47,43 +49,18 @@ func (uc *ProvisionBootstrapUseCase) userHome() string {
 // user-local binaries (~/.local/bin) available on PATH, without mutating the
 // process environment.
 func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
-	return linuxToolchainEnv(uc.userHome())
-}
-
-// linuxToolchainEnv builds an environment that resolves Volta shims,
-// user-local binaries and Go, shared by the bootstrap and doctor use cases.
-func linuxToolchainEnv(home string) []string {
-	openCodeBin := filepath.Join(home, ".opencode", "bin")
-	localBin := filepath.Join(home, ".local", "bin")
-	voltaBin := filepath.Join(home, ".volta", "bin")
-	goBin := "/usr/local/go/bin"
-	userGoBin := filepath.Join(home, "go", "bin")
-	path := strings.Join([]string{openCodeBin, localBin, voltaBin, goBin, userGoBin, os.Getenv("PATH")}, string(os.PathListSeparator))
-	env := []string{
-		"PATH=" + path,
-		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
-		"GOPATH=" + filepath.Join(home, "go"),
-	}
-	for _, kv := range os.Environ() {
-		key := kv[:strings.IndexByte(kv, '=')]
-		if key == "PATH" || key == "VOLTA_HOME" {
-			continue
-		}
-		env = append(env, kv)
-	}
-	return env
+	return executil.ToolchainEnv(uc.userHome())
 }
 
 // toolAvailable reports whether a binary resolves on the platform PATH. On
-// Linux it additionally resolves Volta shims (~/.volta/bin) and user-local
-// binaries (~/.local/bin), which are not part of the process PATH.
-func toolAvailable(ctx context.Context, name string) bool {
+// Linux it additionally resolves the toolchain dirs, which are not part of a
+// non-login process PATH. Filesystem lookup replaces the previous
+// `bash -lc "command -v"` spawn: same verdict for binary names, no subshell.
+func toolAvailable(name string) bool {
 	if runtime.GOOS == "linux" {
 		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			//nolint:gosec // G204: name is a manifest-declared tool name, not user input.
-			c := exec.CommandContext(ctx, "bash", "-lc", "command -v "+name+" >/dev/null 2>&1")
-			c.Env = linuxToolchainEnv(home)
-			return c.Run() == nil
+			_, err := executil.LookPathIn(executil.ToolchainPath(home), name)
+			return err == nil
 		}
 	}
 	_, err := exec.LookPath(name)
@@ -98,14 +75,10 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	if home == "" {
 		return
 	}
-	openCodeBin := filepath.Join(home, ".opencode", "bin")
-	localBin := filepath.Join(home, ".local", "bin")
-	voltaBin := filepath.Join(home, ".volta", "bin")
-	goBin := "/usr/local/go/bin"
-	userGoBin := filepath.Join(home, "go", "bin")
+	dirs := executil.ToolchainDirs(home)
 	cur := os.Getenv("PATH")
-	if !strings.Contains(cur, openCodeBin) || !strings.Contains(cur, localBin) || !strings.Contains(cur, voltaBin) {
-		os.Setenv("PATH", strings.Join([]string{openCodeBin, localBin, voltaBin, goBin, userGoBin, cur}, string(os.PathListSeparator)))
+	if !strings.Contains(cur, dirs[0]) || !strings.Contains(cur, dirs[1]) || !strings.Contains(cur, dirs[2]) {
+		os.Setenv("PATH", strings.Join(append(dirs, cur), string(os.PathListSeparator)))
 	}
 	if os.Getenv("VOLTA_HOME") == "" {
 		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
@@ -138,62 +111,46 @@ func (uc *ProvisionBootstrapUseCase) hasTool(ctx context.Context, name string) b
 	return err == nil
 }
 
-// configStep applies a configuration write whose idempotency is decided by a
-// check command rather than by a binary lookup.
-//
-// step() cannot model this: it guards on `command -v <name>`, and a config
-// write has no binary to look for. The Go PATH step used a placeholder name
-// ("shell-path") to get through that guard, so hasTool always answered false
-// and every run reported "installed" even though the script's own grep made the
-// write a no-op. A label that lies is worse than a slow check: the run log is
-// the evidence the idempotency review reads.
-func (uc *ProvisionBootstrapUseCase) configStep(ctx context.Context, result *BootstrapResult, target, doneCheck, writeScript string) {
-	// The exit status is the whole contract. Requiring the check to also print
-	// something inverted it: a check that correctly answered "already done" and
-	// said so quietly was treated as "not done", so the write ran on every run
-	// and the step reported "Written" on a profile that never changed.
-	if _, err := uc.runShellStdout(ctx, doneCheck); err == nil {
-		uc.logger.LogIdempotency("LinuxBootstrap", target, true, "already present")
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
-			Details: "Already present in the shell profiles",
-		})
+// ensureStep runs script unless installed() already holds, recording the
+// done/applied diagnostics with the caller's wording. Tool installs and
+// config writes report different states honestly ("installed" vs "present"),
+// so the wording stays at the call edge while the predicate, the script
+// runner and the idempotency log are shared. Either predicate shape fits:
+// a binary lookup (hasTool) or a check command (doneCheck) — both answer
+// "is there anything to do", which is all the runner needs.
+func (uc *ProvisionBootstrapUseCase) ensureStep(ctx context.Context, result *BootstrapResult, target string, installed func() bool, script, doneDetails, appliedDetails string) {
+	if installed() {
+		uc.logger.LogIdempotency("LinuxBootstrap", target, true, doneDetails)
+		result.Diagnostics = append(result.Diagnostics, entity.OK(
+			"LinuxBootstrap",
+			target,
+			doneDetails,
+		))
 		return
 	}
 
-	if err := uc.installStep(ctx, result, nameAlreadyPresent(target), target, writeScript); err != nil {
+	if err := uc.installStep(ctx, result, target, target, script); err != nil {
 		return
 	}
-	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "written")
-	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
-		Details: "Written to the shell profiles",
-	})
+	uc.logger.LogIdempotency("LinuxBootstrap", target, false, appliedDetails)
+	result.Diagnostics = append(result.Diagnostics, entity.OK(
+		"LinuxBootstrap",
+		target,
+		appliedDetails,
+	))
 }
-
-// nameAlreadyPresent keeps installStep's failure diagnostic readable: a config
-// write has no tool name, and "shell-path" would be a fiction in the log.
-func nameAlreadyPresent(target string) string { return "config" }
 
 // step installs a tool when missing, or reports it as already available.
 func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *BootstrapResult, name, target, installScript string) {
-	if uc.hasTool(ctx, name) {
-		uc.logger.LogIdempotency("LinuxBootstrap", target, true, "already installed")
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
-			Details: "Already installed and available on PATH",
-		})
-		return
-	}
+	uc.ensureStep(ctx, result, target, func() bool { return uc.hasTool(ctx, name) },
+		installScript, "Already installed and available on PATH", "Installed successfully")
+}
 
-	if err := uc.installStep(ctx, result, name, target, installScript); err != nil {
-		return
-	}
-	uc.logger.LogIdempotency("LinuxBootstrap", target, false, "installed successfully")
-	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-		Category: entity.DiagOK, System: "LinuxBootstrap", Target: target,
-		Details: "Installed successfully",
-	})
+// configStep applies a configuration write whose idempotency is decided by a
+// check command rather than by a binary lookup.
+func (uc *ProvisionBootstrapUseCase) configStep(ctx context.Context, result *BootstrapResult, target, doneCheck, writeScript string) {
+	uc.ensureStep(ctx, result, target, func() bool { _, err := uc.runShellStdout(ctx, doneCheck); return err == nil },
+		writeScript, "Already present in the shell profiles", "Written to the shell profiles")
 }
 
 // installStep runs an installer and records only its failure. Callers that
@@ -208,10 +165,12 @@ func (uc *ProvisionBootstrapUseCase) installStep(ctx context.Context, result *Bo
 			msg += ": " + out
 		}
 		uc.logger.Error("LinuxBootstrap: failed to install %s: %s", target, msg)
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: target,
-			Details: msg, FixHint: "Run the install command manually as your user",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.Warn(
+			"LinuxBootstrap",
+			target,
+			msg,
+			"Run the install command manually as your user",
+		))
 	}
 	return err
 }
@@ -225,28 +184,18 @@ func (uc *ProvisionBootstrapUseCase) ensureOpenCodeV2(ctx context.Context, resul
 	source := installSource("opencode")
 	pacmanOwns := uc.pacmanOwnsOpenCode(ctx)
 
-	for pacmanOwns && source != sourceSystem {
-		path, err := resolveOnToolchainPath("opencode")
-		if err != nil {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
-				Details: fmt.Sprintf("could not locate the user-local binary to archive: %v", err),
-				FixHint: "Move the stale user-local opencode binary aside, then run bootstrap again",
-			})
-			return
-		}
-		backup, err := archiveUserOpenCode(path)
-		if err != nil {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
-				Details: fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err),
-				FixHint: "Move the stale user-local binary aside, then run bootstrap again",
-			})
-			return
-		}
-		uc.logger.Info("LinuxBootstrap: archived user-local opencode at %s; pacman remains authoritative", backup)
-		installed = uc.toolVersion(ctx, "opencode")
-		source = installSource("opencode")
+	var ok bool
+	installed, source, ok = archiveShadowedUserCopies(ctx,
+		func(format string, args ...any) { uc.logger.Info("LinuxBootstrap: "+format, args...) },
+		"OpenCode CLI", "opencode",
+		"Move the stale user-local opencode binary aside, then run bootstrap again",
+		"Move the stale user-local binary aside, then run bootstrap again",
+		pacmanOwns, installed, source,
+		func(target, details, fixHint string) {
+			result.Diagnostics = append(result.Diagnostics, entity.Warn("LinuxBootstrap", target, details, fixHint))
+		})
+	if !ok {
+		return
 	}
 
 	if versionMajorAtLeast(installed, 2) {
@@ -254,10 +203,11 @@ func (uc *ProvisionBootstrapUseCase) ensureOpenCodeV2(ctx context.Context, resul
 			return
 		}
 		uc.logger.LogIdempotency("LinuxBootstrap", "OpenCode CLI", true, "already installed")
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "OpenCode CLI",
-			Details: fmt.Sprintf("OpenCode %s is already installed and available on PATH", printableVersion(installed)),
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.OK(
+			"LinuxBootstrap",
+			"OpenCode CLI",
+			fmt.Sprintf("OpenCode %s is already installed and available on PATH", printableVersion(installed)),
+		))
 		return
 	}
 
@@ -276,21 +226,23 @@ func (uc *ProvisionBootstrapUseCase) ensureOpenCodeV2(ctx context.Context, resul
 	after := uc.toolVersion(ctx, "opencode")
 	source = installSource("opencode")
 	if !versionMajorAtLeast(after, 2) {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
-			Details: fmt.Sprintf("installer completed but OpenCode %s was not verified", printableVersion(after)),
-			FixHint: "Run 'curl -fsSL https://opencode.ai/v2/install | bash' and verify 'opencode --version'",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.Warn(
+			"LinuxBootstrap",
+			"OpenCode CLI",
+			fmt.Sprintf("installer completed but OpenCode %s was not verified", printableVersion(after)),
+			"Run 'curl -fsSL https://opencode.ai/v2/install | bash' and verify 'opencode --version'",
+		))
 		return
 	}
 	if source != sourceSystem && !uc.ensureOpenCodeShellPath(ctx, result) {
 		return
 	}
 	uc.logger.LogIdempotency("LinuxBootstrap", "OpenCode CLI", false, "installed successfully")
-	result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-		Category: entity.DiagOK, System: "LinuxBootstrap", Target: "OpenCode CLI",
-		Details: fmt.Sprintf("Installed/updated OpenCode %s", printableVersion(after)),
-	})
+	result.Diagnostics = append(result.Diagnostics, entity.OK(
+		"LinuxBootstrap",
+		"OpenCode CLI",
+		fmt.Sprintf("Installed/updated OpenCode %s", printableVersion(after)),
+	))
 }
 
 func (uc *ProvisionBootstrapUseCase) pacmanManagerAvailable(ctx context.Context) bool {
@@ -310,19 +262,21 @@ func (uc *ProvisionBootstrapUseCase) pacmanOwnsOpenCode(ctx context.Context) boo
 func (uc *ProvisionBootstrapUseCase) installPacmanOpenCode(ctx context.Context, result *BootstrapResult) bool {
 	mgr, ok := uc.managers[entity.PackageTypePacman]
 	if !ok || !mgr.IsAvailable(ctx) {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
-			Details: "pacman is required for the distro-owned opencode package but is unavailable",
-			FixHint: "Restore pacman, then run bootstrap again",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.Warn(
+			"LinuxBootstrap",
+			"OpenCode CLI",
+			"pacman is required for the distro-owned opencode package but is unavailable",
+			"Restore pacman, then run bootstrap again",
+		))
 		return false
 	}
 	if err := mgr.Install(ctx, entity.Package{ID: "opencode", Type: entity.PackageTypePacman}); err != nil {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI",
-			Details: fmt.Sprintf("pacman could not install/update opencode: %v", err),
-			FixHint: "Run 'envctl run pacman' to install or update opencode",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.Warn(
+			"LinuxBootstrap",
+			"OpenCode CLI",
+			fmt.Sprintf("pacman could not install/update opencode: %v", err),
+			"Run 'envctl run pacman' to install or update opencode",
+		))
 		return false
 	}
 	return true
@@ -331,22 +285,15 @@ func (uc *ProvisionBootstrapUseCase) installPacmanOpenCode(ctx context.Context, 
 func (uc *ProvisionBootstrapUseCase) ensureOpenCodeShellPath(ctx context.Context, result *BootstrapResult) bool {
 	out, err := uc.runShell(ctx, openCodePathInstaller)
 	if err != nil {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "OpenCode CLI PATH",
-			Details: fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
-			FixHint: "Run 'envctl run shell' after installing OpenCode",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.Warn(
+			"LinuxBootstrap",
+			"OpenCode CLI PATH",
+			fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
+			"Run 'envctl run shell' after installing OpenCode",
+		))
 		return false
 	}
 	return true
-}
-
-func (uc *ProvisionBootstrapUseCase) toolVersion(ctx context.Context, name string) string {
-	out, err := uc.runShellStdout(ctx, "command -v "+name+" >/dev/null 2>&1 && "+name+" --version")
-	if err != nil {
-		return ""
-	}
-	return firstVersionToken(out)
 }
 
 // Execute provisions the Linux toolchain. On Windows it is a no-op.
@@ -354,10 +301,11 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 	result := &BootstrapResult{}
 
 	if runtime.GOOS != "linux" {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "toolchain bootstrap",
-			Details: "Skipped on Windows (toolchain provisioned via winget/volta packages)",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.OK(
+			"LinuxBootstrap",
+			"toolchain bootstrap",
+			"Skipped on Windows (toolchain provisioned via winget/volta packages)",
+		))
 		return result, nil
 	}
 
@@ -385,16 +333,18 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 		out, err := uc.runShell(ctx, "volta install "+nodeSpec+" pnpm")
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: volta install failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Node.js + pnpm",
-				Details: fmt.Sprintf("volta install failed: %v (%s)", err, out),
-				FixHint: "Run 'volta install " + nodeSpec + " pnpm' manually",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"Node.js + pnpm",
+				fmt.Sprintf("volta install failed: %v (%s)", err, out),
+				"Run 'volta install "+nodeSpec+" pnpm' manually",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Node.js + pnpm",
-				Details: "Provisioned via Volta (" + nodeSpec + ")",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"Node.js + pnpm",
+				"Provisioned via Volta ("+nodeSpec+")",
+			))
 		}
 	}
 
@@ -413,16 +363,18 @@ for f in "$HOME/.bashrc" "$HOME/.profile"; do
 done`)
 		if err != nil {
 			uc.logger.Warn("LinuxBootstrap: failed to add Volta to shell rc files: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Volta shell integration",
-				Details: fmt.Sprintf("failed to append Volta exports to ~/.bashrc/~/.profile: %v (%s)", err, out),
-				FixHint: "Append 'export VOLTA_HOME=$HOME/.volta' and 'export PATH=$VOLTA_HOME/bin:$PATH' to ~/.bashrc",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"Volta shell integration",
+				fmt.Sprintf("failed to append Volta exports to ~/.bashrc/~/.profile: %v (%s)", err, out),
+				"Append 'export VOLTA_HOME=$HOME/.volta' and 'export PATH=$VOLTA_HOME/bin:$PATH' to ~/.bashrc",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Volta shell integration",
-				Details: "Volta exports ensured in ~/.bashrc and ~/.profile",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"Volta shell integration",
+				"Volta exports ensured in ~/.bashrc and ~/.profile",
+			))
 		}
 	}
 
@@ -446,16 +398,18 @@ ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
 bunx @playwright/cli@latest install-browser chromium`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: playwright install-browser failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "Playwright CLI browsers",
-				Details: fmt.Sprintf("install-browser chromium failed: %v (%s)", err, out),
-				FixHint: "Run 'bunx @playwright/cli@latest install-browser chromium' manually",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"Playwright CLI browsers",
+				fmt.Sprintf("install-browser chromium failed: %v (%s)", err, out),
+				"Run 'bunx @playwright/cli@latest install-browser chromium' manually",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "Playwright CLI browsers",
-				Details: "Playwright browsers provisioned via CLI installer (~/.cache/ms-playwright)",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"Playwright CLI browsers",
+				"Playwright browsers provisioned via CLI installer (~/.cache/ms-playwright)",
+			))
 		}
 	}
 
@@ -511,16 +465,18 @@ curl -LsSf https://astral.sh/uv/install.sh | sh`)
 		out, err := uc.runShell(ctx, `"$HOME/.local/bin/uv" tool install ruff`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: uv tool install ruff failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "ruff",
-				Details: fmt.Sprintf("uv tool install ruff failed: %v (%s)", err, out),
-				FixHint: "Run 'uv tool install ruff' manually",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"ruff",
+				fmt.Sprintf("uv tool install ruff failed: %v (%s)", err, out),
+				"Run 'uv tool install ruff' manually",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "ruff",
-				Details: "Installed successfully via uv",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"ruff",
+				"Installed successfully via uv",
+			))
 		}
 	}
 
@@ -542,21 +498,24 @@ fi
 if [ -n "$FDFIND" ] && [ ! -e "$HOME/.local/bin/fd" ]; then ln -sf "$FDFIND" "$HOME/.local/bin/fd"; fi`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: fd provisioning failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
-				Details: fmt.Sprintf("fd provisioning failed: %v (%s)", err, out),
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"fd (fdfind symlink)",
+				fmt.Sprintf("fd provisioning failed: %v (%s)", err, out),
+			))
 		} else if uc.hasTool(ctx, "fd") {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
-				Details: "Linked fdfind as fd",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"fd (fdfind symlink)",
+				"Linked fdfind as fd",
+			))
 		} else {
 			uc.logger.Warn("LinuxBootstrap: fd not available, symlink skipped")
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fd (fdfind symlink)",
-				Details: "Skipped (no fd package found; install it with the distro package manager)",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"fd (fdfind symlink)",
+				"Skipped (no fd package found; install it with the distro package manager)",
+			))
 		}
 	}
 
@@ -574,21 +533,24 @@ git clone --depth 1 https://aur.archlinux.org/paru-bin.git "$BUILD/paru-bin" >/d
 cd "$BUILD/paru-bin" && makepkg -si --noconfirm >/dev/null 2>&1`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: paru provisioning failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "paru (AUR helper)",
-				Details: fmt.Sprintf("paru provisioning failed: %v (%s)", err, out),
-				FixHint: "Install paru from your repo or build it from the AUR, then re-run",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"paru (AUR helper)",
+				fmt.Sprintf("paru provisioning failed: %v (%s)", err, out),
+				"Install paru from your repo or build it from the AUR, then re-run",
+			))
 		} else if uc.hasTool(ctx, "paru") {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "paru (AUR helper)",
-				Details: "Installed successfully",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"paru (AUR helper)",
+				"Installed successfully",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "paru (AUR helper)",
-				Details: "Skipped (not an Arch-family host)",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"paru (AUR helper)",
+				"Skipped (not an Arch-family host)",
+			))
 		}
 	}
 
@@ -638,10 +600,11 @@ chmod +x "$HOME/.local/bin/hadolint"
 	// needed, so an up-to-date distro package stays (it also ships the shell
 	// bindings under /usr/share/fzf).
 	if uc.fzfSupportsWalker(ctx) {
-		result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
-			Details: "The installed fzf already provides the built-in directory walker",
-		})
+		result.Diagnostics = append(result.Diagnostics, entity.OK(
+			"LinuxBootstrap",
+			"fzf (built-in directory walker)",
+			"The installed fzf already provides the built-in directory walker",
+		))
 	} else {
 		uc.logger.Info("LinuxBootstrap: installing a current fzf (built-in directory walker)")
 		out, err := uc.runShell(ctx, `set -e
@@ -655,46 +618,22 @@ rm -f /tmp/envctl-fzf.tgz /tmp/fzf
 "$HOME/.local/bin/fzf" --version`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: fzf install failed: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
-				Details: fmt.Sprintf("fzf install failed: %v (%s)", err, out),
-				FixHint: "install a fzf >= 0.47 manually (it replaced the `find` fallback with a built-in walker)",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				"fzf (built-in directory walker)",
+				fmt.Sprintf("fzf install failed: %v (%s)", err, out),
+				"install a fzf >= 0.47 manually (it replaced the `find` fallback with a built-in walker)",
+			))
 		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK, System: "LinuxBootstrap", Target: "fzf (built-in directory walker)",
-				Details: "Installed current fzf via release tarball",
-			})
+			result.Diagnostics = append(result.Diagnostics, entity.OK(
+				"LinuxBootstrap",
+				"fzf (built-in directory walker)",
+				"Installed current fzf via release tarball",
+			))
 		}
 	}
 
 	return result, nil
-}
-
-// fzfSupportsWalker reports whether the installed fzf provides the built-in
-// directory walker (0.47+).
-func (uc *ProvisionBootstrapUseCase) fzfSupportsWalker(ctx context.Context) bool {
-	out, err := uc.runShellStdout(ctx, `command -v fzf >/dev/null 2>&1 && fzf --version 2>/dev/null | awk '{print $1}'`)
-	if err != nil {
-		return false
-	}
-	return fzfHasWalker(out)
-}
-
-// fzfHasWalker reports whether a "MAJOR.MINOR[.PATCH]" version string is at
-// least 0.47, the release that replaced the `find` fallback with fzf's own
-// directory walker.
-func fzfHasWalker(version string) bool {
-	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
-	if len(parts) < 2 {
-		return false
-	}
-	major, majorErr := strconv.Atoi(parts[0])
-	minor, minorErr := strconv.Atoi(parts[1])
-	if majorErr != nil || minorErr != nil {
-		return false
-	}
-	return major > 0 || minor >= 47
 }
 
 // goPathDoneCheck exits 0 only when goPathInstaller would change nothing, so

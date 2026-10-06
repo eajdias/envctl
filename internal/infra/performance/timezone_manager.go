@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
 // Timezone verification modes.
@@ -20,7 +19,7 @@ const (
 	TimezoneModeEnforce = "enforce"
 )
 
-type timezoneManager struct {
+type TimezoneManager struct {
 	root     string
 	readZone func(context.Context, string, ...string) ([]byte, error)
 	run      commandRunner
@@ -29,7 +28,7 @@ type timezoneManager struct {
 }
 
 // NewTimezoneManager creates the production timezone adapter.
-func NewTimezoneManager() repository.TimezoneManager {
+func NewTimezoneManager() *TimezoneManager {
 	return newTimezoneManager(
 		"/",
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {
@@ -49,13 +48,13 @@ func newTimezoneManager(
 	run commandRunner,
 	now func() time.Time,
 	elevate bool,
-) *timezoneManager {
-	return &timezoneManager{root: root, readZone: readZone, run: run, now: now, elevate: elevate}
+) *TimezoneManager {
+	return &TimezoneManager{root: root, readZone: readZone, run: run, now: now, elevate: elevate}
 }
 
 // Current reports the host's timezone, preferring timedatectl and falling back
 // to /etc/timezone for images where the binary is absent.
-func (m *timezoneManager) Current(ctx context.Context) (string, error) {
+func (m *TimezoneManager) Current(ctx context.Context) (string, error) {
 	if m.readZone != nil {
 		if out, err := m.readZone(ctx, "timedatectl", "show", "-p", "Timezone", "--value"); err == nil {
 			if zone := strings.TrimSpace(string(out)); zone != "" {
@@ -81,72 +80,65 @@ func (m *timezoneManager) Current(ctx context.Context) (string, error) {
 // choice, not a tuning knob: reporting a mismatch as INFO leaves the decision
 // with the operator, while writing it by default would silently change log
 // timestamps and scheduled jobs on production hosts.
-func (m *timezoneManager) Apply(ctx context.Context, spec entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *TimezoneManager) Apply(ctx context.Context, spec entity.TimezoneSpec, dryRun bool) ([]entity.Diagnostic, error) {
 	mode := spec.Mode
 	if mode == "" {
 		mode = TimezoneModeVerify
 	}
 	if mode != TimezoneModeVerify && mode != TimezoneModeEnforce {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Timezone",
-			Target:   "timezone",
-			Details:  fmt.Sprintf("unknown timezone mode %q; use %q or %q", mode, TimezoneModeVerify, TimezoneModeEnforce),
-		}}, fmt.Errorf("unknown timezone mode %q", mode)
+		return []entity.Diagnostic{entity.Error(
+			"Timezone",
+			"timezone",
+			fmt.Sprintf("unknown timezone mode %q; use %q or %q", mode, TimezoneModeVerify, TimezoneModeEnforce),
+		)}, fmt.Errorf("unknown timezone mode %q", mode)
 	}
 	if strings.TrimSpace(spec.Expected) == "" {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Timezone",
-			Target:   "timezone",
-			Details:  "no expected timezone is declared",
-		}}, fmt.Errorf("no expected timezone is declared")
+		return []entity.Diagnostic{entity.Error(
+			"Timezone",
+			"timezone",
+			"no expected timezone is declared",
+		)}, fmt.Errorf("no expected timezone is declared")
 	}
 
 	current, err := m.Current(ctx)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Timezone",
-			Target:   "timezone",
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Timezone",
+			"timezone",
+			err.Error(),
+		)}, err
 	}
 
 	if current == spec.Expected {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Timezone",
-			Target:   current,
-			Details:  "host timezone matches the declared zone",
-		}}, nil
+		return []entity.Diagnostic{entity.OK(
+			"Timezone",
+			current,
+			"host timezone matches the declared zone",
+		)}, nil
 	}
 
 	if mode == TimezoneModeVerify {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Timezone",
-			Target:   current,
-			Details: fmt.Sprintf("host timezone is %s, declared %s; verify mode does not write (use an explicit enforce to change it)",
+		return []entity.Diagnostic{entity.Info(
+			"Timezone",
+			current,
+			fmt.Sprintf("host timezone is %s, declared %s; verify mode does not write (use an explicit enforce to change it)",
 				current, spec.Expected),
-		}}, nil
+		)}, nil
 	}
 
 	if err := m.validateZone(spec.Expected); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Timezone",
-			Target:   spec.Expected,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Timezone",
+			spec.Expected,
+			err.Error(),
+		)}, err
 	}
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Timezone",
-			Target:   current,
-			Details:  fmt.Sprintf("would set the timezone to %s", spec.Expected),
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Timezone",
+			current,
+			fmt.Sprintf("would set the timezone to %s", spec.Expected),
+		)}, nil
 	}
 
 	if out, err := m.command(ctx, "timedatectl", "set-timezone", spec.Expected); err != nil {
@@ -154,25 +146,23 @@ func (m *timezoneManager) Apply(ctx context.Context, spec entity.TimezoneSpec, d
 		if strings.Contains(detail, "executable file not found") || strings.Contains(detail, "no such file") {
 			detail = "timedatectl is not available on this host; install the tzdata/timedatectl package first"
 		}
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Timezone",
-			Target:   current,
-			Details:  detail,
-		}}, fmt.Errorf("%s", detail)
+		return []entity.Diagnostic{entity.Error(
+			"Timezone",
+			current,
+			detail,
+		)}, fmt.Errorf("%s", detail)
 	}
 
-	return []entity.Diagnostic{{
-		Category: entity.DiagOK,
-		System:   "Timezone",
-		Target:   spec.Expected,
-		Details:  fmt.Sprintf("timezone set from %s", current),
-	}}, nil
+	return []entity.Diagnostic{entity.OK(
+		"Timezone",
+		spec.Expected,
+		fmt.Sprintf("timezone set from %s", current),
+	)}, nil
 }
 
 // validateZone refuses a name the host does not know before the write, so a
 // typo is never reported as a successful change.
-func (m *timezoneManager) validateZone(zone string) error {
+func (m *TimezoneManager) validateZone(zone string) error {
 	// A slash is legal in an IANA name ("Etc/UTC"), so only path traversal and
 	// whitespace are refused here.
 	if zone != strings.TrimSpace(zone) || strings.ContainsAny(zone, " \t\r\n") || strings.Contains(zone, "..") {
@@ -184,7 +174,7 @@ func (m *timezoneManager) validateZone(zone string) error {
 	return nil
 }
 
-func (m *timezoneManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
+func (m *TimezoneManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
 	if m.elevate {
 		return m.run(ctx, "sudo", append([]string{"-n", name}, args...)...)
 	}

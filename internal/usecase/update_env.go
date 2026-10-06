@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"strings"
 )
 
 // NewRealUpdateEnv wires the use case to the actual machine.
@@ -33,45 +32,6 @@ func newRealUpdateEnv() UpdateEnv {
 		uvToolVersion: uvToolVersionOf,
 		goLatest:      goLatestOf,
 	}
-}
-
-// uvToolVersionOf asks uv which version of a tool is installed. `uv tool list`
-// is the supported inventory command; the per-tool line carries the version.
-func uvToolVersionOf(ctx context.Context, tool string) string {
-	out, err := runWithToolchain(ctx, "uv", "tool", "list")
-	if err != nil {
-		return ""
-	}
-	for _, line := range strings.Split(out, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 2 || fields[0] != tool {
-			continue
-		}
-		// A pinned requirement (package==1.2.3) reports the pinned version; an
-		// unpinned tool (package>=1.2.3) reports the resolved one after the "v".
-		rest := strings.TrimPrefix(fields[1], "package")
-		rest = strings.TrimLeft(rest, "<>=!~ ")
-		rest = strings.TrimPrefix(rest, "v")
-		if idx := strings.IndexAny(rest, " \t"); idx > 0 {
-			rest = rest[:idx]
-		}
-		return rest
-	}
-	return ""
-}
-
-// goLatestOf resolves the latest released version of a Go module. `go list -m`
-// against the module proxy answers without touching the working tree.
-func goLatestOf(module string) string {
-	path := module
-	if idx := strings.LastIndex(module, "@"); idx >= 0 {
-		path = module[:idx]
-	}
-	out, err := runWithToolchain(context.Background(), "go", "list", "-m", "-f", "{{.Version}}", path+"@latest")
-	if err != nil {
-		return ""
-	}
-	return firstVersionToken(out)
 }
 
 // installedVersionOn and npmLatestOn adapt the shared package-level helpers to

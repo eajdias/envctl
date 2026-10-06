@@ -7,15 +7,14 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type journaldManager struct {
+type JournaldManager struct {
 	writer *dropinWriter
 }
 
 // NewJournaldManager creates the production journald drop-in adapter.
-func NewJournaldManager() repository.JournaldManager {
+func NewJournaldManager() *JournaldManager {
 	return newJournaldManager(newDropinWriter(
 		defaultJournaldDropin,
 		func(ctx context.Context, name string, args ...string) ([]byte, error) {
@@ -26,8 +25,8 @@ func NewJournaldManager() repository.JournaldManager {
 	))
 }
 
-func newJournaldManager(writer *dropinWriter) *journaldManager {
-	return &journaldManager{writer: writer}
+func newJournaldManager(writer *dropinWriter) *JournaldManager {
+	return &JournaldManager{writer: writer}
 }
 
 // Apply installs the journald drop-in and restarts the service.
@@ -36,42 +35,38 @@ func newJournaldManager(writer *dropinWriter) *journaldManager {
 // restart preserves the stream connections the service manager holds, and that
 // stopping the service is explicitly not recommended. An SSH session that is
 // mid-command would otherwise lose its output stream.
-func (m *journaldManager) Apply(ctx context.Context, spec entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *JournaldManager) Apply(ctx context.Context, spec entity.JournaldSpec, dryRun bool) ([]entity.Diagnostic, error) {
 	content, err := renderJournaldConfig(spec)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.writer.destination,
+			err.Error(),
+		)}, err
 	}
 
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  fmt.Sprintf("would write %d journald setting(s) to %s", len(spec.Values), m.writer.destination),
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			m.writer.destination,
+			fmt.Sprintf("would write %d journald setting(s) to %s", len(spec.Values), m.writer.destination),
+		)}, nil
 	}
 
 	changed, backup, err := m.writer.Install(content, 0o644, false)
 	if err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.writer.destination,
+			err.Error(),
+		)}, err
 	}
 	if !changed {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  "journald drop-in already up to date",
-		}}, nil
+		return []entity.Diagnostic{entity.OK(
+			"Performance",
+			m.writer.destination,
+			"journald drop-in already up to date",
+		)}, nil
 	}
 
 	if out, err := m.writer.command(ctx, "systemctl", "restart", journaldService); err != nil {
@@ -79,24 +74,22 @@ func (m *journaldManager) Apply(ctx context.Context, spec entity.JournaldSpec, d
 		if backup != "" {
 			detail += "; backup=" + backup
 		}
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   m.writer.destination,
-			Details:  detail,
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			m.writer.destination,
+			detail,
+		)}, err
 	}
 
 	detail := "journald drop-in applied"
 	if backup != "" {
 		detail = fmt.Sprintf("journald drop-in applied (backup=%s)", backup)
 	}
-	return []entity.Diagnostic{{
-		Category: entity.DiagOK,
-		System:   "Performance",
-		Target:   m.writer.destination,
-		Details:  detail,
-	}}, nil
+	return []entity.Diagnostic{entity.OK(
+		"Performance",
+		m.writer.destination,
+		detail,
+	)}, nil
 }
 
 // allowedJournaldKeys is the set of size/retention knobs this tool manages.

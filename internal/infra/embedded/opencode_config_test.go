@@ -37,7 +37,6 @@ func hasPermission(permissions []openCodeTemplatePermission, action, resource, e
 func TestOpenCodeConfigTemplates(t *testing.T) {
 	for _, path := range []string{
 		"configs/opencode.json",
-		"configs/opencode.linux.json",
 	} {
 		t.Run(path, func(t *testing.T) {
 			data, err := envctl.EmbeddedFS.ReadFile(path)
@@ -109,7 +108,6 @@ func TestOpenCodeConfigTemplates(t *testing.T) {
 func TestOpenCodeDispatchableAgentsAreBounded(t *testing.T) {
 	for _, path := range []string{
 		"configs/opencode.json",
-		"configs/opencode.linux.json",
 	} {
 		t.Run(path, func(t *testing.T) {
 			data, err := envctl.EmbeddedFS.ReadFile(path)
