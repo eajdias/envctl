@@ -3,11 +3,11 @@
 # Resolves node + pw.cjs next to this shim so no PATH dependency exists.
 BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
 if command -v node >/dev/null 2>&1; then
-  NODE_BIN=node
+	NODE_BIN=node
 elif [ -x "$HOME/.local/share/mise/shims/node" ]; then
-  NODE_BIN="$HOME/.local/share/mise/shims/node"
+	NODE_BIN="$HOME/.local/share/mise/shims/node"
 else
-  echo "pw: node not found in PATH nor ~/.local/share/mise/shims" >&2
-  exit 127
+	echo "pw: node not found in PATH nor ~/.local/share/mise/shims" >&2
+	exit 127
 fi
 exec "$NODE_BIN" "$BIN_DIR/pw.cjs" "$@"
