@@ -19,7 +19,7 @@ implementável e verificável; o resto fica adiado com o motivo.
 | 1 | PR #70 merged (`branches-ignore` no branch do release-please) | checks 4/4, `c41eb29` |
 | 2 | PR #71 merged: Taskfile.yml removido (duplicava o Makefile; Windows-oriented: buildava `envctl.exe` até no Linux) | `9a643f1` |
 | 3 | PR #72 merged: gofmt dos 12 arquivos do advisory do gate | `999b73a` |
-| 4 | A futura saída do **Volta** será **fnm + npm** — não mise (decisão registrada; ver §6) | análise da sessão |
+| 4 | A saída do **Volta** foi **mise + npm** (decisão fnm revista com fontes; ver §6 e `2026-10-06-volta-to-mise.md`) | análise + docs oficiais + validação viva |
 | 5 | CI/CD atual avaliado: **já enxuto** (3 workflows, papéis limpos, least-privilege, paths filter). A simplificação restante é o goreleaser (§3) + higiene de CI sem risco de release (§3c) | `docs/os-and-agent-matrix.md` §1 |
 | 6 | Verificação SPEC×código (2026-10-05): medições confirmadas com correções (§2) + fases novas 1c/1d/2g–2j/6 a partir dos gaps encontrados | análise + medição direta |
 
@@ -853,30 +853,25 @@ fantasmas), resto em qualquer ordem. Verificação: `rg` dos campos fantasmas
 vazio + `*_test.go` de embedded verdes.
 **Breaking changes:** nenhuma (só texto).
 
-## 6. Fase 4 — Volta → fnm + npm (quando sair)
+## 6. Fase 4 — Volta → mise + npm (FEITA 2026-10-06, ver `2026-10-06-volta-to-mise.md`)
 
-**Decisão da sessão:** **fnm, não mise** — mise é framework poliglota (133MB,
-`activate` ~4ms/prompt, backend `npm:` com `aube`/trust/lockfile) que
-sobrepõe o que o envctl já cobre com pacman+uv+go. O volta tá EOL
-(nov/2025, banner unmaintained, mantenedores recomendam mise) mas funciona —
-sem urgência.
+**Decisão revista:** a sessão antiga dizia "fnm, não mise" (com números não
+verificados como "133MB"); a reanálise com fontes (volta EOL oficial 2025-11-14
+recomendando mise + docs de trust do mise) + o requisito de shell não-login
+(shims funcionam sem login shell, `fnm env` não) virou para **mise (runtimes) +
+npm existente (globals)**. Escopo fechado: uv, pacman/apt/winget e tasks do
+mise ficaram de fora.
 
-**Tarefas (spec dedicada quando disparar; esta só registra o rumo):**
-- [ ] `manifests/packages.yaml`: `node@24.19.0` sai de `type: volta` →
-      runtime via fnm (novo install_type ou bootstrap step); os 14 npm
-      globals migram `type: volta` → `type: npm` (o `NpmManager` já existe,
-      `toolchain_managers.go:104`, com `--prefix ~/.local`, sem sudo)
-- [ ] fase 0 (`provision_providers.go`): `ensureVolta` morre;
-      `ensureNodeRuntime` vira fnm; `command-code` vira npm global
-      (`npm i -g command-code@latest` = canal oficial da doc do CommandCode)
-- [ ] `update.go`: `GroupVolta` → grupo npm (`npm install -g pkg@latest`)
-- [ ] `toolchain_managers.go:25`: PATH `~/.volta/bin` → fnm multishell
-- [ ] matriz + docs §1/§5 + `Volta.Volta` winget + testes
-      (`update_test.go`, `provision_providers_test.go`)
-
-**Critério de disparo:** volta quebrar num update de OS/Node (o motivo EOL), ou
-o `cmdc update` nativo voltar a ser exigido (hoje o conflito self-updater x
-volta é contornado pelo `envctl update`).
+**Executado (M1–M9, tudo no plano dedicado):**
+- [x] `manifests/packages.yaml`: `node@24.19.0` → `type: mise`; 7 globals +
+      `command-code` → `type: npm`; `lsp.yaml`: 11 `install_type` → `npm`;
+      `Volta.Volta` winget → `jdx.mise`
+- [x] fase 0 (`provision_providers.go`): `ensureVolta` → `ensureMise`;
+      `ensureNodeRuntime` via `mise which/use -g`; `command-code` via npm global
+- [x] `update.go`: `GroupVolta` → `GroupMise` + `GroupNpm` (prefix exportado)
+- [x] `toolchain.go`: PATH `~/.volta/bin` → shims `~/.local/share/mise/shims`; tarball Go → `mise use -g go@latest`
+- [x] matriz + docs + testes; `volta_manager` deletado; validação viva na homolog
+      (`run vps` convergiu, `update --only npm` moveu 5 tools, 0 falhas)
 
 ## 7. Fase 5 — Rotina de teste multi-OS (gate de release)
 
