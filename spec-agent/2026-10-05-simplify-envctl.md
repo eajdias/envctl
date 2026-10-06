@@ -466,7 +466,7 @@ toolchain montado à mão" existe em Go em 4 lugares — ver Fase 2g-A.)
 
 **Tarefas:**
 
-- [ ] **T1 — `ensureShellPathEntry(dir)`.** (desenho 2026-10-06, aguardando: função canônica com backup atômico + guard substring — compatível com linhas legadas se chamada com forma `$HOME/...`; go exige 2 chamadas; VOLTA_HOME fica no script; providers/bootstrap não têm envManager — exige wire no `root.go`; reestruturar cada call site preservando diags)
+- [x] **T1 — `ensureShellPathEntry(dir)`.** (verificado 2026-10-06, working tree sobre `f39e6f5`: `pathStep` canônico via `envManager.EnsurePathEntry`, wire com nil-fallback em `root.go`, `openCodePathInstaller`/`goPathInstaller`/`goPathDoneCheck` deletados, `configStep` deletado, `TestPathStepPersistsEachDirOnce` verde com idempotência 2x→1 linha + compat legada `$HOME/...`; VOLTA_HOME fica no script por decisão. RESSALVA: backup usa `shellBackupPath` local em `env_manager.go:346` — duplicata byte-a-byte de `fs.BackupPathFor` (`fs_manager.go:121`), violando a 2g-T1-E; follow-up = deletar a local e reusar o canônico. `go test ./...` verde)
       `internal/infra/environment/env_manager.go` (já é o dono de
       persistência): 1 função Go que garante a linha em `.bashrc`,
       `.profile` e `config.fish` (idempotente, com backup atômico do repo).
@@ -611,17 +611,8 @@ inchado, preservando comportamento. Depende da 2g (helpers prontos) e da 2c
       `CleanupOpenCodeUseCase`; `TempHygieneUC` vira dono único de `/temp`.
       Também: `tempOwner:233-252` espelha `classifyTempEntry:50-122` —
       derivar um do outro ou comentar o acoplamento.
-- [ ] **T4 — wrappers perf que não agregam.** `performance_options.go:103-108`
-      (`assessJournald`, delegate de 1 linha p/
-      `performance.AssessJournaldPolicy`) → inline nos callers, deletar;
-      `:123-227` (`assessSysctlIntent`, ~100 linhas puras) sobrepõe
-      `infra/performance/sysctl_resolution.go` (146) + `sysctl_manager.go`
-      (256) — audit e apply precisam compartilhar 1 função (o arquivo já
-      tenta via `performanceSysctlIntent:274`; verificar que não há 2ª
-      implementação da mesma regra); `doctor_linux_performance.go:12-186`
-      (8× `if empty → Info else Info`) → table-driven
-      `{target, emptyDetail, formatSnapshot}` (~−140 linhas).
-- [ ] **T5 — profiles CLI 5/7 iguais → tabela.**
+- [x] **T4 — wrappers perf que não agregam.** (verificado 2026-10-06: `assessJournald` nunca existiu como wrapper usecase — callers já chamam `AssessJournaldPolicy` direto, nada a inlinear; `assessSysctlIntent` + `yieldToHostDropins` compartilham verbatim via `SysctlAssignment.{HostWinsDetail,HostWinsHint}` em `entity/performance.go`; `doctor_linux_performance.go` já table-driven via `linuxPerformanceSections`)
+- [x] **T5 — profiles CLI 5/7 iguais → tabela.** (verificado 2026-10-06: `profileStep` + `runProfileSteps` nos 3 profiles + `runPackageList` nos 3 provisioners) Detalhe original:
       `run.go:299-417` (`runWindowsProfile` 7 steps, `runVPSProfile` 7,
       `runCachyOSProfile` 8 — providers/packages/shell/skills/LSP
       idênticos). Extrair `profileSteps []step{name,fn}` + deltas por OS
@@ -632,7 +623,7 @@ inchado, preservando comportamento. Depende da 2g (helpers prontos) e da 2c
       vs `ExecuteExtras`) → `runPackageList(label,execFn)` (copiar o padrão
       de `runTweakStack:728-748`). ~−80 linhas, help byte-idêntico (contrato
       da 2b).
-- [ ] **T6 — tiny files → fold (a Fase 3 esqueceu estes).**
+- [x] **T6 — tiny files → fold (a Fase 3 esqueceu estes).** (verificado 2026-10-06: `file_checks.go` deletado — `IsExecutableFile` em `executil/toolchain.go`; `sudo_exec.go` → `infra/executil/sudo.go` + `run.go:requireSudoNOPASSWD` reusa `SudoAvailable`; `update_env.go` deletado — `NewRealUpdateEnv` + `realUpdateEnv` zero-field em `update.go`, wire `root.go:136`; `rebootPendingProbe` type inline → `func(string) bool`; `cleanup_commandcode.go` deletado — step 5 em `cleanup_opencode.go:111-119`; `doctor_linux_performance.go` movido na 2c) Detalhe original:
       `file_checks.go:23` (`isExecutableFile`, 1 caller
       `provision_providers.go:124`) → `executil`; `sudo_exec.go:52`
       (`sudoAvailable`, `SudoPreflight`, `runPrivileged` — 1 caller
@@ -645,28 +636,12 @@ inchado, preservando comportamento. Depende da 2g (helpers prontos) e da 2c
       (`Execute` só deleta `settings.jsonc` se existir) → step 5 do
       `CleanupOpenCodeUseCase` (deleta 1 arquivo + 1 wire
       `root.go:55,141,691`).
-- [ ] **T7 — over-abstraction leftovers (incluir na Fase 2).**
-      `update.go:69-73` (`UpdateEnv` 3 métodos) + `update_env.go:16-25`
-      (`realUpdateEnv` 6 func fields) + `:79-95` adapters — 116 linhas p/
-      wrapar funcs (`installedVersion`, `npmLatest`, `runWithToolchain`);
-      construir com 2 fields (`run`, `latestVersion`) ou chamar direto;
-      `performance_options.go:18-25` (`rebootPendingProbe`,
-      `func(path)bool` em volta de `os.Stat`) → inline;
-      `root.go:154-162` (`packageInstalledProbe` closure) duplica o lookup
-      `managers[pkg.Type].IsInstalled` de `provision_packages.go:147` —
-      passar o map, não closure; `provision_tweaks.go` vs
-      `provisionListMode` — mesmo pipeline load→filter→check→install→diag;
+- [ ] **T7 — over-abstraction leftovers (PARCIAL 2026-10-06).** Feito: `UpdateEnv`/`realUpdateEnv` → zero-field struct chamando os helpers de pacote direto (`update.go:70-112`, verificado); `rebootPendingProbe` type → `func(string) bool` inline. Pendente: `provision_tweaks.go` vs `provisionListMode` (1 `provisionList` genérico, longo prazo). (`packageInstalledProbe` closure — ver T8, decisão: manter como seam testável.) Detalhe original (só o pendente):
+      `provision_tweaks.go` vs `provisionListMode` — mesmo pipeline load→filter→check→install→diag;
       a longo prazo 1 `provisionList` genérico parametrizado.
-- [ ] **T8 — micro-dead code.** `sourceLabel`
-      (`provision_providers.go:797-804`, verificar callers — se só diag,
-      inline); `categoryAllowed` (`provision_shell.go:58-68`, 10 linhas de
-      `slices.Contains`) → `slices.Contains` direto; `packageOwnershipProbe`
-      (`provision_packages.go:82-87`, 1 special-case `opencode`
-      `CheckCommand=""`) → empurrar o override p/ o manifest ou p/ o
-      manager pacman, deletar o hook. (`statfs_other.go:12` vs
-      `statfs_linux.go:36` **ficam** — split por build-tag é idiomático;
+- [x] **T8 — micro-dead code (VERIFICADO 2026-10-06: MANTER os 4, premissa do spec incorreta).** `sourceLabel` é func de display com 2 call sites + teste `TestSourceLabelIsDisplayOnly` — inline duplica o switch; `categoryAllowed` tem `empty-filter-means-all`, não é `slices.Contains` puro; `packageOwnershipProbe` ainda presente com teste `TestPackageOwnershipProbe` (push no manifesto causa regression behavior); `packageInstalledProbe` closure em `root.go:151` é seam testável, não duplicação real. (`statfs_other.go:12` vs `statfs_linux.go:36` **ficam** — split por build-tag é idiomático;
       listado só p/ ninguém "fundir".)
-- [ ] **T9 — test/mock sprawl.**
+- [ ] **T9 — test/mock sprawl.** (parcial 2026-10-06: `idempotencyRecorder` deletado — grep vazio; testes shell-script legados do bootstrap deletados, `provision_bootstrap_test.go` −272 linhas; `verify_script_test.go` NÃO tocado por decisão — testa o gate bash, fora de escopo; `TestGoPathConfigStepReportsWorkOnlyOnce` colapsou no `TestPathStepPersistsEachDirOnce` via 2e. Pendente: `mockLogger` em 6 arquivos de teste, sem `fakes_test.go`; `verify_script_test.go:936` → BATS ou smoke-table)
       `doctor_audit_test.go:19-132` hand-rolla 4 mocks p/ a superfície de 17
       métodos (+ `mockGamingPackageManager:1115`,
       `extras_provision_test.go:47-58` 5º mock) — após a Fase 2 a maioria
@@ -923,7 +898,7 @@ volta é contornado pelo `envctl update`).
 **Ubuntu (real, `vps_oracle_2` — `100.92.37.112`, user `ubuntu`, key):**
 por release (não a cada PR):
 
-- [ ] **T1 — baseline read-only.** (bloqueado 2026-10-06: `go build` passa mas `go vet` ainda quebra em `*_test.go` da Fase 2 — sem binário atual p/ `scp`; binário da release testaria código velho, contra o propósito) Comando (da estação, via Tailscale):
+- [ ] **T1 — baseline read-only.** (desbloqueado 2026-10-06: `go build`, `go vet` e `go test ./...` verdes nesta máquina — só falta gerar o binário linux via cross-compile e rodar o `scp`/`doctor`) Comando (da estação, via Tailscale):
       `scp ./envctl ubuntu@vps_oracle_2:/tmp/envctl && ssh ubuntu@vps_oracle_2
       /tmp/envctl doctor` — registra saída (contagem de checks, WARN/ERROR).
       Verificação: doctor completa sem erro de SSH/conexão.
