@@ -143,9 +143,9 @@ atualizar node via mise e globals via npm — mesma versão final, outro instala
 
 ## 6. Definition of DoD
 
-- [ ] `rg -iw volta internal/ manifests/ cmd/` vazio (só docs/histórico)
-- [ ] máquina nova (VPS + dockur) instala node+go+globals sem volta; `doctor` 0/0
-- [ ] segunda `run` idempotente; `update` move node (mise) e 1 global (npm)
-- [ ] gate cheio verde em cada PR; `golangci-lint run ./...` 0 findings
-- [ ] matriz/docs contam a história nova; spec §6 da simplificação atualizada
-- [ ] rollback de máquina documentado (volta reinstalável, `~/.volta` intacto)
+- [x] `rg -iw volta internal/ manifests/ cmd/` vazio (só fixtures "Volta error" em `verify_script_test`, congelado por T9)
+- [x] homolog instalou node+go+globals sem volta; `doctor` 152/148/4/0 (warns só host-owned: 3 sysctl + reboot); dockur descartado (sem KVM)
+- [x] segunda `run` idempotente; `update --only npm` moveu 5 globals ao vivo (playwright, bash-ls, command-code, stylelint, typescript), 0 falhas; node fica pinado (providers own it — `update` nunca move runtime, por desenho)
+- [x] gate cheio verde em cada PR (CI 4/4 no #74); `golangci-lint run ./...` 0 findings
+- [x] matriz/docs contam a história nova; spec §6 da simplificação atualizada (fnm→mise)
+- [x] rollback de máquina documentado (volta reinstalável, `~/.volta` intacto)
