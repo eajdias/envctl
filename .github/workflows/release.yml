@@ -33,83 +33,37 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
+        with:
+          # Full history + tags: goreleaser reads the current tag from git.
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
-          cache: true
-
-      - name: Download Dependencies
-        run: go mod download
+          go-version-file: go.mod
 
       - name: Determine Version
         id: get_version
+        # The two real callers always supply a version (workflow_call passes
+        # tag_name; `release: published` carries release.tag_name), so a single
+        # fallback chain covers both. Fail fast on a manual rebuild of a
+        # non-existent release.
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          elif [ "${{ github.event_name }}" = "release" ]; then
-            VERSION="${{ github.event.release.tag_name }}"
-          else
-            echo "no version provided" >&2; exit 1
-          fi
-          # Fail fast on manual rebuilds of a non-existent release.
+          VERSION="${{ inputs.version || github.event.release.tag_name }}"
           gh release view "$VERSION" >/dev/null
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building Release version: ${VERSION}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build All Targets
+      - name: Build and attach assets with GoReleaser
+        uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          args: release --clean
         env:
-          VERSION: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          mkdir -p dist
-
-          # 1. Windows amd64 & arm64
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-windows-amd64.exe ./cmd/envctl
-          cp dist/envctl-windows-amd64.exe dist/envctl.exe
-          (cd dist && zip -9 envctl-windows-amd64.zip envctl.exe && rm envctl.exe)
-
-          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-windows-arm64.exe ./cmd/envctl
-          cp dist/envctl-windows-arm64.exe dist/envctl.exe
-          (cd dist && zip -9 envctl-windows-arm64.zip envctl.exe && rm envctl.exe)
-
-          # 2. Linux amd64 & arm64
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-linux-amd64 ./cmd/envctl
-          cp dist/envctl-linux-amd64 dist/envctl
-          tar -czf dist/envctl-linux-amd64.tar.gz -C dist envctl
-          rm dist/envctl
-
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w -X 'main.Version=$VERSION'" -o dist/envctl-linux-arm64 ./cmd/envctl
-          cp dist/envctl-linux-arm64 dist/envctl
-          tar -czf dist/envctl-linux-arm64.tar.gz -C dist envctl
-          rm dist/envctl
-
-      - name: Generate SHA256 Checksums
-        run: |
-          cp bootstrap.ps1 bootstrap.sh dist/
-          cd dist
-          sha256sum envctl-windows-amd64.exe envctl-windows-arm64.exe \
-            envctl-windows-amd64.zip envctl-windows-arm64.zip \
-            envctl-linux-amd64 envctl-linux-arm64 \
-            envctl-linux-amd64.tar.gz envctl-linux-arm64.tar.gz \
-            bootstrap.ps1 bootstrap.sh > SHA256SUMS.txt
-
-      - name: Attach Assets to Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.get_version.outputs.VERSION }}
-        run: |
-          gh release upload "$VERSION" --clobber \
-            dist/envctl-windows-amd64.exe \
-            dist/envctl-windows-arm64.exe \
-            dist/envctl-windows-amd64.zip \
-            dist/envctl-windows-arm64.zip \
-            dist/envctl-linux-amd64 \
-            dist/envctl-linux-arm64 \
-            dist/envctl-linux-amd64.tar.gz \
-            dist/envctl-linux-arm64.tar.gz \
-            dist/SHA256SUMS.txt \
-            bootstrap.ps1 \
-            bootstrap.sh
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # release-please owns the tag + release notes; goreleaser only
+          # attaches assets to the existing release (release.mode:
+          # keep-existing + make_latest: false in .goreleaser.yml).
+          GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.VERSION }}

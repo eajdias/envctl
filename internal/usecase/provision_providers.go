@@ -5,29 +5,31 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // ProvisionProvidersUseCase is the "phase 0" preflight: before packages,
 // toolchains or configs, make sure the agent CLIs themselves are present and
 // current, so a fresh machine can reach the agents without a manual step.
 //
-// Policy per tool, learned from the machines this runs on: anything Volta owns
-// is installed and updated through Volta (it resolves the npm latest, so
+// Policy per tool, learned from the machines this runs on: anything npm owns
+// is installed and updated through npm (it resolves the npm latest, so
 // "outdated" and "missing" are the same command). A binary owned by the OS is
 // authoritative: on Arch, an envctl-owned user copy is archived so pacman keeps
 // ownership; on Ubuntu/Debian, a legacy system v1 is the one deliberate
 // exception because it cannot load the V2-native config.
 type ProvisionProvidersUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
+	manifestRepo *embedded.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
+	envManager   *environment.WindowsEnvManager
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 	// latestVersionFn resolves the newest available version of a standalone
@@ -38,14 +40,16 @@ type ProvisionProvidersUseCase struct {
 }
 
 func NewProvisionProvidersUseCase(
-	manifestRepo repository.ManifestRepository,
-	fsManager repository.FileSystemManager,
+	manifestRepo *embedded.ManifestRepository,
+	fsManager *filesystem.FileSystemManager,
+	envManager *environment.WindowsEnvManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *ProvisionProvidersUseCase {
 	return &ProvisionProvidersUseCase{
 		manifestRepo:    manifestRepo,
 		fsManager:       fsManager,
+		envManager:      envManager,
 		managers:        managers,
 		logger:          logger,
 		latestVersionFn: defaultLatestProviderVersion,
@@ -57,14 +61,16 @@ func (uc *ProvisionProvidersUseCase) logInfo(format string, args ...any) {
 	uc.logger.Info(format, args...)
 }
 
-// toolchainEnv builds the environment used for provider probes, so Volta shims
+// toolchainEnv builds the environment used for provider probes, so mise shims
 // resolve even when envctl runs from a non-login shell (ssh, systemd, agent).
+// The directory list lives in executil; this stays a thin wrapper because a
+// Windows process PATH is already complete and must pass through untouched.
 func toolchainEnv() []string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" || runtime.GOOS == "windows" {
 		return os.Environ()
 	}
-	return linuxToolchainEnv(home)
+	return executil.ToolchainEnv(home)
 }
 
 // runWithToolchain runs a command against the toolchain PATH and returns its
@@ -80,14 +86,14 @@ func runWithToolchain(ctx context.Context, name string, args ...string) (string,
 // PROCESS PATH at construction time, so assigning cmd.Env afterwards never
 // affects which executable runs. A non-login shell (ssh, systemd, an agent) has
 // a minimal process PATH, so a tool the profile had just installed into
-// ~/.volta/bin was reported as "executable file not found in $PATH". That made
+// ~/.local/share/mise/shims was reported as "executable file not found in $PATH". That made
 // the Node runtime and the CommandCode CLI fail on a freshly provisioned VPS and
 // forced a second `run all` to converge.
 func runWithToolchainEnv(ctx context.Context, env []string, name string, args ...string) (string, error) {
 	// Fall back to the bare name so a genuinely absent tool still produces the
 	// familiar error from exec, naming the binary the operator expects.
 	resolved := name
-	if path, err := lookPathInEnv(name, pathValueFromEnv(env)); err == nil {
+	if path, err := executil.LookPathIn(pathValueFromEnv(env), name); err == nil {
 		resolved = path
 	}
 	cmd := exec.CommandContext(ctx, resolved, args...)
@@ -106,30 +112,8 @@ func pathValueFromEnv(env []string) string {
 	return ""
 }
 
-// lookPathInEnv resolves a bare command name against an explicit PATH value,
-// mirroring exec.LookPath. An empty PATH is an explicit miss, not a reason to
-// fall back to the process PATH.
-func lookPathInEnv(name, pathValue string) (string, error) {
-	if pathValue == "" {
-		return "", fmt.Errorf("environment declares no PATH")
-	}
-	if filepath.IsAbs(name) {
-		return name, nil
-	}
-	for _, dir := range filepath.SplitList(pathValue) {
-		if dir == "" {
-			dir = "."
-		}
-		candidate := filepath.Join(dir, name)
-		if isExecutableFile(candidate) {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("%s not found in PATH", name)
-}
-
 // resolveOnToolchainPath resolves against the PATH built by toolchainEnv(), so
-// probes see what execution sees. It shares lookPathInEnv with the runner, which
+// probes see what execution sees. It shares executil.LookPathIn with the runner, which
 // matters: a probe and the command it guards must resolve a tool identically or
 // the probe reports a tool as absent while the command could have run it.
 func resolveOnToolchainPath(name string) (string, error) {
@@ -137,7 +121,7 @@ func resolveOnToolchainPath(name string) (string, error) {
 	if pathValue == "" {
 		return exec.LookPath(name)
 	}
-	return lookPathInEnv(name, pathValue)
+	return executil.LookPathIn(pathValue, name)
 }
 
 // openCodeLinuxV2Installer installs the official OpenCode V2 channel. The
@@ -146,36 +130,13 @@ func resolveOnToolchainPath(name string) (string, error) {
 // The official installer selects the current architecture, baseline, and musl
 // artifact and manages the user's PATH. Shared by phase 0 and Linux bootstrap.
 const openCodeLinuxV2Installer = `set -e
-export PATH="$HOME/.opencode/bin:$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.opencode/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 curl -fsSL https://opencode.ai/v2/install | bash`
 
-// openCodePathInstaller persists the official V2 install directory even when
-// envctl has already prepended it to the child PATH. The upstream installer
-// otherwise treats that temporary PATH as an existing shell configuration and
-// skips writing the rc entry on a fresh machine.
-const openCodePathInstaller = `set -e
-for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$f" ] && ! grep -Fq '.opencode/bin' "$f"; then
-    printf '\n# OpenCode (via envctl)\nexport PATH="$HOME/.opencode/bin:$PATH"\n' >> "$f"
-  fi
-done
-if command -v fish >/dev/null 2>&1; then
-  f="$HOME/.config/fish/config.fish"
-  mkdir -p "$(dirname "$f")"
-  if [ ! -f "$f" ] || ! grep -Fq "$HOME/.opencode/bin" "$f"; then
-    printf '\n# OpenCode (via envctl)\nset -gx PATH "$HOME/.opencode/bin" $PATH\n' >> "$f"
-  fi
-fi`
-
-// versionMajorAtLeast reports whether version's numeric major is at least
-// major. It intentionally rejects malformed versions instead of treating an
-// unparseable provider as compatible with the V2-native configuration.
-func versionMajorAtLeast(version string, major int) bool {
-	normalized := normalizeVersion(version)
-	majorToken, _, _ := strings.Cut(normalized, ".")
-	parsed, err := strconv.Atoi(majorToken)
-	return err == nil && parsed >= major
-}
+// openCodePathDir is the official V2 install directory persisted in shell
+// profiles. Written in the literal $HOME form so the idempotence guard matches
+// the lines the legacy shell installer wrote.
+const openCodePathDir = "$HOME/.opencode/bin"
 
 // standaloneProviderCanReplace reports whether envctl may replace a standalone
 // binary. User-local installs are owned by envctl. A system-owned binary is
@@ -190,15 +151,15 @@ func standaloneProviderCanReplace(source string, pacmanOwns bool) bool {
 type providerCLI struct {
 	name             string // human name for diagnostics
 	binary           string // binary that must resolve on PATH
-	voltaPkg         string // Volta/npm package name, empty when the tool has its own installer
-	windowsInstaller string // PowerShell installer used on Windows when there is no Volta package
-	installer        string // shell installer used on Linux when there is no Volta package
+	npmPkg           string // npm package name, empty when the tool has its own installer
+	windowsInstaller string // PowerShell installer used on Windows when there is no npm package
+	installer        string // shell installer used on Linux when there is no npm package
 	requiredMajor    int    // minimum compatible major version, zero when unconstrained
 }
 
 func providerCLIs() []providerCLI {
 	return []providerCLI{
-		{name: "CommandCode CLI", binary: "cmdc", voltaPkg: "command-code"},
+		{name: "CommandCode CLI", binary: "cmdc", npmPkg: "command-code"},
 		{
 			name:             "OpenCode CLI",
 			binary:           "opencode",
@@ -209,7 +170,7 @@ func providerCLIs() []providerCLI {
 	}
 }
 
-// Execute ensures Volta, a default Node runtime and the provider CLIs. It is
+// Execute ensures mise, a default Node runtime and the provider CLIs. It is
 // idempotent: a converged machine reports OK for everything and changes nothing.
 func (uc *ProvisionProvidersUseCase) Execute(ctx context.Context) ([]entity.Diagnostic, error) {
 	var diags []entity.Diagnostic
@@ -219,22 +180,22 @@ func (uc *ProvisionProvidersUseCase) Execute(ctx context.Context) ([]entity.Diag
 		})
 	}
 
-	voltaReady := uc.ensureVolta(ctx, add)
-	if !voltaReady {
-		// Standalone providers do not depend on Volta (notably OpenCode's
+	miseReady := uc.ensureMise(ctx, add)
+	if !miseReady {
+		// Standalone providers do not depend on mise (notably OpenCode's
 		// official Linux installer), so still converge them when the npm-backed
 		// provider path is unavailable.
 		for _, tool := range providerCLIs() {
-			if tool.voltaPkg == "" {
+			if tool.npmPkg == "" {
 				uc.ensureProviderCLI(ctx, tool, add)
 				continue
 			}
 			if installed := installedVersion(ctx, tool.binary); installed == "" {
 				add(entity.DiagWarning, tool.name,
-					"Not installed and Volta is unavailable to install it",
-					"Install Volta, then run 'envctl run providers' again")
+					"Not installed and mise/npm are unavailable to install it",
+					"Install mise, then run 'envctl run providers' again")
 			} else {
-				add(entity.DiagOK, tool.name, fmt.Sprintf("v%s available; update requires Volta", installed), "")
+				add(entity.DiagOK, tool.name, fmt.Sprintf("v%s available; update requires npm", installed), "")
 			}
 		}
 		return diags, nil
@@ -248,60 +209,60 @@ func (uc *ProvisionProvidersUseCase) Execute(ctx context.Context) ([]entity.Diag
 	return diags, nil
 }
 
-// ensureVolta installs Volta when it is missing and reports whether it is
-// available afterwards. Volta has no self-update command: updating it means
+// ensureMise installs mise when it is missing and reports whether it is
+// available afterwards. mise has no self-update command: updating it means
 // re-running its installer, which the bootstrap already does when it is absent.
-func (uc *ProvisionProvidersUseCase) ensureVolta(ctx context.Context, add func(entity.DiagnosticStatus, string, string, string)) bool {
-	if version := installedVersion(ctx, "volta"); version != "" {
-		add(entity.DiagOK, "Volta", fmt.Sprintf("v%s available", version), "")
+func (uc *ProvisionProvidersUseCase) ensureMise(ctx context.Context, add func(entity.DiagnosticStatus, string, string, string)) bool {
+	if version := installedVersion(ctx, "mise"); version != "" {
+		add(entity.DiagOK, "Mise", fmt.Sprintf("v%s available", version), "")
 		return true
 	}
 
 	if runtime.GOOS == "windows" {
 		if mgr, ok := uc.managers[entity.PackageTypeWinget]; ok && mgr.IsAvailable(ctx) {
-			if err := mgr.Install(ctx, entity.Package{ID: "Volta.Volta", Type: entity.PackageTypeWinget}); err == nil {
-				add(entity.DiagOK, "Volta", "Installed via winget (Volta.Volta)", "")
+			if err := mgr.Install(ctx, entity.Package{ID: "jdx.mise", Type: entity.PackageTypeWinget}); err == nil {
+				add(entity.DiagOK, "Mise", "Installed via winget (jdx.mise)", "")
 				return true
 			}
 		}
-		add(entity.DiagWarning, "Volta", "Not installed and winget could not install it",
-			"Run 'envctl run winget' to install Volta.Volta")
+		add(entity.DiagWarning, "Mise", "Not installed and winget could not install it",
+			"Run 'envctl run winget' to install jdx.mise")
 		return false
 	}
 
-	uc.logInfo("Providers: installing Volta")
-	installer := `curl -fsSL https://get.volta.sh | bash`
+	uc.logInfo("Providers: installing mise")
+	installer := `curl -fsSL https://mise.run | sh`
 	cmd := exec.CommandContext(ctx, "bash", "-lc", installer)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		add(entity.DiagWarning, "Volta", fmt.Sprintf("Installer failed: %v (%s)", err, strings.TrimSpace(string(out))),
-			"Run 'curl -fsSL https://get.volta.sh | bash' manually, then 'envctl run providers'")
+		add(entity.DiagWarning, "Mise", fmt.Sprintf("Installer failed: %v (%s)", err, strings.TrimSpace(string(out))),
+			"Run 'curl -fsSL https://mise.run | sh' manually, then 'envctl run providers'")
 		return false
 	}
-	add(entity.DiagOK, "Volta", "Installed via the official installer", "")
+	add(entity.DiagOK, "Mise", "Installed via the official installer", "")
 	return true
 }
 
-// ensureNodeRuntime guarantees a default Node for Volta to build tool shims on,
+// ensureNodeRuntime guarantees a default Node for mise to build tool shims on,
 // using the same spec the manifest declares so both stay in step.
 func (uc *ProvisionProvidersUseCase) ensureNodeRuntime(ctx context.Context, add func(entity.DiagnosticStatus, string, string, string)) {
 	spec := uc.manifestNodeSpec()
 	if spec == "" {
 		return
 	}
-	if _, err := runWithToolchain(ctx, "volta", "which", "node"); err == nil {
+	if _, err := runWithToolchain(ctx, "mise", "which", "node"); err == nil {
 		return
 	}
 	uc.logInfo("Providers: installing the default Node runtime (%s)", spec)
-	out, err := runWithToolchain(ctx, "volta", "install", spec)
+	out, err := runWithToolchain(ctx, "mise", "use", "-g", spec)
 	if err != nil {
-		add(entity.DiagWarning, "Node runtime", fmt.Sprintf("volta install %s failed: %v (%s)", spec, err, out),
-			"Run 'volta install "+spec+"' manually")
+		add(entity.DiagWarning, "Node runtime", fmt.Sprintf("mise use -g %s failed: %v (%s)", spec, err, out),
+			"Run 'mise use -g "+spec+"' manually")
 		return
 	}
 	add(entity.DiagOK, "Node runtime", fmt.Sprintf("Installed %s as the default runtime", spec), "")
 }
 
-// manifestNodeSpec returns the Node spec the manifest pins for Volta, so phase 0
+// manifestNodeSpec returns the Node spec the manifest pins for mise, so phase 0
 // never invents a different one.
 func (uc *ProvisionProvidersUseCase) manifestNodeSpec() string {
 	pkgs, err := uc.manifestRepo.LoadPackages()
@@ -309,14 +270,14 @@ func (uc *ProvisionProvidersUseCase) manifestNodeSpec() string {
 		return ""
 	}
 	for _, p := range pkgs {
-		if p.Type == entity.PackageTypeVolta && strings.HasPrefix(p.ID, "node@") {
+		if p.Type == entity.PackageTypeMise && strings.HasPrefix(p.ID, "node@") {
 			return p.ID
 		}
 	}
 	return ""
 }
 
-// ensureProviderCLI installs the CLI when missing and updates it when Volta owns
+// ensureProviderCLI installs the CLI when missing and updates it when npm owns
 // it and the registry has moved on; a tool owned by the OS is reported instead.
 func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool providerCLI, add func(entity.DiagnosticStatus, string, string, string)) {
 	installed := installedVersion(ctx, tool.binary)
@@ -326,35 +287,33 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 	// A user-local copy must never keep winning over a package that pacman
 	// owns. Archive every active non-system copy, then let the next probe see
 	// the system binary; the package path is verified below before success.
-	for pacmanOwns && source != sourceSystem {
-		path, err := resolveOnToolchainPath(tool.binary)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("could not locate the user-local binary to archive: %v", err),
-				"Remove the stale user-local opencode binary, then run 'envctl run providers' again")
-			return
-		}
-		backup, err := archiveUserOpenCode(path)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err),
-				"Move the stale user-local binary aside, then run 'envctl run providers' again")
-			return
-		}
-		uc.logInfo("Providers: archived user-local opencode at %s; pacman remains authoritative", backup)
-		installed = installedVersion(ctx, tool.binary)
-		source = installSource(tool.binary)
+	var ok bool
+	installed, source, ok = archiveShadowedUserCopies(ctx, uc.logInfo, tool.name, tool.binary,
+		"Remove the stale user-local opencode binary, then run 'envctl run providers' again",
+		"Move the stale user-local binary aside, then run 'envctl run providers' again",
+		pacmanOwns, installed, source,
+		func(target, details, fixHint string) { add(entity.DiagWarning, target, details, fixHint) })
+	if !ok {
+		return
 	}
 
 	switch {
-	case installed == "" && tool.voltaPkg != "":
-		out, err := runWithToolchain(ctx, "volta", "install", tool.voltaPkg)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("volta install %s failed: %v (%s)", tool.voltaPkg, err, out),
-				"Run 'volta install "+tool.voltaPkg+"' manually")
+	case installed == "" && tool.npmPkg != "":
+		mgr, ok := uc.managers[entity.PackageTypeNpm]
+		if !ok {
+			uc.logInfo("Providers: npm manager unavailable for %s", tool.name)
+			add(entity.DiagWarning, tool.name, "Not installed and the npm manager is unavailable",
+				"Run 'npm install -g "+tool.npmPkg+"' manually")
 			return
 		}
-		add(entity.DiagOK, tool.name, "Installed via Volta", "")
+		if err := mgr.Install(ctx, entity.Package{ID: tool.npmPkg, Type: entity.PackageTypeNpm}); err != nil {
+			add(entity.DiagWarning, tool.name, fmt.Sprintf("npm install -g %s failed: %v", tool.npmPkg, err),
+				"Run 'npm install -g "+tool.npmPkg+"' manually")
+			return
+		}
+		add(entity.DiagOK, tool.name, "Installed via npm", "")
 
-	case installed == "" && tool.voltaPkg == "":
+	case installed == "" && tool.npmPkg == "":
 		uc.installStandaloneProvider(ctx, tool, add, false)
 
 	case tool.requiredMajor > 0 && !versionMajorAtLeast(installed, tool.requiredMajor):
@@ -371,7 +330,7 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		uc.logInfo("Providers: upgrading %s to major v%d (%s -> official installer)", tool.name, tool.requiredMajor, installed)
 		uc.installStandaloneProvider(ctx, tool, add, source != sourceSystem)
 
-	case tool.binary == "opencode" && tool.voltaPkg == "":
+	case tool.binary == "opencode" && tool.npmPkg == "":
 		// Same major, but the official channel may have moved on within it
 		// (2.0.15 -> 2.0.23). The required-major guard above already passed, so
 		// only a genuine newer minor/patch triggers the standalone installer.
@@ -391,29 +350,34 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		uc.logInfo("Providers: updating %s %s -> %s", tool.name, installed, latest)
 		uc.installStandaloneProvider(ctx, tool, add, source != sourceSystem)
 
-	case tool.voltaPkg != "" && source == sourceVolta:
-		latest := npmLatest(ctx, tool.voltaPkg)
+	case tool.npmPkg != "" && source == sourceEnvctl:
+		latest := npmLatest(ctx, tool.npmPkg)
 		if latest == "" || !versionsDiffer(installed, latest) {
-			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (Volta, current)", installed), "")
+			add(entity.DiagOK, tool.name, fmt.Sprintf("v%s (npm, current)", installed), "")
 			return
 		}
 		uc.logInfo("Providers: updating %s (%s -> %s)", tool.name, installed, latest)
-		out, err := runWithToolchain(ctx, "volta", "install", tool.voltaPkg)
-		if err != nil {
-			add(entity.DiagWarning, tool.name, fmt.Sprintf("update to v%s failed: %v (%s)", latest, err, out),
-				"Run 'volta install "+tool.voltaPkg+"' manually")
+		mgr, ok := uc.managers[entity.PackageTypeNpm]
+		if !ok {
+			add(entity.DiagWarning, tool.name, fmt.Sprintf("update to v%s skipped: the npm manager is unavailable", latest),
+				"Run 'npm install -g "+tool.npmPkg+"@latest' manually")
+			return
+		}
+		if err := mgr.Install(ctx, entity.Package{ID: tool.npmPkg + "@latest", Type: entity.PackageTypeNpm}); err != nil {
+			add(entity.DiagWarning, tool.name, fmt.Sprintf("update to v%s failed: %v", latest, err),
+				"Run 'npm install -g "+tool.npmPkg+"@latest' manually")
 			return
 		}
 		after := installedVersion(ctx, tool.binary)
 		if after == "" || after == installed {
-			// Volta's shim map can lag a beat behind its own install; never claim
+			// The shim map can lag a beat behind its own install; never claim
 			// "updated X -> X" — report what was asked for instead.
 			after = latest
 		}
-		add(entity.DiagOK, tool.name, fmt.Sprintf("Updated v%s -> v%s via Volta", installed, after), "")
+		add(entity.DiagOK, tool.name, fmt.Sprintf("Updated v%s -> v%s via npm", installed, after), "")
 
 	default:
-		// Present but not Volta's. Never shadow a package-managed binary: the
+		// Present but not npm's. Never shadow a package-managed binary: the
 		// copy envctl placed would win on PATH and freeze that version.
 		if tool.binary == "opencode" && source != sourceSystem && !uc.ensureOpenCodeShellPath(ctx, tool, add) {
 			return
@@ -430,9 +394,11 @@ func (uc *ProvisionProvidersUseCase) ensureOpenCodeShellPath(ctx context.Context
 	if runtime.GOOS != "linux" || tool.binary != "opencode" {
 		return true
 	}
-	out, err := runWithToolchain(ctx, "bash", "-lc", openCodePathInstaller)
-	if err != nil {
-		add(entity.DiagWarning, tool.name, fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
+	if uc.envManager == nil {
+		return true
+	}
+	if _, err := uc.envManager.EnsurePathEntry(ctx, openCodePathDir); err != nil {
+		add(entity.DiagWarning, tool.name, fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v", err),
 			"Run 'envctl run shell' after installing OpenCode")
 		return false
 	}
@@ -554,30 +520,6 @@ func (uc *ProvisionProvidersUseCase) pacmanOwnsOpenCode(ctx context.Context) boo
 	return err == nil && installed
 }
 
-// archiveUserOpenCode moves an envctl-owned user-local binary aside when the
-// distro package is authoritative. The timestamped backup follows the same
-// convention as config provisioning and keeps a rollback path.
-func archiveUserOpenCode(path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("empty opencode path")
-	}
-	if _, err := os.Lstat(path); err != nil {
-		return "", err
-	}
-	stamp := time.Now().Format("20060102-150405")
-	candidate := fmt.Sprintf("%s.bak.%s", path, stamp)
-	for i := 1; ; i++ {
-		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
-			break
-		}
-		candidate = fmt.Sprintf("%s.bak.%s-%d", path, stamp, i)
-	}
-	if err := os.Rename(path, candidate); err != nil {
-		return "", err
-	}
-	return candidate, nil
-}
-
 // requireStandaloneProviderVersion verifies the minimum major after an
 // installer returns successfully. A successful download alone is not enough:
 // the repository's V2-native config would still fail against a v1 binary.
@@ -595,209 +537,20 @@ func (uc *ProvisionProvidersUseCase) requireStandaloneProviderVersion(ctx contex
 	return false
 }
 
-func printableVersion(version string) string {
-	if version == "" {
-		return "(missing)"
-	}
-	return "v" + version
-}
-
-// installedVersion runs `<binary> --version` and reduces the output to the first
-// version-looking token (tools report "opencode v2.0.5", "1.55.1", ...).
-func installedVersion(ctx context.Context, binary string) string {
-	resolved, err := resolveOnToolchainPath(binary)
-	if err != nil {
-		return ""
-	}
-	// exec.Cmd.Env does not affect binary resolution (LookPath uses the
-	// process PATH), so execute the resolved absolute path.
-	out, err := runWithToolchain(ctx, resolved, "--version")
-	if err != nil {
-		return ""
-	}
-	return firstVersionToken(out)
-}
-
-// installSource classifies where a binary comes from, which decides whether
-// envctl may touch it.
-func installSource(binary string) string {
-	path, err := resolveOnToolchainPath(binary)
-	if err != nil {
-		return sourceAbsent
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = ""
-	}
-	return classifyInstallSource(path, home)
-}
-
-// npmLatest reads the "latest" dist-tag of an npm package.
-func npmLatest(ctx context.Context, pkg string) string {
-	out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://registry.npmjs.org/"+pkg+"/latest")
-	if err != nil {
-		return ""
-	}
-	// Deliberately dependency-free: the registry answers with a JSON object whose
-	// "version" field is all this needs.
-	idx := strings.Index(out, `"version":"`)
-	if idx < 0 {
-		return ""
-	}
-	rest := out[idx+len(`"version":"`):]
-	if end := strings.Index(rest, `"`); end > 0 {
-		return rest[:end]
-	}
-	return ""
-}
-
-// firstVersionToken extracts the first token that starts with a digit, dropping
-// the tool name and any leading "v".
-func firstVersionToken(output string) string {
-	for _, field := range strings.Fields(output) {
-		candidate := strings.TrimPrefix(field, "v")
-		if candidate == "" {
-			continue
-		}
-		if candidate[0] >= '0' && candidate[0] <= '9' {
-			return strings.TrimRight(candidate, ".,;")
-		}
-	}
-	return ""
-}
-
-// defaultLatestProviderVersion resolves the newest version of a standalone
-// provider. OpenCode publishes its own update channel, separate from npm (which
-// lags the release line); the official installer itself reads this same URL.
-func defaultLatestProviderVersion(ctx context.Context, binary string) string {
-	switch binary {
-	case "opencode":
-		out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://opencode.ai/update/api/latest/cli/npm")
-		if err != nil {
-			return ""
-		}
-		idx := strings.Index(out, `"version":"`)
-		if idx < 0 {
-			return ""
-		}
-		rest := out[idx+len(`"version":"`):]
-		if end := strings.Index(rest, `"`); end > 0 {
-			return rest[:end]
-		}
-		return ""
-	default:
-		return ""
-	}
-}
-
-// openCodeWithinMajorUpdateNeeded reports whether the installed OpenCode is
-// older than latest while still on the required major (2.0.15 -> 2.0.23). A
-// version on a higher major than required is never downgraded; an unparseable
-// version is never updated (fail closed). Comparison is by major.minor.patch
-// with the guard that the two majors are equal and match requiredMajor.
-func openCodeWithinMajorUpdateNeeded(installed, latest string, requiredMajor int) bool {
-	iMaj, iMin, iPat, okInst := parseSemver(installed)
-	lMaj, lMin, lPat, okLatest := parseSemver(latest)
-	if !okInst || !okLatest {
-		return false
-	}
-	if iMaj != requiredMajor || lMaj != requiredMajor || iMaj != lMaj {
-		return false
-	}
-	if iMin != lMin {
-		return iMin < lMin
-	}
-	return iPat < lPat
-}
-
-// parseSemver reads the first three numeric segments of a semver-ish string,
-// tolerating a leading "v" and surrounding whitespace. Anything beyond the
-// patch (prerelease/build metadata) is ignored: provider updates are decided
-// on the numeric release triple only.
-func parseSemver(version string) (major, minor, patch int, ok bool) {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if idx := strings.IndexAny(v, "-+"); idx >= 0 {
-		v = v[:idx]
-	}
-	parts := strings.Split(v, ".")
-	if len(parts) < 3 {
-		return 0, 0, 0, false
-	}
-	var errs [3]error
-	major, errs[0] = strconv.Atoi(parts[0])
-	minor, errs[1] = strconv.Atoi(parts[1])
-	patch, errs[2] = strconv.Atoi(parts[2])
-	if errs[0] != nil || errs[1] != nil || errs[2] != nil {
-		return 0, 0, 0, false
-	}
-	return major, minor, patch, true
-}
-
-// versionsDiffer reports whether two version strings disagree once normalized
-// (leading "v" and surrounding whitespace removed).
-func versionsDiffer(installed, latest string) bool {
-	return normalizeVersion(installed) != normalizeVersion(latest)
-}
-
-// normalizeVersion reduces a version to a comparable form: no "v" prefix, no
-// leading zeros inside numeric segments, and no build metadata.
-//
-// The zero-padding case is real, not theoretical: yt-dlp reports
-// "2026.08.19" from --version while `uv tool list` reports "v2026.8.19" for the
-// same release. Comparing the raw strings would report a difference and run an
-// update that changes nothing.
-func normalizeVersion(version string) string {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if idx := strings.IndexAny(v, "+"); idx > 0 {
-		v = v[:idx]
-	}
-	if !strings.Contains(v, ".") {
-		return v
-	}
-	segments := strings.Split(v, ".")
-	for i, segment := range segments {
-		trimmed := strings.TrimLeft(segment, "0")
-		if trimmed == "" && segment != "" {
-			// A segment of only zeros is zero, not empty.
-			trimmed = "0"
-		}
-		segments[i] = trimmed
-	}
-	return strings.Join(segments, ".")
-}
-
 // Install sources. These are stable identifiers compared against in code; use
 // sourceLabel for anything a human reads.
 const (
 	sourceAbsent = "absent"
-	sourceVolta  = "volta"
+	sourceMise   = "mise"
 	sourceEnvctl = "envctl"
 	sourceSystem = "system"
 )
 
-// classifyInstallSource names the owner of a binary path: Volta's tool image,
-// envctl's own prefix, or the system. Only the envctl prefix and Volta are safe
-// for envctl to replace.
-func classifyInstallSource(path, home string) string {
-	normalized := filepath.ToSlash(path)
-	switch {
-	case home == "":
-		return sourceSystem
-	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".volta"))):
-		return sourceVolta
-	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".local"))),
-		strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".opencode"))):
-		return sourceEnvctl
-	default:
-		return sourceSystem
-	}
-}
-
 // sourceLabel renders an install source for diagnostics.
 func sourceLabel(source string) string {
 	switch source {
-	case sourceVolta:
-		return "Volta"
+	case sourceMise:
+		return "mise"
 	case sourceEnvctl:
 		return "envctl"
 	default:

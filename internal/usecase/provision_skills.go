@@ -13,18 +13,20 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 type ProvisionSkillsUseCase struct {
-	manifestRepo repository.ManifestRepository
-	fsManager    repository.FileSystemManager
+	manifestRepo *embedded.ManifestRepository
+	fsManager    *filesystem.FileSystemManager
 	embeddedFS   fs.FS
 	logger       repository.Logger
 }
 
 func NewProvisionSkillsUseCase(
-	manifestRepo repository.ManifestRepository,
-	fsManager repository.FileSystemManager,
+	manifestRepo *embedded.ManifestRepository,
+	fsManager *filesystem.FileSystemManager,
 	embeddedFS fs.FS,
 	logger repository.Logger,
 ) *ProvisionSkillsUseCase {

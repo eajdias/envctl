@@ -7,19 +7,20 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
 )
 
 type PackageProgressHandler func(pkg entity.Package, status string, err error)
 
 type ProvisionPackagesUseCase struct {
-	manifestRepo repository.ManifestRepository
+	manifestRepo *embedded.ManifestRepository
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
 
 func NewProvisionPackagesUseCase(
-	manifestRepo repository.ManifestRepository,
+	manifestRepo *embedded.ManifestRepository,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *ProvisionPackagesUseCase {

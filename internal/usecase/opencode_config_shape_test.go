@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,10 +10,13 @@ import (
 	"github.com/eajdias/envctl"
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 func TestShippedOpenCodeTemplatesHaveNativeShape(t *testing.T) {
-	for _, path := range []string{"configs/opencode.json", "configs/opencode.linux.json"} {
+	for _, path := range []string{"configs/opencode.json"} {
 		t.Run(path, func(t *testing.T) {
 			data, err := envctl.EmbeddedFS.ReadFile(path)
 			if err != nil {
@@ -129,6 +133,8 @@ func TestValidateOpenCodeConfigShape(t *testing.T) {
 
 func TestAuditOpenCodeConfigShapeReportsProblems(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	configDir := filepath.Join(home, ".config", "opencode")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatal(err)
@@ -139,9 +145,9 @@ func TestAuditOpenCodeConfigShapeReportsProblems(t *testing.T) {
 	}
 
 	uc := NewDoctorAuditUseCase(
-		&mockManifestRepo{},
-		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}}, home: home},
-		&mockEnvManager{},
+		embedded.NewManifestRepository(envctl.EmbeddedFS, ""),
+		filesystem.NewFileSystemManager(),
+		environment.NewWindowsEnvManager(),
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -158,5 +164,50 @@ func TestAuditOpenCodeConfigShapeReportsProblems(t *testing.T) {
 	}
 	if !strings.Contains(diagnostics[0].Details, "task") {
 		t.Errorf("details = %q, want legacy task action", diagnostics[0].Details)
+	}
+}
+
+// TestWindowsShellOverlayInjectsPwsh locks the single-template contract: the
+// shipped base carries no top-level shell key (the old linux copy differed
+// only here), and Windows provisioning injects "shell": "pwsh" at deploy
+// time. The injected document must keep the native V2 shape, and a second
+// application must be a byte-identical no-op.
+func TestWindowsShellOverlayInjectsPwsh(t *testing.T) {
+	base, err := envctl.EmbeddedFS.ReadFile("configs/opencode.json")
+	if err != nil {
+		t.Fatalf("read base template: %v", err)
+	}
+	var decoded map[string]json.RawMessage
+	if err := json.Unmarshal(base, &decoded); err != nil {
+		t.Fatalf("parse base template: %v", err)
+	}
+	if _, ok := decoded["shell"]; ok {
+		t.Fatal("base template must not carry a top-level shell key")
+	}
+
+	deployed := withWindowsShellOverlay(base)
+	var deployedDecoded map[string]json.RawMessage
+	if err := json.Unmarshal(deployed, &deployedDecoded); err != nil {
+		t.Fatalf("parse deployed config: %v", err)
+	}
+	var shell string
+	if err := json.Unmarshal(deployedDecoded["shell"], &shell); err != nil || shell != "pwsh" {
+		t.Fatalf("deployed shell = %q, want %q", deployedDecoded["shell"], "pwsh")
+	}
+	if problems := validateOpenCodeConfigShape(deployed); len(problems) > 0 {
+		t.Fatalf("deployed config has shape problems: %s", strings.Join(problems, "; "))
+	}
+	if again := withWindowsShellOverlay(deployed); string(again) != string(deployed) {
+		t.Fatal("overlay is not idempotent")
+	}
+	// Every other top-level section deploys byte-identical on both OSes.
+	delete(decoded, "$schema")
+	delete(deployedDecoded, "$schema")
+	delete(decoded, "shell")
+	delete(deployedDecoded, "shell")
+	restBase, _ := json.Marshal(decoded)
+	restDeployed, _ := json.Marshal(deployedDecoded)
+	if string(restBase) != string(restDeployed) {
+		t.Fatal("overlay changed more than the shell key")
 	}
 }

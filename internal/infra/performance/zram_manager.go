@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type zramManager struct {
+type ZRAMManager struct {
 	hasDevice   func() bool
 	hasNode     func() bool
 	run         commandRunner
@@ -23,7 +22,7 @@ type zramManager struct {
 }
 
 // NewZRAMManager creates the production zram lifecycle adapter.
-func NewZRAMManager() repository.ZRAMManager {
+func NewZRAMManager() *ZRAMManager {
 	manager := newZRAMManager(
 		func() bool {
 			data, err := os.ReadFile("/proc/swaps")
@@ -47,12 +46,12 @@ func newZRAMManager(
 	elevate bool,
 	wait func(context.Context, func() bool) bool,
 	listDevices ...func() []string,
-) *zramManager {
+) *ZRAMManager {
 	var list func() []string
 	if len(listDevices) > 0 {
 		list = listDevices[0]
 	}
-	return &zramManager{
+	return &ZRAMManager{
 		hasDevice:   hasDevice,
 		hasNode:     func() bool { return true },
 		run:         run,
@@ -65,91 +64,81 @@ func newZRAMManager(
 // Ensure brings the compressed-RAM device up when the resolved policy wants it.
 // An existing device is adopted, and a second pre-existing device is still
 // refused rather than duplicated.
-func (m *zramManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *ZRAMManager) Ensure(ctx context.Context, dryRun bool) ([]entity.Diagnostic, error) {
 	if m.hasDevice != nil && m.hasDevice() {
-		return []entity.Diagnostic{{
-			Category: entity.DiagOK,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  "zram device is active",
-		}}, nil
+		return []entity.Diagnostic{entity.OK(
+			"Performance",
+			"zram",
+			"zram device is active",
+		)}, nil
 	}
 	if other := otherZRAMDevices(m.existingDevices()); len(other) > 0 {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  "existing zram device(s) " + strings.Join(other, ", ") + " detected; refusing to create a second device",
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"zram",
+			"existing zram device(s) "+strings.Join(other, ", ")+" detected; refusing to create a second device",
+		)}, nil
 	}
 	if dryRun {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  "zram device is absent; would start " + zramService,
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"zram",
+			"zram device is absent; would start "+zramService,
+		)}, nil
 	}
 
 	if out, err := m.command(ctx, "modprobe", "zram"); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  fmt.Sprintf("load zram module failed: %v (%s)", err, strings.TrimSpace(string(out))),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			"zram",
+			fmt.Sprintf("load zram module failed: %v (%s)", err, strings.TrimSpace(string(out))),
+		)}, err
 	}
 	if m.wait == nil || !m.wait(ctx, m.hasNode) {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  "zram module loaded but /dev/zram0 did not appear; inspect udev/module loading",
-		}}, fmt.Errorf("zram module loaded without a device")
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			"zram",
+			"zram module loaded but /dev/zram0 did not appear; inspect udev/module loading",
+		)}, fmt.Errorf("zram module loaded without a device")
 	}
 	if other := otherZRAMDevices(m.existingDevices()); len(other) > 0 {
-		return []entity.Diagnostic{{
-			Category: entity.DiagInfo,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  "zram0 appeared alongside existing device(s) " + strings.Join(other, ", ") + "; refusing to start a second setup service",
-		}}, nil
+		return []entity.Diagnostic{entity.Info(
+			"Performance",
+			"zram",
+			"zram0 appeared alongside existing device(s) "+strings.Join(other, ", ")+"; refusing to start a second setup service",
+		)}, nil
 	}
 
 	if out, err := m.command(ctx, "systemctl", "daemon-reload"); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  fmt.Sprintf("reload systemd units for zram failed: %v (%s)", err, strings.TrimSpace(string(out))),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			"zram",
+			fmt.Sprintf("reload systemd units for zram failed: %v (%s)", err, strings.TrimSpace(string(out))),
+		)}, err
 	}
 	if out, err := m.command(ctx, "systemctl", "start", zramService); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  fmt.Sprintf("start %s failed: %v (%s)", zramService, err, strings.TrimSpace(string(out))),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			"zram",
+			fmt.Sprintf("start %s failed: %v (%s)", zramService, err, strings.TrimSpace(string(out))),
+		)}, err
 	}
 
 	if m.wait == nil || !m.wait(ctx, m.hasDevice) {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Performance",
-			Target:   "zram",
-			Details:  fmt.Sprintf("%s did not produce an active /dev/zram0 entry in /proc/swaps; reboot or inspect the generator", zramService),
-		}}, fmt.Errorf("zram service completed without an active device")
+		return []entity.Diagnostic{entity.Error(
+			"Performance",
+			"zram",
+			fmt.Sprintf("%s did not produce an active /dev/zram0 entry in /proc/swaps; reboot or inspect the generator", zramService),
+		)}, fmt.Errorf("zram service completed without an active device")
 	}
-	return []entity.Diagnostic{{
-		Category: entity.DiagOK,
-		System:   "Performance",
-		Target:   "zram",
-		Details:  "zram device started successfully",
-	}}, nil
+	return []entity.Diagnostic{entity.OK(
+		"Performance",
+		"zram",
+		"zram device started successfully",
+	)}, nil
 }
 
-func (m *zramManager) existingDevices() []string {
+func (m *ZRAMManager) existingDevices() []string {
 	if m.listDevices != nil {
 		return m.listDevices()
 	}
@@ -169,7 +158,7 @@ func otherZRAMDevices(devices []string) []string {
 	return other
 }
 
-func (m *zramManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
+func (m *ZRAMManager) command(ctx context.Context, name string, args ...string) ([]byte, error) {
 	if m.elevate {
 		return m.run(ctx, "sudo", append([]string{"-n", name}, args...)...)
 	}

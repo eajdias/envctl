@@ -64,7 +64,7 @@ func (f *swapFixture) path(absolute string) string {
 	return filepath.Join(f.dir, rel)
 }
 
-func (f *swapFixture) manager() *swapfileManager {
+func (f *swapFixture) manager() *SwapManager {
 	spec := f.spec
 	spec.File = f.path(spec.File)
 	fstabWriter := newDropinWriter(f.path(testFstab), f.run, func() time.Time { return time.Unix(1, 0) }, false)

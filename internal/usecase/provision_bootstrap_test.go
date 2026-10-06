@@ -2,45 +2,73 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
-func TestOpenCodePathInstallerPersistsPOSIXProfiles(t *testing.T) {
+func TestPathStepPersistsEachDirOnce(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("POSIX profile persistence is Linux-only")
 	}
 	home := t.TempDir()
+	t.Setenv("HOME", home)
 	for _, name := range []string{".bashrc", ".profile"} {
 		if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
 			t.Fatalf("WriteFile(%s): %v", name, err)
 		}
 	}
-	env := make([]string, 0, len(os.Environ())+1)
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "HOME=") {
-			env = append(env, entry)
-		}
+
+	uc := NewProvisionBootstrapUseCase(filesystem.NewFileSystemManager(), nil, environment.NewWindowsEnvManager(), nil, &mockLogger{})
+	first := &BootstrapResult{}
+	uc.pathStep(context.Background(), first, "Persist Go PATH in shell profiles", "/usr/local/go/bin", "$HOME/go/bin")
+	if len(first.Diagnostics) != 1 || first.Diagnostics[0].Details != "Written to the shell profiles" {
+		t.Fatalf("first run = %+v, want one Written diagnostic", first.Diagnostics)
 	}
-	env = append(env, "HOME="+home)
-	for i := 0; i < 2; i++ {
-		cmd := exec.Command("bash", "-c", openCodePathInstaller)
-		cmd.Env = env
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("path installer run %d: %v (%s)", i+1, err, out)
-		}
+
+	second := &BootstrapResult{}
+	uc.pathStep(context.Background(), second, "Persist Go PATH in shell profiles", "/usr/local/go/bin", "$HOME/go/bin")
+	if len(second.Diagnostics) != 1 || second.Diagnostics[0].Details != "Already present in the shell profiles" {
+		t.Fatalf("second run = %+v, want one Already-present diagnostic", second.Diagnostics)
 	}
+
 	for _, name := range []string{".bashrc", ".profile"} {
 		data, err := os.ReadFile(filepath.Join(home, name))
 		if err != nil {
 			t.Fatalf("ReadFile(%s): %v", name, err)
 		}
-		if got := strings.Count(string(data), "$HOME/.opencode/bin"); got != 1 {
+		if got := strings.Count(string(data), "/usr/local/go/bin"); got != 1 {
+			t.Errorf("%s contains %d Go PATH entries, want 1", name, got)
+		}
+	}
+
+	// Lines written by the legacy shell installers (same $HOME form) count as
+	// present: the step must not duplicate them.
+	legacyHome := t.TempDir()
+	t.Setenv("HOME", legacyHome)
+	for _, name := range []string{".bashrc", ".profile"} {
+		line := "export PATH=\"$HOME/.opencode/bin:$PATH\"\n"
+		if err := os.WriteFile(filepath.Join(legacyHome, name), []byte(line), 0600); err != nil {
+			t.Fatalf("WriteFile(%s): %v", name, err)
+		}
+	}
+	legacy := &BootstrapResult{}
+	uc.pathStep(context.Background(), legacy, "OpenCode CLI PATH", "$HOME/.opencode/bin")
+	if len(legacy.Diagnostics) != 1 || legacy.Diagnostics[0].Details != "Already present in the shell profiles" {
+		t.Fatalf("legacy run = %+v, want Already-present without duplicating the line", legacy.Diagnostics)
+	}
+	for _, name := range []string{".bashrc", ".profile"} {
+		data, err := os.ReadFile(filepath.Join(legacyHome, name))
+		if err != nil {
+			t.Fatalf("ReadFile(%s): %v", name, err)
+		}
+		if got := strings.Count(string(data), ".opencode/bin"); got != 1 {
 			t.Errorf("%s contains %d OpenCode PATH entries, want 1", name, got)
 		}
 	}
@@ -52,7 +80,7 @@ func TestLinuxToolchainEnvIncludesOpenCodePath(t *testing.T) {
 	}
 	home := t.TempDir()
 	want := filepath.Join(home, ".opencode", "bin")
-	for _, entry := range linuxToolchainEnv(home) {
+	for _, entry := range executil.ToolchainEnv(home) {
 		if !strings.HasPrefix(entry, "PATH=") {
 			continue
 		}
@@ -92,217 +120,6 @@ func TestFzfHasWalker(t *testing.T) {
 	}
 }
 
-// TestGoPathConfigStepReportsWorkOnlyOnce locks the contract configStep relies
-// on: goPathDoneCheck must fail before the write and succeed after it, and a
-// second write must not duplicate the entry. Without this, the step reports
-// "installed" on every run while the write is a no-op, and the run log — the
-// evidence an idempotency review reads — stops being trustworthy.
-func TestGoPathConfigStepReportsWorkOnlyOnce(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX profile persistence is Linux-only")
-	}
-
-	// Both scripts branch on `command -v fish`, so PATH is built explicitly here.
-	// Inheriting the host PATH made the first assertion true on a machine with
-	// fish and false on one without, which is how the first version of this test
-	// passed locally and then failed on the runner: a check that exited 0 on a
-	// profile with no Go PATH at all was reported as "already present".
-	cases := []struct {
-		name     string
-		withFish bool
-	}{
-		{name: "fish installed", withFish: true},
-		{name: "fish absent", withFish: false},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			home := t.TempDir()
-			for _, name := range []string{".bashrc", ".profile"} {
-				if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
-					t.Fatalf("WriteFile(%s): %v", name, err)
-				}
-			}
-
-			// A bin dir holding only what the scripts shell out to, so
-			// `command -v fish` answers from this dir and not from the host.
-			bin := t.TempDir()
-			for _, tool := range []string{"grep", "mkdir", "dirname"} {
-				resolved, err := exec.LookPath(tool)
-				if err != nil {
-					t.Fatalf("LookPath(%s): %v", tool, err)
-				}
-				if err := os.Symlink(resolved, filepath.Join(bin, tool)); err != nil {
-					t.Fatalf("Symlink(%s): %v", tool, err)
-				}
-			}
-			if tc.withFish {
-				// `command -v` only needs the file to be executable: neither
-				// script runs fish, it only writes fish's config.
-				if err := os.WriteFile(filepath.Join(bin, "fish"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
-					t.Fatalf("WriteFile(fish stub): %v", err)
-				}
-			}
-
-			env := make([]string, 0, len(os.Environ())+2)
-			for _, entry := range os.Environ() {
-				if !strings.HasPrefix(entry, "HOME=") && !strings.HasPrefix(entry, "PATH=") {
-					env = append(env, entry)
-				}
-			}
-			env = append(env, "HOME="+home, "PATH="+bin)
-
-			run := func(script string) error {
-				// #nosec G204 -- the scripts are package-level constants, not input.
-				cmd := exec.Command("bash", "-c", script)
-				cmd.Env = env
-				out, err := cmd.CombinedOutput()
-				if err != nil {
-					t.Logf("script output: %s", strings.TrimSpace(string(out)))
-				}
-				return err
-			}
-			read := func(name string) string {
-				data, err := os.ReadFile(filepath.Join(home, name))
-				if err != nil {
-					t.Fatalf("ReadFile(%s): %v", name, err)
-				}
-				return string(data)
-			}
-			fishRC := ".config/fish/config.fish"
-
-			// Before the write the check must report "not done" so the step runs.
-			if err := run(goPathDoneCheck); err == nil {
-				t.Error("goPathDoneCheck succeeded on a fresh profile, want failure so the step applies the write")
-			}
-			if err := run(goPathInstaller); err != nil {
-				t.Fatalf("goPathInstaller: %v", err)
-			}
-			if err := run(goPathDoneCheck); err != nil {
-				t.Errorf("goPathDoneCheck failed after the write, want success so the step reports already present: %v", err)
-			}
-
-			// Running the step again must neither fail nor change a byte: the
-			// check reporting "already present" and the installer being a no-op
-			// are the same fact seen from two sides.
-			before := map[string]string{}
-			for _, name := range []string{".bashrc", ".profile", fishRC} {
-				if _, err := os.Stat(filepath.Join(home, name)); err == nil {
-					before[name] = read(name)
-				}
-			}
-			if err := run(goPathInstaller); err != nil {
-				t.Fatalf("goPathInstaller rerun: %v", err)
-			}
-			for name, want := range before {
-				if got := read(name); got != want {
-					t.Errorf("rerun changed %s:\n--- first run ---\n%s\n--- rerun ---\n%s", name, want, got)
-				}
-			}
-
-			for _, name := range []string{".bashrc", ".profile"} {
-				if got := strings.Count(read(name), "/usr/local/go/bin"); got != 1 {
-					t.Errorf("%s contains %d Go PATH entries, want 1", name, got)
-				}
-			}
-			if tc.withFish {
-				got := read(fishRC)
-				if n := strings.Count(got, "/usr/local/go/bin"); n != 1 {
-					t.Errorf("%s contains %d Go PATH entries, want 1", fishRC, n)
-				}
-				// The bash export is a syntax error in fish, so the write uses
-				// fish's own syntax; see the comment on goPathInstaller.
-				if !strings.Contains(got, "set -gx PATH") || strings.Contains(got, "export PATH=") {
-					t.Errorf("%s is not fish syntax: %q", fishRC, got)
-				}
-
-				// A partial state — the POSIX profiles done, the fish config
-				// gone — is still work to do. Reporting "already present" there
-				// would leave the config.fish entry missing for good, since the
-				// installer only ever runs when the check says there is work.
-				if err := os.Remove(filepath.Join(home, fishRC)); err != nil {
-					t.Fatalf("Remove(%s): %v", fishRC, err)
-				}
-				if err := run(goPathDoneCheck); err == nil {
-					t.Errorf("goPathDoneCheck succeeded with %s missing, want failure so the step rewrites it", fishRC)
-				}
-				if err := run(goPathInstaller); err != nil {
-					t.Fatalf("goPathInstaller after partial state: %v", err)
-				}
-				if got := read(fishRC); !strings.Contains(got, "set -gx PATH") {
-					t.Errorf("%s not restored after the partial state: %q", fishRC, got)
-				}
-			} else if _, err := os.Stat(filepath.Join(home, fishRC)); err == nil {
-				t.Errorf("%s written on a host without fish, want no fish config", fishRC)
-			}
-		})
-	}
-}
-
-// idempotencyRecorder captures the idempotency line the run log shows a
-// reviewer. The Details string reaches the doctor; this is the other half of the
-// same claim, and a step that flipped only this was reported as still correct.
-type idempotencyRecorder struct {
-	mockLogger
-	calls []string
-}
-
-func (r *idempotencyRecorder) LogIdempotency(system, target string, skipped bool, reason string) {
-	r.calls = append(r.calls, fmt.Sprintf("%s|%s|skipped=%t|%s", system, target, skipped, reason))
-}
-
-// TestConfigStepLabelsTheGoPathWriteHonestly exercises configStep itself, not
-// the two scripts. The first version of the Go PATH fix tested only the scripts
-// and still shipped a step that reported "Written" on every run, because the
-// bug was in how configStep read the check's result and not in the check.
-func TestConfigStepLabelsTheGoPathWriteHonestly(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("POSIX profile persistence is Linux-only")
-	}
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	for _, name := range []string{".bashrc", ".profile"} {
-		if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
-			t.Fatalf("WriteFile(%s): %v", name, err)
-		}
-	}
-
-	logger := &idempotencyRecorder{}
-	uc := NewProvisionBootstrapUseCase(&mockFSManager{}, nil, nil, logger)
-	const target = "Persist Go PATH in shell profiles"
-
-	first := &BootstrapResult{}
-	uc.configStep(context.Background(), first, target, goPathDoneCheck, goPathInstaller)
-	if len(first.Diagnostics) != 1 {
-		t.Fatalf("first run reported %d diagnostics, want 1: %+v", len(first.Diagnostics), first.Diagnostics)
-	}
-	if got, want := first.Diagnostics[0].Details, "Written to the shell profiles"; got != want {
-		t.Errorf("first run label = %q, want %q", got, want)
-	}
-	if got, want := logger.calls[0], "LinuxBootstrap|"+target+"|skipped=false|written"; got != want {
-		t.Errorf("first run idempotency line = %q, want %q", got, want)
-	}
-
-	second := &BootstrapResult{}
-	uc.configStep(context.Background(), second, target, goPathDoneCheck, goPathInstaller)
-	if len(second.Diagnostics) != 1 {
-		t.Fatalf("second run reported %d diagnostics, want 1: %+v", len(second.Diagnostics), second.Diagnostics)
-	}
-	if got, want := second.Diagnostics[0].Details, "Already present in the shell profiles"; got != want {
-		t.Errorf("second run label = %q, want %q — the step must stop claiming a write it did not do", got, want)
-	}
-	if got, want := logger.calls[1], "LinuxBootstrap|"+target+"|skipped=true|already present"; got != want {
-		t.Errorf("second run idempotency line = %q, want %q", got, want)
-	}
-
-	// The label is only honest if it is also true of the files.
-	for _, name := range []string{".bashrc", ".profile"} {
-		data, err := os.ReadFile(filepath.Join(home, name))
-		if err != nil {
-			t.Fatalf("ReadFile(%s): %v", name, err)
-		}
-		if got := strings.Count(string(data), "/usr/local/go/bin"); got != 1 {
-			t.Errorf("%s contains %d Go PATH entries, want 1", name, got)
-		}
-	}
-}
+// TestGoPathConfigStepReportsWorkOnlyOnce is covered by
+// TestPathStepPersistsEachDirOnce above: pathStep reports the write honestly
+// from EnsurePathEntry's changed signal instead of from shell check scripts.

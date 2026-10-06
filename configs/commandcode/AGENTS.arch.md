@@ -5,7 +5,7 @@
 
 - **OS:** Arch/CachyOS Linux (x86-64, desktop com GUI), usuário não-root (sudo)
 - **Shell:** fish é o shell interativo do usuário; o shell do CommandCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
-- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc` · gerenciadores: `pacman` · `paru` (AUR) · `volta` (Node).
+- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc` · gerenciadores: `pacman` · `paru` (AUR) · `mise` (Node) + `npm` (globals).
 - **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
 - **Scratch:** `/temp` (`ENVCTL_TEMP`, na raiz do disco). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.commandcode/` nem no projeto.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).  ·  **Worktrees:** o runtime gerencia em `~/.commandcode/worktrees/<repo>-<hash>/` (fora do repo) via `/worktree` e `enter_worktree`; para cair na convenção do projeto use `cmdc -w "$PWD/.worktrees/<slug>"` (path absoluto é usado verbatim). `doctor` reporta `prunable`/`locked` nas duas rotas.
@@ -18,7 +18,6 @@
 - Branches semânticas (`feat/`, `fix/`), conventional commits, PRs via `gh pr create`.
 - **Evidência antes de afirmação:** rode build/test/lint e mostre a saída real antes de dizer que terminou.
 - **Nunca deduza:** não afirme estado, causa ou diagnóstico sem comprovação executada nesta sessão; diante de relato do usuário sobre estado local observável, re-teste na hora e trate a hipótese como hipótese — a contraprova do usuário é evidência de primeira classe, e repetir prescrição sem evidência nova é erro.
-- **Docs:** após mexer em código/config, confira a doc que descreve isso; manifesto e código ganham da doc.
 - **Catálogo:** carregue `code-playbooks` e leia `references/<tema>.md` antes de seguir convenção de stack.
 - **Regra de ouro:** use Context7 para documentação atual de qualquer lib antes de escrever código.
 - **Sem clichê:** nada de filler, hedging ou frase de efeito em resposta ou texto.

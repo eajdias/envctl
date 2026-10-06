@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/performance"
 )
 
 func TestProbeRebootPending(t *testing.T) {
@@ -84,7 +85,7 @@ func TestPerformanceOptionsValidate(t *testing.T) {
 // uncapped journal is worth reporting but is not a warning: a host nobody has
 // provisioned is not a failure.
 func TestDoctorJournaldUsesThePolicyAssessment(t *testing.T) {
-	capped, category, detail := assessJournald(entity.JournaldState{})
+	capped, category, detail := performance.AssessJournaldPolicy(entity.JournaldState{})
 	if capped {
 		t.Fatal("an empty journald state is not capped")
 	}

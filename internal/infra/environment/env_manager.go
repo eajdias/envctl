@@ -10,27 +10,23 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
-type envManager struct{}
+type WindowsEnvManager struct{}
 
 // NewWindowsEnvManager creates an environment variable manager for Windows and POSIX.
-func NewWindowsEnvManager() repository.WindowsEnvManager {
-	return &envManager{}
+func NewWindowsEnvManager() *WindowsEnvManager {
+	return &WindowsEnvManager{}
 }
 
-// psQuote escapes single quotes for safe embedding in a PowerShell string literal.
-func psQuote(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
-}
-
-func (e *envManager) GetEnvVar(scope, name string) (string, error) {
+func (e *WindowsEnvManager) GetEnvVar(scope, name string) (string, error) {
 	if runtime.GOOS != "windows" {
 		// The rc files are the source of truth for vars persisted by envctl:
 		// they keep the portable $HOME form, while the process environment
 		// may hold the shell-expanded copy inherited from the login shell.
-		if val, _ := e.getEnvVarFromRC(name); val != "" {
+		if val := e.getEnvVarFromRC(name); val != "" {
 			return val, nil
 		}
 		if val := os.Getenv(name); val != "" {
@@ -38,7 +34,7 @@ func (e *envManager) GetEnvVar(scope, name string) (string, error) {
 		}
 		return "", nil
 	}
-	psCmd := fmt.Sprintf("[System.Environment]::GetEnvironmentVariable('%s', '%s')", psQuote(name), psQuote(scope))
+	psCmd := fmt.Sprintf("[System.Environment]::GetEnvironmentVariable('%s', '%s')", executil.PSQuote(name), executil.PSQuote(scope))
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", psCmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -47,7 +43,7 @@ func (e *envManager) GetEnvVar(scope, name string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func (e *envManager) SetEnvVar(scope, name, value string) error {
+func (e *WindowsEnvManager) SetEnvVar(scope, name, value string) error {
 	if runtime.GOOS != "windows" {
 		// Persist for future shells and set for the current process.
 		if err := e.persistEnvVar(name, value); err != nil {
@@ -55,7 +51,7 @@ func (e *envManager) SetEnvVar(scope, name, value string) error {
 		}
 		return os.Setenv(name, value)
 	}
-	psCmd := fmt.Sprintf("[System.Environment]::SetEnvironmentVariable('%s', '%s', '%s')", psQuote(name), psQuote(value), psQuote(scope))
+	psCmd := fmt.Sprintf("[System.Environment]::SetEnvironmentVariable('%s', '%s', '%s')", executil.PSQuote(name), executil.PSQuote(value), executil.PSQuote(scope))
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-Command", psCmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -75,7 +71,7 @@ type shellRC struct {
 // target: on hosts where fish is the login shell (CachyOS and many Arch
 // installs) ~/.profile and ~/.bashrc are never read, so variables written only
 // there would silently never reach an interactive session.
-func (e *envManager) rcFiles() []shellRC {
+func (e *WindowsEnvManager) rcFiles() []shellRC {
 	home, err := resolveHome()
 	if err != nil || home == "" {
 		return nil
@@ -94,6 +90,15 @@ func resolveHome() (string, error) {
 		return home, nil
 	}
 	return os.UserHomeDir()
+}
+
+// fishAvailable reports whether the fish shell is installed. Both rc
+// writers skip conjuring a fish config on hosts without fish: the legacy
+// shell installers only touched fish when `command -v fish` hit, and a
+// created file would flip an "already present" legacy line into "written".
+func fishAvailable() bool {
+	_, err := exec.LookPath("fish")
+	return err == nil
 }
 
 // withinHome reports whether path resolves inside the user's home directory, so
@@ -128,14 +133,19 @@ func (rc shellRC) declarationPrefix(name string) string {
 
 // persistEnvVar writes the export into every supported shell startup file,
 // replacing any existing declaration so the variable survives shell restarts.
-func (e *envManager) persistEnvVar(name, value string) error {
+func (e *WindowsEnvManager) persistEnvVar(name, value string) error {
 	for _, rc := range e.rcFiles() {
 		if rc.path == "" || !withinHome(rc.path) {
 			continue
 		}
 		data, err := os.ReadFile(rc.path)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read %s: %w", rc.path, err)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("failed to read %s: %w", rc.path, err)
+			}
+			if rc.fish && !fishAvailable() {
+				continue
+			}
 		}
 		existing := strings.TrimSpace(string(data))
 		var lines []string
@@ -176,7 +186,7 @@ func (e *envManager) persistEnvVar(name, value string) error {
 // exist, and returns how many lines were removed. It runs on every provisioning
 // pass (not only when a variable changes) so an already-converged machine still
 // loses the broken line.
-func (e *envManager) cleanupStaleShimReferences() int {
+func (e *WindowsEnvManager) cleanupStaleShimReferences() int {
 	home, err := resolveHome()
 	if err != nil || home == "" {
 		return 0
@@ -250,7 +260,7 @@ func isStaleToolShimReference(line string) bool {
 }
 
 // getEnvVarFromRC reads the current value of a variable from the shell rc files.
-func (e *envManager) getEnvVarFromRC(name string) (string, error) {
+func (e *WindowsEnvManager) getEnvVarFromRC(name string) string {
 	for _, rc := range e.rcFiles() {
 		if rc.path == "" {
 			continue
@@ -267,18 +277,18 @@ func (e *envManager) getEnvVarFromRC(name string) (string, error) {
 			}
 			val := strings.Trim(strings.TrimPrefix(trimmed, prefix), "\"'")
 			if val != "" {
-				return val, nil
+				return val
 			}
 		}
 	}
-	return "", nil
+	return ""
 }
 
 // declarationsAligned reports whether every supported shell startup file
 // already declares name with exactly the given value. A value present in a
 // single rc file is not enough: a host whose login shell is fish would keep
 // working with bash while the interactive shell never sees the variable.
-func (e *envManager) declarationsAligned(name, value string) bool {
+func (e *WindowsEnvManager) declarationsAligned(name, value string) bool {
 	files := e.rcFiles()
 	if len(files) == 0 {
 		return false
@@ -295,7 +305,7 @@ func (e *envManager) declarationsAligned(name, value string) bool {
 	return true
 }
 
-func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error) {
+func (e *WindowsEnvManager) EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error) {
 	var diagnostics []entity.Diagnostic
 
 	for _, v := range vars {
@@ -303,44 +313,43 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 			continue
 		}
 
-		currentVal, _ := e.GetEnvVar(v.Scope, v.Name)
+		currentVal, err := e.GetEnvVar(v.Scope, v.Name)
+		if err != nil {
+			currentVal = ""
+		}
 		aligned := currentVal == v.Value
 		if aligned && runtime.GOOS != "windows" {
 			aligned = e.declarationsAligned(v.Name, v.Value)
 		}
 		if !aligned {
 			if err := e.SetEnvVar(v.Scope, v.Name, v.Value); err != nil {
-				diagnostics = append(diagnostics, entity.Diagnostic{
-					Category: entity.DiagError,
-					System:   "Environment",
-					Target:   v.Name,
-					Details:  fmt.Sprintf("Failed to set %s=%s: %v", v.Name, v.Value, err),
-				})
+				diagnostics = append(diagnostics, entity.Error(
+					"Environment",
+					v.Name,
+					fmt.Sprintf("Failed to set %s=%s: %v", v.Name, v.Value, err),
+				))
 			} else {
-				diagnostics = append(diagnostics, entity.Diagnostic{
-					Category: entity.DiagOK,
-					System:   "Environment",
-					Target:   v.Name,
-					Details:  fmt.Sprintf("Configured %s=%s (Scope: %s)", v.Name, v.Value, v.Scope),
-				})
+				diagnostics = append(diagnostics, entity.OK(
+					"Environment",
+					v.Name,
+					fmt.Sprintf("Configured %s=%s (Scope: %s)", v.Name, v.Value, v.Scope),
+				))
 			}
 		} else {
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagOK,
-				System:   "Environment",
-				Target:   v.Name,
-				Details:  fmt.Sprintf("Already set %s=%s (Scope: %s)", v.Name, v.Value, v.Scope),
-			})
+			diagnostics = append(diagnostics, entity.OK(
+				"Environment",
+				v.Name,
+				fmt.Sprintf("Already set %s=%s (Scope: %s)", v.Name, v.Value, v.Scope),
+			))
 		}
 	}
 
 	if removed := e.cleanupStaleShimReferences(); removed > 0 {
-		diagnostics = append(diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "ShellProfile",
-			Target:   "stale shim references",
-			Details:  fmt.Sprintf("Removed %d sourcing line(s) pointing at shims that no longer exist", removed),
-		})
+		diagnostics = append(diagnostics, entity.OK(
+			"ShellProfile",
+			"stale shim references",
+			fmt.Sprintf("Removed %d sourcing line(s) pointing at shims that no longer exist", removed),
+		))
 	}
 
 	return diagnostics, nil
@@ -350,8 +359,12 @@ func (e *envManager) EnsureEnvVars(ctx context.Context, vars []entity.Environmen
 // prepending it when missing. Windows: User-scope Path registry value.
 // POSIX: `export PATH="<dir>:$PATH"` in ~/.profile and ~/.bashrc; fish:
 // `set -gx PATH "<dir>" $PATH` in ~/.config/fish/config.fish.
+// A differing live file is backed up first (.bak.YYYYMMDD-HHMMSS), following
+// the repo's atomic-backup convention. The guard is a substring match, so
+// lines written by the legacy shell installers (which used the same
+// `$HOME/...` form) count as present.
 // Returns changed=true when the PATH was modified.
-func (e *envManager) EnsurePathEntry(ctx context.Context, dir string) (bool, error) {
+func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bool, error) {
 	if dir == "" {
 		return false, fmt.Errorf("empty dir provided")
 	}
@@ -384,14 +397,25 @@ func (e *envManager) EnsurePathEntry(ctx context.Context, dir string) (bool, err
 			line = fmt.Sprintf("set -gx PATH %q $PATH", dir)
 		}
 		data, err := os.ReadFile(rc.path)
-		if err != nil && !os.IsNotExist(err) {
-			return changed, fmt.Errorf("failed to read %s: %w", rc.path, err)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return changed, fmt.Errorf("failed to read %s: %w", rc.path, err)
+			}
+			if rc.fish && !fishAvailable() {
+				continue
+			}
 		}
 		if strings.Contains(string(data), dir) {
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(rc.path), 0o750); err != nil {
 			return changed, err
+		}
+		if len(data) > 0 {
+			//nolint:gosec // backup path derived from rc.path in user home
+			if err := os.WriteFile(filesystem.BackupPathFor(rc.path), data, 0600); err != nil {
+				return changed, fmt.Errorf("failed to back up %s: %w", rc.path, err)
+			}
 		}
 		f, err := os.OpenFile(rc.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {

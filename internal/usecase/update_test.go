@@ -51,37 +51,6 @@ func (f *fakeUpdateEnv) wasApplied(target string) bool {
 
 // The manifest already carries "@latest" in some install_target values, so the
 // command must not append a second one.
-// A tool can report the same release with different padding depending on which
-// command is asked: yt-dlp --version says 2026.08.19 while uv tool list says
-// v2026.8.19. Treating that as a difference runs an update that changes nothing.
-func TestVersionsDifferIgnoresPaddingAndPrefix(t *testing.T) {
-	same := [][2]string{
-		{"2026.08.19", "2026.8.19"},
-		{"v1.2.3", "1.2.3"},
-		{"1.2.3", "1.2.3+build.5"},
-		{"0.0.1", "0.0.1"},
-		{"1.10.0", "1.10.0"},
-	}
-	for _, pair := range same {
-		if versionsDiffer(pair[0], pair[1]) {
-			t.Errorf("versionsDiffer(%q, %q) = true, want false: same release", pair[0], pair[1])
-		}
-	}
-
-	different := [][2]string{
-		{"1.2.3", "1.2.4"},
-		{"5.9.2", "5.4.2"},
-		{"1.2.3", "1.2.3.1"},
-		{"0.0.1", "0.1.0"},
-		{"1.10.0", "1.9.0"},
-	}
-	for _, pair := range different {
-		if !versionsDiffer(pair[0], pair[1]) {
-			t.Errorf("versionsDiffer(%q, %q) = false, want true", pair[0], pair[1])
-		}
-	}
-}
-
 func TestUpdateCommandIsWellFormed(t *testing.T) {
 	if got := updateCommand(GroupGo, "golang.org/x/tools/gopls"); got != "go install golang.org/x/tools/gopls@latest" {
 		t.Errorf("go command = %q", got)
@@ -89,8 +58,11 @@ func TestUpdateCommandIsWellFormed(t *testing.T) {
 	if got := updateCommand(GroupGo, "golang.org/x/tools/gopls@latest"); got != "go install golang.org/x/tools/gopls@latest" {
 		t.Errorf("a target already ending in @latest must not double it: %q", got)
 	}
-	if got := updateCommand(GroupVolta, "typescript"); got != "volta install typescript@latest" {
-		t.Errorf("volta command = %q", got)
+	if got := updateCommand(GroupNpm, "typescript"); got != "npm install -g typescript@latest" {
+		t.Errorf("npm command = %q", got)
+	}
+	if got := updateCommand(GroupMise, "node"); got != "mise install node@latest" {
+		t.Errorf("mise command = %q", got)
 	}
 	if got := updateCommand(GroupUV, "pytest"); got != "uv tool upgrade pytest" {
 		t.Errorf("uv command = %q", got)
@@ -106,8 +78,8 @@ func TestUpdateExcludesProvidersRuntimeEntries(t *testing.T) {
 	})
 
 	candidates := uc.collect([]entity.Package{
-		{ID: "node@24.19.0", Type: entity.PackageTypeVolta, CheckCommand: "node --version"},
-		{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"},
+		{ID: "node@24.19.0", Type: entity.PackageTypeMise, CheckCommand: "node --version"},
+		{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
 	}, []entity.LSP{})
 
 	for _, c := range candidates {
@@ -130,9 +102,9 @@ func TestUpdateKeepsDistinctTargetsThatShareAnID(t *testing.T) {
 	})
 
 	candidates := uc.collect(
-		[]entity.Package{{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"}},
+		[]entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
 		[]entity.LSP{{
-			ID: "typescript", InstallType: entity.PackageTypeVolta,
+			ID: "typescript", InstallType: entity.PackageTypeNpm,
 			InstallTarget: "typescript-language-server", CheckBinary: "typescript-language-server",
 		}},
 	)
@@ -153,7 +125,7 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 	uc := NewUpdateUseCase(&fakeUpdateEnv{installed: map[string]string{}, latest: map[string]string{}, failOn: map[string]error{}, binaryOf: map[string]string{}})
 
 	candidates := uc.collect([]entity.Package{
-		{ID: "typescript", Type: entity.PackageTypeVolta, OS: "arch,cachyos", CheckCommand: "tsc --version"},
+		{ID: "typescript", Type: entity.PackageTypeNpm, OS: "arch,cachyos", CheckCommand: "tsc --version"},
 		{ID: "pytest", Type: entity.PackageTypePip, OS: "arch,cachyos", CheckCommand: "pytest --version"},
 		{ID: "gopls", Type: entity.PackageTypeGo, OS: "", CheckCommand: "gopls version"},
 		// Every OS package manager must stay out: upgrading a subset through
@@ -168,7 +140,7 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 	for _, c := range candidates {
 		got[c.ID] = c.Group
 	}
-	want := map[string]UpdateGroup{"typescript": GroupVolta, "pytest": GroupUV, "gopls": GroupGo}
+	want := map[string]UpdateGroup{"typescript": GroupNpm, "pytest": GroupUV, "gopls": GroupGo}
 	if len(got) != len(want) {
 		t.Fatalf("candidates = %v, want exactly %v", got, want)
 	}
@@ -190,8 +162,8 @@ func TestUpdateAppliesBehindVersionsAndSkipsCurrent(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"}},
-		LSPs:     []entity.LSP{{ID: "prettier", InstallType: entity.PackageTypeVolta, InstallTarget: "prettier", CheckBinary: "prettier"}},
+		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
+		LSPs:     []entity.LSP{{ID: "prettier", InstallType: entity.PackageTypeNpm, InstallTarget: "prettier", CheckBinary: "prettier"}},
 	}, UpdateOptions{})
 
 	if err != nil {
@@ -219,7 +191,7 @@ func TestUpdateDryRunNeverApplies(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{DryRun: true})
 
 	if err != nil {
@@ -228,8 +200,8 @@ func TestUpdateDryRunNeverApplies(t *testing.T) {
 	if len(env.applied) != 0 {
 		t.Errorf("dry run applied %v, want nothing", env.applied)
 	}
-	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "volta install") {
-		t.Fatalf("planned = %+v, want one volta install command", result.Planned)
+	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "npm install -g") {
+		t.Fatalf("planned = %+v, want one npm install command", result.Planned)
 	}
 }
 
@@ -246,7 +218,7 @@ func TestUpdateUnknownLatestUpdatesNothing(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{})
 
 	if err != nil {
@@ -274,7 +246,7 @@ func TestUpdateFailureIsIsolatedPerTool(t *testing.T) {
 	result, err := uc.Execute(context.Background(), UpdateInventory{
 		Packages: []entity.Package{
 			{ID: "pytest", Type: entity.PackageTypePip, CheckCommand: "pytest --version"},
-			{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"},
+			{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
 		},
 	}, UpdateOptions{})
 
@@ -304,7 +276,7 @@ func TestUpdateFilterNarrowsToOneGroup(t *testing.T) {
 
 	_, err := uc.Execute(context.Background(), UpdateInventory{
 		Packages: []entity.Package{
-			{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"},
+			{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
 			{ID: "pytest", Type: entity.PackageTypePip, CheckCommand: "pytest --version"},
 		},
 	}, UpdateOptions{Only: GroupUV})
@@ -316,7 +288,7 @@ func TestUpdateFilterNarrowsToOneGroup(t *testing.T) {
 		t.Error("--only uv must still update pytest")
 	}
 	if env.wasApplied("typescript") {
-		t.Error("--only uv must not touch volta tools")
+		t.Error("--only uv must not touch npm tools")
 	}
 }
 
@@ -326,7 +298,7 @@ func TestUpdateListDoesNotQueryLatest(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	if _, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeVolta, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{List: true}); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}

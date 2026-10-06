@@ -13,7 +13,7 @@ import (
 
 // shadowFixture builds a manager over a fake sysctl.d tree. The profile's own
 // drop-in lands in the tree, so the resolver sees exactly what it sees on a host.
-func shadowFixture(t *testing.T, live map[string]string, hostFiles map[string]string) (*sysctlManager, string) {
+func shadowFixture(t *testing.T, live map[string]string, hostFiles map[string]string) (*SysctlManager, string) {
 	t.Helper()
 	root := t.TempDir()
 	etc := filepath.Join(root, "etc", "sysctl.d")

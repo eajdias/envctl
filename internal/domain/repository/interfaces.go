@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"io/fs"
-	"os"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
@@ -15,80 +13,6 @@ type PackageManager interface {
 	IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error)
 	Install(ctx context.Context, pkg entity.Package) error
 	ListInstalled(ctx context.Context) ([]entity.Package, error)
-}
-
-// PackageRemover is a narrow port for package removal. PackageManager is
-// deliberately NOT extended: it has eight implementations (apt, pacman, paru,
-// winget, volta, npm, pip, go) plus a mock, and four of those have no removal
-// semantics at all. Only the managers that can actually remove declare this.
-type PackageRemover interface {
-	Type() entity.PackageType
-	IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error)
-	Remove(ctx context.Context, pkg entity.Package) error
-}
-
-// FileSystemManager provides file operations with atomic backup and path expansion.
-type FileSystemManager interface {
-	WriteWithBackup(destPath string, content []byte, perm os.FileMode) (backupCreated string, err error)
-	ReadFile(path string) ([]byte, error)
-	EnsureDirectory(path string, perm os.FileMode) error
-	Exists(path string) bool
-	ExpandUserPath(path string) (string, error)
-	SetStrictWindowsACL(path string) error
-	CopyEmbeddedTree(embeddedFS fs.FS, sourceDir, targetDir string) (int, error)
-}
-
-// ManifestRepository loads and saves declarative environment specifications.
-type ManifestRepository interface {
-	LoadPackages() ([]entity.Package, error)
-	LoadGamingPackages() ([]entity.Package, error)
-	LoadExtrasPackages() ([]entity.Package, error)
-	LoadConfigFiles() ([]entity.ConfigFile, error)
-	LoadSkills() ([]entity.Skill, error)
-	LoadLSPs() ([]entity.LSP, error)
-	LoadEnvVars() ([]entity.EnvironmentVar, error)
-	LoadGitConfigs() ([]entity.GitConfig, error)
-	LoadDirectories() ([]entity.RestrictedDir, error)
-	LoadCleanupItems() ([]entity.CleanupItem, error)
-	LoadWindowsTweaks() ([]entity.WindowsTweak, error)
-	LoadDebloatTweaks() ([]entity.WindowsTweak, error)
-	LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error)
-	// LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
-	LoadLinuxDebloatSpec() (entity.DebloatSpec, error)
-	// ListPerformanceProfiles reports every shipped profile with the release
-	// floor its manifest declares, so no caller hard-codes a version.
-	ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error)
-
-	SaveSkills(skills []entity.Skill) error
-	SaveGitConfigs(configs []entity.GitConfig) error
-}
-
-// GitManager handles global git configs and version control operations.
-type GitManager interface {
-	GetGlobalConfig(ctx context.Context, key string) (string, error)
-	SetGlobalConfig(ctx context.Context, key, value string) error
-	EnsureGlobalConfigs(ctx context.Context, configs []entity.GitConfig) ([]entity.Diagnostic, error)
-}
-
-// WindowsEnvManager manages Windows User and Machine environment variables.
-type WindowsEnvManager interface {
-	GetEnvVar(scope, name string) (string, error)
-	SetEnvVar(scope, name string, value string) error
-	EnsureEnvVars(ctx context.Context, vars []entity.EnvironmentVar) ([]entity.Diagnostic, error)
-	// EnsurePathEntry guarantees that dir is present in the user PATH
-	// (Windows User scope, POSIX rc files), prepending it when missing.
-	EnsurePathEntry(ctx context.Context, dir string) (bool, error)
-}
-
-// WindowsTweaksManager manages Windows 11 system registry tweaks, features and fonts.
-type WindowsTweaksManager interface {
-	CheckTweak(ctx context.Context, tweak entity.WindowsTweak) (bool, string, error)
-	// CheckBatch checks many tweaks with one PowerShell spawn per family
-	// (registry, Appx, services) instead of one per tweak. Results are
-	// order-preserving: results[i] answers tweaks[i].
-	CheckBatch(ctx context.Context, tweaks []entity.WindowsTweak) []entity.TweakCheckResult
-	ApplyTweak(ctx context.Context, tweak entity.WindowsTweak) error
-	EnsureTweaks(ctx context.Context, tweaks []entity.WindowsTweak) ([]entity.Diagnostic, error)
 }
 
 // Logger provides structured and persistent execution logging to disk.

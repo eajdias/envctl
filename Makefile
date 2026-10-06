@@ -1,4 +1,4 @@
-.PHONY: build test coverage lint doctor doctor-fix run-all snapshot install clean
+.PHONY: build test coverage lint doctor doctor-fix run-all install clean
 
 BINARY_NAME=envctl
 SRC=./cmd/envctl
@@ -8,9 +8,6 @@ VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "v1.2.0")
 build:
 	go build -ldflags "-s -w -X main.Version=$(VERSION)" -o $(BINARY_NAME) $(SRC)
 
-build-windows:
-	go build -ldflags "-s -w -X main.Version=$(VERSION)" -o envctl.exe $(SRC)
-
 test:
 	go test -v ./...
 
@@ -19,20 +16,20 @@ coverage:
 	@echo "Coverage report: coverage.out"
 	@go tool cover -func=coverage.out | tail -1
 
+# Same verdict as CI (which gates only new issues): a bare `run ./...` shows
+# legacy debt the CI never reports.
 lint:
-	golangci-lint run ./...
+	golangci-lint run --new-from-rev=origin/main ./...
 
-doctor: build
-	./$(BINARY_NAME) doctor
+# go run: identical behavior, no ./envctl artifact churning the tree.
+doctor:
+	go run $(SRC) doctor
 
-doctor-fix: build
-	./$(BINARY_NAME) doctor --fix
+doctor-fix:
+	go run $(SRC) doctor --fix
 
-run-all: build
-	./$(BINARY_NAME) run all
-
-snapshot: build
-	./$(BINARY_NAME) snapshot
+run-all:
+	go run $(SRC) run all
 
 install: build
 	@mkdir -p $$HOME/.local/bin
@@ -40,5 +37,5 @@ install: build
 	@echo "Installed $(BINARY_NAME) to ~/.local/bin"
 
 clean:
-	@rm -f $(BINARY_NAME) envctl.exe coverage.out
+	@rm -f $(BINARY_NAME) coverage.out
 	@rm -rf dist/

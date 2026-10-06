@@ -68,7 +68,7 @@ configuração do próprio ESLint são excluídos dessa dedução.
 (nunca instala nada), depois o PATH — a versão que o projeto fixou ganha da global.
 
 **Ferramenta ausente não é falha.** Se o binário não existe, o check opcional é omitido; se
-ele existe mas não consegue rodar naquele projeto (shim do Volta sem dependência local,
+ele existe mas não consegue rodar naquele projeto (shim do mise sem dependência local,
 `uv run` sem virtualenv), o check é **skip** e aparece nomeado no resumo do push. No
 `--dry-run`, o script `package.json lint` com package manager indisponível aparece como
 `[skip]`.

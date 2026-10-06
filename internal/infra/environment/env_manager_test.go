@@ -24,10 +24,29 @@ func fishConfigPath(home string) string {
 	return filepath.Join(home, ".config", "fish", "config.fish")
 }
 
+// withFakeFishOnPATH installs a fake fish binary so the test exercises the
+// fish branch deterministically instead of depending on the ambient machine
+// (a host without fish must skip conjuring a fish config; a host with fish
+// manages it). The binary name is per-OS: exec.LookPath only resolves
+// extensionless names on POSIX and needs .exe on Windows.
+func withFakeFishOnPATH(t *testing.T) {
+	t.Helper()
+	binDir := t.TempDir()
+	name := "fish"
+	if runtime.GOOS == "windows" {
+		name = "fish.exe"
+	}
+	if err := os.WriteFile(filepath.Join(binDir, name), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 func TestPersistEnvVarTargetsFishWithFishSyntax(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	manager := &envManager{}
+	withFakeFishOnPATH(t)
+	manager := &WindowsEnvManager{}
 
 	if err := manager.persistEnvVar("ENVCTL_TEMP", "/temp"); err != nil {
 		t.Fatalf("persistEnvVar: %v", err)
@@ -60,7 +79,7 @@ func TestPersistEnvVarReplacesExistingDeclaration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	if err := manager.persistEnvVar("ENVCTL_TEMP", "/temp"); err != nil {
 		t.Fatalf("persistEnvVar: %v", err)
 	}
@@ -88,11 +107,8 @@ func TestGetEnvVarFromRCReadsFishDeclarations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
-	got, err := manager.getEnvVarFromRC("ENVCTL_TEMP")
-	if err != nil {
-		t.Fatalf("getEnvVarFromRC: %v", err)
-	}
+	manager := &WindowsEnvManager{}
+	got := manager.getEnvVarFromRC("ENVCTL_TEMP")
 	if got != "/temp" {
 		t.Errorf("getEnvVarFromRC = %q, want %q", got, "/temp")
 	}
@@ -104,12 +120,13 @@ func TestEnsureEnvVarsAlignsEveryShell(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	withFakeFishOnPATH(t)
 	// State left by an older run: the variable only reached the bash files.
 	if err := os.WriteFile(filepath.Join(home, ".bashrc"), []byte("export ENVCTL_TEMP=\"/temp\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
-	manager := &envManager{}
+	manager := &WindowsEnvManager{}
 	vars := []entity.EnvironmentVar{{Name: "ENVCTL_TEMP", Value: "/temp", Scope: "User", OS: "linux"}}
 	if _, err := manager.EnsureEnvVars(context.Background(), vars); err != nil {
 		t.Fatalf("EnsureEnvVars: %v", err)
@@ -156,13 +173,33 @@ func TestIsStaleToolShimReference(t *testing.T) {
 	}
 }
 
+func TestEnsurePathEntrySkipsFishWithoutFish(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not fish rc files")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	// A PATH with no fish in it: the legacy shell installers only touched
+	// fish when `command -v fish` hit, so no config.fish may be conjured.
+	t.Setenv("PATH", t.TempDir())
+	manager := &WindowsEnvManager{}
+
+	if _, err := manager.EnsurePathEntry(context.Background(), filepath.Join(home, ".local", "bin")); err != nil {
+		t.Fatalf("EnsurePathEntry: %v", err)
+	}
+	if _, err := os.Stat(fishConfigPath(home)); !os.IsNotExist(err) {
+		t.Errorf("fish config must not be created on a host without fish")
+	}
+}
+
 func TestEnsurePathEntryAddsFishPathOnce(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PATH persistence on Windows writes the registry value, not fish rc files")
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	manager := &envManager{}
+	withFakeFishOnPATH(t)
+	manager := &WindowsEnvManager{}
 	dir := filepath.Join(home, ".local", "bin")
 
 	changed, err := manager.EnsurePathEntry(context.Background(), dir)

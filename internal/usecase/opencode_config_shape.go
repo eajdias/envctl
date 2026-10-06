@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -139,20 +140,49 @@ func (uc *DoctorAuditUseCase) auditOpenCodeConfigShape(addDiag func(entity.Diagn
 
 	problems := validateOpenCodeConfigShape(data)
 	if len(problems) == 0 {
-		addDiag(entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "OpenCode",
-			Target:   "Config shape",
-			Details:  "native V2 agents/permissions shape",
-		})
+		addDiag(entity.OK(
+			"OpenCode",
+			"Config shape",
+			"native V2 agents/permissions shape",
+		))
 		return
 	}
 
-	addDiag(entity.Diagnostic{
-		Category: entity.DiagWarning,
-		System:   "OpenCode",
-		Target:   "Config shape",
-		Details:  strings.Join(problems, "; "),
-		FixHint:  "run 'envctl run shell' to re-provision the native V2 config, or migrate the reported fields",
-	})
+	addDiag(entity.Warn(
+		"OpenCode",
+		"Config shape",
+		strings.Join(problems, "; "),
+		"run 'envctl run shell' to re-provision the native V2 config, or migrate the reported fields",
+	))
+}
+
+// withWindowsShellOverlay injects the Windows-only "shell" key into the
+// single opencode.json base template. The base carries no shell key (the old
+// 813-line linux copy differed only here), so Windows provisioning applies
+// this at deploy time instead of versioning a second file. Insertion is
+// textual right after the opening brace, keeping every other byte of the
+// template intact; a template that already sets shell, or that is not valid
+// JSON, passes through untouched.
+func withWindowsShellOverlay(content []byte) []byte {
+	// Same checkout normalization as withSSHOSOverlay: CRLF in, LF out.
+	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
+	var decoded map[string]json.RawMessage
+	if err := json.Unmarshal(content, &decoded); err != nil {
+		return content
+	}
+	if _, ok := decoded["shell"]; ok {
+		return content
+	}
+	idx := bytes.IndexByte(content, '{')
+	if idx < 0 {
+		return content
+	}
+	patched := make([]byte, 0, len(content)+20)
+	patched = append(patched, content[:idx+1]...)
+	patched = append(patched, "\n  \"shell\": \"pwsh\","...)
+	patched = append(patched, content[idx+1:]...)
+	if !json.Valid(patched) {
+		return content
+	}
+	return patched
 }

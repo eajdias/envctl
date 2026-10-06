@@ -30,10 +30,10 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 ## 🎯 O que o `envctl` Configura Automaticamente?
 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
-- **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
-- **Language Server Protocol (15 binários LSP p/ shell/IDE)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
+- **Toolchains Completas**: Node.js LTS (via mise), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
+- **Language Server Protocol (binários LSP p/ shell/IDE, ver `manifests/lsp.yaml`)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 - **Ecossistema OpenCode & CommandCode com 12 Skills**: `opencode.json`, plugins e **12 skills curadas** — só entra no catálogo o que o modelo não faria sozinho; o conhecimento por stack/tool fica em `code-playbooks/references/`. Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
-- **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via volta) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
+- **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via npm) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
 - **Quality Gates Locais**: verificador único conectado ao hook `Stop` do CommandCode (diagnóstico de volta ao modelo no mesmo turno) e a um pre-push global do git. Ele detecta a stack do repositório (Go, Node/TS, Python, SQL, shell, Docker, PowerShell), roda linters nos **arquivos alterados** e type checks/testes no repo inteiro. Findings de lint/formatação são informativos; scripts explícitos, builds, vets e testes continuam bloqueantes. Veja [docs/verification.md](docs/verification.md).
 - **Worktree por padrão**: worktrees em `.worktrees/<type>-<slug>` e `doctor` reportando `prunable`/`locked`.
@@ -73,11 +73,11 @@ envctl doctor
 # Auto-remediação automática de qualquer divergência
 envctl doctor --fix
 
-# Atualiza o toolchain global (globals volta/npm, uv tool de Python, go install)
+# Atualiza o toolchain global (runtimes mise, globals npm, uv tool de Python, go install)
 envctl update            # aplica direto; --dry-run faz o preview, --list só inventaria
 
 # Provisionamento granular por subsistema
-envctl run providers    # Fase 0: Volta, Node e os CLIs OpenCode/CommandCode prontos e atuais
+envctl run providers    # Fase 0: mise, Node e os CLIs OpenCode/CommandCode prontos e atuais
 envctl run winget       # Pacotes Winget (Windows)
 envctl run apt          # Pacotes APT (Debian/Ubuntu)
 envctl run pacman       # Pacotes pacman (Arch/CachyOS)
@@ -86,7 +86,7 @@ envctl run gaming       # Stack gaming standalone (Arch/CachyOS)
 envctl run performance  # Perfil de performance standalone (Ubuntu 24.04+ ou CachyOS)
 envctl run tweaks       # Só tweaks de registro, Developer Mode e fontes (Windows)
 envctl run debloat      # Só debloat standalone (Windows)
-envctl run volta        # Node.js e ferramentas globais
+envctl run mise          # Runtimes gerenciados pelo mise (Node.js)
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das skills
 envctl run lsp          # 15 Servidores de Linguagem (LSP)
@@ -103,8 +103,9 @@ envctl snapshot
 Para guias passo a passo detalhados, arquitetura e especificações:
 
 ### 📖 Guias de Execução por Sistema Operacional:
-- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, PowerShell 7 + WSL Ubuntu.
-- 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
+- 🚀 [**Guia de Provisionamento (qualquer OS)**](docs/guides/provisioning.md) — Instalação em uma passada (1-liner, binário ou fonte) com blocos por OS.
+- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Subcomandos, shell stack, ajustes de registro, PowerShell 7 + WSL Ubuntu.
+- 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Subcomandos, performance, execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
 - 🎮 [**Guia CachyOS Gaming**](docs/guides/cachyos-gaming.md) — Kernel cmdline, scheduler, GPU/AMD, MangoHud, Proton e emuladores (o que o `run gaming` provisiona e o que é manual).
 - 🧹 [**Guia Windows Debloat Tier 3**](docs/guides/windows-debloat-tier3.md) — OneDrive, energia, Teredo, Docker/WSL: o que é destrutivo e por isso manual.
 

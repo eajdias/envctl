@@ -2,11 +2,13 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/toolchain"
 )
 
 // UpdateGroup identifies an install mechanism family. Only the families whose
@@ -16,17 +18,20 @@ import (
 type UpdateGroup string
 
 const (
-	GroupVolta UpdateGroup = "volta"
-	GroupUV    UpdateGroup = "uv"
-	GroupGo    UpdateGroup = "go"
+	GroupMise UpdateGroup = "mise"
+	GroupNpm  UpdateGroup = "npm"
+	GroupUV   UpdateGroup = "uv"
+	GroupGo   UpdateGroup = "go"
 )
 
 // automatableGroup maps a manifest install type to the group that can update it.
 // A type absent from this map is never automated.
 func automatableGroup(installType entity.PackageType) (UpdateGroup, bool) {
 	switch installType {
-	case entity.PackageTypeVolta, entity.PackageTypeNpm:
-		return GroupVolta, true
+	case entity.PackageTypeMise:
+		return GroupMise, true
+	case entity.PackageTypeNpm:
+		return GroupNpm, true
 	case entity.PackageTypePip:
 		return GroupUV, true
 	case entity.PackageTypeGo:
@@ -45,8 +50,10 @@ func updateCommand(group UpdateGroup, target string) string {
 		pin = "@latest"
 	}
 	switch group {
-	case GroupVolta:
-		return "volta install " + target + pin
+	case GroupMise:
+		return "mise install " + target + pin
+	case GroupNpm:
+		return "npm install -g " + target + pin
 	case GroupUV:
 		return "uv tool upgrade " + target
 	case GroupGo:
@@ -56,21 +63,69 @@ func updateCommand(group UpdateGroup, target string) string {
 	}
 }
 
-// providerRuntimePrefix marks manifest ids that pin a runtime version rather
-// than naming a tool. The providers phase owns those (node@24.19.0), and
-// "volta install node@24.19.0@latest" is not a thing you can run.
-func isProviderRuntime(id string) bool {
-	return strings.Contains(id, "@")
-}
-
-// UpdateEnv is the machine behind the use case. The real implementation reuses
-// the providers helpers (installedVersion, npmLatest, runWithToolchain) so there
-// is exactly one way to resolve a version in this codebase; tests fake it.
+// UpdateEnv is the machine behind the use case. The real implementation calls
+// the providers helpers (installedVersion, npmLatest, runWithToolchain)
+// directly, so there is exactly one way to resolve a version in this codebase;
+// tests fake the interface.
 type UpdateEnv interface {
 	installedVersion(binary string) string
 	latestVersion(group UpdateGroup, target string) string
 	applyUpdate(ctx context.Context, group UpdateGroup, target string) (string, error)
 }
+
+// NewRealUpdateEnv wires the use case to the actual machine.
+func NewRealUpdateEnv() UpdateEnv { return &realUpdateEnv{} }
+
+// realUpdateEnv runs against the machine. It is a zero-field struct on
+// purpose: every helper it needs already exists at package level (version.go,
+// provision_providers.go), so injected fields would only be a second spelling
+// of the same call.
+type realUpdateEnv struct{}
+
+func (e *realUpdateEnv) installedVersion(binary string) string {
+	return installedVersion(context.Background(), binary)
+}
+
+func (e *realUpdateEnv) latestVersion(group UpdateGroup, target string) string {
+	switch group {
+	case GroupMise, GroupNpm:
+		return npmLatest(context.Background(), target)
+	case GroupUV:
+		return uvToolVersionOf(context.Background(), target)
+	case GroupGo:
+		return goLatestOf(target)
+	default:
+		return ""
+	}
+}
+
+func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, target string) (string, error) {
+	var name string
+	var args []string
+	switch group {
+	case GroupMise:
+		name, args = "mise", []string{"install", target + "@latest"}
+	case GroupNpm:
+		// Same user-local prefix as NpmManager: a bare `npm install -g`
+		// lands in a root-owned system directory on Arch/Debian.
+		// The display command (updateCommand) shows the portable form.
+		name, args = "npm", []string{"install", "-g", target + "@latest"}
+		if prefix, err := toolchain.UserLocalPrefix(); err == nil {
+			args = []string{"install", "-g", "--prefix", prefix, target + "@latest"}
+		}
+	case GroupUV:
+		name, args = "uv", []string{"tool", "upgrade", target}
+	case GroupGo:
+		name, args = "go", []string{"install", target + "@latest"}
+	default:
+		return "", errUnautomatableGroup
+	}
+	return runWithToolchain(ctx, name, args...)
+}
+
+// errUnautomatableGroup guards a programming error rather than a machine
+// condition: collect() only ever emits the three groups above.
+var errUnautomatableGroup = errors.New("install group is not automatable")
 
 // UpdateCandidate is one tool that envctl knows how to keep current. Target is
 // the real install name, which can differ from the manifest id: the "typescript"
@@ -157,7 +212,7 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 		}
 		// A runtime pin (node@24.19.0) belongs to the providers phase, which
 		// already keeps the agent CLIs current.
-		if group == GroupVolta && isProviderRuntime(id) {
+		if group == GroupMise && isProviderRuntime(id) {
 			return
 		}
 		seen[target] = true
@@ -179,7 +234,7 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 		if idx := strings.Index(binary, " "); idx > 0 {
 			binary = binary[:idx]
 		}
-		// A package declared as a volta global has no separate target field: the
+		// A package declared as an npm global has no separate target field: the
 		// id is the npm package name, which is how the providers phase installs it.
 		add(p.ID, p.ID, p.Type, p.ID, binary)
 	}

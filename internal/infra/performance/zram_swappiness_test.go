@@ -81,7 +81,7 @@ func TestDeriveSwappinessIgnoresTheDeclaredValue(t *testing.T) {
 	}
 }
 
-func newZRAMManagerForTest(t *testing.T, present bool, devices []string, calls *[][]string) *zramManager {
+func newZRAMManagerForTest(t *testing.T, present bool, devices []string, calls *[][]string) *ZRAMManager {
 	t.Helper()
 	manager := newZRAMManager(
 		func() bool { return present },

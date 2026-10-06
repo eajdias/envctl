@@ -7,7 +7,7 @@ type PackageType string
 
 const (
 	PackageTypeWinget PackageType = "winget"
-	PackageTypeVolta  PackageType = "volta"
+	PackageTypeMise   PackageType = "mise"
 	PackageTypeNpm    PackageType = "npm"
 	PackageTypePip    PackageType = "pip"
 	PackageTypeGo     PackageType = "go"
@@ -98,6 +98,15 @@ type ConfigFile struct {
 	// must not report the runtime's own writes as drift.
 	RuntimeManaged bool `yaml:"runtime_managed,omitempty"`
 	Executable     bool `yaml:"executable,omitempty"` // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
+	// Instances expands one manifest entry into one deployment per name:
+	// {{name}} in destination/source is replaced by each instance. Used by
+	// the git hook shim, where a single script serves every hook and only
+	// the installed filename differs.
+	Instances []string `yaml:"instances,omitempty"`
+	// OSValues expands this entry into one deployment per OS variant; see
+	// EnvironmentVar.OSValues. Overridable fields: "id", "description",
+	// "source", "destination", "executable" (the string "true" or "false").
+	OSValues map[string]map[string]string `yaml:"os_values,omitempty"`
 }
 
 // Skill represents an agent skill deployed to OpenCode and CommandCode.
@@ -142,6 +151,12 @@ type EnvironmentVar struct {
 	Scope  string `yaml:"scope"` // "User" or "Machine"
 	Target string `yaml:"target"`
 	OS     string `yaml:"os,omitempty"` // "windows", "linux" or empty for all
+	// OSValues expands this entry into one variable per OS variant: each key
+	// is an os filter (same syntax as the `os` field; "all" means every OS)
+	// and its map overrides the named fields ("value", "target"). It
+	// collapses per-OS pairs that differ only in value into one entry;
+	// expansion happens in the loader, consumers only see concrete entries.
+	OSValues map[string]map[string]string `yaml:"os_values,omitempty"`
 }
 
 // WindowsTweak represents a Windows OS setting, registry key or system customization.
@@ -179,6 +194,9 @@ type RestrictedDir struct {
 	Description string `yaml:"description"`
 	Category    string `yaml:"category,omitempty"` // agent subsystem ("opencode", "commandcode") or empty for machine-level
 	OS          string `yaml:"os,omitempty"`       // "windows", "linux" or empty for all
+	// OSValues expands this entry into one directory per OS variant; see
+	// EnvironmentVar.OSValues. Overridable fields: "path", "description".
+	OSValues map[string]map[string]string `yaml:"os_values,omitempty"`
 }
 
 // CleanupItem represents a stale file or directory to remove during provisioning.
@@ -192,6 +210,9 @@ type CleanupItem struct {
 	// KeepNewest prunes timestamped backups (<name>.bak.YYYYMMDD-HHMMSS) inside
 	// the Path directory, keeping the newest N per original file (0 = disabled).
 	KeepNewest int `yaml:"keep_newest,omitempty"`
+	// OSValues expands this entry into one removal per OS variant; see
+	// EnvironmentVar.OSValues. Overridable fields: "id", "description", "path".
+	OSValues map[string]map[string]string `yaml:"os_values,omitempty"`
 }
 
 // DiagnosticStatus represents health check status.

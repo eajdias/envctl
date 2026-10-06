@@ -7,39 +7,41 @@ import (
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/performance"
 )
 
 // ProvisionPerformanceUseCase applies one exact OS performance profile. It
 // deliberately depends on a supplied PlatformInfo provider so release gates
 // are deterministic in tests and never inferred from package-manager presence.
 type ProvisionPerformanceUseCase struct {
-	manifestRepo repository.ManifestRepository
+	manifestRepo *embedded.ManifestRepository
 	packages     *ProvisionPackagesUseCase
-	sysctl       repository.SysctlManager
-	zram         repository.ZRAMManager
-	timezone     repository.TimezoneManager
-	journald     repository.JournaldManager
-	limits       repository.ResourceLimitsManager
-	probe        repository.HardwareProbe
-	swap         repository.SwapManager
-	debloat      repository.LinuxDebloatManager
+	sysctl       *performance.SysctlManager
+	zram         *performance.ZRAMManager
+	timezone     *performance.TimezoneManager
+	journald     *performance.JournaldManager
+	limits       *performance.ResourceLimitsManager
+	probe        *performance.HardwareProbe
+	swap         *performance.SwapManager
+	debloat      *performance.LinuxDebloatManager
 	logger       repository.Logger
 	platform     func() entity.PlatformInfo
 }
 
 func NewProvisionPerformanceUseCase(
-	manifestRepo repository.ManifestRepository,
+	manifestRepo *embedded.ManifestRepository,
 	packages *ProvisionPackagesUseCase,
-	sysctl repository.SysctlManager,
-	zram repository.ZRAMManager,
+	sysctl *performance.SysctlManager,
+	zram *performance.ZRAMManager,
 	logger repository.Logger,
 	platform func() entity.PlatformInfo,
-	timezone repository.TimezoneManager,
-	journald repository.JournaldManager,
-	limits repository.ResourceLimitsManager,
-	probe repository.HardwareProbe,
-	swap repository.SwapManager,
-	debloat repository.LinuxDebloatManager,
+	timezone *performance.TimezoneManager,
+	journald *performance.JournaldManager,
+	limits *performance.ResourceLimitsManager,
+	probe *performance.HardwareProbe,
+	swap *performance.SwapManager,
+	debloat *performance.LinuxDebloatManager,
 ) *ProvisionPerformanceUseCase {
 	if platform == nil {
 		platform = entity.DetectedPlatform
@@ -169,12 +171,11 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 	if len(spec.Tiers) > 0 {
 		selected, tierErr := entity.SelectPerformanceTier(hardware, spec.Tiers)
 		if tierErr != nil {
-			return packages, append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Performance",
-				Target:   "tier",
-				Details:  tierErr.Error(),
-			}), tierErr
+			return packages, append(diagnostics, entity.Error(
+				"Performance",
+				"tier",
+				tierErr.Error(),
+			)), tierErr
 		}
 		tier = selected
 		tierCategory := entity.DiagOK
@@ -234,12 +235,11 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 				hardware = uc.probe.Snapshot(ctx)
 			}
 		default:
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagInfo,
-				System:   "Performance",
-				Target:   "zram",
-				Details:  reason,
-			})
+			diagnostics = append(diagnostics, entity.Info(
+				"Performance",
+				"zram",
+				reason,
+			))
 		}
 	}
 
@@ -298,12 +298,11 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		}
 		debloatSpec, specErr := uc.manifestRepo.LoadLinuxDebloatSpec()
 		if specErr != nil {
-			return packages, append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Debloat",
-				Target:   "linux",
-				Details:  specErr.Error(),
-			}), specErr
+			return packages, append(diagnostics, entity.Error(
+				"Debloat",
+				"linux",
+				specErr.Error(),
+			)), specErr
 		}
 		debloatDiagnostics, debloatErr := uc.debloat.Apply(ctx, debloatSpec, dryRun)
 		diagnostics = append(diagnostics, debloatDiagnostics...)

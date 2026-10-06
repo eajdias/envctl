@@ -4,8 +4,15 @@ import (
 	"context"
 	"fmt"
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
+
+// packageRemover is the seam the debloat map needs: apt and pacman removers are
+// two concrete types reached through a single lookup.
+type packageRemover interface {
+	Type() entity.PackageType
+	IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error)
+	Remove(ctx context.Context, pkg entity.Package) error
+}
 
 // installedFunc reports whether a package is present, reusing the package
 // managers' own probe so the debloat decision and the doctor audit can never
@@ -73,21 +80,21 @@ func execRemoval(ctx context.Context, run commandRunner, elevate bool, name stri
 	return err
 }
 
-type linuxDebloatManager struct {
+type LinuxDebloatManager struct {
 	guard    *dropinWriter
-	removers map[entity.PackageType]repository.PackageRemover
+	removers map[entity.PackageType]packageRemover
 }
 
 // NewLinuxDebloatManager creates the production Linux removal adapter.
 func NewLinuxDebloatManager(
 	aptPath, pacmanPath string,
 	installed installedFunc,
-) repository.LinuxDebloatManager {
+) *LinuxDebloatManager {
 	run := execCommand
 	guardPath := "/etc/needrestart/conf.d/99-envctl.conf"
 	return newLinuxDebloatManager(
 		newDropinWriter(guardPath, run, nowFunc, needsElevation()),
-		map[entity.PackageType]repository.PackageRemover{
+		map[entity.PackageType]packageRemover{
 			entity.PackageTypeApt:    newAptRemover(aptRunner(aptPath, run), installed, needsElevation()),
 			entity.PackageTypePacman: newPacmanRemover(pacmanRunner(pacmanPath, run), installed, needsElevation()),
 		},
@@ -112,8 +119,8 @@ func pacmanRunner(path string, run commandRunner) commandRunner {
 	}
 }
 
-func newLinuxDebloatManager(guard *dropinWriter, removers map[entity.PackageType]repository.PackageRemover) *linuxDebloatManager {
-	return &linuxDebloatManager{guard: guard, removers: removers}
+func newLinuxDebloatManager(guard *dropinWriter, removers map[entity.PackageType]packageRemover) *LinuxDebloatManager {
+	return &LinuxDebloatManager{guard: guard, removers: removers}
 }
 
 // Apply writes the needrestart guard and then walks the removal list.
@@ -121,14 +128,13 @@ func newLinuxDebloatManager(guard *dropinWriter, removers map[entity.PackageType
 // The guard comes first, always. Ubuntu ships needrestart in automatic mode
 // (measured 3.11-1ubuntu2 with no override) and it restarts services after a
 // package change, which over SSH can drop the session performing the change.
-func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec, dryRun bool) ([]entity.Diagnostic, error) {
+func (m *LinuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec, dryRun bool) ([]entity.Diagnostic, error) {
 	if err := entity.ValidateDebloatSpec(spec); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Debloat",
-			Target:   "linux",
-			Details:  err.Error(),
-		}}, err
+		return []entity.Diagnostic{entity.Error(
+			"Debloat",
+			"linux",
+			err.Error(),
+		)}, err
 	}
 
 	installedPackages := m.collectInstalled(ctx, spec)
@@ -137,36 +143,33 @@ func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec
 		diagnostics := make([]entity.Diagnostic, 0, len(spec.Removals))
 		for _, removal := range spec.Removals {
 			decision := entity.ResolveRemoval(removal, installedPackages, false)
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagInfo,
-				System:   "Debloat",
-				Target:   removal.Package,
-				Details:  "would " + string(decision.Action) + ": " + decision.Details,
-			})
+			diagnostics = append(diagnostics, entity.Info(
+				"Debloat",
+				removal.Package,
+				"would "+string(decision.Action)+": "+decision.Details,
+			))
 		}
 		return diagnostics, nil
 	}
 
 	if _, _, err := m.guard.Install(entity.RenderNeedrestartConfig(), 0o644, false); err != nil {
-		return []entity.Diagnostic{{
-			Category: entity.DiagError,
-			System:   "Debloat",
-			Target:   m.guard.destination,
-			Details: fmt.Sprintf("writing the needrestart guard failed: %v; refusing to purge with automatic "+
+		return []entity.Diagnostic{entity.Error(
+			"Debloat",
+			m.guard.destination,
+			fmt.Sprintf("writing the needrestart guard failed: %v; refusing to purge with automatic "+
 				"needrestart enabled, because it can restart services and drop this session", err),
-		}}, err
+		)}, err
 	}
 
 	diagnostics := make([]entity.Diagnostic, 0, len(spec.Removals))
 	for _, removal := range spec.Removals {
 		remover, ok := m.removers[removal.Type]
 		if !ok {
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagInfo,
-				System:   "Debloat",
-				Target:   removal.Package,
-				Details:  fmt.Sprintf("no remover is configured for package type %q; left as it is", removal.Type),
-			})
+			diagnostics = append(diagnostics, entity.Info(
+				"Debloat",
+				removal.Package,
+				fmt.Sprintf("no remover is configured for package type %q; left as it is", removal.Type),
+			))
 			continue
 		}
 
@@ -174,12 +177,11 @@ func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec
 		installed, _, err := remover.IsInstalled(ctx, pkg)
 		if err != nil {
 			detail := fmt.Sprintf("cannot determine whether %s is installed: %v; left as it is", removal.Package, err)
-			return append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagInfo,
-				System:   "Debloat",
-				Target:   removal.Package,
-				Details:  detail,
-			}), nil
+			return append(diagnostics, entity.Info(
+				"Debloat",
+				removal.Package,
+				detail,
+			)), nil
 		}
 
 		decision := entity.ResolveRemoval(removal, installedPackages, installed)
@@ -196,26 +198,24 @@ func (m *linuxDebloatManager) Apply(ctx context.Context, spec entity.DebloatSpec
 
 		if err := remover.Remove(ctx, pkg); err != nil {
 			detail := fmt.Sprintf("removing %s failed: %v", removal.Package, err)
-			return append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagError,
-				System:   "Debloat",
-				Target:   removal.Package,
-				Details:  detail,
-			}), err
+			return append(diagnostics, entity.Error(
+				"Debloat",
+				removal.Package,
+				detail,
+			)), err
 		}
-		diagnostics = append(diagnostics, entity.Diagnostic{
-			Category: entity.DiagOK,
-			System:   "Debloat",
-			Target:   removal.Package,
-			Details:  decision.Details,
-		})
+		diagnostics = append(diagnostics, entity.OK(
+			"Debloat",
+			removal.Package,
+			decision.Details,
+		))
 	}
 	return diagnostics, nil
 }
 
 // collectInstalled builds the set of installed package names once, so the guard
 // check for every entry is a map lookup rather than a probe per entry.
-func (m *linuxDebloatManager) collectInstalled(ctx context.Context, spec entity.DebloatSpec) map[string]bool {
+func (m *LinuxDebloatManager) collectInstalled(ctx context.Context, spec entity.DebloatSpec) map[string]bool {
 	installed := make(map[string]bool)
 	for _, removal := range spec.Removals {
 		remover, ok := m.removers[removal.Type]

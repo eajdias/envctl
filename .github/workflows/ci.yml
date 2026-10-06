@@ -11,13 +11,13 @@ on:
     # stay clean; the real gate runs on the merge to main.
     branches-ignore:
       - 'release-please--branches--main'
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
-      - 'manifests/**'
-      - 'configs/**'
-      - '.github/**'
+    # Inverted filter: docs-only PRs skip, but edits to lint config, Makefile
+    # or bootstraps still gate (the old `paths:` list missed exactly those).
+    paths-ignore:
+      - 'docs/**'
+      - 'spec-agent/**'
+      - 'CHANGELOG.md'
+      - '**.md'
   workflow_dispatch:
 
 # One run per ref: a new push cancels the previous run, so an agent gets the
@@ -40,14 +40,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v7
 
-      - name: Download actionlint
-        # Pinned release. ubuntu-latest ships shellcheck, so the run: scripts
-        # inside the workflows are linted too.
-        run: bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.12
-        shell: bash
-
       - name: Lint workflows
-        run: ./actionlint -color
+        # Pinned action (dependabot bumps it weekly). ubuntu-latest ships
+        # shellcheck, so the run: scripts inside the workflows are linted too.
+        uses: reviewdog/action-actionlint@v1
+        with:
+          fail_level: error
+          filter_mode: nofilter
+          actionlint_flags: "-color"
 
   lint:
     name: Lint
@@ -60,8 +60,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
-          cache: true
+          go-version-file: go.mod
 
       - name: Verify go.mod is tidy
         run: |
@@ -71,11 +70,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
-          # Legacy debt (68 pre-existing findings, mostly Windows/SSH paths
-          # untestable on Linux) is tracked for later; the gate blocks only
-          # issues introduced by new changes.
-          only-new-issues: true
+          # Exact pin (not `latest`): a linter release must never redden main
+          # with no code change. Dependabot bumps the action tag weekly; bump
+          # this string alongside it and the local toolchain.
+          version: v2.14.0
 
   # Runs in parallel with lint on purpose: an agent gets both verdicts from a
   # single run instead of a lint failure hiding whether the tests pass.
@@ -93,11 +91,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
-          cache: true
-
-      - name: Download Dependencies
-        run: go mod download
+          go-version-file: go.mod
 
       - name: Code Quality (go vet)
         run: go vet ./...
@@ -106,6 +100,7 @@ jobs:
         # Space-separated flag: pwsh splits `-coverprofile=coverage.out` at `=`,
         # making go treat `.out` as a package name.
         run: go test -v -coverprofile coverage.out ./...
-
-      - name: Build Executable
-        run: go build -v ./cmd/envctl
+      # NOTE: no `go mod download` warm-up and no extra `go build` step — vet
+      # and test already compile every package, and the release proves the
+      # multi-OS link. This job mirrors `configs/bin/envctl-verify --git-push`
+      # (check_soft "blocking" entries); keep the two in sync.

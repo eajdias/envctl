@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/infra/logger"
 )
 
 func TestPSQuoteDoublesSingleQuotes(t *testing.T) {
-	if got := psQuote("a'b"); got != "a''b" {
-		t.Errorf("psQuote(%q) = %q, want %q", "a'b", got, "a''b")
+	if got := executil.PSQuote("a'b"); got != "a''b" {
+		t.Errorf("executil.PSQuote(%q) = %q, want %q", "a'b", got, "a''b")
 	}
 	if got := psValue("x'y"); got != "'x''y'" {
 		t.Errorf("psValue(%q) = %q, want %q", "x'y", got, "'x''y'")
@@ -142,13 +143,13 @@ func TestOnedriveScriptsAreIdempotentAndDoNotDeleteFolder(t *testing.T) {
 // single quotes double, double quotes and $ stay harmless inside them.
 func TestPSScriptEscapesAdversarialTweak(t *testing.T) {
 	name := `a'b"c$d`
-	quoted := psQuote(name)
+	quoted := executil.PSQuote(name)
 	if quoted != `a''b"c$d` {
-		t.Errorf("psQuote(%q) = %q, want %q", name, quoted, `a''b"c$d`)
+		t.Errorf("executil.PSQuote(%q) = %q, want %q", name, quoted, `a''b"c$d`)
 	}
 	for _, script := range []string{
 		`Enable-WindowsOptionalFeature -Online -FeatureName '` + quoted + `' -NoRestart -ErrorAction Stop`,
-		`$path = '` + psQuote(`HKCU:\a'b`) + `'`,
+		`$path = '` + executil.PSQuote(`HKCU:\a'b`) + `'`,
 		`$val = ` + psValue("x'y"),
 	} {
 		if strings.Contains(script, `"a'b`) || strings.Contains(script, `"HKCU`) {
@@ -292,7 +293,7 @@ func TestStartupScriptsQuoteAdversarialNames(t *testing.T) {
 		if strings.Contains(script, `"`+name) {
 			t.Errorf("payload leaked into double-quoted interpolation: %s", script)
 		}
-		if !strings.Contains(script, psQuote(name)) {
+		if !strings.Contains(script, executil.PSQuote(name)) {
 			t.Errorf("name must be single-quoted via psQuote: %s", script)
 		}
 	}
@@ -441,7 +442,7 @@ func TestServiceExpectedStateDefaultsToDisabled(t *testing.T) {
 // only escapes; a caller that forgets the surrounding quotes silently produces
 // a bareword, which PowerShell accepts as a string in some positions (-Name)
 // and rejects as a parse error in others (-contains).
-func psLit(s string) string { return "'" + psQuote(s) + "'" }
+func psLit(s string) string { return "'" + executil.PSQuote(s) + "'" }
 
 type startupRoundTripCase struct {
 	label  string

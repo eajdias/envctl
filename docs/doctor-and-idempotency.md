@@ -17,12 +17,12 @@ envctl doctor
 1. **Ambiente & Sistema Operacional**:
    - Detecção de SO, arquitetura, privilégios de execução.
    - Ajustes de Registro do Windows (Win32 Long Paths, Developer Mode, Dark Mode, Explorer extensions).
-   - Debloat opt-in (`debloat.yaml`): 6 linhas agregadas por categoria (`Debloat / category <nome>`),
+   - Debloat opt-in (`debloat_windows.yaml`): 6 linhas agregadas por categoria (`Debloat / category <nome>`),
      `OK` quando aplicada, `INFO` quando há drift com `run 'envctl run debloat'` — nunca `WARN`/`ERROR`,
      nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:
-   - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
-   - Presença de 55–70 binários conforme o OS (63 Ubuntu 24.04+ / 70 Arch/CachyOS / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
+   - Winget, APT, Pacman, Paru, mise, npm, Go, Python UV/Pip.
+   - Presença dos binários do manifesto no `PATH` (ver `manifests/packages.yaml` — matrix §1) (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
@@ -36,7 +36,7 @@ envctl doctor
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
    - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
      como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
-4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
+4. **Language Servers (ver `manifests/lsp.yaml`; `powershell` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
@@ -97,8 +97,8 @@ envctl doctor --fix
 ## 🔄 Idempotência Estrita & Backup Atômico
 
 O `doctor` só **relata**: não muta a máquina sem `--fix`. O `envctl update` é o oposto — ele
-muda, e é por isso que tem escopo próprio: só mecanismos user-local (`volta`/`npm`, `uv tool`,
-`go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
+muda, e é por isso que tem escopo próprio: só mecanismos user-local (`mise` runtimes,
+`npm -g`, `uv tool`, `go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
 Para saber o que está atrás sem mudar nada: `envctl update --list` (nem toca a rede) ou
 `envctl update --dry-run`.
 
@@ -119,16 +119,11 @@ O backup atômico é ilimitado por padrão, então cada execução que diverge d
 - Aplicada em `~/.config/opencode` e `~/.commandcode` com `keep_newest: 1` (um backup por arquivo, o suficiente para rollback de edição manual).
 - Arquivos com conteúdo **idêntico** não geram backup nenhum (diff-gate por hash), então redeploy sem mudança não deixa rastro.
 
-### 3. Backups Nunca Entram no Repositório
-O `snapshot` é sync **reverso** (máquina → repo) e copia a árvore de skills implantada para `configs/skills/`. Backup de provisionamento é histórico local da máquina, nunca conteúdo curado:
-
-- `copyDir` **ignora** qualquer `<nome>.bak.YYYYMMDD-HHMMSS` ao sincronizar. Sem isso, um snapshot levaria texto stale (ex.: a descrição antiga das 50 skills) para o repo, e o próximo deploy distribuiria esse conteúdo para toda máquina nova.
-
-### 4. Idempotência em Gerenciadores de Pacotes
+### 3. Idempotência em Gerenciadores de Pacotes
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.
-- **Volta / Go**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
+- **mise / npm / Go**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
 
 ---
 

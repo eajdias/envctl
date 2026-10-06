@@ -2,29 +2,28 @@
 version: "1.0"
 
 environment_variables:
+  # os_values: each key is an `os` filter ("all" = every OS) and its map
+  # overrides the named fields — one entry per OS variant at load time.
+  # Same expansion applies to config_files, directories and cleanup.
   - name: NODE_PATH
-    value: "%USERPROFILE%\\node_modules"
     scope: User
-    target: "Windows User Environment"
-    os: windows
-
-  - name: NODE_PATH
-    value: "$HOME/node_modules"
-    scope: User
-    target: "Linux user profile"
-    os: arch,cachyos,debian,ubuntu
+    os_values:
+      windows:
+        value: "%USERPROFILE%\\node_modules"
+        target: "Windows User Environment"
+      "arch,cachyos,debian,ubuntu":
+        value: "$HOME/node_modules"
+        target: "Linux user profile"
 
   - name: ENVCTL_TEMP
-    value: "C:\\temp"
     scope: User
-    target: "Windows User Environment"
-    os: windows
-
-  - name: ENVCTL_TEMP
-    value: "/temp"
-    scope: User
-    target: "Linux user profile"
-    os: arch,cachyos,debian,ubuntu
+    os_values:
+      windows:
+        value: "C:\\temp"
+        target: "Windows User Environment"
+      "arch,cachyos,debian,ubuntu":
+        value: "/temp"
+        target: "Linux user profile"
 
 config_files:
   - id: opencode_config
@@ -36,8 +35,8 @@ config_files:
     os: windows
 
   - id: opencode_config_linux
-    description: "OpenCode global agent configuration for Linux (no Windows shell/MCP/LSP)"
-    source: "configs/opencode.linux.json"
+    description: "OpenCode global agent configuration for Linux (same single base template; no Windows shell key injected)"
+    source: "configs/opencode.json"
     destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
@@ -49,23 +48,16 @@ config_files:
     destination: "~/.config/opencode/AGENTS.md"
     strict_acl: false
     category: "opencode"
-    os: windows
-
-  - id: agents_manifest_linux
-    description: "OpenCode global rules manifesto for Ubuntu/Debian servers"
-    source: "configs/AGENTS.linux.md"
-    destination: "~/.config/opencode/AGENTS.md"
-    strict_acl: false
-    category: "opencode"
-    os: debian,ubuntu
-
-  - id: agents_manifest_arch
-    description: "OpenCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
-    source: "configs/AGENTS.arch.md"
-    destination: "~/.config/opencode/AGENTS.md"
-    strict_acl: false
-    category: "opencode"
-    os: arch,cachyos
+    os_values:
+      windows: {}
+      "debian,ubuntu":
+        id: agents_manifest_linux
+        description: "OpenCode global rules manifesto for Ubuntu/Debian servers"
+        source: "configs/AGENTS.linux.md"
+      "arch,cachyos":
+        id: agents_manifest_arch
+        description: "OpenCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
+        source: "configs/AGENTS.arch.md"
 
   - id: opencode_skill_index
     description: "OpenCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
@@ -119,30 +111,21 @@ config_files:
     destination: "~/.commandcode/AGENTS.md"
     strict_acl: false
     category: "commandcode"
-    os: windows
     merge: markdown_sections
-
-  - id: commandcode_agents_manifest_linux
-    description: "CommandCode global rules manifesto for Ubuntu/Debian servers (no PowerShell/Windows paths)"
-    source: "configs/commandcode/AGENTS.linux.md"
-    destination: "~/.commandcode/AGENTS.md"
-    strict_acl: false
-    category: "commandcode"
-    os: debian,ubuntu
-    merge: markdown_sections
-
-  - id: commandcode_agents_manifest_arch
-    description: "CommandCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
-    source: "configs/commandcode/AGENTS.arch.md"
-    destination: "~/.commandcode/AGENTS.md"
-    strict_acl: false
-    category: "commandcode"
-    os: arch,cachyos
-    merge: markdown_sections
+    os_values:
+      windows: {}
+      "debian,ubuntu":
+        id: commandcode_agents_manifest_linux
+        description: "CommandCode global rules manifesto for Ubuntu/Debian servers (no PowerShell/Windows paths)"
+        source: "configs/commandcode/AGENTS.linux.md"
+      "arch,cachyos":
+        id: commandcode_agents_manifest_arch
+        description: "CommandCode global rules manifesto for Arch/CachyOS desktops (fish, paru, gaming, Cursor)"
+        source: "configs/commandcode/AGENTS.arch.md"
 
   - id: commandcode_skill_index
     description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
-    source: "configs/commandcode/SKILL-INDEX.md"
+    source: "configs/SKILL-INDEX.md"
     destination: "~/.commandcode/SKILL-INDEX.md"
     strict_acl: false
     category: "commandcode"
@@ -201,15 +184,14 @@ config_files:
     source: "configs/bin/pw.cmd"
     destination: "~/.local/bin/pw.cmd"
     strict_acl: false
-    os: windows
-
-  - id: pw_wrapper_sh
-    description: "pw launcher shim for POSIX shells (forwards to node pw.cjs)"
-    source: "configs/bin/pw"
-    destination: "~/.local/bin/pw"
-    strict_acl: false
-    os: arch,cachyos,debian,ubuntu
-    executable: true
+    os_values:
+      windows: {}
+      "arch,cachyos,debian,ubuntu":
+        id: pw_wrapper_sh
+        description: "pw launcher shim for POSIX shells (forwards to node pw.cjs)"
+        source: "configs/bin/pw"
+        destination: "~/.local/bin/pw"
+        executable: "true"
 
   - id: envctl_verify
     description: "Repository quality gates run locally (CommandCode Stop hook + git pre-push) so a broken tree never reaches a push"
@@ -232,47 +214,13 @@ config_files:
     strict_acl: false
     executable: true
 
-  - id: git_hook_pre_commit
-    description: "git pre-commit: chains the repository's own hook"
-    source: "configs/git/hooks/pre-commit"
-    destination: "~/.config/git/hooks/pre-commit"
+  - id: git_hook_{{name}}
+    description: "git hook: chains the repository's own hook"
+    source: "configs/git/hooks/_envctl-shim"
+    destination: "~/.config/git/hooks/{{name}}"
     strict_acl: false
     executable: true
-
-  - id: git_hook_prepare_commit_msg
-    description: "git prepare-commit-msg: chains the repository's own hook"
-    source: "configs/git/hooks/prepare-commit-msg"
-    destination: "~/.config/git/hooks/prepare-commit-msg"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_commit_msg
-    description: "git commit-msg: chains the repository's own hook"
-    source: "configs/git/hooks/commit-msg"
-    destination: "~/.config/git/hooks/commit-msg"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_post_commit
-    description: "git post-commit: chains the repository's own hook"
-    source: "configs/git/hooks/post-commit"
-    destination: "~/.config/git/hooks/post-commit"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_post_checkout
-    description: "git post-checkout: chains the repository's own hook"
-    source: "configs/git/hooks/post-checkout"
-    destination: "~/.config/git/hooks/post-checkout"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_pre_rebase
-    description: "git pre-rebase: chains the repository's own hook"
-    source: "configs/git/hooks/pre-rebase"
-    destination: "~/.config/git/hooks/pre-rebase"
-    strict_acl: false
-    executable: true
+    instances: [pre-commit, prepare-commit-msg, commit-msg, post-commit, post-checkout, pre-rebase]
 
   - id: windows_terminal_settings
     description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, Dark+ theme)"
@@ -301,7 +249,7 @@ config_files:
 
   - id: ssh_config_linux
     description: "OpenSSH client configuration for Linux (no Windows-only key paths; user Host stanzas are preserved)"
-    source: "configs/ssh-config.linux"
+    source: "configs/ssh-config"
     destination: "~/.ssh/config"
     strict_acl: false
     category: "ssh"
@@ -465,11 +413,11 @@ directories:
   - path: "C:/temp"
     strict_acl: false
     description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
-    os: windows
-  - path: "/temp"
-    strict_acl: false
-    description: "Global standardized temp folder for OpenCode LLM agents (ENVCTL_TEMP)"
-    os: arch,cachyos,debian,ubuntu
+    os_values:
+      windows:
+        path: "C:/temp"
+      "arch,cachyos,debian,ubuntu":
+        path: "/temp"
 
 cleanup:
   - id: stale_pw_ps1
@@ -519,11 +467,12 @@ cleanup:
     description: "Remove the pylsp binary (pyright is the Python language server; pylsp duplicated it)"
     path: "~/.local/bin/pylsp"
     category: "scripts"
-  - id: stale_pylsp_cmd
-    description: "Remove the pylsp.cmd wrapper (pyright is the Python language server)"
-    path: "~/.local/bin/pylsp.cmd"
-    category: "scripts"
-    os: windows
+    os_values:
+      all: {}
+      windows:
+        id: stale_pylsp_cmd
+        description: "Remove the pylsp.cmd wrapper (pyright is the Python language server)"
+        path: "~/.local/bin/pylsp.cmd"
   - id: stale_pylsp_uv_tool
     description: "Remove the python-lsp-server uv tool env (pyright is the Python language server; the shim alone left the env behind)"
     path: "~/.local/share/uv/tools/python-lsp-server"
@@ -534,20 +483,22 @@ cleanup:
     description: "Remove pw-screenshot CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-screenshot"
     category: "scripts"
-  - id: stale_pw_screenshot_cmd
-    description: "Remove pw-screenshot.cmd wrapper (browser automation is MCP-only)"
-    path: "~/.local/bin/pw-screenshot.cmd"
-    category: "scripts"
-    os: windows
+    os_values:
+      all: {}
+      windows:
+        id: stale_pw_screenshot_cmd
+        description: "Remove pw-screenshot.cmd wrapper (browser automation is MCP-only)"
+        path: "~/.local/bin/pw-screenshot.cmd"
   - id: stale_pw_eval
     description: "Remove pw-eval CLI (browser automation is MCP-only)"
     path: "~/.local/bin/pw-eval"
     category: "scripts"
-  - id: stale_pw_eval_cmd
-    description: "Remove pw-eval.cmd wrapper (browser automation is MCP-only)"
-    path: "~/.local/bin/pw-eval.cmd"
-    category: "scripts"
-    os: windows
+    os_values:
+      all: {}
+      windows:
+        id: stale_pw_eval_cmd
+        description: "Remove pw-eval.cmd wrapper (browser automation is MCP-only)"
+        path: "~/.local/bin/pw-eval.cmd"
   - id: prune_opencode_config_backups
     description: "Prune old .bak.* provisioning backups in ~/.config/opencode (keep newest per file)"
     path: "~/.config/opencode"

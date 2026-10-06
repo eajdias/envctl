@@ -22,7 +22,7 @@ func limitsSpec() entity.LimitsSpec {
 	}
 }
 
-func newLimitsManagerForTest(t *testing.T, spec entity.LimitsSpec, calls *[][]string, changedOnFirstWrite bool) *limitsManager {
+func newLimitsManagerForTest(t *testing.T, spec entity.LimitsSpec, calls *[][]string, changedOnFirstWrite bool) *ResourceLimitsManager {
 	t.Helper()
 	dir := t.TempDir()
 	systemDropin := filepath.Join(dir, "90-envctl-limits.conf")

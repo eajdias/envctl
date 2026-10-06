@@ -312,6 +312,23 @@ type SysctlAssignment struct {
 	Managed bool
 }
 
+// HostWinsDetail reports a key a host-owned drop-in decides at boot, and
+// HostWinsHint tells the owner how to take it back. The audit
+// (assessSysctlIntent) and the apply path (yieldToHostDropins) share these so
+// the two wordings can never drift: a run that yields and an audit that warns
+// describe the same file with the same words.
+func (a SysctlAssignment) HostWinsDetail(declared string) string {
+	return "left at the host's " + a.Boot + ", declared " + declared + ": " + a.File +
+		" decides this key at boot because it sorts after this profile's drop-in"
+}
+
+// HostWinsHint tells the owner how to take back a key a host-owned drop-in
+// decides at boot. Shared by the audit and the apply path (see HostWinsDetail).
+func (a SysctlAssignment) HostWinsHint(key string) string {
+	return "remove or rename " + a.File + " to let this profile own " + key +
+		", or keep it to hold the host's " + a.Boot
+}
+
 // ResolvePerformanceProfile returns the profile this host is provisioned with.
 // The CachyOS profile is matched first because it is the narrower claim: a
 // CachyOS host is an Arch-family Linux host, and matching the family alone would

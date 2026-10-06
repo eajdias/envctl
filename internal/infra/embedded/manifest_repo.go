@@ -5,14 +5,15 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/domain/repository"
 )
 
-type manifestRepository struct {
+type ManifestRepository struct {
 	embeddedFS  fs.FS
 	localDir    string
 	shellCache  *shellManifest
@@ -21,15 +22,20 @@ type manifestRepository struct {
 }
 
 // NewManifestRepository creates a ManifestRepository backed by embedded assets and optional local directory.
-func NewManifestRepository(embeddedFS fs.FS, localDir string) repository.ManifestRepository {
-	return &manifestRepository{
+func NewManifestRepository(embeddedFS fs.FS, localDir string) *ManifestRepository {
+	return &ManifestRepository{
 		embeddedFS: embeddedFS,
 		localDir:   localDir,
 	}
 }
 
-func (m *manifestRepository) readManifestFile(filename string) ([]byte, error) {
-	readLocal := func(path string) ([]byte, error) {
+func (m *ManifestRepository) readManifestFile(filename string) ([]byte, error) {
+	// A local manifest override is authoritative when the caller provides a
+	// localDir (development workflow or tests). Only a missing file falls
+	// through to the embedded asset; permission/I/O errors must not silently
+	// activate a different profile.
+	if m.localDir != "" {
+		path := filepath.Join(m.localDir, "manifests", filename)
 		data, err := os.ReadFile(path)
 		if err == nil {
 			return data, nil
@@ -37,30 +43,16 @@ func (m *manifestRepository) readManifestFile(filename string) ([]byte, error) {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to read local manifest %s: %w", path, err)
 		}
-		return nil, nil
+		// file not found in localDir — fall through to embedded
 	}
 
-	// A local manifest is authoritative when present. Only a missing file may
-	// fall through to the embedded asset; permission/I/O errors must not
-	// silently activate a different profile.
-	if m.localDir != "" {
-		if data, err := readLocal(filepath.Join(m.localDir, "manifests", filename)); err != nil {
-			return nil, err
-		} else if data != nil {
-			return data, nil
-		}
-	}
-	if data, err := readLocal(filepath.Join("manifests", filename)); err != nil {
-		return nil, err
-	} else if data != nil {
-		return data, nil
-	}
-
-	// Fallback to embedded filesystem
+	// Always prefer the embedded FS. A CWD-relative disk read was removed
+	// here: it caused silent stale-manifest reads when the binary was run
+	// from outside the repo root (lessons.md:17-18).
 	embeddedPath := filepath.ToSlash(filepath.Join("manifests", filename))
 	data, err := fs.ReadFile(m.embeddedFS, embeddedPath)
 	if err != nil {
-		return nil, fmt.Errorf("manifest file not found in disk or embedded FS (%s): %w", filename, err)
+		return nil, fmt.Errorf("manifest %q not found in embedded FS: %w", filename, err)
 	}
 	return data, nil
 }
@@ -69,7 +61,7 @@ type packagesManifest struct {
 	Packages []entity.Package `yaml:"packages"`
 }
 
-func loadManifestFile[T any](m *manifestRepository, filename string, newManifest func() T) (T, error) {
+func loadManifestFile[T any](m *ManifestRepository, filename string, newManifest func() T) (T, error) {
 	var zero T
 	data, err := m.readManifestFile(filename)
 	if err != nil {
@@ -82,7 +74,7 @@ func loadManifestFile[T any](m *manifestRepository, filename string, newManifest
 	return manifest, nil
 }
 
-func (m *manifestRepository) loadShell() (*shellManifest, error) {
+func (m *ManifestRepository) loadShell() (*shellManifest, error) {
 	if m.shellLoaded {
 		return m.shellCache, m.shellErr
 	}
@@ -92,7 +84,7 @@ func (m *manifestRepository) loadShell() (*shellManifest, error) {
 	return m.shellCache, m.shellErr
 }
 
-func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "packages.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -100,7 +92,7 @@ func (m *manifestRepository) LoadPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
-func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadGamingPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "gaming.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -108,7 +100,7 @@ func (m *manifestRepository) LoadGamingPackages() ([]entity.Package, error) {
 	return manifest.Packages, nil
 }
 
-func (m *manifestRepository) LoadExtrasPackages() ([]entity.Package, error) {
+func (m *ManifestRepository) LoadExtrasPackages() ([]entity.Package, error) {
 	manifest, err := loadManifestFile(m, "extras.yaml", func() *packagesManifest { return &packagesManifest{} })
 	if err != nil {
 		return nil, err
@@ -123,43 +115,259 @@ type shellManifest struct {
 	Cleanup     []entity.CleanupItem    `yaml:"cleanup"`
 }
 
-func (m *manifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
+func (m *ManifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
 	}
-	return manifest.ConfigFiles, nil
+	expanded, err := expandConfigFileOSValues(manifest.ConfigFiles)
+	if err != nil {
+		return nil, err
+	}
+	return expandConfigFileInstances(expanded), nil
 }
 
-func (m *manifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
-	manifest, err := m.loadShell()
-	if err != nil {
-		return nil, err
+// expandConfigFileInstances turns entries declaring instances: into one
+// deployment per name, substituting {{name}} in id, source and destination.
+// Entries without instances pass through untouched, so the expansion is a
+// no-op for the rest of the manifest.
+func expandConfigFileInstances(configs []entity.ConfigFile) []entity.ConfigFile {
+	expanded := make([]entity.ConfigFile, 0, len(configs))
+	for _, cf := range configs {
+		if len(cf.Instances) == 0 {
+			expanded = append(expanded, cf)
+			continue
+		}
+		for _, name := range cf.Instances {
+			instance := cf
+			instance.Instances = nil
+			instance.ID = strings.ReplaceAll(cf.ID, "{{name}}", name)
+			instance.Source = strings.ReplaceAll(cf.Source, "{{name}}", name)
+			instance.Destination = strings.ReplaceAll(cf.Destination, "{{name}}", name)
+			expanded = append(expanded, instance)
+		}
 	}
-	return manifest.EnvVars, nil
+	return expanded
 }
 
-func (m *manifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
-	manifest, err := m.loadShell()
-	if err != nil {
-		return nil, err
-	}
-	return manifest.Directories, nil
+// osVariant is one os_values entry resolved to its os filter: the manifest
+// key verbatim, except "all" which means every OS (empty filter).
+type osVariant struct {
+	fields map[string]string
+	os     string
 }
 
-func (m *manifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
+// osVariants returns the os_values variants in deterministic (sorted) key
+// order, so loading never depends on map iteration order.
+func osVariants(values map[string]map[string]string) []osVariant {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	variants := make([]osVariant, 0, len(keys))
+	for _, key := range keys {
+		osFilter := key
+		if key == "all" {
+			osFilter = ""
+		}
+		variants = append(variants, osVariant{fields: values[key], os: osFilter})
+	}
+	return variants
+}
+
+// validateOSVariantFields rejects override keys the caller does not support,
+// so a typo in os_values fails the load instead of silently overriding
+// nothing.
+func validateOSVariantFields(owner, id string, fields map[string]string, allowed map[string]bool) error {
+	for name := range fields {
+		if !allowed[name] {
+			return fmt.Errorf("%s %q: os_values overrides unsupported field %q (allowed: %s)",
+				owner, id, name, strings.Join(sortedKeys(allowed), ", "))
+		}
+	}
+	return nil
+}
+
+func sortedKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+var envVarOSValueFields = map[string]bool{"value": true, "target": true}
+var configFileOSValueFields = map[string]bool{
+	"id": true, "description": true, "source": true, "destination": true, "executable": true,
+}
+
+func expandConfigFileOSValues(configs []entity.ConfigFile) ([]entity.ConfigFile, error) {
+	expanded := make([]entity.ConfigFile, 0, len(configs))
+	for _, cf := range configs {
+		if len(cf.OSValues) == 0 {
+			expanded = append(expanded, cf)
+			continue
+		}
+		for _, variant := range osVariants(cf.OSValues) {
+			if err := validateOSVariantFields("config file", cf.ID, variant.fields, configFileOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := cf
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if id, ok := variant.fields["id"]; ok {
+				instance.ID = id
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			if source, ok := variant.fields["source"]; ok {
+				instance.Source = source
+			}
+			if destination, ok := variant.fields["destination"]; ok {
+				instance.Destination = destination
+			}
+			if err := applyOSValueBool(&instance.Executable, variant.fields, "executable"); err != nil {
+				return nil, fmt.Errorf("config file %q: %w", cf.ID, err)
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+func applyOSValueBool(dst *bool, fields map[string]string, key string) error {
+	value, ok := fields[key]
+	if !ok {
+		return nil
+	}
+	switch value {
+	case "true":
+		*dst = true
+	case "false":
+		*dst = false
+	default:
+		return fmt.Errorf("os_values %s must be \"true\" or \"false\", got %q", key, value)
+	}
+	return nil
+}
+
+func expandEnvVarOSValues(vars []entity.EnvironmentVar) ([]entity.EnvironmentVar, error) {
+	expanded := make([]entity.EnvironmentVar, 0, len(vars))
+	for _, v := range vars {
+		if len(v.OSValues) == 0 {
+			expanded = append(expanded, v)
+			continue
+		}
+		for _, variant := range osVariants(v.OSValues) {
+			if err := validateOSVariantFields("environment variable", v.Name, variant.fields, envVarOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := v
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if value, ok := variant.fields["value"]; ok {
+				instance.Value = value
+			}
+			if target, ok := variant.fields["target"]; ok {
+				instance.Target = target
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+var dirOSValueFields = map[string]bool{"path": true, "description": true}
+
+func expandDirOSValues(dirs []entity.RestrictedDir) ([]entity.RestrictedDir, error) {
+	expanded := make([]entity.RestrictedDir, 0, len(dirs))
+	for _, d := range dirs {
+		if len(d.OSValues) == 0 {
+			expanded = append(expanded, d)
+			continue
+		}
+		for _, variant := range osVariants(d.OSValues) {
+			if err := validateOSVariantFields("directory", d.Path, variant.fields, dirOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := d
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if path, ok := variant.fields["path"]; ok {
+				instance.Path = path
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+var cleanupOSValueFields = map[string]bool{"id": true, "description": true, "path": true}
+
+func expandCleanupOSValues(items []entity.CleanupItem) ([]entity.CleanupItem, error) {
+	expanded := make([]entity.CleanupItem, 0, len(items))
+	for _, item := range items {
+		if len(item.OSValues) == 0 {
+			expanded = append(expanded, item)
+			continue
+		}
+		for _, variant := range osVariants(item.OSValues) {
+			if err := validateOSVariantFields("cleanup item", item.ID, variant.fields, cleanupOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := item
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if id, ok := variant.fields["id"]; ok {
+				instance.ID = id
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			if path, ok := variant.fields["path"]; ok {
+				instance.Path = path
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+func (m *ManifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
 	}
-	return manifest.Cleanup, nil
+	return expandEnvVarOSValues(manifest.EnvVars)
+}
+
+func (m *ManifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
+	manifest, err := m.loadShell()
+	if err != nil {
+		return nil, err
+	}
+	return expandDirOSValues(manifest.Directories)
+}
+
+func (m *ManifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
+	manifest, err := m.loadShell()
+	if err != nil {
+		return nil, err
+	}
+	return expandCleanupOSValues(manifest.Cleanup)
 }
 
 type skillsManifest struct {
 	Skills []entity.Skill `yaml:"skills"`
 }
 
-func (m *manifestRepository) LoadSkills() ([]entity.Skill, error) {
+func (m *ManifestRepository) LoadSkills() ([]entity.Skill, error) {
 	manifest, err := loadManifestFile(m, "skills.yaml", func() *skillsManifest { return &skillsManifest{} })
 	if err != nil {
 		return nil, err
@@ -171,7 +379,7 @@ type lspManifest struct {
 	LSPs []entity.LSP `yaml:"lsps"`
 }
 
-func (m *manifestRepository) LoadLSPs() ([]entity.LSP, error) {
+func (m *ManifestRepository) LoadLSPs() ([]entity.LSP, error) {
 	manifest, err := loadManifestFile(m, "lsp.yaml", func() *lspManifest { return &lspManifest{} })
 	if err != nil {
 		return nil, err
@@ -183,7 +391,7 @@ type gitManifest struct {
 	Configs []entity.GitConfig `yaml:"configs"`
 }
 
-func (m *manifestRepository) LoadGitConfigs() ([]entity.GitConfig, error) {
+func (m *ManifestRepository) LoadGitConfigs() ([]entity.GitConfig, error) {
 	manifest, err := loadManifestFile(m, "git.yaml", func() *gitManifest { return &gitManifest{} })
 	if err != nil {
 		return nil, err
@@ -195,7 +403,7 @@ type windowsManifest struct {
 	Tweaks []entity.WindowsTweak `yaml:"tweaks"`
 }
 
-func (m *manifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
+func (m *ManifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) {
 	manifest, err := loadManifestFile(m, "windows.yaml", func() *windowsManifest { return &windowsManifest{} })
 	if err != nil {
 		return nil, err
@@ -203,8 +411,8 @@ func (m *manifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) 
 	return manifest.Tweaks, nil
 }
 
-func (m *manifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
-	manifest, err := loadManifestFile(m, "debloat.yaml", func() *windowsManifest { return &windowsManifest{} })
+func (m *ManifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
+	manifest, err := loadManifestFile(m, "debloat_windows.yaml", func() *windowsManifest { return &windowsManifest{} })
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +457,7 @@ func performanceManifestFile(profile entity.PerformanceProfile) (string, bool) {
 	return "", false
 }
 
-func (m *manifestRepository) parsePerformanceManifest(filename string, expected entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+func (m *ManifestRepository) parsePerformanceManifest(filename string, expected entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	data, err := m.readManifestFile(filename)
 	if err != nil {
 		return entity.PerformanceSpec{}, err
@@ -287,7 +495,7 @@ func (m *manifestRepository) parsePerformanceManifest(filename string, expected 
 	}, nil
 }
 
-func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
+func (m *ManifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfile) (entity.PerformanceSpec, error) {
 	filename, ok := performanceManifestFile(profile)
 	if !ok {
 		return entity.PerformanceSpec{}, fmt.Errorf("unsupported performance profile %q", profile)
@@ -296,7 +504,7 @@ func (m *manifestRepository) LoadPerformanceSpec(profile entity.PerformanceProfi
 }
 
 // LoadLinuxDebloatSpec reads the standalone Linux removal manifest.
-func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
+func (m *ManifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) {
 	data, err := m.readManifestFile(linuxDebloatManifest)
 	if err != nil {
 		return entity.DebloatSpec{}, err
@@ -321,7 +529,7 @@ func (m *manifestRepository) LoadLinuxDebloatSpec() (entity.DebloatSpec, error) 
 
 // ListPerformanceProfiles reports every shipped profile with the release floor
 // its manifest declares, so the CLI can select one without knowing a version.
-func (m *manifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
+func (m *ManifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProfileMeta, error) {
 	metas := make([]entity.PerformanceProfileMeta, 0, len(performanceManifests))
 	for _, entry := range performanceManifests {
 		spec, err := m.parsePerformanceManifest(entry.File, entry.Profile)
@@ -346,14 +554,18 @@ func saveManifestFile(localDir, filename string, manifest any) error {
 	if localDir != "" {
 		dest = filepath.Join(localDir, "manifests", filename)
 	}
-	_ = os.MkdirAll(filepath.Dir(dest), 0755)
+	//nolint:gosec // G301: manifests are repo content (shared, not secrets).
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("failed to create manifest dir for %s: %w", dest, err)
+	}
+	//nolint:gosec // G306: manifests are repo content (world-readable by design), never secrets.
 	return os.WriteFile(dest, data, 0644)
 }
 
-func (m *manifestRepository) SaveSkills(skills []entity.Skill) error {
+func (m *ManifestRepository) SaveSkills(skills []entity.Skill) error {
 	return saveManifestFile(m.localDir, "skills.yaml", skillsManifest{Skills: skills})
 }
 
-func (m *manifestRepository) SaveGitConfigs(configs []entity.GitConfig) error {
+func (m *ManifestRepository) SaveGitConfigs(configs []entity.GitConfig) error {
 	return saveManifestFile(m.localDir, "git.yaml", gitManifest{Configs: configs})
 }

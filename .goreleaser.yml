@@ -1,0 +1,56 @@
+version: 2
+
+# Replaces the imperative shell in .github/workflows/release.yml
+# (4x go build + zip/tar + sha256sum + gh release upload).
+# Asset names are a hard contract with bootstrap.sh / bootstrap.ps1
+# (fixed-name URLs): verify with `goreleaser release --snapshot --clean`
+# and diff dist/ against the v1.13.0 asset list before any release.
+
+builds:
+  - id: envctl
+    main: ./cmd/envctl
+    binary: envctl
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.Version={{ .Version }}
+
+archives:
+  # Packed archives: envctl-linux-<arch>.tar.gz, envctl-windows-<arch>.zip.
+  # Archives contain the bare binary (envctl / envctl.exe) plus the bootstrap
+  # scripts, mirroring what the manual release assembled (binary only) with
+  # the bootstraps added for self-contained installs.
+  - id: packages
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - bootstrap.sh
+      - bootstrap.ps1
+  # Loose binaries: envctl-linux-<arch>, envctl-windows-<arch>.exe.
+  # `binary` format uploads the build output directly, no archive.
+  - id: binaries
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    formats: [binary]
+
+checksum:
+  name_template: SHA256SUMS.txt
+  # The loose bootstrap scripts are uploaded via release.extra_files, which
+  # the checksum does not cover by default — include them explicitly so
+  # SHA256SUMS.txt keeps covering all 10 files like the manual release did.
+  extra_files:
+    - glob: ./bootstrap.sh
+    - glob: ./bootstrap.ps1
+
+release:
+  # release-please owns the tag and notes; goreleaser only attaches assets
+  # through the workflow_call from release-please.yml.
+  mode: keep-existing
+  make_latest: false
+  extra_files:
+    - glob: ./bootstrap.sh
+    - glob: ./bootstrap.ps1

@@ -21,29 +21,29 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
-| Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
-| Pacotes declarados (aplicáveis) | **55** (29 winget · 15 volta · 11 pip) | **63** em Ubuntu 24.04+ (44 apt · 15 volta · 4 uv-pip; **46** em Ubuntu/Debian antigos) | **70** (50 pacman · 15 volta · 4 uv-pip · 1 paru) |
-| **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
-| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 17 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
+| Gerenciadores | winget · mise · npm | apt · mise · npm | **pacman · paru (AUR)** · mise · npm |
+| Pacotes declarados (aplicáveis) | ver `manifests/packages.yaml` (fonte; filtrado por OS/distro via `os`) | ver `manifests/packages.yaml` | ver `manifests/packages.yaml` |
+| **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + npm (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + npm | pacman (`opencode`, `paru`) + npm (`command-code`) |
+| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/mise cobrem) | 17 passos: mise+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
 | Variáveis de ambiente | 2 | 2 | 2 |
-| Configs aplicáveis | **27** (contados em `shell.yaml` via `MatchesOS` por distro) | **25** | **25** |
+| Configs aplicáveis | ver `manifests/shell.yaml` (fonte; `MatchesOS` por distro) | ver `manifests/shell.yaml` | ver `manifests/shell.yaml` |
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
-| LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **14** (13 + `pwsh`) | **13** | **13** |
+| LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | ver `manifests/lsp.yaml` (fonte; `powershell` é windows-only) | ver `manifests/lsp.yaml` | ver `manifests/lsp.yaml` |
 | Skills por agente | **12** (portáteis) | **12** (portáteis) | **12** (portáteis) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
-| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat no perfil **`run windows`** (99 em `debloat.yaml`: 12 telemetria + 12 privacidade + 14 gaming-win + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4 startup entries + OneDrive + Teredo + 2 power + Binary UserPreferencesMask; tipos `Command`/`Onedrive`/`Binary` no automático) | — | — |
+| Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat no perfil **`run windows`** (99 em `debloat_windows.yaml`: 12 telemetria + 12 privacidade + 14 gaming-win + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4 startup entries + OneDrive + Teredo + 2 power + Binary UserPreferencesMask; tipos `Command`/`Onedrive`/`Binary` no automático) | — | — |
 | Extras (`run extras` / `--with-extras`) | 15 opcionais winget (Brave, Obsidian, Steam, Tailscale, VLC, ONLYOFFICE, Syncthing, Moonlight, WinSCP, Wireshark, Nmap, Termius, TreeSize, BCUninstaller, LockHunter) | — | 12 opcionais pacman (brave-origin-bin, obsidian, onlyoffice-bin, vlc, transmission-qt, picard, rustdesk-bin, anydesk-bin, tailscale, boosteroid, alacritty, mpv) |
 | Gaming (`run gaming`) | — | — | pacman + paru (44 pkgs: `cachyos-settings` + ruleset do ananicy, Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, quarteto X11) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
-| Atualização de toolchain (`envctl update`) | `volta`/`npm` globals · `uv tool` (Python) · `go install` — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `go install` (sem `volta` no servidor) | idem desktop |
+| Atualização de toolchain (`envctl update`) | `mise` runtimes · `npm -g` globals · `uv tool` (Python) · `go install` — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `go install` · `npm -g` | idem desktop |
 | — | **Gerenciadores de SO nunca automatizados**: atualizar subconjunto via `pacman -S` é *partial upgrade*, que o Arch proíbe; `apt`/`winget` seguem o update do SO |
 | Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
 **Escopo por subsistema:** `run winget`/`run tweaks`/`run debloat` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
-(Windows usa winget/volta). `run providers` é portável e roda **antes de tudo** dentro de
+(Windows usa winget/mise). `run providers` é portável e roda **antes de tudo** dentro de
 perfis `run windows`/`run vps`/`run cachyos` (fase 0). `run all` detecta o OS e despacha para o perfil da máquina.
 
 ### Fase 0 — `run providers`
@@ -54,13 +54,13 @@ provisionamento, para uma máquina nova chegar aos agentes sem passo manual (e p
 
 | Etapa | O que faz | Detalhe |
 | :--- | :--- | :--- |
-| Volta | instala se faltar | Linux: instalador oficial · Windows: `winget` `Volta.Volta`. Sem `volta self-update`: atualizar = rodar o instalador |
-| Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`volta install node@…`), para os dois não divergirem |
-| `command-code` (`cmdc`) | instala/atualiza via Volta | Compara a versão instalada com o `latest` do npm; Volta resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
+| mise | instala se faltar | Linux: `https://mise.run` · Windows: `winget` `jdx.mise`. Sem `mise self-upgrade` no fluxo: atualizar = rodar o instalador |
+| Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`mise use -g node@…`), para os dois não divergirem |
+| `command-code` (`cmdc`) | instala/atualiza via npm | Compara a versão instalada com o `latest` do npm; `npm install -g` resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
 | `opencode` | instala/atualiza para **v2** se faltar ou se encontrar um v1 user-local; **nunca** por npm; atualiza **dentro do major** quando o canal oficial avança (2.0.15 → 2.0.23) | Arch: pacote `extra` (binário do sistema não é sombreado) · Windows: instalador oficial V2 PowerShell (zip → `~/.local/bin`) · demais: instalador oficial V2 (`~/.opencode/bin`). No Windows o caminho de upgrade é **o instalador PS** — `opencode upgrade --method curl` quebra (bash path mangling) |
 
 **Regra que a fase 0 respeita:** o envctl substitui binários que são dele
-(`~/.local/bin`, `~/.opencode/bin`) ou do Volta. Binários de pacote do SO são
+(`~/.local/bin`, `~/.opencode/bin`) ou do mise. Binários de pacote do SO são
 consultados pelo banco do gerenciador e permanecem autoritativos: no Arch, uma
 cópia envctl user-local é arquivada antes de usar `pacman`; no Ubuntu/Debian, um
 v1 legado em `/usr/bin` é substituído pelo v2 user-local, porque a configuração
@@ -82,7 +82,7 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | :--- | :--- | :--- |
 | Diretório | `~/.config/opencode` | `~/.commandcode` |
 | Arquivos declarados | **11** | **7** |
-| Config principal | `opencode.json` (variante win/linux) | `settings.json` (permissões + hooks) |
+| Config principal | `opencode.json` (base única; `shell: pwsh` injetado no deploy Windows) | `settings.json` (permissões + hooks) |
 | Regras globais | `AGENTS.md` (win/linux) | `AGENTS.md` (win/linux) |
 | Índice de consulta | `SKILL-INDEX.md` + `REFERENCE.md` | `SKILL-INDEX.md` |
 | MCP | seção `mcp` no `opencode.json` (busca web **brave → exa → `websearch` nativo** — chave via `BRAVE_API_KEY`/`EXA_API_KEY`; context7; ssh-manager + chrome-devtools disabled) | `mcp.json` (busca **brave → exa → `web_search` nativo**; context7; chrome-devtools + ssh-manager disabled) |
@@ -99,6 +99,25 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | Diretórios criados | 4 (skills, memory, secrets 0700, extras) | 2 (skills, agents) |
 | Cleanup dedicado | 4 entradas | 6 entradas |
 | IDE integration | — (diagnósticos via lint/typecheck no v2; sem runtime LSP) | VS Code / Cursor / Windsurf via `/ide` |
+
+#### Pareamento de prompts por papel (trava, sem geração)
+
+Os prompts canônicos por papel existem nos dois formatos, que são
+incompatíveis entre si (OpenCode: JSON com `system`/`permissions[]`;
+CommandCode: md com frontmatter) — por isso um **não** é gerado do outro;
+o pareamento abaixo é só documentado e travado por teste:
+
+| Papel | OpenCode (`configs/opencode.json`) | CommandCode (`configs/commandcode/agents/`) |
+| :--- | :--- | :--- |
+| review | `agents.review` + `agents.reviewer` (`review` é primary; `reviewer` é o dispatchable) | `code-reviewer.md` (`review` é nome reservado do runtime, daí o rename) |
+| verifier | `agents.verifier` | `verifier.md` |
+| docs-writer | `agents.docs-writer` | `docs-writer.md` |
+| memory-keeper | `agents.memory-keeper` | `memory-keeper.md` |
+
+Travas (não unificar sem adaptador de formato):
+`TestShippedOpenCodeTemplatesHaveNativeShape` (shape nativo V2),
+`TestOpenCodeConfigTemplates` (inclui a chave `shell` por OS) e
+`TestShippedCommandCodeAgentTemplatesMatchSchema` (schema do frontmatter).
 
 ### Checks do `doctor` por provedor
 
@@ -209,10 +228,10 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 8. No CommandCode o mesmo agente vira `configs/commandcode/agents/<id>.md` + entrada `commandcode_agent_<id>` no `manifests/shell.yaml`, porque lá **não** existe permissão de edit com escopo de path: o limite vira regra do prompt. O contrato é `TestShippedCommandCodeAgentTemplatesMatchSchema` (assimetria #26), e `code-reviewer` é o nome reservado por lá porque `review` é nome reservado do runtime.
 
 **LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
-1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
+1. Informe `install_type` (`mise`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
 2. NÃO espelhe entrada no `opencode.json`: o runtime v2 ignora o bloco `lsp` (assimetria #16) — foi removido dos dois configs em 2026-09-22.
 
-**Debloat (Windows)** → `manifests/debloat.yaml` (perfil `run windows` + standalone `run debloat` + `doctor` seção Debloat)
+**Debloat (Windows)** → `manifests/debloat_windows.yaml` (perfil `run windows` + standalone `run debloat` + `doctor` seção Debloat)
 1. Reusa o schema de `windows.yaml` (`id`, `description`, `path`/`name`/`value`/`type`, `category`); tipos novos: `Appx` (conforme = ausente, `path` vazio), `Service` (`value` = `Disabled`/`Manual`, conforme = `StartType`) e `StartupItem` (conforme = ausente, `path` e `value` vazios, `name` = nome do valor na Run key / do arquivo na pasta Startup).
 2. Categorias fechadas: `telemetry`, `privacy`, `gaming`, `apps`, `services`, `startup` (o `doctor` agrega 1 linha por categoria, `INFO` em drift — nunca `WARN`, nunca `--fix`).
 3. Listas curadas e conservadoras: só o Xbox suite fica FORA do Appx (gaming); `Spooler` (impressão), serviços de acesso remoto (`AnyDesk`, `Tailscale`, `sshd`), `StorSvc`, `gupdate*`, `EasyAntiCheat*`, `NgcRingFenceSvc` e todo o Tier 3 (OneDrive, hibernação, power plan, Teredo, `Binary`, `.wslconfig`) ficam de fora — manual em `docs/guides/windows-debloat-tier3.md`.
@@ -224,12 +243,12 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 1. Confirme o **canal de versão** antes de escolher o gerenciador: o mesmo produto costuma ter
    linhas diferentes por canal (pacote do SO ≠ npm ≠ instalador oficial). Foi assim que o
    `opencode` quase foi rebaixado (assimetria #9).
-2. Se o CLI já existe na máquina mas não é do envctl nem do Volta, **não instale** uma segunda
+2. Se o CLI já existe na máquina mas não é do envctl nem do mise, **não instale** uma segunda
    cópia — reporte. Cópia em `~/.local/bin`/`~/.opencode/bin` vence no PATH e congela a versão
    ali instalada. A única exceção é o v1 legado no Ubuntu/Debian, que precisa convergir para
    v2; no Arch, um binário do pacman nunca é sombreado.
 3. Um CLI que o próprio envctl garante entra em `providerCLIs()`
-   (`internal/usecase/provision_providers.go`): com `voltaPkg` ele é atualizável; com
+   (`internal/usecase/provision_providers.go`): com `npmPkg` ele é atualizável; com
    `windowsInstaller`/`installer` e `requiredMajor` ele instala, atualiza e valida a versão.
 4. Declare o `check_command` no manifesto para o `doctor` auditar a presença naquela plataforma.
 

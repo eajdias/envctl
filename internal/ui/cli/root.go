@@ -12,13 +12,12 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/apt"
+	"github.com/eajdias/envctl/internal/infra/arch"
 	"github.com/eajdias/envctl/internal/infra/embedded"
 	"github.com/eajdias/envctl/internal/infra/environment"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 	"github.com/eajdias/envctl/internal/infra/git"
 	"github.com/eajdias/envctl/internal/infra/logger"
-	"github.com/eajdias/envctl/internal/infra/pacman"
-	"github.com/eajdias/envctl/internal/infra/paru"
 	"github.com/eajdias/envctl/internal/infra/performance"
 	"github.com/eajdias/envctl/internal/infra/toolchain"
 	"github.com/eajdias/envctl/internal/infra/windows"
@@ -28,11 +27,11 @@ import (
 
 type AppContext struct {
 	EmbeddedFS      fs.FS
-	ManifestRepo    repository.ManifestRepository
-	FSManager       repository.FileSystemManager
-	EnvManager      repository.WindowsEnvManager
-	GitManager      repository.GitManager
-	TweaksManager   repository.WindowsTweaksManager
+	ManifestRepo    *embedded.ManifestRepository
+	FSManager       *filesystem.FileSystemManager
+	EnvManager      *environment.WindowsEnvManager
+	GitManager      *git.GitManager
+	TweaksManager   *windows.TweaksManager
 	Logger          repository.Logger
 	PackageManagers map[entity.PackageType]repository.PackageManager
 
@@ -48,11 +47,9 @@ type AppContext struct {
 	ProvisionProvidersUC   *usecase.ProvisionProvidersUseCase
 	GamingTuningUC         *usecase.ProvisionGamingTuningUseCase
 	DoctorAuditUC          *usecase.DoctorAuditUseCase
-	SnapshotSyncUC         *usecase.SnapshotSyncUseCase
 	UpdateUC               *usecase.UpdateUseCase
 	TempHygieneUC          *usecase.TempHygieneUseCase
 	CleanupOpenCodeUC      *usecase.CleanupOpenCodeUseCase
-	CleanupCommandCodeUC   *usecase.CleanupCommandCodeUseCase
 }
 
 var (
@@ -100,9 +97,9 @@ func InitApp(embeddedFS fs.FS, version string) {
 	pkgManagers := map[entity.PackageType]repository.PackageManager{
 		entity.PackageTypeWinget: winget.NewWingetManager(),
 		entity.PackageTypeApt:    apt.NewAptManager(),
-		entity.PackageTypePacman: pacman.NewPacmanManager(),
-		entity.PackageTypeParu:   paru.NewParuManager(),
-		entity.PackageTypeVolta:  toolchain.NewVoltaManager(),
+		entity.PackageTypePacman: arch.NewPacmanManager(),
+		entity.PackageTypeParu:   arch.NewParuManager(),
+		entity.PackageTypeMise:   toolchain.NewMiseManager(),
 		entity.PackageTypeNpm:    toolchain.NewNpmManager(),
 		entity.PackageTypePip:    toolchain.NewPipManager(),
 		entity.PackageTypeGo:     toolchain.NewGoManager(),
@@ -130,15 +127,13 @@ func InitApp(embeddedFS fs.FS, version string) {
 		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
 		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
 		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
-		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, pkgManagers, fileLogger),
-		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, pkgManagers, fileLogger),
+		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, envManager, pkgManagers, fileLogger),
+		ProvisionProvidersUC: usecase.NewProvisionProvidersUseCase(manifestRepo, fsManager, envManager, pkgManagers, fileLogger),
 		GamingTuningUC:       usecase.NewProvisionGamingTuningUseCase(fsManager, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
-		SnapshotSyncUC:       usecase.NewSnapshotSyncUseCase(manifestRepo, fsManager, gitManager, fileLogger),
 		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
 		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
 		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
-		CleanupCommandCodeUC: usecase.NewCleanupCommandCodeUseCase(fsManager, fileLogger),
 	}
 
 	// The doctor's freshness audit compares the running binary against the repo
@@ -166,7 +161,6 @@ func registerCommands() {
 	rootCmd.AddCommand(newCommandCodeCmd())
 	rootCmd.AddCommand(newOpenCodeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
-	rootCmd.AddCommand(newSnapshotCmd())
 	rootCmd.AddCommand(runUpdateCommand())
 	rootCmd.AddCommand(newVersionCmd())
 }

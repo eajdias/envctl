@@ -6,13 +6,59 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
+	"strings"
 
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/usecase"
 )
+
+// runTarget is one boilerplate run subcommand: banner plus a single
+// provisioning call. Anything with flags or dispatch logic (all, windows,
+// vps, cachyos, performance) stays an explicit command below.
+type runTarget struct {
+	name  string
+	short string
+	run   func()
+}
+
+// runTargets generates the trivial subcommands. Adding a subsystem means
+// adding one row here; the help text and the unknown-subsystem error list
+// both derive from the registered commands, so neither can drift again.
+var runTargets = []runTarget{
+	{"winget", "Provision Winget system packages and CLI tools", func() { runPackagesProvisioning(entity.PackageTypeWinget) }},
+	{"apt", "Provision Debian/Ubuntu APT packages", func() { runPackagesProvisioning(entity.PackageTypeApt) }},
+	{"pacman", "Provision Arch/CachyOS pacman packages", func() { runPackagesProvisioning(entity.PackageTypePacman) }},
+	{"paru", "Provision Arch AUR packages via paru", func() { runPackagesProvisioning(entity.PackageTypeParu) }},
+	{"gaming", "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS", func() { runGamingProvisioning() }},
+	{"extras", "Provision opt-in optional apps (owner preferences; never part of a default run)", func() { runExtrasProvisioning() }},
+	{"debloat", "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)", func() { runDebloatProvisioning() }},
+	{"providers", "Phase 0 preflight: ensure mise, Node and the OpenCode/CommandCode CLIs are present and current", func() { runProvidersProvisioning() }},
+	{"bootstrap", "Provision the Linux toolchain (mise, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)", func() { runBootstrapProvisioning() }},
+	{"mise", "Provision mise-managed runtimes (Node.js)", func() { runPackagesProvisioning(entity.PackageTypeMise) }},
+	{"pip", "Provision global Python packages (pyyaml, requests, etc.)", func() { runPackagesProvisioning(entity.PackageTypePip) }},
+	{"shell", "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)", func() { runShellProvisioning() }},
+	{"skills", "Provision and deploy agent skills (OpenCode + CommandCode)", func() { runSkillsProvisioning() }},
+	{"lsp", "Provision Language Server Protocol tools", func() { runLSPProvisioning() }},
+	{"tweaks", "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)", func() { runWindowsProvisioning() }},
+	{"cleanup", "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)", func() { runCleanup() }},
+}
+
+// runSubsystemNames lists every registered run target in help order, so the
+// unknown-subsystem error can never drift behind the Use: lines again (it
+// once omitted tweaks and extras entirely).
+func runSubsystemNames(cmd *cobra.Command) []string {
+	names := make([]string, 0, len(cmd.Commands()))
+	for _, sub := range cmd.Commands() {
+		names = append(names, sub.Name())
+	}
+	sort.Strings(names)
+	return names
+}
 
 func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -30,8 +76,10 @@ func newRunCmd() *cobra.Command {
 				}
 				return nil
 			}
-			_ = cmd.Help()
-			return fmt.Errorf("unknown subsystem '%s' (valid: all, windows, vps, cachyos, providers, winget, apt, pacman, paru, gaming, performance, debloat, bootstrap, volta, pip, shell, skills, lsp, cleanup)", args[0])
+			if err := cmd.Help(); err != nil {
+				return err
+			}
+			return fmt.Errorf("unknown subsystem '%s' (valid: %s)", args[0], strings.Join(runSubsystemNames(cmd), ", "))
 		},
 	}
 
@@ -75,59 +123,16 @@ func newRunCmd() *cobra.Command {
 		},
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "winget",
-		Short: "Provision Winget system packages and CLI tools",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeWinget)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "apt",
-		Short: "Provision Debian/Ubuntu APT packages",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeApt)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "pacman",
-		Short: "Provision Arch/CachyOS pacman packages",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypePacman)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "paru",
-		Short: "Provision Arch AUR packages via paru",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeParu)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "gaming",
-		Short: "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runGamingProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "extras",
-		Short: "Provision opt-in optional apps (owner preferences; never part of a default run)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runExtrasProvisioning()
-		},
-	})
+	for _, target := range runTargets {
+		cmd.AddCommand(&cobra.Command{
+			Use:   target.name,
+			Short: target.short,
+			Run: func(cmd *cobra.Command, args []string) {
+				PrintBanner()
+				target.run()
+			},
+		})
+	}
 
 	performanceCmd := &cobra.Command{
 		Use:   "performance",
@@ -156,96 +161,6 @@ func newRunCmd() *cobra.Command {
 	performanceCmd.Flags().Bool("debloat-only", false, "Run only the package removal, skipping every other step")
 	performanceCmd.Flags().Bool("force-reboot-pending", false, "Proceed even though /var/run/reboot-required exists")
 	cmd.AddCommand(performanceCmd)
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "debloat",
-		Short: "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runDebloatProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "providers",
-		Short: "Phase 0 preflight: ensure Volta, Node and the OpenCode/CommandCode CLIs are present and current",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runProvidersProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "bootstrap",
-		Short: "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runBootstrapProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "volta",
-		Short: "Provision Volta Node.js toolchains and global ecosystem (pnpm, stylelint, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypeVolta)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "pip",
-		Short: "Provision global Python packages (pyyaml, requests, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runPackagesProvisioning(entity.PackageTypePip)
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "shell",
-		Short: "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runShellProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "skills",
-		Short: "Provision and deploy agent skills (OpenCode + CommandCode)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runSkillsProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "lsp",
-		Short: "Provision Language Server Protocol tools",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runLSPProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "tweaks",
-		Short: "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runWindowsProvisioning()
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "cleanup",
-		Short: "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)",
-		Run: func(cmd *cobra.Command, args []string) {
-			PrintBanner()
-			runCleanup()
-		},
-	})
 
 	// --with-extras opts `run all` (or the bare `run`) into the optional apps
 	// manifest (extras.yaml). Default stays neutral: the public repo never
@@ -276,7 +191,11 @@ func runAllProvisioning() error {
 // requireSudoNOPASSWD warns once on Linux when passwordless sudo is missing,
 // since package installs and performance tuning fail without it.
 func requireSudoNOPASSWD() {
-	if err := exec.Command("sudo", "-n", "true").Run(); err != nil {
+	privileged := executil.SudoAvailable()
+	if privileged {
+		privileged = exec.Command("sudo", "-n", "true").Run() == nil
+	}
+	if !privileged {
 		user := os.Getenv("USER")
 		if user == "" {
 			user = "$USER"
@@ -296,6 +215,25 @@ func finishProfile(title string) {
 	PrintSecretGuidance()
 }
 
+// profileStep is one numbered section of an umbrella profile. The runner
+// numbers them, so adding a step can never leave a stale "4/7" behind.
+type profileStep struct {
+	title string
+	run   func() error
+}
+
+// runProfileSteps prints each section header in order and runs it, stopping
+// at the first error. Titles carry no numbers; the runner derives "n/total".
+func runProfileSteps(steps []profileStep) error {
+	for i, step := range steps {
+		PrintSection(fmt.Sprintf("%d/%d %s", i+1, len(steps), step.title))
+		if err := step.run(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func runWindowsProfile() {
 	PrintBanner()
 	pterm.DefaultHeader.WithFullWidth().Println("Starting Windows 11 Workstation Provisioning")
@@ -305,31 +243,40 @@ func runWindowsProfile() {
 		pterm.Println()
 	}
 
-	total := 7
-	section := func(n int, text string) string {
-		return fmt.Sprintf("%d/%d %s", n, total, text)
+	steps := []profileStep{
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
+			runProvidersProvisioning()
+			return nil
+		}},
+		{"Provisioning Windows 11 Registry Tweaks, Features & Fonts", func() error {
+			runWindowsProvisioning()
+			return nil
+		}},
+		{"Provisioning Windows 11 Debloat (telemetry/privacy/gaming/Appx/services/startup)", func() error {
+			runDebloatProvisioning()
+			return nil
+		}},
+		{"Provisioning System Packages & Toolchains", func() error {
+			runPackagesProvisioning("")
+			return nil
+		}},
+		{"Provisioning Shell, Environment Variables & Config Files", func() error {
+			runShellProvisioning()
+			return nil
+		}},
+		{"Provisioning Agent Skills (OpenCode + CommandCode)", func() error {
+			runSkillsProvisioning()
+			return nil
+		}},
+		{"Provisioning Language Server Protocols (LSP)", func() error {
+			runLSPProvisioning()
+			return nil
+		}},
 	}
-
-	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
-	runProvidersProvisioning()
-
-	PrintSection(section(2, "Provisioning Windows 11 Registry Tweaks, Features & Fonts"))
-	runWindowsProvisioning()
-
-	PrintSection(section(3, "Provisioning Windows 11 Debloat (telemetry/privacy/gaming/Appx/services/startup)"))
-	runDebloatProvisioning()
-
-	PrintSection(section(4, "Provisioning System Packages & Toolchains"))
-	runPackagesProvisioning("")
-
-	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
-	runShellProvisioning()
-
-	PrintSection(section(6, "Provisioning Agent Skills (OpenCode + CommandCode)"))
-	runSkillsProvisioning()
-
-	PrintSection(section(7, "Provisioning Language Server Protocols (LSP)"))
-	runLSPProvisioning()
+	if err := runProfileSteps(steps); err != nil {
+		pterm.Error.Printf("%v\n", err)
+		os.Exit(1)
+	}
 
 	finishProfile("All Windows workstation components, debloat, toolchains, skills, and shell configurations have been applied.")
 }
@@ -340,37 +287,45 @@ func runVPSProfile(perfOpts usecase.PerformanceOptions) error {
 
 	requireSudoNOPASSWD()
 
-	total := 7
-	section := func(n int, text string) string {
-		return fmt.Sprintf("%d/%d %s", n, total, text)
+	steps := []profileStep{
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
+			runProvidersProvisioning()
+			return nil
+		}},
+		{"Provisioning Linux Toolchain (mise, Node, OpenCode CLI & CLI tools)", func() error {
+			runBootstrapProvisioning()
+			return nil
+		}},
+		{"Provisioning System Packages & Toolchains", func() error {
+			runPackagesProvisioning("")
+			return nil
+		}},
+		// The profile is a hard requirement on this path, not an optional extra:
+		// the owner declared Ubuntu Server 24+ as the only server target, so a host
+		// outside the manifest's declared minimum must fail loudly instead of
+		// silently skipping every performance change.
+		{"Applying Ubuntu Server Performance Profile (zram + sysctl)", func() error {
+			if err := runPerformanceProvisioning(context.Background(), perfOpts); err != nil {
+				return fmt.Errorf("the ubuntu-server performance profile is required by `run vps`: %w", err)
+			}
+			return nil
+		}},
+		{"Provisioning Shell, Environment Variables & Config Files", func() error {
+			runShellProvisioning()
+			return nil
+		}},
+		{"Provisioning Agent Skills (OpenCode + CommandCode)", func() error {
+			runSkillsProvisioning()
+			return nil
+		}},
+		{"Provisioning Language Server Protocols (LSP)", func() error {
+			runLSPProvisioning()
+			return nil
+		}},
 	}
-
-	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
-	runProvidersProvisioning()
-
-	PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
-	runBootstrapProvisioning()
-
-	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
-	runPackagesProvisioning("")
-
-	// The profile is a hard requirement on this path, not an optional extra:
-	// the owner declared Ubuntu Server 24+ as the only server target, so a host
-	// outside the manifest's declared minimum must fail loudly instead of
-	// silently skipping every performance change.
-	PrintSection(section(4, "Applying Ubuntu Server Performance Profile (zram + sysctl)"))
-	if err := runPerformanceProvisioning(context.Background(), perfOpts); err != nil {
-		return fmt.Errorf("the ubuntu-server performance profile is required by `run vps`: %w", err)
+	if err := runProfileSteps(steps); err != nil {
+		return err
 	}
-
-	PrintSection(section(5, "Provisioning Shell, Environment Variables & Config Files"))
-	runShellProvisioning()
-
-	PrintSection(section(6, "Provisioning Agent Skills (OpenCode + CommandCode)"))
-	runSkillsProvisioning()
-
-	PrintSection(section(7, "Provisioning Language Server Protocols (LSP)"))
-	runLSPProvisioning()
 
 	finishProfile("All server components, performance tuning, toolchains, skills, and shell configurations have been applied.")
 	return nil
@@ -382,42 +337,52 @@ func runCachyOSProfile() {
 
 	requireSudoNOPASSWD()
 
-	total := 8
-	section := func(n int, text string) string {
-		return fmt.Sprintf("%d/%d %s", n, total, text)
+	steps := []profileStep{
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
+			runProvidersProvisioning()
+			return nil
+		}},
+		{"Provisioning Linux Toolchain (mise, Node, OpenCode CLI & CLI tools)", func() error {
+			runBootstrapProvisioning()
+			return nil
+		}},
+		{"Provisioning System Packages & Toolchains", func() error {
+			runPackagesProvisioning("")
+			return nil
+		}},
+		{"Provisioning Gaming Stack (Steam, Proton, emulators, MangoHud)", func() error {
+			runGamingProvisioning()
+			return nil
+		}},
+		{"Applying CachyOS Performance Profile (zram)", func() error {
+			if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{Umbrella: true}); err != nil {
+				pterm.Warning.Printf("Performance profile skipped: %v\n", err)
+			}
+			return nil
+		}},
+		{"Provisioning Shell, Environment Variables & Config Files", func() error {
+			runShellProvisioning()
+			return nil
+		}},
+		{"Provisioning Agent Skills (OpenCode + CommandCode)", func() error {
+			runSkillsProvisioning()
+			return nil
+		}},
+		{"Provisioning Language Server Protocols (LSP)", func() error {
+			runLSPProvisioning()
+			return nil
+		}},
 	}
-
-	PrintSection(section(1, "Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)"))
-	runProvidersProvisioning()
-
-	PrintSection(section(2, "Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)"))
-	runBootstrapProvisioning()
-
-	PrintSection(section(3, "Provisioning System Packages & Toolchains"))
-	runPackagesProvisioning("")
-
-	PrintSection(section(4, "Provisioning Gaming Stack (Steam, Proton, emulators, MangoHud)"))
-	runGamingProvisioning()
-
-	PrintSection(section(5, "Applying CachyOS Performance Profile (zram)"))
-	if err := runPerformanceProvisioning(context.Background(), usecase.PerformanceOptions{Umbrella: true}); err != nil {
-		pterm.Warning.Printf("Performance profile skipped: %v\n", err)
+	if err := runProfileSteps(steps); err != nil {
+		pterm.Error.Printf("%v\n", err)
+		os.Exit(1)
 	}
-
-	PrintSection(section(6, "Provisioning Shell, Environment Variables & Config Files"))
-	runShellProvisioning()
-
-	PrintSection(section(7, "Provisioning Agent Skills (OpenCode + CommandCode)"))
-	runSkillsProvisioning()
-
-	PrintSection(section(8, "Provisioning Language Server Protocols (LSP)"))
-	runLSPProvisioning()
 
 	finishProfile("All CachyOS desktop components, gaming, performance tuning, toolchains, skills, and shell configurations have been applied.")
 }
 
 func runProvidersProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)...")
+	spinner, _ := pterm.DefaultSpinner.Start("Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)...")
 	ctx := context.Background()
 
 	diags, err := appCtx.ProvisionProvidersUC.Execute(ctx)
@@ -447,7 +412,7 @@ func runProvidersProvisioning() {
 }
 
 func runBootstrapProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Bootstrapping Linux toolchain (Volta, Node, OpenCode CLI, tools)...")
+	spinner, _ := pterm.DefaultSpinner.Start("Bootstrapping Linux toolchain (mise, Node, OpenCode CLI, tools)...")
 	ctx := context.Background()
 
 	res, err := appCtx.ProvisionBootstrapUC.Execute(ctx)
@@ -468,48 +433,23 @@ func runBootstrapProvisioning() {
 }
 
 func runPackagesProvisioning(filterType entity.PackageType) {
-	spinner, _ := pterm.DefaultSpinner.Start("Inspecting and installing packages...")
-	ctx := context.Background()
-
-	pkgs, err := appCtx.ProvisionPkgsUC.Execute(ctx, filterType, func(pkg entity.Package, status string, err error) {
-		if err != nil {
-			pterm.Warning.Printf("  • %s: %s (%v)\n", pkg, status, err)
-		} else {
-			pterm.Success.Printf("  • %s: %s\n", pkg, status)
-		}
-	})
-
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed package provisioning: %v", err))
-		return
-	}
-
-	spinner.Success(fmt.Sprintf("Processed %d packages", len(pkgs)))
+	runPackageList("Inspecting and installing packages...", "Failed package provisioning: %v", "Processed %d packages",
+		func(ctx context.Context, onProgress usecase.PackageProgressHandler) ([]entity.Package, error) {
+			return appCtx.ProvisionPkgsUC.Execute(ctx, filterType, onProgress)
+		})
 }
 
 func runGamingProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Inspecting and installing gaming packages...")
 	ctx := context.Background()
-
-	pkgs, err := appCtx.ProvisionPkgsUC.ExecuteGaming(ctx, func(pkg entity.Package, status string, err error) {
-		if err != nil {
-			pterm.Warning.Printf("  • %s: %s (%v)\n", pkg, status, err)
-		} else {
-			pterm.Success.Printf("  • %s: %s\n", pkg, status)
-		}
-	})
-
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed gaming provisioning: %v", err))
-		return
-	}
-
-	spinner.Success(fmt.Sprintf("Processed %d gaming packages", len(pkgs)))
+	runPackageList("Inspecting and installing gaming packages...", "Failed gaming provisioning: %v", "Processed %d gaming packages",
+		func(listCtx context.Context, onProgress usecase.PackageProgressHandler) ([]entity.Package, error) {
+			return appCtx.ProvisionPkgsUC.ExecuteGaming(listCtx, onProgress)
+		})
 
 	// The privileged tuning pass (kernel cmdline, LACT, scx_loader) needs a
 	// sudo timestamp: refresh it once, interactively, so the steps below can
 	// run non-interactively. The user-level steps (kwinrc) run regardless.
-	if err := usecase.SudoPreflight(); err != nil {
+	if err := executil.SudoPreflight(); err != nil {
 		pterm.Warning.Printf("Privileged tuning steps skipped: %v\n", err)
 		pterm.Info.Println("Run 'sudo envctl run gaming' to also apply kernel cmdline, LACT and scx_loader tuning.")
 	} else {
@@ -533,10 +473,21 @@ func runGamingProvisioning() {
 }
 
 func runExtrasProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Inspecting and installing optional apps (extras)...")
+	runPackageList("Inspecting and installing optional apps (extras)...", "Failed extras provisioning: %v", "Processed %d optional apps",
+		func(ctx context.Context, onProgress usecase.PackageProgressHandler) ([]entity.Package, error) {
+			return appCtx.ProvisionPkgsUC.ExecuteExtras(ctx, onProgress)
+		})
+}
+
+// runPackageList is the single spinner+callback+count runner behind the
+// package-list subcommands (packages, gaming, extras). Only the Execute call
+// differs per list, so it arrives as a parameter; every visible string stays
+// at the call edge.
+func runPackageList(spinnerMsg, failMsg, doneMsg string, exec func(ctx context.Context, onProgress usecase.PackageProgressHandler) ([]entity.Package, error)) {
+	spinner, _ := pterm.DefaultSpinner.Start(spinnerMsg)
 	ctx := context.Background()
 
-	pkgs, err := appCtx.ProvisionPkgsUC.ExecuteExtras(ctx, func(pkg entity.Package, status string, err error) {
+	pkgs, err := exec(ctx, func(pkg entity.Package, status string, err error) {
 		if err != nil {
 			pterm.Warning.Printf("  • %s: %s (%v)\n", pkg, status, err)
 		} else {
@@ -545,11 +496,11 @@ func runExtrasProvisioning() {
 	})
 
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed extras provisioning: %v", err))
+		spinner.Fail(fmt.Sprintf(failMsg, err))
 		return
 	}
 
-	spinner.Success(fmt.Sprintf("Processed %d optional apps", len(pkgs)))
+	spinner.Success(fmt.Sprintf(doneMsg, len(pkgs)))
 }
 
 func runShellProvisioning(categories ...string) {
@@ -685,14 +636,6 @@ func runCleanup() {
 			freed += tempReport.FreedBytes
 			removed = append(removed, tempReport.Skipped...)
 			removed = append(removed, tempReport.Failed...)
-		}
-	}
-
-	if appCtx.CleanupCommandCodeUC != nil {
-		ccReport, ccErr := appCtx.CleanupCommandCodeUC.Execute(ctx)
-		if ccErr == nil && len(ccReport.RemovedFiles) > 0 {
-			removed = append(removed, ccReport.RemovedFiles...)
-			freed += ccReport.FreedBytes
 		}
 	}
 

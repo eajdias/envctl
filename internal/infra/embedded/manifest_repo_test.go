@@ -11,6 +11,23 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
+// TestEmbeddedOnlyLoadWithoutLocalDir pins the removal of the CWD-relative
+// disk fallback: with no localDir the repo must resolve every manifest from
+// the embedded assets, never from "./manifests" under whatever directory the
+// binary was launched from (the stale-manifest failure mode from
+// .opencode/memory/lessons.md).
+func TestEmbeddedOnlyLoadWithoutLocalDir(t *testing.T) {
+	repo := NewManifestRepository(envctl.EmbeddedFS, "")
+
+	pkgs, err := repo.LoadPackages()
+	if err != nil {
+		t.Fatalf("embedded-only load failed: %v", err)
+	}
+	if len(pkgs) == 0 {
+		t.Fatal("expected embedded packages to be non-empty")
+	}
+}
+
 func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 	repo := NewManifestRepository(envctl.EmbeddedFS, ".")
 

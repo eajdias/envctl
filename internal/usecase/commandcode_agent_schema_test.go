@@ -6,8 +6,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/eajdias/envctl"
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
+	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // The CommandCode agent schema is documented in
@@ -171,6 +175,8 @@ func TestValidateCommandCodeAgentFrontmatterRejectsNonMapping(t *testing.T) {
 // both delegation failures, so both must surface on the same check.
 func TestAuditCommandCodeAgentsReportsSchemaProblems(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	agentsDir := filepath.Join(home, ".commandcode", "agents")
 	if err := os.MkdirAll(agentsDir, 0755); err != nil {
 		t.Fatal(err)
@@ -185,9 +191,9 @@ func TestAuditCommandCodeAgentsReportsSchemaProblems(t *testing.T) {
 	}
 
 	uc := NewDoctorAuditUseCase(
-		&mockManifestRepo{},
-		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}}, home: home},
-		&mockEnvManager{},
+		embedded.NewManifestRepository(envctl.EmbeddedFS, ""),
+		filesystem.NewFileSystemManager(),
+		environment.NewWindowsEnvManager(),
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
@@ -217,6 +223,8 @@ func TestAuditCommandCodeAgentsReportsSchemaProblems(t *testing.T) {
 
 func TestAuditCommandCodeAgentsCleanTreeIsOK(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	agentsDir := filepath.Join(home, ".commandcode", "agents")
 	if err := os.MkdirAll(agentsDir, 0755); err != nil {
 		t.Fatal(err)
@@ -227,9 +235,9 @@ func TestAuditCommandCodeAgentsCleanTreeIsOK(t *testing.T) {
 	}
 
 	uc := NewDoctorAuditUseCase(
-		&mockManifestRepo{},
-		&expandingFSManager{mockFSManager: mockFSManager{existingPaths: map[string]bool{}}, home: home},
-		&mockEnvManager{},
+		embedded.NewManifestRepository(envctl.EmbeddedFS, ""),
+		filesystem.NewFileSystemManager(),
+		environment.NewWindowsEnvManager(),
 		nil,
 		nil,
 		map[entity.PackageType]repository.PackageManager{},

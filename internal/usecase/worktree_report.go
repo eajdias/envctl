@@ -104,26 +104,24 @@ func worktreeFindings(worktrees []gitWorktree) []entity.Diagnostic {
 			if reason == "" {
 				reason = "no reason reported"
 			}
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagInfo,
-				System:   "Git",
-				Target:   "worktree",
-				Details:  fmt.Sprintf("Worktree %q is locked (%s)", worktree.Path, reason),
-				FixHint:  "leave it locked when the work is intentional; inspect before unlocking",
-			})
+			diagnostics = append(diagnostics, entity.Info(
+				"Git",
+				"worktree",
+				fmt.Sprintf("Worktree %q is locked (%s)", worktree.Path, reason),
+				"leave it locked when the work is intentional; inspect before unlocking",
+			))
 		}
 		if worktree.Prunable {
 			reason := worktree.PrunableReason
 			if reason == "" {
 				reason = "no reason reported"
 			}
-			diagnostics = append(diagnostics, entity.Diagnostic{
-				Category: entity.DiagWarning,
-				System:   "Git",
-				Target:   "worktree",
-				Details:  fmt.Sprintf("Worktree %q is prunable: %s", worktree.Path, reason),
-				FixHint:  "inspect the worktree and run 'git worktree prune' only after confirming no uncommitted work",
-			})
+			diagnostics = append(diagnostics, entity.Warn(
+				"Git",
+				"worktree",
+				fmt.Sprintf("Worktree %q is prunable: %s", worktree.Path, reason),
+				"inspect the worktree and run 'git worktree prune' only after confirming no uncommitted work",
+			))
 		}
 	}
 	return diagnostics
