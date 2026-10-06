@@ -170,6 +170,13 @@ func (uc *DoctorAuditUseCase) auditConfigFiles(addDiag func(entity.Diagnostic)) 
 				details = "Present on disk (runtime-managed by the agent; provisioning realigns it)"
 			default:
 				if src, err := uc.fsManager.ReadFile(cf.Source); err == nil {
+					// Same transform the deploy applies (provision_shell.go):
+					// the Windows entry injects "shell": "pwsh" at deploy
+					// time, so comparing against the raw base would diverge
+					// forever on Windows.
+					if cf.ID == "opencode_config" {
+						src = withWindowsShellOverlay(src)
+					}
 					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {
 						addDiag(entity.Warn(
 							"ConfigFile",

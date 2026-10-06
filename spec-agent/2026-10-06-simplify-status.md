@@ -38,7 +38,7 @@
 - [x] **M6** — doctor: tabela toolchain + refs volta
 - [x] **M7** — deletar volta de vez (`volta_manager`, `PackageTypeVolta`, testes)
 - [x] **M8** — docs/matriz (canal mise por OS, `Volta.Volta` fora)
-- [x] **M9** — validação viva na homolog (feito 2026-10-06: `run vps` convergiu via mise — node v24.19.0 + pnpm, shims com mtime do run, `~/.volta` antigo intocado; doctor 152/148/4/0, warns só host-owned; 2ª run idempotente ~1min, veredito idêntico) + Windows na estação do dono quando convier (sem dockur)
+- [x] **M9** — validação viva (feito 2026-10-06: homolog `run vps` convergiu via mise, doctor 152/148/4/0; 2ª run idempotente; **Windows estação do dono**: `run windows` convergiu 15→2 warns, ambos artefato-by-design de dev-machine — envctl fora do PATH e freshness `vdev`; **bug real achado e corrigido no ciclo**: audit comparava `opencode.json` com o template sem overlay → WARN eterno no Windows; agora aplica `withWindowsShellOverlay` igual ao deploy)
 - [ ] **DoD** — checkboxes §§10 da spec estão stale (fases prontas marcadas `[ ]`); sincronizar ao fechar
 
 ## 🅿️ Estacionado (não fazer agora)
@@ -51,5 +51,4 @@
 ## ▶️ Restam (ordem sugerida)
 
 1. **Janela de release** (1-T4 + 1d-T3 — anda sozinha via bot)
-2. **Windows na estação do dono** (`bootstrap.ps1` + `run windows` + `doctor`)
-3. **DoD**: sincronizar checkboxes §§10 da spec ao fechar
+2. **DoD**: sincronizar checkboxes §§10 da spec ao fechar
