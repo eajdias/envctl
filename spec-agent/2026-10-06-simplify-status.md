@@ -38,8 +38,7 @@
 - [x] **M6** — doctor: tabela toolchain + refs volta
 - [x] **M7** — deletar volta de vez (`volta_manager`, `PackageTypeVolta`, testes)
 - [x] **M8** — docs/matriz (canal mise por OS, `Volta.Volta` fora)
-- [ ] **M9** — validação viva na homolog (converge mise, `doctor` 0/0, idempotência)
-- [ ] **5-T3/T4** — VM dockur + ciclo Windows (inclui teste real do `bootstrap.ps1` reescrito)
+- [x] **M9** — validação viva na homolog (feito 2026-10-06: `run vps` convergiu via mise — node v24.19.0 + pnpm, shims com mtime do run, `~/.volta` antigo intocado; doctor 152/148/4/0, warns só host-owned; 2ª run idempotente ~1min, veredito idêntico) + Windows na estação do dono quando convier (sem dockur)
 - [ ] **DoD** — checkboxes §§10 da spec estão stale (fases prontas marcadas `[ ]`); sincronizar ao fechar
 
 ## 🅿️ Estacionado (não fazer agora)
@@ -49,6 +48,8 @@
 - **`verify_script_test.go`** — testa o bash do gate, fora de escopo por decisão
 - **`statfs_*`** — split por build-tag é idiomático, ninguém funde
 
-## ▶️ Próximos (ordem sugerida)
+## ▶️ Restam (ordem sugerida)
 
-1. **M9 + 5-T3/T4 juntos** (homolog converge mise + dockur) — validação única
+1. **Janela de release** (1-T4 + 1d-T3 — anda sozinha via bot)
+2. **Windows na estação do dono** (`bootstrap.ps1` + `run windows` + `doctor`)
+3. **DoD**: sincronizar checkboxes §§10 da spec ao fechar

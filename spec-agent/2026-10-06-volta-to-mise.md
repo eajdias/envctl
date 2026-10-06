@@ -108,10 +108,10 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       Verificação: `rg -iw volta docs/ configs/` só com contexto histórico +
       testes de embedded verdes.
       Rollback: revert. Resultado: doc conta a história nova.
-- [ ] **M9 — validação ao vivo (Fase 5).**
+- [x] **M9 — validação ao vivo (Fase 5).** (feito 2026-10-06, homologacaochatbot Ubuntu 24.04: `run vps` convergiu via mise — node v24.19.0 pinado + pnpm, shims com mtime do run; `doctor` 152/148/4/0, warns só host-owned; 2ª run idempotente, mesmo veredito)
       `vps_oracle_2`: `run bootstrap` instala node+go via mise → `run vps` →
-      `doctor` 0/0; segunda run idempotente. Windows: ciclo dockur com fnm
-      fora da jogada (mise cobre). Registrar saídas.
+      `doctor` 0/0; segunda run idempotente. Windows: na estação do dono
+      (sem dockur — sem KVM em Windows).
       Rollback máquina: `~/.volta` permanece no disco (não deletado pela
       migração); volta reinstalável pelo canal antigo.
 
