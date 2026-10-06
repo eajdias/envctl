@@ -64,14 +64,14 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       bootstrap existente) falha chamando volta; GREEN = chama mise.
       Verificação: `go test ./internal/usecase/ -run TestBootstrap -v` + gate.
       Rollback: revert do PR. Resultado: máquina nova sem volta instala node+go.
-- [ ] **M3 — manifests: 9 packages + 10 LSPs.**
+- [x] **M3 — manifests: 9 packages + 11 LSPs.** (feito 2026-10-06: `node`→mise, 7 globals + `command-code`→npm, 11 `install_type`→npm no lsp.yaml — todos alvos npm genuínos, gopls/powershell/taplo já eram go/winget/npm; `Volta.Volta`→`jdx.mise` no winget; `TestLSPSingleSource` verde)
       Arquivos: `manifests/packages.yaml:237-307` (`node@24.19.0` → `type: mise`;
       8 globals → `type: npm`), `manifests/lsp.yaml` (10× `install_type: volta`
       → `npm`). Nenhum código (LSP é genérico; packages passam por managers).
       Trava: `TestLSPSingleSource` + testes de manifest existentes.
       Verificação: `go test ./internal/infra/embedded/ -v` + gate.
       Rollback: revert. Resultado: zero `volta` em `manifests/` (`rg` vazio).
-- [ ] **M4 — `update.go`: `GroupVolta` → `GroupMise` + `GroupNpm`.**
+- [x] **M4 — `update.go`: `GroupVolta` → `GroupMise` + `GroupNpm`.** (feito 2026-10-06: grupos separados; `applyUpdate` npm usa `--prefix` via `toolchain.UserLocalPrefix` exportado (display mostra forma portátil); `run volta`→`run mise`; `--only` aceita mise/npm/uv/go; testes migrados)
       Arquivos: `internal/usecase/update.go` (+ `update_test.go`).
       `automatableGroup`: `PackageTypeMise` → `GroupMise` (`mise install
       <target>@latest`), `PackageTypeNpm` → `GroupNpm` novo (`npm install -g

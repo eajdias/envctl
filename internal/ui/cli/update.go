@@ -23,7 +23,7 @@ func runUpdateCommand() *cobra.Command {
 		Use:   "update",
 		Short: "Update the global toolchain envctl provisions (Node/npm, Python and Go tools)",
 		Long: "Updates the global tools the manifests install through a user-local mechanism:\n" +
-			"volta/npm globals, uv-managed Python tools and go-installed tools.\n\n" +
+			"mise runtimes, npm globals, uv-managed Python tools and go-installed tools.\n\n" +
 			"Applies without prompting: every one of those is user-local, needs no sudo and is\n" +
 			"reversible, and the report records the previous version. Use --dry-run to preview.\n\n" +
 			"OS package managers are deliberately NOT automated. Upgrading a subset through\n" +
@@ -38,7 +38,7 @@ func runUpdateCommand() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&flags.dryRun, "dry-run", false, "Print the command each update would run and change nothing")
 	cmd.Flags().BoolVar(&flags.list, "list", false, "List the automatable inventory without querying any registry")
-	cmd.Flags().StringVar(&flags.only, "only", "", "Narrow to one group: volta, uv or go")
+	cmd.Flags().StringVar(&flags.only, "only", "", "Narrow to one group: mise, npm, uv or go")
 	return cmd
 }
 
@@ -60,10 +60,10 @@ func runUpdateProvisioning(flags updateFlags) {
 	if flags.only != "" {
 		group := usecase.UpdateGroup(flags.only)
 		switch group {
-		case usecase.GroupVolta, usecase.GroupUV, usecase.GroupGo:
+		case usecase.GroupMise, usecase.GroupNpm, usecase.GroupUV, usecase.GroupGo:
 			opts.Only = group
 		default:
-			pterm.Error.Printf("  • unknown group %q: use volta, uv or go\n", flags.only)
+			pterm.Error.Printf("  • unknown group %q: use mise, npm, uv or go\n", flags.only)
 			return
 		}
 	}
@@ -120,7 +120,7 @@ func printUpdateInventory(result *usecase.UpdateResult) {
 	for _, c := range result.Planned {
 		byGroup[c.Group] = append(byGroup[c.Group], c)
 	}
-	for _, group := range []usecase.UpdateGroup{usecase.GroupVolta, usecase.GroupUV, usecase.GroupGo} {
+	for _, group := range []usecase.UpdateGroup{usecase.GroupMise, usecase.GroupNpm, usecase.GroupUV, usecase.GroupGo} {
 		items := byGroup[group]
 		if len(items) == 0 {
 			continue

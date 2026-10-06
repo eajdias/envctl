@@ -50,7 +50,7 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 	// Pin the global prefix to ~/.local: distro npm packages (Arch, Debian)
 	// resolve the global prefix to a root-owned system directory, so an
 	// unpinned `npm install -g` fails or needs sudo.
-	if prefix, err := userLocalPrefix(); err == nil {
+	if prefix, err := UserLocalPrefix(); err == nil {
 		args = append(args, "--prefix", prefix)
 	}
 	args = append(args, strings.Fields(pkg.ID)...)
@@ -62,10 +62,10 @@ func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
 	return nil
 }
 
-// userLocalPrefix returns ~/.local, creating it when missing, so global
+// UserLocalPrefix returns ~/.local, creating it when missing, so global
 // toolchain installs land in a user-writable prefix instead of a root-owned
 // system directory.
-func userLocalPrefix() (string, error) {
+func UserLocalPrefix() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return "", fmt.Errorf("cannot resolve user home directory")

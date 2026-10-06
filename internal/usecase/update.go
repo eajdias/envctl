@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
+	"github.com/eajdias/envctl/internal/infra/toolchain"
 )
 
 // UpdateGroup identifies an install mechanism family. Only the families whose
@@ -17,17 +18,20 @@ import (
 type UpdateGroup string
 
 const (
-	GroupVolta UpdateGroup = "volta"
-	GroupUV    UpdateGroup = "uv"
-	GroupGo    UpdateGroup = "go"
+	GroupMise UpdateGroup = "mise"
+	GroupNpm  UpdateGroup = "npm"
+	GroupUV   UpdateGroup = "uv"
+	GroupGo   UpdateGroup = "go"
 )
 
 // automatableGroup maps a manifest install type to the group that can update it.
 // A type absent from this map is never automated.
 func automatableGroup(installType entity.PackageType) (UpdateGroup, bool) {
 	switch installType {
-	case entity.PackageTypeVolta, entity.PackageTypeNpm:
-		return GroupVolta, true
+	case entity.PackageTypeMise:
+		return GroupMise, true
+	case entity.PackageTypeNpm:
+		return GroupNpm, true
 	case entity.PackageTypePip:
 		return GroupUV, true
 	case entity.PackageTypeGo:
@@ -46,8 +50,10 @@ func updateCommand(group UpdateGroup, target string) string {
 		pin = "@latest"
 	}
 	switch group {
-	case GroupVolta:
-		return "volta install " + target + pin
+	case GroupMise:
+		return "mise install " + target + pin
+	case GroupNpm:
+		return "npm install -g " + target + pin
 	case GroupUV:
 		return "uv tool upgrade " + target
 	case GroupGo:
@@ -82,7 +88,7 @@ func (e *realUpdateEnv) installedVersion(binary string) string {
 
 func (e *realUpdateEnv) latestVersion(group UpdateGroup, target string) string {
 	switch group {
-	case GroupVolta:
+	case GroupMise, GroupNpm:
 		return npmLatest(context.Background(), target)
 	case GroupUV:
 		return uvToolVersionOf(context.Background(), target)
@@ -97,8 +103,16 @@ func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, targ
 	var name string
 	var args []string
 	switch group {
-	case GroupVolta:
-		name, args = "volta", []string{"install", target + "@latest"}
+	case GroupMise:
+		name, args = "mise", []string{"install", target + "@latest"}
+	case GroupNpm:
+		// Same user-local prefix as NpmManager: a bare `npm install -g`
+		// lands in a root-owned system directory on Arch/Debian.
+		// The display command (updateCommand) shows the portable form.
+		name, args = "npm", []string{"install", "-g", target + "@latest"}
+		if prefix, err := toolchain.UserLocalPrefix(); err == nil {
+			args = []string{"install", "-g", "--prefix", prefix, target + "@latest"}
+		}
 	case GroupUV:
 		name, args = "uv", []string{"tool", "upgrade", target}
 	case GroupGo:
@@ -198,7 +212,7 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 		}
 		// A runtime pin (node@24.19.0) belongs to the providers phase, which
 		// already keeps the agent CLIs current.
-		if group == GroupVolta && isProviderRuntime(id) {
+		if group == GroupMise && isProviderRuntime(id) {
 			return
 		}
 		seen[target] = true
@@ -220,7 +234,7 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 		if idx := strings.Index(binary, " "); idx > 0 {
 			binary = binary[:idx]
 		}
-		// A package declared as a volta global has no separate target field: the
+		// A package declared as an npm global has no separate target field: the
 		// id is the npm package name, which is how the providers phase installs it.
 		add(p.ID, p.ID, p.Type, p.ID, binary)
 	}

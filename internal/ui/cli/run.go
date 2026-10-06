@@ -37,9 +37,9 @@ var runTargets = []runTarget{
 	{"gaming", "Provision opt-in gaming stack (Steam, emulators, MangoHud) on Arch/CachyOS", func() { runGamingProvisioning() }},
 	{"extras", "Provision opt-in optional apps (owner preferences; never part of a default run)", func() { runExtrasProvisioning() }},
 	{"debloat", "Apply opt-in Windows 11 debloat (telemetry/privacy registry, gaming visuals, Appx removal, services, startup entries)", func() { runDebloatProvisioning() }},
-	{"providers", "Phase 0 preflight: ensure Volta, Node and the OpenCode/CommandCode CLIs are present and current", func() { runProvidersProvisioning() }},
-	{"bootstrap", "Provision the Linux toolchain (Volta, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)", func() { runBootstrapProvisioning() }},
-	{"volta", "Provision Volta Node.js toolchains and global ecosystem (pnpm, stylelint, etc.)", func() { runPackagesProvisioning(entity.PackageTypeVolta) }},
+	{"providers", "Phase 0 preflight: ensure mise, Node and the OpenCode/CommandCode CLIs are present and current", func() { runProvidersProvisioning() }},
+	{"bootstrap", "Provision the Linux toolchain (mise, Node, OpenCode + CommandCode CLI, gh, delta, yq, uv, ruff, fd)", func() { runBootstrapProvisioning() }},
+	{"mise", "Provision mise-managed runtimes (Node.js)", func() { runPackagesProvisioning(entity.PackageTypeMise) }},
 	{"pip", "Provision global Python packages (pyyaml, requests, etc.)", func() { runPackagesProvisioning(entity.PackageTypePip) }},
 	{"shell", "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)", func() { runShellProvisioning() }},
 	{"skills", "Provision and deploy agent skills (OpenCode + CommandCode)", func() { runSkillsProvisioning() }},
@@ -244,7 +244,7 @@ func runWindowsProfile() {
 	}
 
 	steps := []profileStep{
-		{"Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)", func() error {
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
 			runProvidersProvisioning()
 			return nil
 		}},
@@ -288,11 +288,11 @@ func runVPSProfile(perfOpts usecase.PerformanceOptions) error {
 	requireSudoNOPASSWD()
 
 	steps := []profileStep{
-		{"Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)", func() error {
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
 			runProvidersProvisioning()
 			return nil
 		}},
-		{"Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)", func() error {
+		{"Provisioning Linux Toolchain (mise, Node, OpenCode CLI & CLI tools)", func() error {
 			runBootstrapProvisioning()
 			return nil
 		}},
@@ -338,11 +338,11 @@ func runCachyOSProfile() {
 	requireSudoNOPASSWD()
 
 	steps := []profileStep{
-		{"Phase 0: Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)", func() error {
+		{"Phase 0: Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)", func() error {
 			runProvidersProvisioning()
 			return nil
 		}},
-		{"Provisioning Linux Toolchain (Volta, Node, OpenCode CLI & CLI tools)", func() error {
+		{"Provisioning Linux Toolchain (mise, Node, OpenCode CLI & CLI tools)", func() error {
 			runBootstrapProvisioning()
 			return nil
 		}},
@@ -382,7 +382,7 @@ func runCachyOSProfile() {
 }
 
 func runProvidersProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Ensuring providers (Volta, Node, OpenCode & CommandCode CLIs)...")
+	spinner, _ := pterm.DefaultSpinner.Start("Ensuring providers (mise, Node, OpenCode & CommandCode CLIs)...")
 	ctx := context.Background()
 
 	diags, err := appCtx.ProvisionProvidersUC.Execute(ctx)
@@ -412,7 +412,7 @@ func runProvidersProvisioning() {
 }
 
 func runBootstrapProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Bootstrapping Linux toolchain (Volta, Node, OpenCode CLI, tools)...")
+	spinner, _ := pterm.DefaultSpinner.Start("Bootstrapping Linux toolchain (mise, Node, OpenCode CLI, tools)...")
 	ctx := context.Background()
 
 	res, err := appCtx.ProvisionBootstrapUC.Execute(ctx)
