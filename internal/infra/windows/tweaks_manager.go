@@ -596,8 +596,13 @@ func (m *TweaksManager) checkAppxBatch(ctx context.Context, tweaks []entity.Wind
 	if len(idx) == 0 {
 		return
 	}
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-		`Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | ForEach-Object { Write-Output ("DEBLOATAPPX|||" + $_.Name) }`)
+	// -AllUsers requires elevation; fall back to current-user scope when denied.
+	const appxBatchScript = `try {` +
+		` Get-AppxPackage -AllUsers -ErrorAction Stop | ForEach-Object { Write-Output ("DEBLOATAPPX|||" + $_.Name) }` +
+		` } catch {` +
+		` Get-AppxPackage -ErrorAction SilentlyContinue | ForEach-Object { Write-Output ("DEBLOATAPPX|||" + $_.Name) }` +
+		` }`
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-Command", appxBatchScript)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		for _, i := range idx {
