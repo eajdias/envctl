@@ -18,7 +18,6 @@
 - Branches semânticas (`feat/`, `fix/`), conventional commits, PRs via `gh pr create`.
 - **Evidência antes de afirmação:** rode build/test/lint e mostre a saída real antes de dizer que terminou.
 - **Nunca deduza:** não afirme estado, causa ou diagnóstico sem comprovação executada nesta sessão; diante de relato do usuário sobre estado local observável, re-teste na hora e trate a hipótese como hipótese — a contraprova do usuário é evidência de primeira classe, e repetir prescrição sem evidência nova é erro.
-- **Docs:** após mexer em código/config, confira a doc que descreve isso; manifesto e código ganham da doc.
 - **Catálogo:** carregue `code-playbooks` e leia `references/<tema>.md` antes de seguir convenção de stack.
 - **Regra de ouro:** use Context7 para documentação atual de qualquer lib antes de escrever código.
 - **Sem clichê:** nada de filler, hedging ou frase de efeito em resposta ou texto.

@@ -1,19 +1,15 @@
 #!/usr/bin/env sh
 # Global git pre-push hook, provisioned by envctl (core.hooksPath).
 #
-# core.hooksPath overrides .git/hooks for every repository, so a repo-local
-# pre-push (husky and friends) is invoked explicitly here first, then the
-# envctl verifier runs the repository's own quality gates. Any non-zero exit
-# aborts the push.
+# The repository's own pre-push (husky and friends) runs first via the shared
+# _envctl-delegate next to this file — the same chain every other hook uses —
+# then the envctl verifier runs the repository's own quality gates. Any
+# non-zero exit aborts the push.
 
 set -u
 
-git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
-local_hook="${git_dir}/hooks/pre-push"
-
-if [ -x "$local_hook" ]; then
-	"$local_hook" "$@" || exit $?
-fi
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+"${here}/_envctl-delegate" "pre-push" "$@" || exit $?
 
 verifier=""
 if [ -n "${HOME:-}" ]; then

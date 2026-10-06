@@ -36,8 +36,8 @@ config_files:
     os: windows
 
   - id: opencode_config_linux
-    description: "OpenCode global agent configuration for Linux (no Windows shell/MCP/LSP)"
-    source: "configs/opencode.linux.json"
+    description: "OpenCode global agent configuration for Linux (same single base template; no Windows shell key injected)"
+    source: "configs/opencode.json"
     destination: "~/.config/opencode/opencode.json"
     strict_acl: false
     category: "opencode"
@@ -142,7 +142,7 @@ config_files:
 
   - id: commandcode_skill_index
     description: "CommandCode skill index (situation -> skill); consulted on demand, NOT auto-loaded"
-    source: "configs/commandcode/SKILL-INDEX.md"
+    source: "configs/SKILL-INDEX.md"
     destination: "~/.commandcode/SKILL-INDEX.md"
     strict_acl: false
     category: "commandcode"
