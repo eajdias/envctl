@@ -42,12 +42,10 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   verification between OSes, local provider driving remote providers over SSH, the project
   rename and running envctl as a background service), each with the context already
   gathered. Check it before proposing "new" work.
-- **`CHANGELOG.md`** — owned by the release-please bot: version sections and
-  release notes are generated from conventional commits (`feat`→minor,
-  `fix`→patch, `chore`/`docs`→no release). Never hand-write a version
-  section or create a tag — push `feat:`/`fix:` commits and merge the
-  `chore(main): release X.Y.Z` PR the bot opens (merge ships tag +
-  release + binaries). Brief notes may sit under `[Unreleased]`.
+- **`CHANGELOG.md`** — manual: add entries under `[Unreleased]` as you merge;
+  when cutting a release, move them under the new version section. Tags are
+  created by the manual Release Pipeline (Actions tab → `version: vX.Y.Z`),
+  never by hand locally.
 
 Counts (packages, skills, LSPs) drift by design; the manifests are the source of
 truth and `envctl doctor` asserts the machine against them. When a number in the

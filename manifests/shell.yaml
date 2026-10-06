@@ -152,7 +152,7 @@ config_files:
     category: "commandcode"
 
   - id: commandcode_agent_docs_writer
-    description: "CommandCode docs-writer agent (manifesto/codigo vencem a doc; CHANGELOG.md pertence ao release-please)"
+    description: "CommandCode docs-writer agent (manifesto/codigo vencem a doc; CHANGELOG.md manual, sem bot)"
     source: "configs/commandcode/agents/docs-writer.md"
     destination: "~/.commandcode/agents/docs-writer.md"
     strict_acl: false
