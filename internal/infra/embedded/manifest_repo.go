@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -119,7 +120,11 @@ func (m *ManifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return expandConfigFileInstances(manifest.ConfigFiles), nil
+	expanded, err := expandConfigFileOSValues(manifest.ConfigFiles)
+	if err != nil {
+		return nil, err
+	}
+	return expandConfigFileInstances(expanded), nil
 }
 
 // expandConfigFileInstances turns entries declaring instances: into one
@@ -145,12 +150,201 @@ func expandConfigFileInstances(configs []entity.ConfigFile) []entity.ConfigFile 
 	return expanded
 }
 
+// osVariant is one os_values entry resolved to its os filter: the manifest
+// key verbatim, except "all" which means every OS (empty filter).
+type osVariant struct {
+	fields map[string]string
+	os     string
+}
+
+// osVariants returns the os_values variants in deterministic (sorted) key
+// order, so loading never depends on map iteration order.
+func osVariants(values map[string]map[string]string) []osVariant {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	variants := make([]osVariant, 0, len(keys))
+	for _, key := range keys {
+		osFilter := key
+		if key == "all" {
+			osFilter = ""
+		}
+		variants = append(variants, osVariant{fields: values[key], os: osFilter})
+	}
+	return variants
+}
+
+// validateOSVariantFields rejects override keys the caller does not support,
+// so a typo in os_values fails the load instead of silently overriding
+// nothing.
+func validateOSVariantFields(owner, id string, fields map[string]string, allowed map[string]bool) error {
+	for name := range fields {
+		if !allowed[name] {
+			return fmt.Errorf("%s %q: os_values overrides unsupported field %q (allowed: %s)",
+				owner, id, name, strings.Join(sortedKeys(allowed), ", "))
+		}
+	}
+	return nil
+}
+
+func sortedKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+var envVarOSValueFields = map[string]bool{"value": true, "target": true}
+var configFileOSValueFields = map[string]bool{
+	"id": true, "description": true, "source": true, "destination": true, "executable": true,
+}
+
+func expandConfigFileOSValues(configs []entity.ConfigFile) ([]entity.ConfigFile, error) {
+	expanded := make([]entity.ConfigFile, 0, len(configs))
+	for _, cf := range configs {
+		if len(cf.OSValues) == 0 {
+			expanded = append(expanded, cf)
+			continue
+		}
+		for _, variant := range osVariants(cf.OSValues) {
+			if err := validateOSVariantFields("config file", cf.ID, variant.fields, configFileOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := cf
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if id, ok := variant.fields["id"]; ok {
+				instance.ID = id
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			if source, ok := variant.fields["source"]; ok {
+				instance.Source = source
+			}
+			if destination, ok := variant.fields["destination"]; ok {
+				instance.Destination = destination
+			}
+			if err := applyOSValueBool(&instance.Executable, variant.fields, "executable"); err != nil {
+				return nil, fmt.Errorf("config file %q: %w", cf.ID, err)
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+func applyOSValueBool(dst *bool, fields map[string]string, key string) error {
+	value, ok := fields[key]
+	if !ok {
+		return nil
+	}
+	switch value {
+	case "true":
+		*dst = true
+	case "false":
+		*dst = false
+	default:
+		return fmt.Errorf("os_values %s must be \"true\" or \"false\", got %q", key, value)
+	}
+	return nil
+}
+
+func expandEnvVarOSValues(vars []entity.EnvironmentVar) ([]entity.EnvironmentVar, error) {
+	expanded := make([]entity.EnvironmentVar, 0, len(vars))
+	for _, v := range vars {
+		if len(v.OSValues) == 0 {
+			expanded = append(expanded, v)
+			continue
+		}
+		for _, variant := range osVariants(v.OSValues) {
+			if err := validateOSVariantFields("environment variable", v.Name, variant.fields, envVarOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := v
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if value, ok := variant.fields["value"]; ok {
+				instance.Value = value
+			}
+			if target, ok := variant.fields["target"]; ok {
+				instance.Target = target
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+var dirOSValueFields = map[string]bool{"path": true, "description": true}
+
+func expandDirOSValues(dirs []entity.RestrictedDir) ([]entity.RestrictedDir, error) {
+	expanded := make([]entity.RestrictedDir, 0, len(dirs))
+	for _, d := range dirs {
+		if len(d.OSValues) == 0 {
+			expanded = append(expanded, d)
+			continue
+		}
+		for _, variant := range osVariants(d.OSValues) {
+			if err := validateOSVariantFields("directory", d.Path, variant.fields, dirOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := d
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if path, ok := variant.fields["path"]; ok {
+				instance.Path = path
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
+var cleanupOSValueFields = map[string]bool{"id": true, "description": true, "path": true}
+
+func expandCleanupOSValues(items []entity.CleanupItem) ([]entity.CleanupItem, error) {
+	expanded := make([]entity.CleanupItem, 0, len(items))
+	for _, item := range items {
+		if len(item.OSValues) == 0 {
+			expanded = append(expanded, item)
+			continue
+		}
+		for _, variant := range osVariants(item.OSValues) {
+			if err := validateOSVariantFields("cleanup item", item.ID, variant.fields, cleanupOSValueFields); err != nil {
+				return nil, err
+			}
+			instance := item
+			instance.OSValues = nil
+			instance.OS = variant.os
+			if id, ok := variant.fields["id"]; ok {
+				instance.ID = id
+			}
+			if description, ok := variant.fields["description"]; ok {
+				instance.Description = description
+			}
+			if path, ok := variant.fields["path"]; ok {
+				instance.Path = path
+			}
+			expanded = append(expanded, instance)
+		}
+	}
+	return expanded, nil
+}
+
 func (m *ManifestRepository) LoadEnvVars() ([]entity.EnvironmentVar, error) {
 	manifest, err := m.loadShell()
 	if err != nil {
 		return nil, err
 	}
-	return manifest.EnvVars, nil
+	return expandEnvVarOSValues(manifest.EnvVars)
 }
 
 func (m *ManifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
@@ -158,7 +352,7 @@ func (m *ManifestRepository) LoadDirectories() ([]entity.RestrictedDir, error) {
 	if err != nil {
 		return nil, err
 	}
-	return manifest.Directories, nil
+	return expandDirOSValues(manifest.Directories)
 }
 
 func (m *ManifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
@@ -166,7 +360,7 @@ func (m *ManifestRepository) LoadCleanupItems() ([]entity.CleanupItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	return manifest.Cleanup, nil
+	return expandCleanupOSValues(manifest.Cleanup)
 }
 
 type skillsManifest struct {
