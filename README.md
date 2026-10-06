@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via Volta), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
-- **Language Server Protocol (15 binários LSP p/ shell/IDE)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
+- **Language Server Protocol (binários LSP p/ shell/IDE, ver `manifests/lsp.yaml`)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 - **Ecossistema OpenCode & CommandCode com 12 Skills**: `opencode.json`, plugins e **12 skills curadas** — só entra no catálogo o que o modelo não faria sozinho; o conhecimento por stack/tool fica em `code-playbooks/references/`. Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via volta) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
@@ -103,8 +103,9 @@ envctl snapshot
 Para guias passo a passo detalhados, arquitetura e especificações:
 
 ### 📖 Guias de Execução por Sistema Operacional:
-- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Instalação via PowerShell, binários `.exe`, ajustes de registro, PowerShell 7 + WSL Ubuntu.
-- 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
+- 🚀 [**Guia de Provisionamento (qualquer OS)**](docs/guides/provisioning.md) — Instalação em uma passada (1-liner, binário ou fonte) com blocos por OS.
+- 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Subcomandos, shell stack, ajustes de registro, PowerShell 7 + WSL Ubuntu.
+- 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Subcomandos, performance, execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
 - 🎮 [**Guia CachyOS Gaming**](docs/guides/cachyos-gaming.md) — Kernel cmdline, scheduler, GPU/AMD, MangoHud, Proton e emuladores (o que o `run gaming` provisiona e o que é manual).
 - 🧹 [**Guia Windows Debloat Tier 3**](docs/guides/windows-debloat-tier3.md) — OneDrive, energia, Teredo, Docker/WSL: o que é destrutivo e por isso manual.
 

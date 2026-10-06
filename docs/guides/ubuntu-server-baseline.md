@@ -45,19 +45,9 @@ Por isso as bandas de `tiers` ficam ~50% acima do nominal, e o resolvedor exige
 
 ## 1. `swap` — resiliência, não performance
 
-```yaml
-swap:
-  policy: auto
-  file: /swapfile.envctl
-  priority: -2
-  size_of: mem_total
-  size_min: 1G
-  size_max: 8G
-  disk_reserve: 5G
-  fs_allow: [ext4, xfs]
-  fs_btrfs: refuse
-  fs_deny: [zfs, overlay, tmpfs]
-```
+Fonte: `manifests/performance_ubuntu.yaml` (seção `swap`) — os valores
+vivem no manifesto e não são recopilados aqui (o piso de prioridade do
+kernel é `-1`, medido na `vps_oracle_2`; ver comentário no manifesto).
 
 **Adoção é o caso comum.** As duas OCI já nascem com `/swapfile` de 8 GiB criado
 pelo operador, em `prio -1`. Quando existe swap em disco, o run é um **no-op

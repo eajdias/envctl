@@ -22,7 +22,7 @@ envctl doctor
      nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:
    - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
-   - Presença de 55–70 binários conforme o OS (63 Ubuntu 24.04+ / 70 Arch/CachyOS / 55 Win — matrix §1) no `PATH` (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
+   - Presença dos binários do manifesto no `PATH` (ver `manifests/packages.yaml` — matrix §1) (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
@@ -36,7 +36,7 @@ envctl doctor
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
    - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
      como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
-4. **Language Servers (15 no manifesto, 14 aplicáveis no Linux — `pwsh` é windows-only)**:
+4. **Language Servers (ver `manifests/lsp.yaml`; `powershell` é windows-only)**:
    - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:

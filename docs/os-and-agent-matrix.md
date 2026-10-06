@@ -22,15 +22,15 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
 | Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
-| Pacotes declarados (aplicáveis) | **55** (29 winget · 15 volta · 11 pip) | **63** em Ubuntu 24.04+ (44 apt · 15 volta · 4 uv-pip; **46** em Ubuntu/Debian antigos) | **70** (50 pacman · 15 volta · 4 uv-pip · 1 paru) |
+| Pacotes declarados (aplicáveis) | ver `manifests/packages.yaml` (fonte; filtrado por OS/distro via `os`) | ver `manifests/packages.yaml` | ver `manifests/packages.yaml` |
 | **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
 | Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 17 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
 | Variáveis de ambiente | 2 | 2 | 2 |
-| Configs aplicáveis | **27** (contados em `shell.yaml` via `MatchesOS` por distro) | **25** | **25** |
+| Configs aplicáveis | ver `manifests/shell.yaml` (fonte; `MatchesOS` por distro) | ver `manifests/shell.yaml` | ver `manifests/shell.yaml` |
 | Diretórios | 15 (12 + 3 só-Windows) | 13 (12 + 1 só-Linux) | 13 |
 | Git global | 6 (4 + 2 win-only) | 4 | 4 |
-| LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | **14** (13 + `pwsh`) | **13** | **13** |
+| LSPs instaláveis (binários p/ shell/IDE; bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP) | ver `manifests/lsp.yaml` (fonte; `powershell` é windows-only) | ver `manifests/lsp.yaml` | ver `manifests/lsp.yaml` |
 | Skills por agente | **12** (portáteis) | **12** (portáteis) | **12** (portáteis) |
 | Editor/IDE | **Cursor** (`Anysphere.Cursor` via winget) | — (servidor, sem GUI) | **Cursor** (`cursor-bin` via paru; CachyOS já traz o Chaotic-AUR) |
 | Tweaks de registro / módulos | **8** (6 DWord: `long-paths`, `developer-mode`, `explorer-show-ext`, `explorer-show-hidden`, `dark-mode-apps`, `dark-mode-system`; 2 `PSModule`: `PSScriptAnalyzer`, `Pester`) + debloat no perfil **`run windows`** (99 em `debloat.yaml`: 12 telemetria + 12 privacidade + 14 gaming-win + 34 Appx + 9 serviços `Disabled` + 11 serviços `Manual` + 4 startup entries + OneDrive + Teredo + 2 power + Binary UserPreferencesMask; tipos `Command`/`Onedrive`/`Binary` no automático) | — | — |
@@ -82,7 +82,7 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | :--- | :--- | :--- |
 | Diretório | `~/.config/opencode` | `~/.commandcode` |
 | Arquivos declarados | **11** | **7** |
-| Config principal | `opencode.json` (variante win/linux) | `settings.json` (permissões + hooks) |
+| Config principal | `opencode.json` (base única; `shell: pwsh` injetado no deploy Windows) | `settings.json` (permissões + hooks) |
 | Regras globais | `AGENTS.md` (win/linux) | `AGENTS.md` (win/linux) |
 | Índice de consulta | `SKILL-INDEX.md` + `REFERENCE.md` | `SKILL-INDEX.md` |
 | MCP | seção `mcp` no `opencode.json` (busca web **brave → exa → `websearch` nativo** — chave via `BRAVE_API_KEY`/`EXA_API_KEY`; context7; ssh-manager + chrome-devtools disabled) | `mcp.json` (busca **brave → exa → `web_search` nativo**; context7; chrome-devtools + ssh-manager disabled) |
@@ -99,6 +99,25 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | Diretórios criados | 4 (skills, memory, secrets 0700, extras) | 2 (skills, agents) |
 | Cleanup dedicado | 4 entradas | 6 entradas |
 | IDE integration | — (diagnósticos via lint/typecheck no v2; sem runtime LSP) | VS Code / Cursor / Windsurf via `/ide` |
+
+#### Pareamento de prompts por papel (trava, sem geração)
+
+Os prompts canônicos por papel existem nos dois formatos, que são
+incompatíveis entre si (OpenCode: JSON com `system`/`permissions[]`;
+CommandCode: md com frontmatter) — por isso um **não** é gerado do outro;
+o pareamento abaixo é só documentado e travado por teste:
+
+| Papel | OpenCode (`configs/opencode.json`) | CommandCode (`configs/commandcode/agents/`) |
+| :--- | :--- | :--- |
+| review | `agents.review` + `agents.reviewer` (`review` é primary; `reviewer` é o dispatchable) | `code-reviewer.md` (`review` é nome reservado do runtime, daí o rename) |
+| verifier | `agents.verifier` | `verifier.md` |
+| docs-writer | `agents.docs-writer` | `docs-writer.md` |
+| memory-keeper | `agents.memory-keeper` | `memory-keeper.md` |
+
+Travas (não unificar sem adaptador de formato):
+`TestShippedOpenCodeTemplatesHaveNativeShape` (shape nativo V2),
+`TestOpenCodeConfigTemplates` (inclui a chave `shell` por OS) e
+`TestShippedCommandCodeAgentTemplatesMatchSchema` (schema do frontmatter).
 
 ### Checks do `doctor` por provedor
 

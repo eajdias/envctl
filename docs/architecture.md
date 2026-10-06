@@ -19,7 +19,7 @@ envctl/
 │   │   ├── provision_performance.go # Perfil opt-in Ubuntu/CachyOS + sysctl
 │   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
 │   │   ├── provision_skills.go  # Extração e atualização das 12 skills
-│   │   ├── provision_lsp.go     # Instalação e validação dos 15 binários LSP (shell/IDE)
+│   │   ├── provision_lsp.go     # Instalação e validação dos binários LSP (shell/IDE)
 │   │   ├── provision_tweaks.go  # Núcleo único Windows11/Debloat (CheckBatch no debloat)
 │   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
@@ -68,7 +68,7 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionPerformanceUseCase`**: Seleciona exatamente Ubuntu 24.04+ ou CachyOS, executa o perfil opt-in e impede que sysctl seja aplicado ao perfil errado.
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
 - **`ProvisionSkillsUseCase`**: Extrai as 12 skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
-- **`ProvisionLSPsUseCase`**: Garante a presença dos 15 binários de language server p/ shell/IDE (sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
+- **`ProvisionLSPsUseCase`**: Garante a presença dos binários de language server p/ shell/IDE (ver `manifests/lsp.yaml`; sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
 - **`ProvisionTweaksUseCase`** (`provision_tweaks.go`): Núcleo único Windows11/Debloat — aplica tweaks de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux); o stack Debloat usa `CheckBatch` e é opt-in via `run debloat`.
 - **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
 - **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
@@ -93,15 +93,6 @@ Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
 
 ## 📦 Binário 100% Standalone (`//go:embed`)
 
-Todo o ecossistema de manifestos (`manifests/*.yaml`) e templates de configuração (`configs/**/*`) é compilado diretamente dentro do binário Go através do pacote padrão `embed`:
-
-```go
-package envctl
-
-import "embed"
-
-//go:embed all:manifests all:configs
-var EmbeddedFS embed.FS
-```
-
-Isso garante que o binário gerado (`envctl` ou `envctl.exe`) seja totalmente autônomo, não dependendo de conexão de rede ou arquivos externos no momento do provisionamento inicial.
+Todo o ecossistema de manifestos (`manifests/*.yaml`) e templates de
+configuração (`configs/**/*`) é compilado dentro do binário via `//go:embed`
+— ver `assets.go` (fonte; não recopiar o bloco aqui).

@@ -7,76 +7,11 @@ e **AWS EC2**.
 O alvo do perfil de servidor é **exatamente Ubuntu Server `VERSION_ID >= 24`**.
 Ubuntu 20.04/22.04, Debian e WSL2 **não são suportados** por esse perfil: o
 `min_distro_version` vive no manifesto, e `envctl run vps` falha com o motivo
-em vez de seguir e pular o tuning em silêncio. Para'Arquitectura desktop, veja
+em vez de seguir e pular o tuning em silêncio. Para desktop CachyOS, veja
 [`cachyos-gaming.md`](cachyos-gaming.md).
 
----
-
-## ⚡ 1. Instalação e Execução Direta (Zero Pré-requisitos)
-
-Em um servidor recém-criado ou na sua máquina Linux de desenvolvimento, execute no terminal Bash:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
-```
-
-### O que o `bootstrap.sh` faz de forma automatizada:
-1. Identifica a arquitetura (`x86_64` -> `amd64`, `aarch64` -> `arm64`).
-2. Realiza o download do binário standalone correspondente da release mais recente do GitHub (`envctl-linux-amd64` ou `envctl-linux-arm64`).
-3. Instala o executável com permissão `+x` em `~/.local/bin/envctl` e exporta o `PATH`.
-4. Executa `envctl run vps` (perfil Ubuntu Server 24+: apt + performance + Volta/Node + LSPs + 12 skills de IA).
-5. Roda a auditoria diagnóstica `envctl doctor`.
-
----
-
-## 💻 2. Executando via Binário Pré-Compilado Standalone
-
-Se preferir baixar o executável manualmente:
-
-### Links de Download (Releases):
-- **Linux x86_64 (AMD64)**: `envctl-linux-amd64`
-- **Linux ARM64 (aarch64)**: `envctl-linux-arm64`
-
-### Passos de Instalação no Terminal:
-```bash
-# 1. Crie a pasta de binários do usuário
-mkdir -p ~/.local/bin
-
-# 2. Baixe o executável standalone (exemplo para AMD64 via GitHub Release)
-curl -fsSL -o ~/.local/bin/envctl https://github.com/eajdias/envctl/releases/latest/download/envctl-linux-amd64
-
-# 3. Dê permissão de execução
-chmod +x ~/.local/bin/envctl
-
-# 4. Adicione ao PATH da sessão atual
-export PATH="$HOME/.local/bin:$PATH"
-
-# 5. Execute o diagnóstico de conformidade
-envctl doctor
-
-# 6. Execute o perfil completo do servidor (Ubuntu/Debian)
-envctl run vps
-```
-
----
-
-## 🛠️ 3. Compilação a Partir do Código-Fonte
-
-Caso tenha o toolchain Go instalado na máquina:
-
-```bash
-# 1. Clone o repositório
-git clone https://github.com/eajdias/envctl.git
-cd envctl
-
-# 2. Execute diretamente
-go run ./cmd/envctl doctor
-go run ./cmd/envctl run vps
-
-# 3. Ou compile o binário standalone
-go build -ldflags "-s -w -X main.Version=v1.1.0" -o envctl ./cmd/envctl
-sudo mv envctl /usr/local/bin/ # ou mv envctl ~/.local/bin/
-```
+> Instalação (1-liner, binário ou fonte): ver o guia único
+> [`provisioning.md`](provisioning.md). Abaixo, só o que é específico do Linux.
 
 ---
 

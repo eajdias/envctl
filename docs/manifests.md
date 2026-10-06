@@ -18,45 +18,27 @@ manifests/
 └── windows.yaml     # Tweaks de registro, Developer Mode e fontes do Windows 11
 ```
 
+## 🗺️ Seção → arquivo → comando
+
+| Seção | Arquivo (fonte) | Comando |
+| :--- | :--- | :--- |
+| pacotes | `manifests/packages.yaml` | `envctl run packages` (`run apt`/`run winget`/`run pacman` filtram por gerenciador) |
+| performance | `manifests/performance_ubuntu.yaml`, `manifests/performance_cachyos.yaml` | `envctl run performance` (perfis `run vps` / `run cachyos`) |
+| shell/env/configs | `manifests/shell.yaml` | `envctl run shell` |
+| git | `manifests/git.yaml` | `envctl run shell` (configs globais) |
+| LSP | `manifests/lsp.yaml` | `envctl run lsp` |
+| skills | `manifests/skills.yaml` | `envctl run skills` |
+| windows tweaks | `manifests/windows.yaml` | `envctl run tweaks` (perfil `run windows`) |
+| debloat | `manifests/debloat.yaml`, `manifests/debloat_linux.yaml` | `envctl run debloat` |
+| extras | `manifests/extras.yaml` | `envctl run extras` |
+
 ---
 
 ## 📄 1. `manifests/packages.yaml`
 
-Define todos os pacotes gerenciados, seus tipos, binários de teste e filtros de sistema operacional.
-
-```yaml
-packages:
-  # Pacotes de Sistema Windows via Winget
-  - name: BurntSushi.ripgrep.MSVC
-    type: winget
-    test_binary: rg
-    os: windows
-    description: "Ripgrep - Busca de texto ultra-rápida"
-
-  # Pacotes de Sistema Linux via APT
-  - name: ripgrep
-    type: apt
-    test_binary: rg
-    os: debian,ubuntu
-    description: "Ripgrep nativo para Ubuntu/Debian"
-
-  # Toolchain Node.js via Volta
-  - name: node@24.19.0
-    type: volta
-    test_binary: node
-    description: "Node.js LTS runtime gerenciado pelo Volta"
-
-  - name: pnpm
-    type: volta
-    test_binary: pnpm
-    description: "Gerenciador de pacotes Node.js gerenciado pelo Volta"
-
-  # Ferramentas Go
-  - name: golang.org/x/tools/gopls@latest
-    type: go
-    test_binary: gopls
-    description: "Language Server oficial para Go"
-```
+Define todos os pacotes gerenciados. Fonte: `manifests/packages.yaml`
+(campos reais: `id`, `name`, `type`, `os`, `category`, `check_command` —
+ver o arquivo; nenhum exemplo é recopilado aqui).
 
 ### Tipos de Gerenciadores Suportados (`type`):
 | Tipo | Gerenciador | Comando de Instalação |
@@ -123,117 +105,35 @@ envctl run performance --allow-debloat   # inclui a remoção de pacotes
 
 ## 📄 3. `manifests/shell.yaml`
 
-Define variáveis de ambiente, diretórios restritos e o mapeamento de templates de configuração para o sistema de arquivos do usuário.
-
-```yaml
-env_vars:
-  - name: NODE_PATH
-    value: "%USERPROFILE%\\node_modules"
-    target: User
-    os: windows
-    description: "Resolução global de módulos Node.js para scripts de automação"
-
-  - name: ENVCTL_TEMP
-    value: "C:\\temp"
-    target: User
-    os: windows
-    description: "Pasta de scratch padrão dos agentes LLM na raiz do disco"
-
-config_files:
-  - source: configs/opencode.json
-    destination: ~/.config/opencode/opencode.json
-    description: "Configuração central do OpenCode com agentes, plugins e MCPs (padrão único JSON, formato nativo V2)"
-
-restricted_dirs:
-  - path: ~/Documents/SSH-keys
-    mode: "0700"
-    os: windows
-    description: "Chaves privadas SSH com permissões restritas (ACLs)"
-  - path: ~/.ssh/sockets
-    mode: "0700"
-    description: "Sockets de multiplexação de conexões SSH"
-```
+Define variáveis de ambiente, arquivos de configuração e diretórios. Fonte:
+`manifests/shell.yaml` (seções `environment_variables`, `config_files`,
+`directories`, `cleanup` — ver o arquivo; nenhum exemplo é recopilado aqui).
 
 ---
 
 ## 📄 4. `manifests/git.yaml`
 
-Define configurações globais do Git com foco em máxima performance em repositórios massivos e sistemas Windows/Linux:
-
-```yaml
-git_configs:
-  - key: core.fscache
-    value: "true"
-    description: "Habilita cache do sistema de arquivos para operações Git ultra-rápidas"
-  - key: core.preloadindex
-    value: "true"
-    description: "Pré-carrega o índice em paralelo durante operações de status/diff"
-  - key: core.longpaths
-    value: "true"
-    description: "Permite caminhos longos (> 260 caracteres) no Windows"
-  - key: core.autocrlf
-    value: "input"
-    description: "Converte CRLF para LF no commit, mantendo LF no checkout"
-  - key: core.pager
-    value: "delta"
-    description: "Configura o Delta como pager padrão para diffs estruturados"
-```
+Define configurações globais do Git. Fonte: `manifests/git.yaml` (lista
+`configs` com `key`, `value`, `os` — ver o arquivo; nenhum exemplo é
+recopilado aqui).
 
 ---
 
 ## 📄 5. `manifests/lsp.yaml`
 
-Registra os 15 servidores de linguagem utilizados por agentes de IA e IDEs (14 aplicáveis no Linux — `pwsh` é windows-only), associando cada um ao seu gerenciador nativo:
-
-```yaml
-lsps:
-  - name: typescript-language-server
-    package_type: volta
-    command: typescript-language-server --stdio
-    languages: [typescript, javascript, typescriptreact, javascriptreact]
-  - name: pyright
-    package_type: volta
-    command: pyright-langserver --stdio
-    languages: [python]
-  - name: gopls
-    package_type: go
-    command: gopls
-    languages: [go]
-  - name: marksman
-    package_type: winget
-    command: marksman server
-    languages: [markdown]
-```
+Registra os servidores de linguagem utilizados por agentes de IA e IDEs.
+Fonte: `manifests/lsp.yaml` (campos reais: `id`, `language`, `server_name`,
+`command`, `args`, `install_type`, `install_target`, `check_binary` — ver o
+arquivo; nenhum exemplo é recopilado aqui).
 
 ---
 
 ## 📄 6. `manifests/windows.yaml`
 
-Define ajustes de registro do Windows 11 para desenvolvedores, visualização do Windows Explorer, modo escuro e fontes tipográficas:
-
-```yaml
-tweaks:
-  - name: "Win32 Long Paths"
-    path: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem"
-    key: "LongPathsEnabled"
-    type: "DWord"
-    value: 1
-    description: "Remove o limite clássico de 260 caracteres no Windows"
-
-  - name: "Developer Mode"
-    path: "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock"
-    key: "AllowDevelopmentWithoutDevLicense"
-    type: "DWord"
-    value: 1
-    description: "Habilita criação de symlinks sem privilégios de Administrador"
-
-  - name: "Show File Extensions"
-    path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"
-    key: "HideFileExt"
-    type: "DWord"
-    value: 0
-    description: "Exibe sempre as extensões de arquivo no Explorer"
-```
+Define ajustes de registro do Windows 11 para desenvolvedores. Fonte:
+`manifests/windows.yaml` (campos reais: `id`, `description`, `path`,
+`name`, `value`, `type`, `category` — ver o arquivo; nenhum exemplo é
+recopilado aqui).
 
 ---
 
