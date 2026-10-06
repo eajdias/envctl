@@ -9,36 +9,36 @@ O `envctl` foi projetado utilizando os preceitos fundamentais da **Clean Archite
 ```
 envctl/
 ├── cmd/
-│   └── envctl/                  # Entrypoint da aplicação (main.go, injeção de dependências)
+│   └── envctl/                         # Entrypoint da aplicação (main.go, injeção de dependências)
 ├── internal/
-│   ├── domain/                  # Camada de Domínio (Entidades e Interfaces/Contratos)
-│   │   ├── entity/              # Modelos puros: Package, ConfigFile, Skill, LSP, WindowsTweak, Diagnostic
-│   │   └── repository/          # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
-│   ├── usecase/                 # Casos de Uso da Aplicação
-│   │   ├── provision_packages.go# Instalador multi-gerenciador de pacotes
-│   │   ├── provision_performance.go # Perfil opt-in Ubuntu/CachyOS + sysctl
-│   │   ├── provision_shell.go   # Provisionador de shell, variáveis e configs com backup atômico
-│   │   ├── provision_skills.go  # Extração e atualização das 12 skills
-│   │   ├── provision_lsp.go     # Instalação e validação dos binários LSP (shell/IDE)
-│   │   ├── provision_tweaks.go  # Núcleo único Windows11/Debloat (CheckBatch no debloat)
-│   │   ├── doctor_audit.go      # Auditoria diagnóstica de conformidade
+│   ├── domain/                         # Camada de Domínio (Entidades e Interfaces/Contratos)
+│   │   ├── entity/                     # Modelos puros: Package, ConfigFile, Skill, LSP, WindowsTweak, Diagnostic
+│   │   └── repository/                 # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
+│   ├── usecase/                        # Casos de Uso da Aplicação
+│   │   ├── provision_packages.go       # Instalador multi-gerenciador de pacotes
+│   │   ├── provision_performance.go    # Perfil opt-in Ubuntu/CachyOS + sysctl
+│   │   ├── provision_shell.go          # Provisionador de shell, variáveis e configs com backup atômico
+│   │   ├── provision_skills.go         # Extração e atualização das 12 skills
+│   │   ├── provision_lsp.go            # Instalação e validação dos binários LSP (shell/IDE)
+│   │   ├── provision_tweaks.go         # Núcleo único Windows11/Debloat (CheckBatch no debloat)
+│   │   ├── doctor_audit.go             # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
-│   │   └── snapshot_sync.go     # Sincronizador reverso e criador de PR no GitHub
-│   ├── infra/                   # Camada de Infraestrutura (Implementações concretas)
-│   │   ├── winget/              # Adaptador para Windows Package Manager
-│   │   ├── apt/                 # Adaptador para APT (Debian/Ubuntu)
-│   │   ├── performance/         # Sysctl, zram e inspeção read-only de performance Linux
-│   │   ├── toolchain/           # Adaptadores para Volta, Go, UV/Pip
-│   │   ├── windows/             # Adaptador de Registro e Fontes Windows
-│   │   ├── git/                 # Adaptador Git e GitHub CLI
-│   │   ├── filesystem/          # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
-│   │   ├── logger/              # Logger persistente com dump em disco (~/.envctl/logs/)
-│   │   └── embedded/            # Sistema de arquivos embutido no binário (//go:embed)
-│   └── ui/                      # Interface com o Usuário
-│       └── cli/                 # Comandos Cobra e Interface Rica em ANSI via PTerm
-├── manifests/                   # Manifestos declarativos YAML
-├── configs/                     # Templates de configuração embutidos
-└── docs/                        # Documentação técnica e Guias por OS
+│   │   └── snapshot_sync.go            # Sincronizador reverso e criador de PR no GitHub
+│   ├── infra/                          # Camada de Infraestrutura (Implementações concretas)
+│   │   ├── winget/                     # Adaptador para Windows Package Manager
+│   │   ├── apt/                        # Adaptador para APT (Debian/Ubuntu)
+│   │   ├── performance/                # Sysctl, zram e inspeção read-only de performance Linux
+│   │   ├── toolchain/                  # Adaptadores para Volta, Go, UV/Pip
+│   │   ├── windows/                    # Adaptador de Registro e Fontes Windows
+│   │   ├── git/                        # Adaptador Git e GitHub CLI
+│   │   ├── filesystem/                 # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
+│   │   ├── logger/                     # Logger persistente com dump em disco (~/.envctl/logs/)
+│   │   └── embedded/                   # Sistema de arquivos embutido no binário (//go:embed)
+│   └── ui/                             # Interface com o Usuário
+│       └── cli/                        # Comandos Cobra e Interface Rica em ANSI via PTerm
+├── manifests/                          # Manifestos declarativos YAML
+├── configs/                            # Templates de configuração embutidos
+└── docs/                               # Documentação técnica e Guias por OS
 ```
 
 ---

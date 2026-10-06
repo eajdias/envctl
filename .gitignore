@@ -58,3 +58,6 @@ PowerShellEditorServices.json
 # OS specific
 Thumbs.db
 Desktop.ini
+
+# Cursor local runtime state (changes every session, never curated content)
+/.cursor/hooks/state/*.json
