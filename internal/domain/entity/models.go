@@ -98,6 +98,11 @@ type ConfigFile struct {
 	// must not report the runtime's own writes as drift.
 	RuntimeManaged bool `yaml:"runtime_managed,omitempty"`
 	Executable     bool `yaml:"executable,omitempty"` // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
+	// Instances expands one manifest entry into one deployment per name:
+	// {{name}} in destination/source is replaced by each instance. Used by
+	// the git hook shim, where a single script serves every hook and only
+	// the installed filename differs.
+	Instances []string `yaml:"instances,omitempty"`
 }
 
 // Skill represents an agent skill deployed to OpenCode and CommandCode.

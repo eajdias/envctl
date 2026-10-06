@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Provisioned by envctl (core.hooksPath): run the repository's own hook.
+#
+# One parametrized shim serves every delegating hook: the hook name comes from
+# this file's own installed name, so only the filename differs per hook. The
+# delegate is resolved next to this file, so the hook keeps working wherever
+# the hooks directory lives and cannot point at a missing path.
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+exec "${here}/_envctl-delegate" "$(basename -- "$0")" "$@"
