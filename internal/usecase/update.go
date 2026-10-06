@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -56,14 +57,61 @@ func updateCommand(group UpdateGroup, target string) string {
 	}
 }
 
-// UpdateEnv is the machine behind the use case. The real implementation reuses
-// the providers helpers (installedVersion, npmLatest, runWithToolchain) so there
-// is exactly one way to resolve a version in this codebase; tests fake it.
+// UpdateEnv is the machine behind the use case. The real implementation calls
+// the providers helpers (installedVersion, npmLatest, runWithToolchain)
+// directly, so there is exactly one way to resolve a version in this codebase;
+// tests fake the interface.
 type UpdateEnv interface {
 	installedVersion(binary string) string
 	latestVersion(group UpdateGroup, target string) string
 	applyUpdate(ctx context.Context, group UpdateGroup, target string) (string, error)
 }
+
+// NewRealUpdateEnv wires the use case to the actual machine.
+func NewRealUpdateEnv() UpdateEnv { return &realUpdateEnv{} }
+
+// realUpdateEnv runs against the machine. It is a zero-field struct on
+// purpose: every helper it needs already exists at package level (version.go,
+// provision_providers.go), so injected fields would only be a second spelling
+// of the same call.
+type realUpdateEnv struct{}
+
+func (e *realUpdateEnv) installedVersion(binary string) string {
+	return installedVersion(context.Background(), binary)
+}
+
+func (e *realUpdateEnv) latestVersion(group UpdateGroup, target string) string {
+	switch group {
+	case GroupVolta:
+		return npmLatest(context.Background(), target)
+	case GroupUV:
+		return uvToolVersionOf(context.Background(), target)
+	case GroupGo:
+		return goLatestOf(target)
+	default:
+		return ""
+	}
+}
+
+func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, target string) (string, error) {
+	var name string
+	var args []string
+	switch group {
+	case GroupVolta:
+		name, args = "volta", []string{"install", target + "@latest"}
+	case GroupUV:
+		name, args = "uv", []string{"tool", "upgrade", target}
+	case GroupGo:
+		name, args = "go", []string{"install", target + "@latest"}
+	default:
+		return "", errUnautomatableGroup
+	}
+	return runWithToolchain(ctx, name, args...)
+}
+
+// errUnautomatableGroup guards a programming error rather than a machine
+// condition: collect() only ever emits the three groups above.
+var errUnautomatableGroup = errors.New("install group is not automatable")
 
 // UpdateCandidate is one tool that envctl knows how to keep current. Target is
 // the real install name, which can differ from the manifest id: the "typescript"

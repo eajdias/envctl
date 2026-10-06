@@ -12,17 +12,6 @@ import (
 // needs a reboot before the running libraries match the on-disk ones.
 const rebootRequiredPath = "/var/run/reboot-required"
 
-// rebootPendingProbe is injectable so the precondition is testable without a
-// real /var/run.
-type rebootPendingProbe func(path string) bool
-
-func defaultRebootPendingProbe() rebootPendingProbe {
-	return func(path string) bool {
-		_, err := os.Stat(path)
-		return err == nil
-	}
-}
-
 // RebootPendingState reports whether the host is waiting for a reboot.
 type RebootPendingState struct {
 	Pending bool
@@ -30,15 +19,20 @@ type RebootPendingState struct {
 	Detail  string
 }
 
-// ProbeRebootPending reports the pending-reboot precondition.
+// ProbeRebootPending reports the pending-reboot precondition. The probe is a
+// plain func (not a named type): it exists only so tests can answer without a
+// real /var/run, and a one-method seam does not earn a type.
 //
 // It is part of the profile contract because applying performance changes on top
 // of a pending library update tunes a runtime the host is about to replace: the
 // sysctls survive, but the tuning may not correspond to the code that will
 // actually be running.
-func ProbeRebootPending(probe rebootPendingProbe) RebootPendingState {
+func ProbeRebootPending(probe func(path string) bool) RebootPendingState {
 	if probe == nil {
-		probe = defaultRebootPendingProbe()
+		probe = func(path string) bool {
+			_, err := os.Stat(path)
+			return err == nil
+		}
 	}
 	state := RebootPendingState{Path: rebootRequiredPath}
 	if !probe(rebootRequiredPath) {
@@ -172,12 +166,8 @@ func assessSysctlIntent(intent []entity.SysctlSetting, resolved []entity.SysctlA
 			diags = append(diags, entity.Warn(
 				"Performance",
 				setting.Key,
-				fmt.Sprintf(
-					"left at the host's %s, declared %s: %s decides this key at boot because it sorts after this profile's drop-in",
-					assignment.Boot, setting.Value, assignment.File),
-				fmt.Sprintf(
-					"remove or rename %s to let this profile own %s, or keep it to hold the host's %s",
-					assignment.File, setting.Key, assignment.Boot),
+				assignment.HostWinsDetail(setting.Value),
+				assignment.HostWinsHint(setting.Key),
 			))
 			continue
 		}

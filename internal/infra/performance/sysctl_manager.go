@@ -197,12 +197,8 @@ func (m *SysctlManager) yieldToHostDropins(settings []entity.SysctlSetting) ([]e
 		diags = append(diags, entity.Warn(
 			"Performance",
 			setting.Key,
-			fmt.Sprintf(
-				"left at the host's %s, declared %s: %s wins at boot because it sorts after this profile's drop-in",
-				assignment.Boot, setting.Value, assignment.File),
-			fmt.Sprintf(
-				"remove or rename %s to let this profile own %s, or keep it to hold the host's value",
-				assignment.File, setting.Key),
+			assignment.HostWinsDetail(setting.Value),
+			assignment.HostWinsHint(setting.Key),
 		))
 	}
 	return applicable, diags

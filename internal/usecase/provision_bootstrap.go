@@ -12,6 +12,7 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
 	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
@@ -23,6 +24,7 @@ import (
 // It is a no-op on Windows, where winget/volta packages cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    *filesystem.FileSystemManager
+	envManager   *environment.WindowsEnvManager
 	manifestRepo *embedded.ManifestRepository
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
@@ -34,8 +36,8 @@ type BootstrapResult struct {
 }
 
 // NewProvisionBootstrapUseCase builds the Linux toolchain bootstrap use case.
-func NewProvisionBootstrapUseCase(fsManager *filesystem.FileSystemManager, manifestRepo *embedded.ManifestRepository, managers map[entity.PackageType]repository.PackageManager, logger repository.Logger) *ProvisionBootstrapUseCase {
-	return &ProvisionBootstrapUseCase{fsManager: fsManager, manifestRepo: manifestRepo, managers: managers, logger: logger}
+func NewProvisionBootstrapUseCase(fsManager *filesystem.FileSystemManager, manifestRepo *embedded.ManifestRepository, envManager *environment.WindowsEnvManager, managers map[entity.PackageType]repository.PackageManager, logger repository.Logger) *ProvisionBootstrapUseCase {
+	return &ProvisionBootstrapUseCase{fsManager: fsManager, envManager: envManager, manifestRepo: manifestRepo, managers: managers, logger: logger}
 }
 
 // userHome expands ~ to the current user's home directory.
@@ -146,11 +148,39 @@ func (uc *ProvisionBootstrapUseCase) step(ctx context.Context, result *Bootstrap
 		installScript, "Already installed and available on PATH", "Installed successfully")
 }
 
-// configStep applies a configuration write whose idempotency is decided by a
-// check command rather than by a binary lookup.
-func (uc *ProvisionBootstrapUseCase) configStep(ctx context.Context, result *BootstrapResult, target, doneCheck, writeScript string) {
-	uc.ensureStep(ctx, result, target, func() bool { _, err := uc.runShellStdout(ctx, doneCheck); return err == nil },
-		writeScript, "Already present in the shell profiles", "Written to the shell profiles")
+// pathStep persists toolchain dirs in the shell profiles through the single
+// PATH owner (envManager.EnsurePathEntry). One target emits one diagnostic,
+// however many dirs it covers; the textual diags stay identical to the old
+// shell-script steps so the run log reads the same.
+func (uc *ProvisionBootstrapUseCase) pathStep(ctx context.Context, result *BootstrapResult, target string, dirs ...string) {
+	if uc.envManager == nil {
+		return
+	}
+	changedAny := false
+	for _, dir := range dirs {
+		changed, err := uc.envManager.EnsurePathEntry(ctx, dir)
+		if err != nil {
+			uc.logger.Error("LinuxBootstrap: failed to persist %s: %v", target, err)
+			result.Diagnostics = append(result.Diagnostics, entity.Warn(
+				"LinuxBootstrap",
+				target,
+				fmt.Sprintf("could not persist %s in shell profiles: %v", dir, err),
+				"Run 'envctl run shell' after installing the toolchain",
+			))
+			return
+		}
+		changedAny = changedAny || changed
+	}
+	details := "Already present in the shell profiles"
+	if changedAny {
+		details = "Written to the shell profiles"
+	}
+	uc.logger.LogIdempotency("LinuxBootstrap", target, !changedAny, details)
+	result.Diagnostics = append(result.Diagnostics, entity.OK(
+		"LinuxBootstrap",
+		target,
+		details,
+	))
 }
 
 // installStep runs an installer and records only its failure. Callers that
@@ -283,12 +313,14 @@ func (uc *ProvisionBootstrapUseCase) installPacmanOpenCode(ctx context.Context, 
 }
 
 func (uc *ProvisionBootstrapUseCase) ensureOpenCodeShellPath(ctx context.Context, result *BootstrapResult) bool {
-	out, err := uc.runShell(ctx, openCodePathInstaller)
-	if err != nil {
+	if uc.envManager == nil {
+		return true
+	}
+	if _, err := uc.envManager.EnsurePathEntry(ctx, openCodePathDir); err != nil {
 		result.Diagnostics = append(result.Diagnostics, entity.Warn(
 			"LinuxBootstrap",
 			"OpenCode CLI PATH",
-			fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
+			fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v", err),
 			"Run 'envctl run shell' after installing OpenCode",
 		))
 		return false
@@ -350,32 +382,12 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 
 	// 2b. Expose Volta on interactive shells. get.volta.sh can skip rc-file
 	// integration when run non-interactively, leaving volta off the PATH of
-	// future login shells. Append the standard exports if missing.
+	// future login shells. The $HOME form keeps the entry portable and matches
+	// what EnsurePathEntry's guard looks for; VOLTA_HOME itself is exported by
+	// the toolchain env (shellEnv), so only the PATH entry is persisted here.
 	if uc.hasTool(ctx, "volta") {
 		uc.logger.Info("LinuxBootstrap: ensuring Volta is exported on interactive shells")
-		out, err := uc.runShell(ctx, `set -e
-VOLTA_LINES='export VOLTA_HOME="$HOME/.volta"
-export PATH="$VOLTA_HOME/bin:$PATH"'
-for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$f" ] && ! grep -q "VOLTA_HOME" "$f"; then
-    printf '\n# Volta (via envctl bootstrap)\n%s\n' "$VOLTA_LINES" >> "$f"
-  fi
-done`)
-		if err != nil {
-			uc.logger.Warn("LinuxBootstrap: failed to add Volta to shell rc files: %s (%s)", out, err)
-			result.Diagnostics = append(result.Diagnostics, entity.Warn(
-				"LinuxBootstrap",
-				"Volta shell integration",
-				fmt.Sprintf("failed to append Volta exports to ~/.bashrc/~/.profile: %v (%s)", err, out),
-				"Append 'export VOLTA_HOME=$HOME/.volta' and 'export PATH=$VOLTA_HOME/bin:$PATH' to ~/.bashrc",
-			))
-		} else {
-			result.Diagnostics = append(result.Diagnostics, entity.OK(
-				"LinuxBootstrap",
-				"Volta shell integration",
-				"Volta exports ensured in ~/.bashrc and ~/.profile",
-			))
-		}
+		uc.pathStep(ctx, result, "Volta shell integration", "$HOME/.volta/bin")
 	}
 
 	// 2c. Bun runtime - fast JS/TS runtime. Browser automation CLIs
@@ -580,9 +592,9 @@ rm -f /tmp/envctl-go.tar.gz
 echo "Installed ${GO_VER}"`)
 
 	// 14. Persist the Go PATH in shell profiles so future login shells find go
-	// and gopls. Fish needs its own syntax — writing bash exports into
-	// config.fish would be a syntax error.
-	uc.configStep(ctx, result, "Persist Go PATH in shell profiles", goPathDoneCheck, goPathInstaller)
+	// and gopls. One target, two dirs — replaces the old goPathInstaller
+	// shell script; each line is independently idempotent.
+	uc.pathStep(ctx, result, "Persist Go PATH in shell profiles", "/usr/local/go/bin", "$HOME/go/bin")
 
 	// 15. hadolint - Dockerfile linter (no apt/pacman package upstream; same
 	// release-binary pattern as gh/delta/yq). envctl-verify lints changed
@@ -635,44 +647,3 @@ rm -f /tmp/envctl-fzf.tgz /tmp/fzf
 
 	return result, nil
 }
-
-// goPathDoneCheck exits 0 only when goPathInstaller would change nothing, so
-// configStep can report "already present" instead of running a write that its
-// own grep would turn into a no-op.
-//
-// Every condition is the negation of the installer's matching guard, per
-// profile. The `command -v fish` line is the one that is easy to get backwards:
-// without fish there is no fish config to write, so it exits 0 — but only after
-// the POSIX profiles are known to be done. Exiting 0 there instead makes a host
-// without fish report "already present" on a profile that has no Go PATH yet,
-// and the write never happens. That is the same lying label configStep exists to
-// remove, so the ordering is load-bearing and the test covers both hosts.
-const goPathDoneCheck = `for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  [ -f "$f" ] && grep -q "/usr/local/go/bin" "$f" || exit 1
-done
-command -v fish >/dev/null 2>&1 || exit 0
-F="$HOME/.config/fish/config.fish"
-[ -f "$F" ] && grep -q "/usr/local/go/bin" "$F"`
-
-// goPathInstaller writes the Go PATH export using each shell's own syntax.
-// Writing bash exports into config.fish would be a syntax error, so fish gets
-// set -gx instead.
-const goPathInstaller = `set -e
-POSIX_LINES='
-# Go SDK (via envctl bootstrap)
-export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"'
-FISH_LINES='
-# Go SDK (via envctl bootstrap)
-set -gx PATH /usr/local/go/bin $HOME/go/bin $PATH'
-for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$f" ] && ! grep -q "/usr/local/go/bin" "$f"; then
-    printf '%s\n' "$POSIX_LINES" >> "$f"
-  fi
-done
-if command -v fish >/dev/null 2>&1; then
-  FISH_RC="$HOME/.config/fish/config.fish"
-  mkdir -p "$(dirname "$FISH_RC")"
-  if [ ! -f "$FISH_RC" ] || ! grep -q "/usr/local/go/bin" "$FISH_RC"; then
-    printf '%s\n' "$FISH_LINES" >> "$FISH_RC"
-  fi
-fi`

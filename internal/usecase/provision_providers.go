@@ -11,6 +11,7 @@ import (
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/embedded"
+	"github.com/eajdias/envctl/internal/infra/environment"
 	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
@@ -28,6 +29,7 @@ import (
 type ProvisionProvidersUseCase struct {
 	manifestRepo *embedded.ManifestRepository
 	fsManager    *filesystem.FileSystemManager
+	envManager   *environment.WindowsEnvManager
 	managers     map[entity.PackageType]repository.PackageManager
 	logger       repository.Logger
 	// latestVersionFn resolves the newest available version of a standalone
@@ -40,12 +42,14 @@ type ProvisionProvidersUseCase struct {
 func NewProvisionProvidersUseCase(
 	manifestRepo *embedded.ManifestRepository,
 	fsManager *filesystem.FileSystemManager,
+	envManager *environment.WindowsEnvManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
 ) *ProvisionProvidersUseCase {
 	return &ProvisionProvidersUseCase{
 		manifestRepo:    manifestRepo,
 		fsManager:       fsManager,
+		envManager:      envManager,
 		managers:        managers,
 		logger:          logger,
 		latestVersionFn: defaultLatestProviderVersion,
@@ -129,23 +133,10 @@ const openCodeLinuxV2Installer = `set -e
 export PATH="$HOME/.opencode/bin:$HOME/.volta/bin:$HOME/.local/bin:$PATH"
 curl -fsSL https://opencode.ai/v2/install | bash`
 
-// openCodePathInstaller persists the official V2 install directory even when
-// envctl has already prepended it to the child PATH. The upstream installer
-// otherwise treats that temporary PATH as an existing shell configuration and
-// skips writing the rc entry on a fresh machine.
-const openCodePathInstaller = `set -e
-for f in "$HOME/.bashrc" "$HOME/.profile"; do
-  if [ -f "$f" ] && ! grep -Fq '.opencode/bin' "$f"; then
-    printf '\n# OpenCode (via envctl)\nexport PATH="$HOME/.opencode/bin:$PATH"\n' >> "$f"
-  fi
-done
-if command -v fish >/dev/null 2>&1; then
-  f="$HOME/.config/fish/config.fish"
-  mkdir -p "$(dirname "$f")"
-  if [ ! -f "$f" ] || ! grep -Fq "$HOME/.opencode/bin" "$f"; then
-    printf '\n# OpenCode (via envctl)\nset -gx PATH "$HOME/.opencode/bin" $PATH\n' >> "$f"
-  fi
-fi`
+// openCodePathDir is the official V2 install directory persisted in shell
+// profiles. Written in the literal $HOME form so the idempotence guard matches
+// the lines the legacy shell installer wrote.
+const openCodePathDir = "$HOME/.opencode/bin"
 
 // standaloneProviderCanReplace reports whether envctl may replace a standalone
 // binary. User-local installs are owned by envctl. A system-owned binary is
@@ -392,9 +383,11 @@ func (uc *ProvisionProvidersUseCase) ensureOpenCodeShellPath(ctx context.Context
 	if runtime.GOOS != "linux" || tool.binary != "opencode" {
 		return true
 	}
-	out, err := runWithToolchain(ctx, "bash", "-lc", openCodePathInstaller)
-	if err != nil {
-		add(entity.DiagWarning, tool.name, fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v (%s)", err, out),
+	if uc.envManager == nil {
+		return true
+	}
+	if _, err := uc.envManager.EnsurePathEntry(ctx, openCodePathDir); err != nil {
+		add(entity.DiagWarning, tool.name, fmt.Sprintf("could not persist ~/.opencode/bin in shell profiles: %v", err),
 			"Run 'envctl run shell' after installing OpenCode")
 		return false
 	}
