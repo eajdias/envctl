@@ -203,7 +203,7 @@ func (m *ManifestRepository) LoadWindowsTweaks() ([]entity.WindowsTweak, error) 
 }
 
 func (m *ManifestRepository) LoadDebloatTweaks() ([]entity.WindowsTweak, error) {
-	manifest, err := loadManifestFile(m, "debloat.yaml", func() *windowsManifest { return &windowsManifest{} })
+	manifest, err := loadManifestFile(m, "debloat_windows.yaml", func() *windowsManifest { return &windowsManifest{} })
 	if err != nil {
 		return nil, err
 	}

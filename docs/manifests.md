@@ -29,7 +29,7 @@ manifests/
 | LSP | `manifests/lsp.yaml` | `envctl run lsp` |
 | skills | `manifests/skills.yaml` | `envctl run skills` |
 | windows tweaks | `manifests/windows.yaml` | `envctl run tweaks` (perfil `run windows`) |
-| debloat | `manifests/debloat.yaml`, `manifests/debloat_linux.yaml` | `envctl run debloat` |
+| debloat | `manifests/debloat_windows.yaml`, `manifests/debloat_linux.yaml` | `envctl run debloat` |
 | extras | `manifests/extras.yaml` | `envctl run extras` |
 
 ---
@@ -137,7 +137,7 @@ recopilado aqui).
 
 ---
 
-## 📄 7. `manifests/debloat.yaml`
+## 📄 7. `manifests/debloat_windows.yaml`
 
 Debloat do Windows 11 absorvido do `windows11-clean` — aplicado pelo perfil
 `envctl run windows` ou standalone via `envctl run debloat`. São **99 tweaks**

@@ -786,10 +786,7 @@ hook.
       `performance.yaml` único em vez de arquivo próprio.
       Verificação: `TestLoadManifestsFromDiskOrEmbed` + deployado por OS
       idêntico + gate cheio. Rollback: revert por PR.
-- [ ] **T2 — rename `debloat.yaml` → `debloat_windows.yaml`.** (bloqueado 2026-10-06: `manifest_repo.go:206` é arquivo ativo da Fase 2-T2 do outro agente)
-      740 linhas windows-implícitas vs `debloat_linux.yaml` (81) — simetria
-      de nome. Verificação: grep de referências atualizado (inclui T4 da
-      Fase 3). Rollback: revert.
+- [x] **T2 — rename `debloat.yaml` → `debloat_windows.yaml`.** (feito 2026-10-06: `manifests/debloat.yaml` renomeado para `debloat_windows.yaml` com simetria para `debloat_linux.yaml`, atualizado em `manifest_repo.go`, docs e usecase)
 - [ ] **T3 — hooks git ×6 → 1 shim.** (parcial 2026-10-06: pre-push reusa `_envctl-delegate`, fim do chain duplicado; falta consolidação das 8 entradas `shell.yaml` — exige campo lista no loader, Go pós-Fase-2)
       `configs/git/hooks/pre-commit:1-6` idênticos exceto nome +
       `_envctl-delegate:1-24` + `pre-push:1-36` que reinventa o delegate

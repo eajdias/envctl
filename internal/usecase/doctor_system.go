@@ -218,7 +218,7 @@ func (uc *DoctorAuditUseCase) auditWindowsTweaks(ctx context.Context, addDiag fu
 		}
 	}
 
-	// 8b. Audit opt-in Windows debloat (debloat.yaml). Never WARN: the stack
+	// 8b. Audit opt-in Windows debloat (debloat_windows.yaml). Never WARN: the stack
 	// only applies via `run debloat`, so drift is informational. One line per
 	// category keeps the report compact; per-tweak detail lives in the
 	// `run debloat` output itself.

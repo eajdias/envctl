@@ -569,7 +569,7 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 	}
 }
 
-// auditDebloat checks the opt-in Windows debloat stack (debloat.yaml) and
+// auditDebloat checks the opt-in Windows debloat stack (debloat_windows.yaml) and
 // reports one aggregated line per category. Drift is DiagInfo, never a
 // warning: the stack only applies when the owner explicitly runs
 // `run debloat`, so an unapplied tweak is not a health problem. Windows-only;
