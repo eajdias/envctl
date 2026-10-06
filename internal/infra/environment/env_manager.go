@@ -92,6 +92,15 @@ func resolveHome() (string, error) {
 	return os.UserHomeDir()
 }
 
+// fishAvailable reports whether the fish shell is installed. Both rc
+// writers skip conjuring a fish config on hosts without fish: the legacy
+// shell installers only touched fish when `command -v fish` hit, and a
+// created file would flip an "already present" legacy line into "written".
+func fishAvailable() bool {
+	_, err := exec.LookPath("fish")
+	return err == nil
+}
+
 // withinHome reports whether path resolves inside the user's home directory, so
 // a malformed HOME can never make provisioning write outside it.
 func withinHome(path string) bool {
@@ -130,8 +139,13 @@ func (e *WindowsEnvManager) persistEnvVar(name, value string) error {
 			continue
 		}
 		data, err := os.ReadFile(rc.path)
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("failed to read %s: %w", rc.path, err)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("failed to read %s: %w", rc.path, err)
+			}
+			if rc.fish && !fishAvailable() {
+				continue
+			}
 		}
 		existing := strings.TrimSpace(string(data))
 		var lines []string
@@ -383,8 +397,13 @@ func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bo
 			line = fmt.Sprintf("set -gx PATH %q $PATH", dir)
 		}
 		data, err := os.ReadFile(rc.path)
-		if err != nil && !os.IsNotExist(err) {
-			return changed, fmt.Errorf("failed to read %s: %w", rc.path, err)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return changed, fmt.Errorf("failed to read %s: %w", rc.path, err)
+			}
+			if rc.fish && !fishAvailable() {
+				continue
+			}
 		}
 		if strings.Contains(string(data), dir) {
 			continue
