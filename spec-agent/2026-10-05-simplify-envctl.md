@@ -466,7 +466,7 @@ toolchain montado à mão" existe em Go em 4 lugares — ver Fase 2g-A.)
 
 **Tarefas:**
 
-- [x] **T1 — `ensureShellPathEntry(dir)`.** (verificado 2026-10-06, working tree sobre `f39e6f5`: `pathStep` canônico via `envManager.EnsurePathEntry`, wire com nil-fallback em `root.go`, `openCodePathInstaller`/`goPathInstaller`/`goPathDoneCheck` deletados, `configStep` deletado, `TestPathStepPersistsEachDirOnce` verde com idempotência 2x→1 linha + compat legada `$HOME/...`; VOLTA_HOME fica no script por decisão. RESSALVA: backup usa `shellBackupPath` local em `env_manager.go:346` — duplicata byte-a-byte de `fs.BackupPathFor` (`fs_manager.go:121`), violando a 2g-T1-E; follow-up = deletar a local e reusar o canônico. `go test ./...` verde)
+- [x] **T1 — `ensureShellPathEntry(dir)`.** (verificado 2026-10-06, working tree sobre `f39e6f5`: `pathStep` canônico via `envManager.EnsurePathEntry`, wire com nil-fallback em `root.go`, `openCodePathInstaller`/`goPathInstaller`/`goPathDoneCheck` deletados, `configStep` deletado, `TestPathStepPersistsEachDirOnce` verde com idempotência 2x→1 linha + compat legada `$HOME/...`; VOLTA_HOME fica no script por decisão. Follow-up 2026-10-06 feito: `shellBackupPath` local deletada, `EnsurePathEntry` reusa `fs.BackupPathFor` (import `filesystem`, sem ciclo). `go test ./...` verde)
       `internal/infra/environment/env_manager.go` (já é o dono de
       persistência): 1 função Go que garante a linha em `.bashrc`,
       `.profile` e `config.fish` (idempotente, com backup atômico do repo).
@@ -769,7 +769,7 @@ hook.
 
 **Tarefas:**
 
-- [ ] **T1 — sintaxe `os_values` (ou overlay).**
+- [x] **T1 — sintaxe `os_values` (ou overlay).** (feito 2026-10-06: loader expande `os_values` em env vars, config_files, directories e cleanup — U3 resolvido a favor da sintaxe nova, overlay da 2d fica só para templates cujo delta é conteúdo (ssh/opencode.json). Pares NODE_PATH/ENVCTL_TEMP, temp dir, AGENTS×3 + commandcode AGENTS×3, pw.cmd/pw, stale_pylsp/pw-* consolidado; hooks já cobertos por `instances:` na T3. `opencode_config`/`ssh_config` **não** entram: overlay de deploy é keyed por id. Testes `TestOSValuesExpandToTheFormerPerOSEntries` pinam os IDs/paths/os do contrato antigo; campo desconhecido ou `executable` inválido falha o load. **NÃO** unificar extras/packages/performance_cachyos — matriz intencional.) Detalhe original:
       Alvos: `environment_variables:5-27` (NODE_PATH ×2, ENVCTL_TEMP ×2 —
       só `value/os`), `directories:465-472` (`C:/temp` vs `/temp`, mesma
       description), `config_files:46-68` (AGENTS ×3), `:116-141` (commandcode
@@ -969,7 +969,7 @@ unknown a validar no primeiro ciclo.
 |---|---|---|---|---|
 | U1 | goreleaser re-build de tag existente (`workflow_dispatch` p/ re-attach) precisa `--skip=validate`? (tag já existe → o check de "não vou re-taggear" pode reclamar) | só o modo manual de re-build, não o fluxo principal | quem implementar a Fase 1 | testar com `goreleaser release --snapshot` + tag local |
 | U2 | `envctl run windows` completa em Windows 11 Pro evaluation (dockur)? | nada — é validação do ciclo Windows | Fase 5 primeiro ciclo | rodar e registrar |
-| U3 | `os_values` (2j-T1) vs overlay por OS igual à 2d? | só o formato da T1, não o objetivo (~−40 entradas saem de um jeito ou de outro) | quem implementar a 2j | prototipar no loader; se complexo, fallback p/ overlay |
+| U3 | `os_values` (2j-T1) vs overlay por OS igual à 2d? | só o formato da T1, não o objetivo (~−40 entradas saem de um jeito ou de outro) | quem implementar a 2j | **resolvido 2026-10-06:** sintaxe `os_values` no loader; overlay da 2d permanece para delta de *conteúdo* (ssh-config, opencode.json) |
 | U4 | Bloco LSP sai do `packages.yaml` direto ou vira shim de aviso por 1 release? | só a remoção, não a fonte única (trava por teste já vale) | quem implementar a 2i-T1 | verificar que `run lsp` cobre os 6 antes de remover |
 
 ## 10. Definition of Done
@@ -1001,7 +1001,7 @@ unknown a validar no primeiro ciclo.
 - [ ] Fase 2i: LSP fonte única (teste de paridade verde), mcp 5/5 travados,
       SKILL-INDEX fonte única, ssh base+overlay, settings projetual ==
       canônico
-- [ ] Fase 2j: `os_values` (ou overlay) nas ~40 entradas, rename
+- [x] Fase 2j: `os_values` (ou overlay) nas ~40 entradas, rename
       `debloat_windows.yaml`, 1 shim de hook, embed sem fallback silencioso
 - [ ] Fase 3: 29→~15 arquivos de código no usecase (pós-folds da 2h);
       grep na doc sem referência a arquivo extinto
