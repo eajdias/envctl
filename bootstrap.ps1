@@ -74,7 +74,7 @@ $arch = if (-not [Environment]::Is64BitOperatingSystem) {
 $LocalExe = Join-Path (Get-Location) "envctl.exe"
 $TargetExe = $null
 
-if (Test-Path $LocalExe -and -not $Force) {
+if ((Test-Path $LocalExe) -and (-not $Force)) {
     Write-Status "[*] Found local envctl binary at $LocalExe" -Color Green
     $TargetExe = $LocalExe
 } else {
