@@ -29,7 +29,7 @@ Não é um plano fechado: a ordem sugerida está no fim e nenhum item tem prazo.
 - `$PREFIX/bin` é um symlink farm (como `/usr/bin`) — a persistência de PATH (`.bashrc`/fish)
   continua válida; fish em Termux usa o mesmo `~/.config/fish`.
 - Disponíveis via `pkg`: nodejs, fish, git, openssh, fzf, ripgrep, fd, bat, delta, yq, gh,
-  python, golang. A confirmar: `volta` e os pacotes npm dos agentes em `linux/arm64`
+  python, golang. A confirmar: `mise` e os pacotes npm dos agentes em `linux/arm64`
   (`command-code`, e o instalador oficial do `opencode` — ver assimetria #9 da matriz).
 - No lugar de systemd: `termux-services`/`termux-boot` (ver item 7).
 
@@ -81,7 +81,7 @@ das outras máquinas por SSH, com evidência.
 - Baseline: já existem o skill de dispatch remoto e o inventário SSH
   (`~/.ssh-manager`, `ssh_servers.md`). Comece por eles.
 - Verificar no destino: PATH/toolchain **não-interativo** (`command -v cmdc/opencode`, shims do
-  Volta), configs do agente presentes após o provisionamento (skills/LSP), execução longa
+  mise), configs do agente presentes após o provisionamento (skills/LSP), execução longa
   (`nohup`/`tmux`/`systemd-run`), retorno de artefatos (`scp`/`rsync`) e os modos de falha
   (prompt de host key travando o agente, multiplexação, retry).
 - **Entregável:** um cenário de teste por par origem→destino e as correções no skill de

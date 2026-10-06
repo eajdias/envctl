@@ -4,7 +4,7 @@
 
 - **OS:** Arch/CachyOS Linux (x86-64, desktop com GUI), usuário não-root (sudo)
 - **Shell:** fish é o shell interativo do usuário; o shell do OpenCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
-- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode` · gerenciadores: `pacman` · `paru` (AUR) · `volta` (Node).
+- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode` · gerenciadores: `pacman` · `paru` (AUR) · `mise` (Node) + `npm` (globals).
 - **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
 - **Scratch:** `/temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).

@@ -21,7 +21,7 @@ envctl doctor
      `OK` quando aplicada, `INFO` quando há drift com `run 'envctl run debloat'` — nunca `WARN`/`ERROR`,
      nunca no `--fix` (o stack só aplica sob invocação explícita).
 2. **Gerenciadores de Pacotes & Toolchains**:
-   - Winget, APT, Pacman, Paru, Volta, Go, Python UV/Pip.
+   - Winget, APT, Pacman, Paru, mise, npm, Go, Python UV/Pip.
    - Presença dos binários do manifesto no `PATH` (ver `manifests/packages.yaml` — matrix §1) (`rg`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`, etc.).
 3. **Variáveis de Ambiente & Shell**:
    - `NODE_PATH` resolvido e validado contra módulos globais.
@@ -97,8 +97,8 @@ envctl doctor --fix
 ## 🔄 Idempotência Estrita & Backup Atômico
 
 O `doctor` só **relata**: não muta a máquina sem `--fix`. O `envctl update` é o oposto — ele
-muda, e é por isso que tem escopo próprio: só mecanismos user-local (`volta`/`npm`, `uv tool`,
-`go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
+muda, e é por isso que tem escopo próprio: só mecanismos user-local (`mise` runtimes,
+`npm -g`, `uv tool`, `go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
 Para saber o que está atrás sem mudar nada: `envctl update --list` (nem toca a rede) ou
 `envctl update --dry-run`.
 
@@ -123,7 +123,7 @@ O backup atômico é ilimitado por padrão, então cada execução que diverge d
 - **Winget**: Consulta o catálogo local (`winget list --exact --id <name>`) antes de invocar o instalador.
 - **APT**: Utiliza `dpkg-query -W` para verificar se o pacote já está instalado.
 - **Pacman**: Utiliza o parâmetro `-S --needed` para não reinstalar pacotes atualizados.
-- **Volta / Go**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
+- **mise / npm / Go**: Inspecionam o `PATH` e a versão do binário antes de disparar instalações remotas.
 
 ---
 

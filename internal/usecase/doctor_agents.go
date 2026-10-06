@@ -86,7 +86,7 @@ func (uc *DoctorAuditUseCase) auditCommandCodeHealth(addDiag func(entity.Diagnos
 		if cmdErr != nil {
 			fixHint := "Run 'envctl run bootstrap' or 'npm install -g command-code'"
 			if runtime.GOOS == "windows" {
-				fixHint = "Run 'envctl run volta' or 'volta install command-code'"
+				fixHint = "Run 'envctl run packages' or 'npm install -g command-code'"
 			}
 			addDiag(entity.Warn(
 				"CommandCode",

@@ -235,8 +235,8 @@ func (uc *DoctorAuditUseCase) auditLinuxToolchain(ctx context.Context, addDiag f
 			name string
 			desc string
 		}{
-			{"volta", "Volta JS toolchain manager"},
-			{"node", "Node.js (via Volta)"},
+			{"mise", "mise dev-tool manager"},
+			{"node", "Node.js (via mise)"},
 			{"opencode", "OpenCode CLI"},
 			{"cmdc", "CommandCode CLI"},
 			{"gh", "GitHub CLI"},
@@ -245,7 +245,7 @@ func (uc *DoctorAuditUseCase) auditLinuxToolchain(ctx context.Context, addDiag f
 			{"uv", "uv Python package manager"},
 			{"ruff", "ruff linter (via uv)"},
 			{"fd", "fd (fdfind symlink)"},
-			{"stylelint", "Stylelint CSS/SCSS linter (via Volta)"},
+			{"stylelint", "Stylelint CSS/SCSS linter (via npm)"},
 			{"golangci-lint", "golangci-lint (CI lint gate, used by envctl-verify)"},
 			{"bun", "Bun JS/TS runtime (browser CLI/MCP launcher via bunx)"},
 			{"playwright-chromium", "Playwright CLI bundled Chromium (deterministic automation via CLI installer)"},

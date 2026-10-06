@@ -1,6 +1,6 @@
-# Simplificação do envctl — placar (checkbox de referência)
+# Simplificação do envctl + migração mise — placar (checkbox de referência)
 
-**Atualizado:** 2026-10-06 · Spec completa (detalhes, TDD, rollback): `2026-10-05-simplify-envctl.md`
+**Atualizado:** 2026-10-06 · Specs completas (detalhes, TDD, rollback): `2026-10-05-simplify-envctl.md` (simplificação) + `2026-10-06-volta-to-mise.md` (migração M1–M9)
 **Gate de cada entrega:** `go build ./... && go vet ./... && go test ./... && golangci-lint run --new-from-rev=origin/main`
 
 ## ✅ Feito
@@ -24,6 +24,8 @@
 | 3 | `gaming.go`, `skill_contract.go`, `cleanup_agents.go` + varredura de citações |
 | 6 | manifests.md sem fantasmas, priority, guia único, contagens, arch link |
 | extra | `snapshot` removido (usecase+CLI+make+docs); `bootstrap.ps1` sem `Write-Host` + BOM (advisory zerado); 17 specs antigas deletadas |
+| mise M1 | `MiseManager` isolado + `PackageTypeMise` (TDD, `mise ls --json` confirmado na doc) |
+| mise M2+M5 | bootstrap + providers via mise/npm (tarball Go deletado); `ToolchainDirs` sem `.volta/bin`; taxonomia `sourceMise` |
 
 ## ⏳ Falta
 
@@ -31,18 +33,22 @@
 - [ ] **1d-T3** — `bootstrap.sh` + `bootstrap.ps1` instalando da release do goreleaser
 - [ ] **2h-T7 (resto)** — `provisionList` genérico (`provision_tweaks` vs `provisionListMode`); longo prazo
 - [x] **5-T1** — baseline `homologacaochatbot` (Ubuntu 24.04.4, 2026-10-06): 154 checks, 145 pass, 6 warn, 3 err. Erros = 3 agents commandcode ausentes (nunca provisionado); warns = 3 sysctl host-wins (`99-sysctl.conf`), 1 reboot-required, 2 skills drift (41 deployados × 12 manifesto). T2 pulado de propósito (ciclo volta jogado fora; convergência única no M9)
+- [x] **M3** — manifests: 9 packages (`node`→mise, globals→npm) + 11 LSPs (`install_type`→npm)
+- [x] **M4** — `update.go`: `GroupVolta` → `GroupMise` + `GroupNpm`
+- [x] **M6** — doctor: tabela toolchain + refs volta
+- [x] **M7** — deletar volta de vez (`volta_manager`, `PackageTypeVolta`, testes)
+- [x] **M8** — docs/matriz (canal mise por OS, `Volta.Volta` fora)
+- [ ] **M9** — validação viva na homolog (converge mise, `doctor` 0/0, idempotência)
 - [ ] **5-T3/T4** — VM dockur + ciclo Windows (inclui teste real do `bootstrap.ps1` reescrito)
 - [ ] **DoD** — checkboxes §§10 da spec estão stale (fases prontas marcadas `[ ]`); sincronizar ao fechar
 
 ## 🅿️ Estacionado (não fazer agora)
 
 - **2d-T2** — AGENTS por OS ficam separados (delta real); unificar só via base+overlay
-- **Fase 4 (mise, plano em `2026-10-06-volta-to-mise.md`)** — após baseline VPS (ver ▶️); fnm descartado como plano B
+- **fnm** — descartado como plano B (mise decidido; ver análise 2026-10-06)
 - **`verify_script_test.go`** — testa o bash do gate, fora de escopo por decisão
 - **`statfs_*`** — split por build-tag é idiomático, ninguém funde
 
-## ▶️ Próximos 3 (ordem sugerida)
+## ▶️ Próximos (ordem sugerida)
 
-1. **5-T1/T2** (VPS: baseline + idempotência) — prova a base antes de churnear
-2. **Migração mise M1–M8** (`2026-10-06-volta-to-mise.md`) — sobre base provada
-3. **5-T3/T4 + M9 juntos** (dockur) — 1 ciclo valida migração + Windows
+1. **M9 + 5-T3/T4 juntos** (homolog converge mise + dockur) — validação única

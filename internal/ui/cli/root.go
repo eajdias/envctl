@@ -99,7 +99,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 		entity.PackageTypeApt:    apt.NewAptManager(),
 		entity.PackageTypePacman: arch.NewPacmanManager(),
 		entity.PackageTypeParu:   arch.NewParuManager(),
-		entity.PackageTypeVolta:  toolchain.NewVoltaManager(),
 		entity.PackageTypeMise:   toolchain.NewMiseManager(),
 		entity.PackageTypeNpm:    toolchain.NewNpmManager(),
 		entity.PackageTypePip:    toolchain.NewPipManager(),

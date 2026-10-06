@@ -21,10 +21,10 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 
 | Dimensão | Windows 11 | Ubuntu/Debian | Arch/CachyOS |
 | :--- | :--- | :--- | :--- |
-| Gerenciadores | winget · volta · pip | apt · volta | **pacman · paru (AUR)** · volta |
+| Gerenciadores | winget · mise · npm | apt · mise · npm | **pacman · paru (AUR)** · mise · npm |
 | Pacotes declarados (aplicáveis) | ver `manifests/packages.yaml` (fonte; filtrado por OS/distro via `os`) | ver `manifests/packages.yaml` | ver `manifests/packages.yaml` |
-| **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + volta (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + volta | pacman (`opencode`, `paru`) + volta (`command-code`) |
-| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/volta cobrem) | 17 passos: Volta+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
+| **Fase 0: provedores (`run providers`)** | instalador oficial V2 PowerShell (`~/.local/bin`) + npm (`command-code`), atualizados quando o canal permite | instalador oficial V2 (`~/.opencode/bin`) + npm | pacman (`opencode`, `paru`) + npm (`command-code`) |
+| Bootstrap de toolchain (`run bootstrap`) | não usa (winget/mise cobrem) | 17 passos: mise+Node+pnpm, bun, Playwright, opencode CLI, cmdc CLI, gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd, **paru**, Go, PATH | idem, mas OpenCode usa o mesmo `pacman` injetado; **fd via pacman** e **paru via repo do CachyOS** (Arch puro: AUR) |
 | Shell alvo da persistência | PowerShell 7 (perfil) + WSL | `.profile` + `.bashrc` | `.profile` + `.bashrc` + **fish (`set -gx`)** |
 | Variáveis de ambiente | 2 | 2 | 2 |
 | Configs aplicáveis | ver `manifests/shell.yaml` (fonte; `MatchesOS` por distro) | ver `manifests/shell.yaml` | ver `manifests/shell.yaml` |
@@ -37,13 +37,13 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Extras (`run extras` / `--with-extras`) | 15 opcionais winget (Brave, Obsidian, Steam, Tailscale, VLC, ONLYOFFICE, Syncthing, Moonlight, WinSCP, Wireshark, Nmap, Termius, TreeSize, BCUninstaller, LockHunter) | — | 12 opcionais pacman (brave-origin-bin, obsidian, onlyoffice-bin, vlc, transmission-qt, picard, rustdesk-bin, anydesk-bin, tailscale, boosteroid, alacritty, mpv) |
 | Gaming (`run gaming`) | — | — | pacman + paru (44 pkgs: `cachyos-settings` + ruleset do ananicy, Steam, Proton CachyOS, gamescope, MangoHud, emuladores, lact, scx, quarteto X11) + presets seed + doctor Gaming |
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
-| Atualização de toolchain (`envctl update`) | `volta`/`npm` globals · `uv tool` (Python) · `go install` — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `go install` (sem `volta` no servidor) | idem desktop |
+| Atualização de toolchain (`envctl update`) | `mise` runtimes · `npm -g` globals · `uv tool` (Python) · `go install` — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `go install` · `npm -g` | idem desktop |
 | — | **Gerenciadores de SO nunca automatizados**: atualizar subconjunto via `pacman -S` é *partial upgrade*, que o Arch proíbe; `apt`/`winget` seguem o update do SO |
 | Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
 **Escopo por subsistema:** `run winget`/`run tweaks`/`run debloat` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
-(Windows usa winget/volta). `run providers` é portável e roda **antes de tudo** dentro de
+(Windows usa winget/mise). `run providers` é portável e roda **antes de tudo** dentro de
 perfis `run windows`/`run vps`/`run cachyos` (fase 0). `run all` detecta o OS e despacha para o perfil da máquina.
 
 ### Fase 0 — `run providers`
@@ -54,13 +54,13 @@ provisionamento, para uma máquina nova chegar aos agentes sem passo manual (e p
 
 | Etapa | O que faz | Detalhe |
 | :--- | :--- | :--- |
-| Volta | instala se faltar | Linux: instalador oficial · Windows: `winget` `Volta.Volta`. Sem `volta self-update`: atualizar = rodar o instalador |
-| Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`volta install node@…`), para os dois não divergirem |
-| `command-code` (`cmdc`) | instala/atualiza via Volta | Compara a versão instalada com o `latest` do npm; Volta resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
+| mise | instala se faltar | Linux: `https://mise.run` · Windows: `winget` `jdx.mise`. Sem `mise self-upgrade` no fluxo: atualizar = rodar o instalador |
+| Runtime Node | garante um default | Usa o **mesmo spec do manifesto** (`mise use -g node@…`), para os dois não divergirem |
+| `command-code` (`cmdc`) | instala/atualiza via npm | Compara a versão instalada com o `latest` do npm; `npm install -g` resolve o pacote, então "faltando" e "desatualizado" são o mesmo comando |
 | `opencode` | instala/atualiza para **v2** se faltar ou se encontrar um v1 user-local; **nunca** por npm; atualiza **dentro do major** quando o canal oficial avança (2.0.15 → 2.0.23) | Arch: pacote `extra` (binário do sistema não é sombreado) · Windows: instalador oficial V2 PowerShell (zip → `~/.local/bin`) · demais: instalador oficial V2 (`~/.opencode/bin`). No Windows o caminho de upgrade é **o instalador PS** — `opencode upgrade --method curl` quebra (bash path mangling) |
 
 **Regra que a fase 0 respeita:** o envctl substitui binários que são dele
-(`~/.local/bin`, `~/.opencode/bin`) ou do Volta. Binários de pacote do SO são
+(`~/.local/bin`, `~/.opencode/bin`) ou do mise. Binários de pacote do SO são
 consultados pelo banco do gerenciador e permanecem autoritativos: no Arch, uma
 cópia envctl user-local é arquivada antes de usar `pacman`; no Ubuntu/Debian, um
 v1 legado em `/usr/bin` é substituído pelo v2 user-local, porque a configuração
@@ -228,7 +228,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 8. No CommandCode o mesmo agente vira `configs/commandcode/agents/<id>.md` + entrada `commandcode_agent_<id>` no `manifests/shell.yaml`, porque lá **não** existe permissão de edit com escopo de path: o limite vira regra do prompt. O contrato é `TestShippedCommandCodeAgentTemplatesMatchSchema` (assimetria #26), e `code-reviewer` é o nome reservado por lá porque `review` é nome reservado do runtime.
 
 **LSP** → `manifests/lsp.yaml` (binários p/ shell/IDE — `run lsp` + `doctor`)
-1. Informe `install_type` (`volta`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
+1. Informe `install_type` (`mise`, `npm`, `pip`, `go`), `install_target` e `check_binary`.
 2. NÃO espelhe entrada no `opencode.json`: o runtime v2 ignora o bloco `lsp` (assimetria #16) — foi removido dos dois configs em 2026-09-22.
 
 **Debloat (Windows)** → `manifests/debloat_windows.yaml` (perfil `run windows` + standalone `run debloat` + `doctor` seção Debloat)
@@ -243,12 +243,12 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 1. Confirme o **canal de versão** antes de escolher o gerenciador: o mesmo produto costuma ter
    linhas diferentes por canal (pacote do SO ≠ npm ≠ instalador oficial). Foi assim que o
    `opencode` quase foi rebaixado (assimetria #9).
-2. Se o CLI já existe na máquina mas não é do envctl nem do Volta, **não instale** uma segunda
+2. Se o CLI já existe na máquina mas não é do envctl nem do mise, **não instale** uma segunda
    cópia — reporte. Cópia em `~/.local/bin`/`~/.opencode/bin` vence no PATH e congela a versão
    ali instalada. A única exceção é o v1 legado no Ubuntu/Debian, que precisa convergir para
    v2; no Arch, um binário do pacman nunca é sombreado.
 3. Um CLI que o próprio envctl garante entra em `providerCLIs()`
-   (`internal/usecase/provision_providers.go`): com `voltaPkg` ele é atualizável; com
+   (`internal/usecase/provision_providers.go`): com `npmPkg` ele é atualizável; com
    `windowsInstaller`/`installer` e `requiredMajor` ele instala, atualiza e valida a versão.
 4. Declare o `check_command` no manifesto para o `doctor` auditar a presença naquela plataforma.
 

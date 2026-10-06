@@ -5,7 +5,7 @@
 
 - **OS:** Arch/CachyOS Linux (x86-64, desktop com GUI), usuário não-root (sudo)
 - **Shell:** fish é o shell interativo do usuário; o shell do CommandCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
-- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc` · gerenciadores: `pacman` · `paru` (AUR) · `volta` (Node).
+- **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `cmdc` · gerenciadores: `pacman` · `paru` (AUR) · `mise` (Node) + `npm` (globals).
 - **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
 - **Scratch:** `/temp` (`ENVCTL_TEMP`, na raiz do disco). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.commandcode/` nem no projeto.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).  ·  **Worktrees:** o runtime gerencia em `~/.commandcode/worktrees/<repo>-<hash>/` (fora do repo) via `/worktree` e `enter_worktree`; para cair na convenção do projeto use `cmdc -w "$PWD/.worktrees/<slug>"` (path absoluto é usado verbatim). `doctor` reporta `prunable`/`locked` nas duas rotas.

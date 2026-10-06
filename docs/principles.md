@@ -29,14 +29,14 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Detecção de OS (`windows`, `linux`) e arquitetura (`amd64`, `arm64`).
    - Validação de privilégios e permissões.
 2. **Infraestrutura Base de Pacotes:**
-   - Windows: Instalação dos pacotes essenciais via `Winget` (+ Volta/pip para toolchains).
+   - Windows: Instalação dos pacotes essenciais via `Winget` (+ mise/npm para toolchains).
    - Linux: Instalação dos pacotes essenciais via `APT` (Debian/Ubuntu) ou `pacman`/`paru` (Arch/CachyOS).
 3. **Configuração de Shell e Ambiente:**
    - Variáveis de ambiente (`NODE_PATH`, `ENVCTL_TEMP`).
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).
    - Terminal: Implantação de `.bashrc`, `.bash_profile` e `settings.json` do terminal com backup atômico.
 4. **Toolchains & Language Servers (LSPs):**
-   - Volta: Node.js e pacotes LSP globais (`typescript`, `pyright`, `bash-ls`, `dockerfile-ls`, `yaml-ls`, `sqllens`, etc.).
+   - mise: Node.js (+ Go); npm globals: pacotes LSP (`typescript`, `pyright`, `bash-ls`, `dockerfile-ls`, `yaml-ls`, `sqllens`, etc.).
    - Python: `uv`, `ruff`.
    - Go: `gopls`.
 5. **Ecossistema OpenCode & CommandCode com 12 skills:**

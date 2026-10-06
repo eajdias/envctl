@@ -45,7 +45,8 @@ ver o arquivo; nenhum exemplo é recopilado aqui).
 | :--- | :--- | :--- |
 | `winget` | Windows Package Manager | `winget install --exact --id <name> --silent` |
 | `apt` | Advanced Package Tool (Debian/Ubuntu) | `apt-get install -y --no-install-recommends <name>` |
-| `volta` | Volta Toolchain Manager | `volta install <name>` |
+| `mise` | mise dev-tool manager | `mise install <name>` |
+| `npm` | npm globals (`--prefix ~/.local`) | `npm install -g <name>` |
 | `go` | Go Toolchain | `go install <name>` |
 | `pip` | Python PIP / UV | `pip install <name>` |
 

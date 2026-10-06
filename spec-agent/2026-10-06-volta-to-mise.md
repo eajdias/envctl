@@ -88,13 +88,13 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       Verificação: `go test ./internal/infra/executil/ ./internal/usecase/`
       + `bash -lc 'command -v node'` pós-`run bootstrap` numa máquina real.
       Rollback: revert. Resultado: `rg volta/bin` vazio fora de testes legados.
-- [ ] **M6 — doctor: tabela toolchain + refs.**
+- [x] **M6 — doctor: tabela toolchain + refs.** (feito 2026-10-06: linhas volta/node/stylelint + hint command-code no Windows)
       Arquivos: `doctor_packages.go:238-248` (`volta`→`mise`, `node (via Volta)`→`(via mise)`,
       `stylelint (via Volta)`→`(via npm)`), `doctor_agents.go` (refs volta).
       Verificação: `go test ./internal/usecase/ -run TestDoctor -v` + doctor
       ao vivo 0 WARN/0 ERROR + gate.
       Rollback: revert. Resultado: `rg -i volta internal/usecase/doctor_*` vazio.
-- [ ] **M7 — testes e entidade.**
+- [x] **M7 — testes e entidade.** (feito 2026-10-06: `volta_manager*.go` deletados, `PackageTypeVolta` removida, wire limpo; `verify_script_test` mantém fixtures "Volta error" como texto; `rg volta internal/` zerado fora disso)
       Arquivos: deletar `volta_manager_test.go` (M1 traz o de mise);
       `provision_providers_test.go`, `toolchain_path_test.go`,
       `verify_script_test.go` (refs volta); `entity/models.go`
@@ -102,7 +102,7 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       Verificação: `go test ./...` + `rg -iw volta internal/ manifests/` vazio
       (docs/guide à parte, M8).
       Rollback: revert. Resultado: a palavra `volta` só resta em docs/histórico.
-- [ ] **M8 — docs/matriz.**
+- [x] **M8 — docs/matriz.** (feito 2026-10-06, roteiro docs-sync: `pw`→shims mise, `pw.cjs`/verify mantêm fallback legado documentado; README/AGENTS/matriz/principles/verification/manifests/roadmap/AGENTS.arch×2/memory-seed atualizados; `architecture.md` deixado p/ o dono; histórico #9 intacto)
       Arquivos: matriz §1/§5, guias (canal de instalação por OS), `Volta.Volta`
       winget fora, `code-playbooks/references/docker.md` (menção volta).
       Verificação: `rg -iw volta docs/ configs/` só com contexto histórico +

@@ -181,8 +181,9 @@ is_tool_unavailable() {
 }
 
 # check_soft runs a tool that may legitimately refuse to work in this project —
-# a Volta shim with no matching local dependency, for instance. That is a skip,
-# not a finding, so it is named in the push summary instead of failing the gate.
+# a toolchain shim with no matching local dependency (Volta legacy, mise), for
+# instance. That is a skip, not a finding, so it is named in the push summary
+# instead of failing the gate.
 check_soft() {
 	severity="$1"
 	label="$2"

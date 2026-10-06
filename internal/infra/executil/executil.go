@@ -20,7 +20,7 @@ func ProbeCheckCommand(ctx context.Context, check string) (string, bool) {
 		return "", false
 	}
 	// Resolved through ExecTool (not bare exec): a CheckCommand naming a
-	// toolchain shim (volta-managed node, ~/.local/bin helper) must probe
+	// toolchain shim (mise-managed node, ~/.local/bin helper) must probe
 	// the same binary the install step would run. See ToolchainDirs.
 	// #nosec G204 -- argv elements handed to exec directly (no shell); the
 	// check comes from the embedded manifest, never from user input.

@@ -7,7 +7,6 @@ type PackageType string
 
 const (
 	PackageTypeWinget PackageType = "winget"
-	PackageTypeVolta  PackageType = "volta"
 	PackageTypeMise   PackageType = "mise"
 	PackageTypeNpm    PackageType = "npm"
 	PackageTypePip    PackageType = "pip"
