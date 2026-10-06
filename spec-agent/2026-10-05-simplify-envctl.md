@@ -718,7 +718,7 @@ depois SKILL-INDEX/ssh (só linhas).
       `configs/SKILL-INDEX.md`, duas entradas de deploy (mesmo padrão da
       2d, sem overlay). −31 linhas. Verificação: diff dos deployados vazio
       (a menos do título) + gate cheio. Rollback: revert.
-- [ ] **T4 — ssh-config base + overlay.** (investigação 2026-10-06: delta real = 3 linhas `Control*` (linux) + 2 `IdentityFile` (windows); mesmo veredito da 2d — `merge:ssh_hosts` não combina dois templates; implementação pós-Fase-2)
+- [x] **T4 — ssh-config base + overlay.** (feito 2026-10-06: `configs/ssh-config` virou base neutra, `configs/ssh-config.linux` deletado; `withSSHOSOverlay` injeta o delta por OS no deploy — mesmo padrão da 2d, idempotente e pass-through em template sem âncora; golden tests pinam o deployado byte-idêntico aos templates antigos; gate verde) Detalhe original:
       `configs/ssh-config:1-30` vs
       `ssh-config.linux:1-33`: delta = linux adiciona `ControlMaster/
       ControlPath/ControlPersist` (`:11-13`), windows adiciona
@@ -793,7 +793,7 @@ hook.
       (`:11-16`). Fix: 1 shim parametrizado (ou symlinks gerados) + 1
       entrada `shell.yaml` com lista em vez de 7.
       Verificação: hooks instalados byte-idênticos + gate cheio.
-- [ ] **T4 — embed: excluir o desnecessário + erro explícito.**
+- [x] **T4 — embed: excluir o desnecessário + erro explícito.** (feito 2026-10-06: fallback disco-CWD removido de `readManifestFile` — com `localDir` vazio a resolução é sempre embed com erro explícito nomeando o manifesto; teste novo `TestEmbeddedOnlyLoadWithoutLocalDir` pinia; `.gitkeep` de `manifests/`/`configs/` removidos; `all:` mantido e documentado — obrigatório p/ `_envctl-delegate`, embed sem `all:` excluiria arquivos iniciados por `_`/`.`; `envctl-verify` e `pw*` em `configs/bin/` são referenciados pelo `shell.yaml`, logo permanecem embedados) Detalhe original:
       `assets.go:9` (`//go:embed all:manifests all:configs`) inclui tudo
       (`bin/`, `emulators/`, `git/hooks/`, `.gitkeep`); modo de falha
       provado (binário velho/dir errado = "Already up to date" silencioso,
