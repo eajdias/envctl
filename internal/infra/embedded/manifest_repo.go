@@ -28,7 +28,12 @@ func NewManifestRepository(embeddedFS fs.FS, localDir string) *ManifestRepositor
 }
 
 func (m *ManifestRepository) readManifestFile(filename string) ([]byte, error) {
-	readLocal := func(path string) ([]byte, error) {
+	// A local manifest override is authoritative when the caller provides a
+	// localDir (development workflow or tests). Only a missing file falls
+	// through to the embedded asset; permission/I/O errors must not silently
+	// activate a different profile.
+	if m.localDir != "" {
+		path := filepath.Join(m.localDir, "manifests", filename)
 		data, err := os.ReadFile(path)
 		if err == nil {
 			return data, nil
@@ -36,30 +41,16 @@ func (m *ManifestRepository) readManifestFile(filename string) ([]byte, error) {
 		if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("failed to read local manifest %s: %w", path, err)
 		}
-		return nil, nil
+		// file not found in localDir — fall through to embedded
 	}
 
-	// A local manifest is authoritative when present. Only a missing file may
-	// fall through to the embedded asset; permission/I/O errors must not
-	// silently activate a different profile.
-	if m.localDir != "" {
-		if data, err := readLocal(filepath.Join(m.localDir, "manifests", filename)); err != nil {
-			return nil, err
-		} else if data != nil {
-			return data, nil
-		}
-	}
-	if data, err := readLocal(filepath.Join("manifests", filename)); err != nil {
-		return nil, err
-	} else if data != nil {
-		return data, nil
-	}
-
-	// Fallback to embedded filesystem
+	// Always prefer the embedded FS. A CWD-relative disk read was removed
+	// here: it caused silent stale-manifest reads when the binary was run
+	// from outside the repo root (lessons.md:17-18).
 	embeddedPath := filepath.ToSlash(filepath.Join("manifests", filename))
 	data, err := fs.ReadFile(m.embeddedFS, embeddedPath)
 	if err != nil {
-		return nil, fmt.Errorf("manifest file not found in disk or embedded FS (%s): %w", filename, err)
+		return nil, fmt.Errorf("manifest %q not found in embedded FS: %w", filename, err)
 	}
 	return data, nil
 }
