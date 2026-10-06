@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/infra/executil"
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 type WindowsEnvManager struct{}
@@ -341,19 +341,6 @@ func (e *WindowsEnvManager) EnsureEnvVars(ctx context.Context, vars []entity.Env
 	return diagnostics, nil
 }
 
-// shellBackupPath returns a unique timestamped backup name for a live rc
-// file. Same-second writes get -1, -2, … suffixes so no backup is destroyed.
-func shellBackupPath(livePath string) string {
-	stamp := time.Now().Format("20060102-150405")
-	candidate := livePath + ".bak." + stamp
-	for i := 1; ; i++ {
-		if _, err := os.Stat(candidate); os.IsNotExist(err) {
-			return candidate
-		}
-		candidate = fmt.Sprintf("%s.bak.%s-%d", livePath, stamp, i)
-	}
-}
-
 // EnsurePathEntry guarantees that dir is present in the user PATH,
 // prepending it when missing. Windows: User-scope Path registry value.
 // POSIX: `export PATH="<dir>:$PATH"` in ~/.profile and ~/.bashrc; fish:
@@ -407,7 +394,7 @@ func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bo
 		}
 		if len(data) > 0 {
 			//nolint:gosec // backup path derived from rc.path in user home
-			if err := os.WriteFile(shellBackupPath(rc.path), data, 0600); err != nil {
+			if err := os.WriteFile(filesystem.BackupPathFor(rc.path), data, 0600); err != nil {
 				return changed, fmt.Errorf("failed to back up %s: %w", rc.path, err)
 			}
 		}
