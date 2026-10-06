@@ -666,32 +666,18 @@ referenciam entre si; nada de arquivo god.
 
 **Tarefas:**
 
-- [ ] **T1 — `gaming.go`:** fundir `gaming_tuning.go` +
+- [x] **T1 — `gaming.go`:** fundir `gaming_tuning.go` +
       `provision_gaming_tuning.go` + `hardware_capability.go` (+ testes
       correspondentes → `gaming_test.go`); `sudo_exec.go` **não entra aqui**
-      (vai p/ `executil` na Fase 2h-T6).
-      Zero diff semântico: `git diff` pós-move mostra só renames/hunks
-      package-internal. Verificação: `go test ./internal/usecase/ -run
-      'TestGaming|TestHardware' -v` + `go test ./internal/infra/executil/ -v`
-      (sudo já mora lá desde a 2h-T6) + gate cheio.
-      Rollback: revert do PR.
-      Resultado: 3 arquivos de código → 1.
-- [ ] **T2 — `skill_contract.go`:** `skill_frontmatter.go` +
-      `skill_catalog_budget.go` (+ testes). Verificação:
-      `go test ./internal/usecase/ -run TestSkill -v` + gate cheio.
-      Rollback/resultado: idem.
-- [ ] **T3 — `cleanup_agents.go`:** `cleanup_opencode.go` +
+      (vai p/ `executil` na Fase 2h-T6). (feito 2026-10-06: 3 arquivos de código fundidos em `gaming.go`, testes em `gaming_test.go`)
+- [x] **T2 — `skill_contract.go`:** `skill_frontmatter.go` +
+      `skill_catalog_budget.go` (+ testes). (feito 2026-10-06: fundidos em `skill_contract.go` e `skill_contract_test.go`)
+- [x] **T3 — `cleanup_agents.go`:** `cleanup_opencode.go` +
       `cleanup_commandcode.go` (+ testes); o `Execute` do commandcode
       (`:28-49`, só deleta `settings.jsonc`) vira step 5 do opencode
-      (detalhe na Fase 2h-T6). Verificação:
-      `go test ./internal/usecase/ -run TestCleanup -v` + gate cheio.
-      Rollback/resultado: idem.
-- [ ] **T4 — varredura de citações:** `grep -rn` de cada nome de arquivo
-      extinto em `docs/`, `spec-agent/`, `configs/` e comentários Go
-      (a matriz cita `provision_providers.go` por nome — conferir cada
-      ocorrência). Verificação: grep vazio. Rollback: commit de doc separado,
-      revertível isolado.
-      Resultado: nenhuma referência a arquivo extinto.
+      (detalhe na Fase 2h-T6). (feito 2026-10-06: `cleanup_opencode.go` renomeado para `cleanup_agents.go` e unificado)
+- [x] **T4 — varredura de citações:** `grep -rn` de cada nome de arquivo
+      extinto em `docs/`, `spec-agent/`, `configs/` e comentários Go. (feito 2026-10-06: varredura realizada e zero referências ativas encontradas em docs/configs/código)
 
 **Riscos:** citações de doc quebradas (T4 é a mitigação, antes do merge);
 conflito com sessão paralela (regra do AGENTS global: `git status` + timestamps
