@@ -7,6 +7,13 @@
         irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
     Or with parameters:
         & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1))) -Subsystem lsp
+
+    CONTRACT (mirrored in bootstrap.sh - keep both in sync):
+      REPO=eajdias/envctl | VERSION from -Version (default latest) | asset name
+      envctl-<os>-<arch>.tar.gz (linux) / envctl-windows-<arch>.zip (windows)
+      from .goreleaser.yml | download ladder: local binary -> gh release download ->
+      direct HTTPS (+GITHUB_TOKEN) -> go build from source | then persist install
+      dir on PATH and exec.
 #>
 
 [CmdletBinding()]
@@ -32,11 +39,15 @@ Write-Host "================================================================" -F
 Write-Host "  🚀 envctl: Development Environment Provisioner Bootstrap" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 
-# 1. Architecture Check
-$arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
-if ($arch -ne "amd64") {
-    Write-Error "Unsupported architecture: $arch. envctl requires 64-bit Windows."
+# 1. Architecture detection: 64-bit Windows, amd64 or arm64. The release ships
+#    both envctl-windows-{amd64,arm64}.{exe,zip} (see .goreleaser.yml builds).
+$arch = if (-not [Environment]::Is64BitOperatingSystem) {
+    Write-Error "Unsupported architecture: 32-bit. envctl requires 64-bit Windows."
     exit 1
+} elseif ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
+    "arm64"
+} else {
+    "amd64"
 }
 
 # 2. Check if local compiled envctl exists in current dir
@@ -74,8 +85,8 @@ if (Test-Path $LocalExe -and -not $Force) {
         Write-Host "[*] Downloading envctl via GitHub CLI..." -ForegroundColor Yellow
         try {
             $tagArg = if ($Version -eq "latest") { @() } else { @($Version) }
-            gh release download @tagArg --repo $Repo --pattern "envctl-windows-amd64.zip" --dir $env:TEMP --clobber
-            $downloadedZip = Join-Path $env:TEMP "envctl-windows-amd64.zip"
+            gh release download @tagArg --repo $Repo --pattern "envctl-windows-$arch.zip" --dir $env:TEMP --clobber
+            $downloadedZip = Join-Path $env:TEMP "envctl-windows-$arch.zip"
             if (Test-Path $downloadedZip) {
                 Expand-Archive -Path $downloadedZip -DestinationPath $InstallDir -Force
                 Remove-Item $downloadedZip -Force -ErrorAction SilentlyContinue
@@ -90,9 +101,9 @@ if (Test-Path $LocalExe -and -not $Force) {
     # 2. Try direct WebRequest
     if (-not $downloaded) {
         $DownloadUrl = if ($Version -eq "latest") {
-            "https://github.com/$Repo/releases/latest/download/envctl-windows-amd64.zip"
+            "https://github.com/$Repo/releases/latest/download/envctl-windows-$arch.zip"
         } else {
-            "https://github.com/$Repo/releases/download/$Version/envctl-windows-amd64.zip"
+            "https://github.com/$Repo/releases/download/$Version/envctl-windows-$arch.zip"
         }
 
         Write-Host "[*] Downloading envctl ($Version) from GitHub releases..." -ForegroundColor Yellow

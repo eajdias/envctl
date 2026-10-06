@@ -4,6 +4,13 @@
 #   curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash
 #   curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash -s -- run all
 #   curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | bash -s -- doctor
+#
+# CONTRACT (mirrored in bootstrap.ps1 — keep both in sync):
+#   REPO=eajdias/envctl · VERSION from ${ENVCTL_VERSION:-latest} · asset name
+#   envctl-<os>-<arch>.tar.gz (linux) / envctl-windows-<arch>.zip (windows)
+#   from .goreleaser.yml · download ladder: local binary → gh release download →
+#   direct HTTPS (+GITHUB_TOKEN) → go build from source · then ensure ~/.local/bin
+#   on PATH and exec.
 
 set -euo pipefail
 
