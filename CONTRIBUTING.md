@@ -96,16 +96,13 @@ envctl doctor --fix     # Auto-remediate known issues (optional)
 
 ## Releases
 
-Releases are automated by [release-please](https://github.com/googleapis/release-please).
-Conventional commits on `main` decide the bump: `feat:` → minor, `fix:` → patch,
-`feat!:` / `BREAKING CHANGE:` → major (`chore:`/`docs:`/`test:` do not publish).
+Releases are **manual**: run the Release Pipeline from the Actions tab with a
+version (`vX.Y.Z`). It creates the tag + GitHub release and attaches the
+multi-OS binaries via GoReleaser. Conventional commits are still the convention
+(`feat:`, `fix:`, …), and PRs merge with a **merge commit** (not squash).
 
-- **Never create a tag or edit `CHANGELOG.md`** — the bot owns both.
-- PRs are merged with a **merge commit** (not squash) so the conventional commits land on `main`.
-- After a merge, release-please opens a `chore(main): release X.Y.Z` PR; merging it creates the
-  tag + GitHub release, and the Release Pipeline attaches the multi-OS binaries (this build runs
-  as a job inside the Release Please run, not as a separate workflow run).
-- The release PR carries no CI checks on its branch — that is expected.
+- Move `[Unreleased]` CHANGELOG entries under the new version section when cutting.
+- Never create a tag by hand locally — the pipeline owns tags.
 
 ## Project Structure
 

@@ -159,23 +159,22 @@ Não execute sem autorização específica e plano de recuperação:
 
 ## Releases e histórico
 
-Neste repositório, o `release-please` é dono de `CHANGELOG.md` e das versões publicadas:
+Neste repositório as releases são **manuais** (sem bot): o `CHANGELOG.md` é
+editado à mão e a versão é cortada pelo Release Pipeline (dispatch):
 
-- `feat:` produz uma mudança minor; `fix:` produz patch; `feat!:` ou `BREAKING CHANGE:` produz major;
-- `chore:`, `docs:` e `test:` normalmente não publicam uma versão;
-- não crie tag, seção de versão ou release manualmente;
-- confira o PR de release, o CI e a política de merge antes de aprovar;
-- se um pipeline de release falhar, investigue a causa e use o procedimento oficial do repositório; não repita publicação às cegas.
+- use conventional commits (`feat:`, `fix:`, …) e merge commit (não squash);
+- `CHANGELOG.md`: some entradas em `[Unreleased]`; ao cortar, mova para a seção da versão;
+- nunca crie tag à mão localmente — o pipeline cria tag + release + assets;
+- se o pipeline falhar, investigue a causa; não repita publicação às cegas.
 
 ### Fluxo verificado (envctl)
 
-1. `git fetch origin`; branch a partir de `origin/main` com 1–2 commits convencionais (`feat:` → minor).
+1. `git fetch origin`; branch a partir de `origin/main` com 1–2 commits convencionais.
 2. `git push -u origin HEAD`. Se `gh pr create` abortar com *"you must first push the current branch"* mesmo com a branch publicada (o `-u` não deixa o upstream como remote-tracking branch), passe os refs **explícitos**: `gh pr create --base main --head <branch> --title … --body …`.
-3. `gh pr checks <n> --watch` antes de mergear. O repo usa **merge commit** (não squash) — é o que mantém os commits convencionais na `main` para o bot ler.
-4. Merge → o Release Please abre o PR `chore(main): release X.Y.Z`. Esse PR **não tem checks** no branch dele (`no checks reported … release-please--branches--main`): normal, não bloqueie por `gh pr checks`.
-5. Mergeie o PR de release (toca só `CHANGELOG.md` + `.github/.release-please-manifest.json`). A build dos binários **não** é um run separado: é um job dentro do run do Release Please — release aberto com `GITHUB_TOKEN` não dispara `release: published`, e o `release.yml` entra via `workflow_call`. Confirme com `gh run view <run-id> --json jobs` (procure "Build & attach binaries").
-6. Verifique: `git ls-remote --tags origin | grep vX.Y.Z`, `gh release view vX.Y.Z --json assets`. Lembre que `gh pr merge` pode **não** apagar o branch → `git push origin --delete <branch>` e `git branch -d <branch>`.
-7. `gh release view --json` aceita `tagName`/`assets`/`isPrerelease`; `isLatest` **não** existe ("Unknown JSON field").
+3. `gh pr checks <n> --watch` antes de mergear. O repo usa **merge commit** (não squash).
+4. Para cortar `vX.Y.Z`: Actions → Release Pipeline → `version: vX.Y.Z`. O run cria a tag, o goreleaser cria a release e anexa os 11 assets. Confirme com `git ls-remote --tags origin | grep vX.Y.Z` e `gh release view vX.Y.Z --json assets --jq '.assets[].name'`.
+5. Verifique: `gh release view vX.Y.Z --json assets`. Lembre que `gh pr merge` pode **não** apagar o branch → `git push origin --delete <branch>` e `git branch -d <branch>`.
+6. `gh release view --json` aceita `tagName`/`assets`/`isPrerelease`; `isLatest` **não** existe ("Unknown JSON field").
 
 Para changelog narrativo, derive fatos de `git log` e dos diffs, não de nomes de branch ou de uma suposição sobre o conteúdo.
 

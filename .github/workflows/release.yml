@@ -1,26 +1,16 @@
 name: Release Pipeline
 
-# Builds multi-OS binaries (Windows + Linux) and attaches them to the GitHub Release.
+# Manual releases: run this workflow from the Actions tab with a version
+# (e.g. v1.14.0). It creates the tag and the GitHub release, then builds the
+# multi-OS binaries (Windows + Linux) with GoReleaser and attaches them.
 # macOS/darwin is not a supported target: no manifest uses it, bootstrap.sh rejects it,
 # and the `os:` lint rejects the darwin token, so no darwin binary is built or shipped.
-# Releases are created by release-please (conventional commits); this workflow
-# only builds. It never creates tags — that was the source of the 74-tag pollution.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Existing release tag to (re)build assets for (e.g. v1.4.0)'
+        description: 'Release version to cut (e.g. v1.14.0)'
         required: true
-  # Called by release-please.yml after it creates a release: releases opened
-  # with GITHUB_TOKEN do not fire the `release: published` trigger above.
-  workflow_call:
-    inputs:
-      version:
-        description: 'Release tag to build assets for (e.g. v1.4.0)'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -42,19 +32,23 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Determine Version
+      - name: Validate version and create tag
         id: get_version
-        # The two real callers always supply a version (workflow_call passes
-        # tag_name; `release: published` carries release.tag_name), so a single
-        # fallback chain covers both. Fail fast on a manual rebuild of a
-        # non-existent release.
         run: |
-          VERSION="${{ inputs.version || github.event.release.tag_name }}"
-          gh release view "$VERSION" >/dev/null
+          VERSION="${{ inputs.version }}"
+          case "$VERSION" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "version must look like v1.14.0, got '$VERSION'" >&2; exit 1 ;;
+          esac
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "tag $VERSION already exists" >&2; exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$VERSION"
+          git push origin "$VERSION"
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building Release version: ${VERSION}"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and attach assets with GoReleaser
         uses: goreleaser/goreleaser-action@v7
@@ -63,7 +57,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # release-please owns the tag + release notes; goreleaser only
-          # attaches assets to the existing release (release.mode:
-          # keep-existing + make_latest: false in .goreleaser.yml).
+          # The tag above is the release: goreleaser creates the GitHub
+          # release (default mode) and attaches all 11 assets to it.
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.VERSION }}

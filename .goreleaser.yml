@@ -47,10 +47,9 @@ checksum:
     - glob: ./bootstrap.ps1
 
 release:
-  # release-please owns the tag and notes; goreleaser only attaches assets
-  # through the workflow_call from release-please.yml.
-  mode: keep-existing
-  make_latest: false
+  # Manual flow: the dispatch workflow creates the tag just before this runs;
+  # goreleaser creates the GitHub release (default mode) and attaches every
+  # asset to it, then marks it latest.
   extra_files:
     - glob: ./bootstrap.sh
     - glob: ./bootstrap.ps1

@@ -5,6 +5,10 @@ Todas as alterações notáveis no projeto **`envctl`** serão documentadas nest
 O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+> Releases são manuais (sem bot desde 2026-10-06): some entradas em
+> `[Unreleased]` e mova-as para a seção da versão ao cortar a release
+> (Actions → Release Pipeline → `version: vX.Y.Z`).
+
 ---
 
 ## [1.13.1](https://github.com/eajdias/envctl/compare/v1.13.0...v1.13.1) (2026-10-05)

@@ -4,13 +4,6 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    # release-please PRs touch only CHANGELOG.md + .release-please-manifest.json
-    # (no code), so the CI has nothing to verify there — and the release branch
-    # is force-pushed by the bot, which turns a `pull_request` run into a
-    # spurious "failure"/"action_required". Skip the bot branch so release PRs
-    # stay clean; the real gate runs on the merge to main.
-    branches-ignore:
-      - 'release-please--branches--main'
     # Inverted filter: docs-only PRs skip, but edits to lint config, Makefile
     # or bootstraps still gate (the old `paths:` list missed exactly those).
     paths-ignore:
@@ -26,8 +19,8 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Least privilege: CI only reads. release-please.yml and release.yml own the
-# write scope (releases, assets).
+# Least privilege: CI only reads. release.yml owns the write scope
+# (tags, releases, assets) and only runs on manual dispatch.
 permissions:
   contents: read
 
