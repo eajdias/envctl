@@ -164,6 +164,8 @@ func (uc *DoctorAuditUseCase) auditOpenCodeConfigShape(addDiag func(entity.Diagn
 // template intact; a template that already sets shell, or that is not valid
 // JSON, passes through untouched.
 func withWindowsShellOverlay(content []byte) []byte {
+	// Same checkout normalization as withSSHOSOverlay: CRLF in, LF out.
+	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 	var decoded map[string]json.RawMessage
 	if err := json.Unmarshal(content, &decoded); err != nil {
 		return content

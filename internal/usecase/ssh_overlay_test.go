@@ -135,3 +135,20 @@ func TestSSHOverlayPassesUnknownTemplateThrough(t *testing.T) {
 		t.Errorf("linux overlay changed an unanchored template: %q", got)
 	}
 }
+
+// A Windows checkout carries CRLF (go:embed captures checkout bytes), while the
+// goldens are LF. The overlay must normalize so the deployed bytes are
+// identical regardless of the builder OS (CI caught this on windows-latest).
+func TestSSHOverlayNormalizesCRLFCheckout(t *testing.T) {
+	base, err := envctl.EmbeddedFS.ReadFile("configs/ssh-config")
+	if err != nil {
+		t.Fatalf("read base ssh-config template: %v", err)
+	}
+	crlf := bytes.ReplaceAll(base, []byte("\n"), []byte("\r\n"))
+	if got := withSSHOSOverlay(crlf, false); !bytes.Equal(got, []byte(sshWindowsDeployedGolden)) {
+		t.Errorf("windows overlay on CRLF checkout drifted:\n%s", firstLineDiff(got, sshWindowsDeployedGolden))
+	}
+	if got := withSSHOSOverlay(crlf, true); !bytes.Equal(got, []byte(sshLinuxDeployedGolden)) {
+		t.Errorf("linux overlay on CRLF checkout drifted:\n%s", firstLineDiff(got, sshLinuxDeployedGolden))
+	}
+}

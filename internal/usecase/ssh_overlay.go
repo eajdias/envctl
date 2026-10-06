@@ -14,6 +14,10 @@ import (
 // Insertion is textual on stable anchors and idempotent: a template that
 // already carries the OS lines passes through untouched.
 func withSSHOSOverlay(content []byte, linux bool) []byte {
+	// Normalize first: go:embed captures checkout bytes, and a Windows
+	// checkout carries CRLF while goldens and Linux carry LF. Without this
+	// the same template deploys different bytes per builder OS.
+	content = bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 	if linux {
 		return withLinuxSSHOverlay(content)
 	}
