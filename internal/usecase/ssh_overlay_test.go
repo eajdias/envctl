@@ -144,7 +144,10 @@ func TestSSHOverlayNormalizesCRLFCheckout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read base ssh-config template: %v", err)
 	}
-	crlf := bytes.ReplaceAll(base, []byte("\n"), []byte("\r\n"))
+	// Normalize first: on a Windows checkout base already carries CRLF and a
+	// naive \n -> \r\n pass would double it to \r\r\n.
+	lf := bytes.ReplaceAll(base, []byte("\r\n"), []byte("\n"))
+	crlf := bytes.ReplaceAll(lf, []byte("\n"), []byte("\r\n"))
 	if got := withSSHOSOverlay(crlf, false); !bytes.Equal(got, []byte(sshWindowsDeployedGolden)) {
 		t.Errorf("windows overlay on CRLF checkout drifted:\n%s", firstLineDiff(got, sshWindowsDeployedGolden))
 	}
