@@ -50,16 +50,16 @@ func installSource(binary string) string {
 	return classifyInstallSource(path, home)
 }
 
-// classifyInstallSource names the owner of a binary path: Volta's tool image,
-// envctl's own prefix, or the system. Only the envctl prefix and Volta are safe
+// classifyInstallSource names the owner of a binary path: mise's shims,
+// envctl's own prefix, or the system. Only the envctl prefix and mise are safe
 // for envctl to replace.
 func classifyInstallSource(path, home string) string {
 	normalized := filepath.ToSlash(path)
 	switch {
 	case home == "":
 		return sourceSystem
-	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".volta"))):
-		return sourceVolta
+	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".local", "share", "mise"))):
+		return sourceMise
 	case strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".local"))),
 		strings.HasPrefix(normalized, filepath.ToSlash(filepath.Join(home, ".opencode"))):
 		return sourceEnvctl

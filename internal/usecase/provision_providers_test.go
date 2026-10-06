@@ -20,7 +20,7 @@ func TestFirstVersionToken(t *testing.T) {
 	}{
 		{"1.55.1", "1.55.1"},
 		{"opencode v2.0.5", "2.0.5"},
-		{"volta 2.0.2", "2.0.2"},
+		{"mise 2026.9.9", "2026.9.9"},
 		{"CommandCode CLI v1.56.0 (linux)", "1.56.0"},
 		{"v0.0.55", "0.0.55"},
 		{"no numbers here", ""},
@@ -91,7 +91,7 @@ func TestClassifyInstallSource(t *testing.T) {
 		home string
 		want string
 	}{
-		{filepath.Join(home, ".volta", "bin", "cmdc"), home, sourceVolta},
+		{filepath.Join(home, ".local", "share", "mise", "shims", "cmdc"), home, sourceMise},
 		{filepath.Join(home, ".local", "bin", "opencode"), home, sourceEnvctl},
 		{filepath.Join(home, ".opencode", "bin", "opencode"), home, sourceEnvctl},
 		{"/usr/bin/opencode", home, sourceSystem},
@@ -105,41 +105,55 @@ func TestClassifyInstallSource(t *testing.T) {
 }
 
 // The update path is chosen by comparing this token inside a switch; a display
-// string that differs only by case silently sent Volta tools down the "leave it
+// string that differs only by case silently sent npm tools down the "leave it
 // alone" branch.
 func TestSourceLabelIsDisplayOnly(t *testing.T) {
 	home := "/home/user"
-	voltaBin := filepath.Join(home, ".volta", "bin", "cmdc")
-	if got := classifyInstallSource(voltaBin, home); got != sourceVolta {
-		t.Fatalf("Volta path classified as %q, want %q", got, sourceVolta)
+	miseShim := filepath.Join(home, ".local", "share", "mise", "shims", "cmdc")
+	if got := classifyInstallSource(miseShim, home); got != sourceMise {
+		t.Fatalf("mise path classified as %q, want %q", got, sourceMise)
 	}
-	if label := sourceLabel(sourceVolta); label != "Volta" {
-		t.Errorf("sourceLabel(%q) = %q, want %q", sourceVolta, label, "Volta")
+	if label := sourceLabel(sourceMise); label != "mise" {
+		t.Errorf("sourceLabel(%q) = %q, want %q", sourceMise, label, "mise")
 	}
 	if label := sourceLabel(sourceSystem); label != "system package" {
 		t.Errorf("sourceLabel(%q) = %q, want %q", sourceSystem, label, "system package")
 	}
-	for _, source := range []string{sourceVolta, sourceEnvctl, sourceSystem} {
+	for _, source := range []string{sourceMise, sourceEnvctl, sourceSystem} {
 		if label := sourceLabel(source); label == "" {
 			t.Errorf("sourceLabel(%q) is empty", source)
 		}
 	}
 }
 
+// mise shims nest under ~/.local, so the classifier must check the mise
+// prefix before the envctl one or every shim reads as envctl-owned.
+func TestClassifyInstallSourceMiseBeforeEnvctl(t *testing.T) {
+	home := "/home/user"
+	miseShim := filepath.Join(home, ".local", "share", "mise", "shims", "node")
+	if got := classifyInstallSource(miseShim, home); got != sourceMise {
+		t.Errorf("classifyInstallSource(%q) = %q, want %q (mise prefix must win over .local)", miseShim, got, sourceMise)
+	}
+	localBin := filepath.Join(home, ".local", "bin", "cmdc")
+	if got := classifyInstallSource(localBin, home); got != sourceEnvctl {
+		t.Errorf("classifyInstallSource(%q) = %q, want %q", localBin, got, sourceEnvctl)
+	}
+}
+
 // Phase 0 probes must resolve on the toolchain PATH, not the process PATH:
-// under ssh/systemd/agent non-login shells ~/.volta/bin is absent from the
-// process PATH, and the old exec.LookPath probe reported Volta tools as
+// under ssh/systemd/agent non-login shells the mise shims dir is absent from
+// the process PATH, and the old exec.LookPath probe reported npm tools as
 // missing (reinstalling on every run).
-func TestInstalledVersionResolvesVoltaShim(t *testing.T) {
+func TestInstalledVersionResolvesMiseShim(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("volta shim layout under $HOME/.volta is POSIX-only")
+		t.Skip("mise shim layout under $HOME/.local/share/mise is POSIX-only")
 	}
 	tmp := t.TempDir()
-	voltaBin := filepath.Join(tmp, ".volta", "bin")
-	if err := os.MkdirAll(voltaBin, 0755); err != nil {
-		t.Fatalf("MkdirAll volta bin failed: %v", err)
+	miseShims := filepath.Join(tmp, ".local", "share", "mise", "shims")
+	if err := os.MkdirAll(miseShims, 0755); err != nil {
+		t.Fatalf("MkdirAll mise shims failed: %v", err)
 	}
-	shim := filepath.Join(voltaBin, "fakecli")
+	shim := filepath.Join(miseShims, "fakecli")
 	if err := os.WriteFile(shim, []byte("#!/bin/sh\necho 'fakecli v9.9.9'\n"), 0755); err != nil {
 		t.Fatalf("WriteFile shim failed: %v", err)
 	}
@@ -149,8 +163,8 @@ func TestInstalledVersionResolvesVoltaShim(t *testing.T) {
 	if got := installedVersion(context.Background(), "fakecli"); got != "9.9.9" {
 		t.Errorf("installedVersion(fakecli) = %q, want %q (shim invisible on process PATH, visible on toolchain PATH)", got, "9.9.9")
 	}
-	if got := installSource("fakecli"); got != sourceVolta {
-		t.Errorf("installSource(fakecli) = %q, want %q", got, sourceVolta)
+	if got := installSource("fakecli"); got != sourceMise {
+		t.Errorf("installSource(fakecli) = %q, want %q", got, sourceMise)
 	}
 }
 
@@ -162,13 +176,13 @@ func TestProviderCLIsAreInstallable(t *testing.T) {
 		if tool.name == "" || tool.binary == "" {
 			t.Errorf("provider entry is incomplete: %+v", tool)
 		}
-		if tool.voltaPkg == "" && tool.windowsInstaller == "" && tool.installer == "" {
+		if tool.npmPkg == "" && tool.windowsInstaller == "" && tool.installer == "" {
 			t.Errorf("%s has no install path at all", tool.name)
 		}
-		if onWindows && tool.voltaPkg == "" && tool.windowsInstaller == "" {
+		if onWindows && tool.npmPkg == "" && tool.windowsInstaller == "" {
 			t.Errorf("%s has no Windows install path", tool.name)
 		}
-		if !onWindows && tool.voltaPkg == "" && tool.installer == "" {
+		if !onWindows && tool.npmPkg == "" && tool.installer == "" {
 			t.Errorf("%s has no Linux install path", tool.name)
 		}
 	}

@@ -18,10 +18,10 @@ import (
 )
 
 // ProvisionBootstrapUseCase installs the Linux toolchain required to replicate
-// the global OpenCode and CommandCode environments on Ubuntu servers: Volta +
+// the global OpenCode and CommandCode environments on Ubuntu servers: mise +
 // Node, the OpenCode CLI, the CommandCode CLI, and the user-local CLI tools
 // (gh, delta, yq, uv, ruff, stylelint, golangci-lint, fd).
-// It is a no-op on Windows, where winget/volta packages cover the toolchain.
+// It is a no-op on Windows, where winget packages + mise cover the toolchain.
 type ProvisionBootstrapUseCase struct {
 	fsManager    *filesystem.FileSystemManager
 	envManager   *environment.WindowsEnvManager
@@ -47,7 +47,7 @@ func (uc *ProvisionBootstrapUseCase) userHome() string {
 	return home
 }
 
-// shellEnv returns an environment that makes Volta shims (~/.volta/bin) and
+// shellEnv returns an environment that makes mise shims (~/.local/share/mise/shims) and
 // user-local binaries (~/.local/bin) available on PATH, without mutating the
 // process environment.
 func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
@@ -69,7 +69,7 @@ func toolAvailable(name string) bool {
 	return err == nil
 }
 
-// ensureProcessToolchainPath mutates the process environment so that Volta
+// ensureProcessToolchainPath mutates the process environment so that mise
 // shims, user-local binaries and Go are resolvable by subsequent provisioning
 // steps running in the same process.
 func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
@@ -82,15 +82,12 @@ func (uc *ProvisionBootstrapUseCase) ensureProcessToolchainPath() {
 	if !strings.Contains(cur, dirs[0]) || !strings.Contains(cur, dirs[1]) || !strings.Contains(cur, dirs[2]) {
 		os.Setenv("PATH", strings.Join(append(dirs, cur), string(os.PathListSeparator)))
 	}
-	if os.Getenv("VOLTA_HOME") == "" {
-		os.Setenv("VOLTA_HOME", filepath.Join(home, ".volta"))
-	}
 	if os.Getenv("GOPATH") == "" {
 		os.Setenv("GOPATH", filepath.Join(home, "go"))
 	}
 }
 
-// runShell executes a bash script with the Volta-aware environment.
+// runShell executes a bash script with the toolchain-aware environment.
 func (uc *ProvisionBootstrapUseCase) runShell(ctx context.Context, script string) (string, error) {
 	cmd := exec.CommandContext(ctx, "bash", "-lc", script)
 	cmd.Env = uc.shellEnv()
@@ -107,7 +104,7 @@ func (uc *ProvisionBootstrapUseCase) runShellStdout(ctx context.Context, script 
 	return strings.TrimSpace(string(out)), err
 }
 
-// hasTool reports whether a binary is resolvable on the Volta-aware PATH.
+// hasTool reports whether a binary is resolvable on the toolchain-aware PATH.
 func (uc *ProvisionBootstrapUseCase) hasTool(ctx context.Context, name string) bool {
 	_, err := uc.runShell(ctx, "command -v "+name+" >/dev/null 2>&1")
 	return err == nil
@@ -336,58 +333,56 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 		result.Diagnostics = append(result.Diagnostics, entity.OK(
 			"LinuxBootstrap",
 			"toolchain bootstrap",
-			"Skipped on Windows (toolchain provisioned via winget/volta packages)",
+			"Skipped on Windows (toolchain provisioned via winget packages + mise)",
 		))
 		return result, nil
 	}
 
-	// Expose the Volta/user-local toolchain dirs to the current process so that
+	// Expose the mise/user-local toolchain dirs to the current process so that
 	// subsequent provisioning steps (shell npm install, LSP installs) can resolve
 	// the binaries installed below.
 	uc.ensureProcessToolchainPath()
 
-	// 1. Volta (mandatory) - official installer.
-	uc.step(ctx, result, "volta", "Volta JS toolchain manager",
-		"curl -fsSL https://get.volta.sh | bash")
+	// 1. mise (mandatory) - official installer.
+	uc.step(ctx, result, "mise", "mise dev-tool manager",
+		"curl -fsSL https://mise.run | sh")
 
-	// 2. Node.js LTS + pnpm via Volta (mirrors the Windows pin from packages.yaml). Idempotent.
+	// 2. Node.js LTS + pnpm via mise (mirrors the Windows pin from packages.yaml). Idempotent.
 	nodeSpec := "node@24.19.0"
 	if pkgs, err := uc.manifestRepo.LoadPackages(); err == nil {
 		for _, p := range pkgs {
-			if p.Type == entity.PackageTypeVolta && strings.HasPrefix(p.ID, "node@") {
+			if p.Type == entity.PackageTypeMise && strings.HasPrefix(p.ID, "node@") {
 				nodeSpec = p.ID
 				break
 			}
 		}
 	}
-	if uc.hasTool(ctx, "volta") {
-		uc.logger.Info("LinuxBootstrap: ensuring Node.js %s + pnpm via Volta", nodeSpec)
-		out, err := uc.runShell(ctx, "volta install "+nodeSpec+" pnpm")
+	if uc.hasTool(ctx, "mise") {
+		uc.logger.Info("LinuxBootstrap: ensuring Node.js %s + pnpm via mise", nodeSpec)
+		out, err := uc.runShell(ctx, "mise use -g "+nodeSpec+" pnpm")
 		if err != nil {
-			uc.logger.Error("LinuxBootstrap: volta install failed: %s (%s)", out, err)
+			uc.logger.Error("LinuxBootstrap: mise install failed: %s (%s)", out, err)
 			result.Diagnostics = append(result.Diagnostics, entity.Warn(
 				"LinuxBootstrap",
 				"Node.js + pnpm",
-				fmt.Sprintf("volta install failed: %v (%s)", err, out),
-				"Run 'volta install "+nodeSpec+" pnpm' manually",
+				fmt.Sprintf("mise install failed: %v (%s)", err, out),
+				"Run 'mise use -g "+nodeSpec+" pnpm' manually",
 			))
 		} else {
 			result.Diagnostics = append(result.Diagnostics, entity.OK(
 				"LinuxBootstrap",
 				"Node.js + pnpm",
-				"Provisioned via Volta ("+nodeSpec+")",
+				"Provisioned via mise ("+nodeSpec+" + pnpm)",
 			))
 		}
 	}
 
-	// 2b. Expose Volta on interactive shells. get.volta.sh can skip rc-file
-	// integration when run non-interactively, leaving volta off the PATH of
-	// future login shells. The $HOME form keeps the entry portable and matches
-	// what EnsurePathEntry's guard looks for; VOLTA_HOME itself is exported by
-	// the toolchain env (shellEnv), so only the PATH entry is persisted here.
-	if uc.hasTool(ctx, "volta") {
-		uc.logger.Info("LinuxBootstrap: ensuring Volta is exported on interactive shells")
-		uc.pathStep(ctx, result, "Volta shell integration", "$HOME/.volta/bin")
+	// 2b. Expose mise shims on interactive shells. The shims directory only
+	// exists after the first `mise install`, so persist the literal
+	// $HOME/.local/share/mise/shims form unconditionally once mise is present.
+	if uc.hasTool(ctx, "mise") {
+		uc.logger.Info("LinuxBootstrap: ensuring mise shims are exported on interactive shells")
+		uc.pathStep(ctx, result, "mise shims integration", "$HOME/.local/share/mise/shims")
 	}
 
 	// 2c. Bun runtime - fast JS/TS runtime. Browser automation CLIs
@@ -395,7 +390,7 @@ func (uc *ProvisionBootstrapUseCase) Execute(ctx context.Context) (*BootstrapRes
 	// `bunx <pkg>@<version>`, so bun must be resolvable on PATH.
 	uc.step(ctx, result, "bun", "Bun JS/TS runtime",
 		`set -e
-export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 mkdir -p "$HOME/.local/bin"
 npm install -g --no-audit --no-fund --prefix "$HOME/.local" bun
 ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
@@ -406,7 +401,7 @@ ln -sf "$HOME/.local/bin/bun" "$HOME/.local/bin/bunx"`)
 	// CLI's own installer so versions never drift.
 	if uc.hasTool(ctx, "bun") {
 		uc.logger.Info("LinuxBootstrap: ensuring Playwright CLI browsers")
-		out, err := uc.runShell(ctx, `export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+		out, err := uc.runShell(ctx, `export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 bunx @playwright/cli@latest install-browser chromium`)
 		if err != nil {
 			uc.logger.Error("LinuxBootstrap: playwright install-browser failed: %s (%s)", out, err)
@@ -433,7 +428,7 @@ bunx @playwright/cli@latest install-browser chromium`)
 	// 3.5. CommandCode CLI - npm global (user prefix).
 	uc.step(ctx, result, "cmdc", "CommandCode CLI",
 		`set -e
-export PATH="$HOME/.volta/bin:$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 npm install -g --no-audit --no-fund --prefix "$HOME/.local" command-code`)
 
 	// 4. GitHub CLI (gh) - official release tarball into ~/.local/bin.
@@ -566,9 +561,12 @@ cd "$BUILD/paru-bin" && makepkg -si --noconfirm >/dev/null 2>&1`)
 		}
 	}
 
-	// 11. Stylelint - CSS/SCSS linter (mirrors the Windows volta global package).
+	// 11. Stylelint - CSS/SCSS linter (mirrors the npm global; installed with
+	// the same prefix pattern as bun above so no sudo is ever needed).
 	uc.step(ctx, result, "stylelint", "Stylelint CSS/SCSS linter",
-		"volta install stylelint")
+		`set -e
+export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+npm install -g --no-audit --no-fund --prefix "$HOME/.local" stylelint`)
 
 	// 12. golangci-lint - the Go lint gate used by CI and by envctl-verify.
 	// Without it here, the verifier's lint check silently skips on a fresh
@@ -578,23 +576,17 @@ cd "$BUILD/paru-bin" && makepkg -si --noconfirm >/dev/null 2>&1`)
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$HOME/.local/bin" >/dev/null
 "$HOME/.local/bin/golangci-lint" --version`)
 
-	// 13. Go SDK - official tarball into /usr/local/go (requires sudo).
-	// The prior install must be removed first: extracting over an old SDK
-	// leaves orphaned stdlib/packages that corrupt builds (official guidance).
+	// 13. Go SDK - user-local via mise (no sudo, no /usr/local writes). A
+	// machine migrated from the old tarball install converges here: the mise
+	//-managed `go` wins on PATH once the shims dir precedes /usr/local/go/bin.
 	uc.step(ctx, result, "go", "Go programming language SDK",
 		`set -e
-ARCH=$(uname -m); case "$ARCH" in x86_64|amd64) GO_ARCH=amd64;; aarch64|arm64) GO_ARCH=arm64;; *) echo "Unsupported arch: $ARCH"; exit 1;; esac
-GO_VER=$(curl -fsSL https://go.dev/VERSION?m=text | head -1)
-curl -fsSL "https://go.dev/dl/${GO_VER}.linux-${GO_ARCH}.tar.gz" -o /tmp/envctl-go.tar.gz
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf /tmp/envctl-go.tar.gz
-rm -f /tmp/envctl-go.tar.gz
-echo "Installed ${GO_VER}"`)
+mise use -g go@latest
+go version`)
 
-	// 14. Persist the Go PATH in shell profiles so future login shells find go
-	// and gopls. One target, two dirs — replaces the old goPathInstaller
-	// shell script; each line is independently idempotent.
-	uc.pathStep(ctx, result, "Persist Go PATH in shell profiles", "/usr/local/go/bin", "$HOME/go/bin")
+	// 14. Persist the Go bin dir in shell profiles so future login shells find
+	// `go install`-built tools. mise shims are covered by step 2b above.
+	uc.pathStep(ctx, result, "Persist Go PATH in shell profiles", "$HOME/go/bin")
 
 	// 15. hadolint - Dockerfile linter (no apt/pacman package upstream; same
 	// release-binary pattern as gh/delta/yq). envctl-verify lints changed

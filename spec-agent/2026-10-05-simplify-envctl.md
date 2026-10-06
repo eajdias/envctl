@@ -1,5 +1,7 @@
 # Spec — Simplificação do envctl: código, CI/CD e rotina de teste multi-OS
 
+> **Placar compacto (feito × falta): `2026-10-06-simplify-status.md` — este arquivo fica como detalhe.**
+
 **Data:** 2026-10-05
 **Roadmap:** próximo do item 6 (rename) — esta spec nasce da análise de sessão
 (`análise por que commandcode/opencode não atualizam` → `volta x mise x fnm` →

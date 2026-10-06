@@ -54,7 +54,7 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       Verificação: `go test ./internal/infra/toolchain/ -v` + gate.
       Rollback: deletar o arquivo (nada o referencia).
       Resultado: manager compila e testa isolado; volta intocado.
-- [ ] **M2 — bootstrap: `ensureVolta` → `ensureMise` + Go via mise.**
+- [x] **M2 — bootstrap: `ensureVolta` → `ensureMise` + Go via mise.** (feito 2026-10-06: `mise use -g node@<spec> pnpm`, tarball Go → `mise use -g go@latest` + `go version`, stylelint/cmdc via npm prefix, pathStep shims; providers em paralelo via subagent)
       Arquivos: `internal/usecase/provision_bootstrap.go` (+ teste).
       `volta install node@24 pnpm` (`:365`) → `mise install node@24 pnpm`
       (canal de instalação do mise por OS — ver U-M1); bloco tarball Go
@@ -81,7 +81,7 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
       GREEN = novos grupos resolvem.
       Verificação: `go test ./internal/usecase/ -run TestUpdate -v` + gate.
       Rollback: revert. Resultado: `rg GroupVolta` vazio.
-- [ ] **M5 — PATH toolchain: `~/.volta/bin` → shims.**
+- [x] **M5 — PATH toolchain: `~/.volta/bin` → shims.** (feito junto no M2: `ToolchainDirs` = opencode/local/shims/`~/go/bin`, sem `/usr/local/go/bin`; `VOLTA_HOME` fora do `ToolchainEnv`; U-M3 resolvido: `~/.local/share/mise/shims` na doc oficial)
       Arquivos: `internal/infra/executil/toolchain.go` (`ToolchainDirs`),
       `provision_bootstrap.go`/`provision_providers.go` (dirs do `pathStep`),
       `internal/infra/environment/env_manager.go` (nada — é genérico).
@@ -129,7 +129,7 @@ ao vivo numa máquina com volta instalado deve convergir sem WARN novo.
 
 | id | pergunta | bloqueia | dono | próximo passo |
 |---|---|---|---|---|
-| U-M1 | canal oficial de instalação por OS (Linux `install.sh`? winget `jdx.mise`? arm64?) | M2 | quem implementar | `gh release view` do mise + teste numa VM/dockur |
+| U-M1 | canal oficial de instalação por OS | M2 | **resolvido 2026-10-06:** Linux `curl https://mise.run \| sh` (→ `~/.local/bin/mise`); Windows `winget install jdx.mise` (doc oficial `installing-mise`, 2026-10-04). arm64 coberto pelo install.sh (checar no M9) |
 | U-M2 | `ListInstalled` mínimo do `MiseManager` (`mise ls --json` estável?) | M1 | quem implementar | `mise ls --help` na versão pinada antes de codar |
 | U-M3 | path exato dos shims (`~/.local/share/mise/shims`?) | M5 | quem implementar | `mise where --help` / `mise doctor` na máquina de teste |
 | U-M4 | `~/.volta` antigo: deletar na migração ou deixar? | M9 | dono | decisão: **deixar** (rollback de máquina); cleanup posterior se quiser |

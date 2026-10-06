@@ -19,8 +19,7 @@ func ToolchainDirs(home string) []string {
 	return []string{
 		filepath.Join(home, ".opencode", "bin"),
 		filepath.Join(home, ".local", "bin"),
-		filepath.Join(home, ".volta", "bin"),
-		"/usr/local/go/bin",
+		filepath.Join(home, ".local", "share", "mise", "shims"),
 		filepath.Join(home, "go", "bin"),
 	}
 }
@@ -30,18 +29,17 @@ func ToolchainPath(home string) string {
 	return strings.Join(append(ToolchainDirs(home), os.Getenv("PATH")), string(os.PathListSeparator))
 }
 
-// ToolchainEnv builds an environment that resolves Volta shims, user-local
+// ToolchainEnv builds an environment that resolves mise shims, user-local
 // binaries and Go, shared by the bootstrap and doctor use cases, without
 // mutating the process environment.
 func ToolchainEnv(home string) []string {
 	env := []string{
 		"PATH=" + ToolchainPath(home),
-		"VOLTA_HOME=" + filepath.Join(home, ".volta"),
 		"GOPATH=" + filepath.Join(home, "go"),
 	}
 	for _, kv := range os.Environ() {
 		key := kv[:strings.IndexByte(kv, '=')]
-		if key == "PATH" || key == "VOLTA_HOME" {
+		if key == "PATH" {
 			continue
 		}
 		env = append(env, kv)
