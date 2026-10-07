@@ -13,6 +13,9 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.14.0](https://github.com/eajdias/envctl/compare/v1.13.1...v1.14.0) (2026-10-07)
+
+
 ### Features
 
 - **doctor:** audit that `envctl` resolves on PATH and warn when the running binary

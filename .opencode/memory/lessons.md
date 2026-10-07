@@ -59,6 +59,7 @@
 - 2026-10-07 ❌ Confiar no probe de binário (`check_command`) para entradas gerenciadas pelo mise → ✅ `mise ls` é a fonte da verdade para IDs com backend (`npm:<pkg>`); binário no PATH sem registro é cópia legada, não instalação (porque o shim legado responde ao probe e o `run` pula a migração para sempre — descoberto quando `run mise` reportou tudo "already installed" via shims Volta).
 - 2026-10-07 ❌ `mise install npm:<pkg-obscuro>` e esperar que passe → ✅ Passar `--yes` (o gate de reputação aube recusa pacotes <1000 downloads/semana em runs não-interativos; o manifesto curado é a decisão de confiança). Prova: `sqllens-language-server` (18 downloads) só instalou com `--yes`.
 - 2026-10-07 ❌ Assumir layout `~/.local` das instalações npm antigas → ✅ Medir antes: nesta máquina tudo era shim Volta (`Volta\bin`, 62 arquivos) sombreando o mise — o sweep precisou cobrir o dir Volta + persistir os shims mise no PATH (porque sem os dois, ou a migração nunca dispara ou o binário novo continua inalcançável).
+- 2026-10-07 ❌ `git commit -m ... -- <paths>` e assumir que foi tudo → ✅ `git status` DEPOIS de commitar: pathspec commita SÓ o listado, e staged fora da lista fica para trás (aqui a deleção do teste ficou `D ` staged, local verde, CI vermelha com `undefined: NewGoManager`).
 
 ## Padrões / Preferências (o que funciona)
 
