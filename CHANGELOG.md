@@ -13,6 +13,9 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.14.1](https://github.com/eajdias/envctl/compare/v1.14.0...v1.14.1) (2026-10-07)
+
+
 ### Refactors
 
 - **toolchain:** `PipManager` is uv-only — tools via isolated `uv tool install`,
