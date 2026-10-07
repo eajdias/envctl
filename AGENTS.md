@@ -54,7 +54,7 @@ docs disagrees with a manifest, the manifest wins — fix the doc.
 ## Conventions
 
 - Code, comments and commits in English; conversation with the user in PT-BR.
-- **Implementation flow:** any implementation touching many files or features follows spec → branch → implement the spec → PR → merge → release. Specs live in `spec-agent/YYYY-MM-DD-<slug>.md` (load `writing-plans` before drafting); releases are cut via the manual Release Pipeline.
+- **Implementation flow:** any implementation touching many files or features follows spec → branch → implement the spec → delete the spec (incorporated) → PR → merge → release. Specs live in `spec-agent/YYYY-MM-DD-<slug>.md` (load `writing-plans` before drafting) and are removed once merged — decisions live on in ADRs, memory and CHANGELOG; releases are cut via the manual Release Pipeline.
 - Idempotent operations with atomic backup (`.bak.YYYYMMDD-HHMMSS`), pruned by
   `keep_newest` (1 per file, recursive); never
   overwrite user-owned content — declare a `merge:` mode or `seed_if_missing`.
