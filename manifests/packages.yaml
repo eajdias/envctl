@@ -351,8 +351,9 @@ packages:
     category: desktop-apps
 
   # ============================================================================
-  # Language Tooling (uv-pip, every platform) — the checkers envctl-verify runs
-  # per stack. Installed through `uv tool` when uv is present, pip otherwise.
+  # Language Tooling (uv-only, every platform) — the checkers envctl-verify runs
+  # per stack. Tools install through `uv tool`, importable libraries through
+  # `uv pip install --system` (uv itself refuses on PEP 668 hosts — no override).
   # ============================================================================
   - id: pytest
     name: pytest (Python test runner)
