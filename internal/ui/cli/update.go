@@ -60,10 +60,10 @@ func runUpdateProvisioning(flags updateFlags) {
 	if flags.only != "" {
 		group := usecase.UpdateGroup(flags.only)
 		switch group {
-		case usecase.GroupMise, usecase.GroupNpm, usecase.GroupUV, usecase.GroupGo:
+		case usecase.GroupMise, usecase.GroupUV:
 			opts.Only = group
 		default:
-			pterm.Error.Printf("  • unknown group %q: use mise, npm, uv or go\n", flags.only)
+			pterm.Error.Printf("  • unknown group %q: use mise or uv\n", flags.only)
 			return
 		}
 	}
@@ -120,7 +120,7 @@ func printUpdateInventory(result *usecase.UpdateResult) {
 	for _, c := range result.Planned {
 		byGroup[c.Group] = append(byGroup[c.Group], c)
 	}
-	for _, group := range []usecase.UpdateGroup{usecase.GroupMise, usecase.GroupNpm, usecase.GroupUV, usecase.GroupGo} {
+	for _, group := range []usecase.UpdateGroup{usecase.GroupMise, usecase.GroupUV} {
 		items := byGroup[group]
 		if len(items) == 0 {
 			continue

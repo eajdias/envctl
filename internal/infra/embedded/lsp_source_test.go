@@ -42,15 +42,15 @@ func TestLSPSingleSource(t *testing.T) {
 		byTarget[l.InstallTarget] = true
 	}
 
-	// The six npm servers formerly duplicated in packages.yaml must resolve
-	// through `run lsp` alone.
+	// The six mise-backed (npm:) servers formerly duplicated in packages.yaml
+	// must resolve through `run lsp` alone.
 	for _, target := range []string{
-		"typescript-language-server",
-		"pyright",
-		"bash-language-server",
-		"yaml-language-server",
-		"dockerfile-language-server-nodejs",
-		"vscode-langservers-extracted",
+		"npm:typescript-language-server",
+		"npm:pyright",
+		"npm:bash-language-server",
+		"npm:yaml-language-server",
+		"npm:dockerfile-language-server-nodejs",
+		"npm:vscode-langservers-extracted",
 	} {
 		if !byTarget[target] {
 			t.Errorf("install_target %q missing from lsp.yaml: `run lsp` would not install it", target)

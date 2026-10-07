@@ -30,6 +30,13 @@ func (m *MiseManager) IsAvailable(ctx context.Context) bool {
 }
 
 func (m *MiseManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
+	// Backend tools (npm:<pkg>) are owned by mise: the `mise ls` record is
+	// the truth. A PATH binary without a record is a legacy (volta,
+	// npm-prefix) copy that the sweep archives after install — probing it
+	// here would report "installed" forever and skip the migration.
+	if hasMiseBackend(pkg.ID) {
+		return m.lsInstalled(ctx, miseToolName(pkg.ID))
+	}
 	// If custom check_command is specified, verify execution
 	if pkg.CheckCommand != "" {
 		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
@@ -37,10 +44,19 @@ func (m *MiseManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool
 		}
 	}
 
-	// Inspect `mise ls <tool> --json` (array of version records)
-	tool := miseToolName(pkg.ID)
+	return m.lsInstalled(ctx, miseToolName(pkg.ID))
+}
+
+// hasMiseBackend reports whether an id carries a backend prefix
+// ("npm:prettier"). Runtimes ("node@24.19.0") have none.
+func hasMiseBackend(pkgID string) bool {
+	return strings.Index(pkgID, ":") > 0
+}
+
+// lsInstalled inspects `mise ls <tool> --json` (array of version records).
+func (m *MiseManager) lsInstalled(ctx context.Context, tool string) (bool, string, error) {
 	if tool == "" {
-		return false, "", fmt.Errorf("mise: cannot derive tool name from %q", pkg.ID)
+		return false, "", fmt.Errorf("mise: cannot derive tool name from %q", tool)
 	}
 	cmd := executil.ExecTool(ctx, "mise", "ls", tool, "--json")
 	out, err := cmd.CombinedOutput()
@@ -52,12 +68,16 @@ func (m *MiseManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool
 	return found, info, nil
 }
 
-// miseToolName strips a version qualifier (node@24.19.0 -> node). A leading
-// "@" with nothing before it is not a tool name.
+// miseToolName derives the `mise ls` query from a manifest ID, keeping a
+// backend prefix ("npm:") and never stripping a scope ("@scope/pkg" has no
+// version). A "@suffix" is cut only when the head is a real tool name.
 func miseToolName(pkgID string) string {
 	name := pkgID
 	if i := strings.LastIndex(name, "@"); i > 0 {
-		name = name[:i]
+		head := name[:i]
+		if head != "" && !strings.HasSuffix(head, ":") {
+			name = head
+		}
 	}
 	if name == "" || name == "@" {
 		return ""
@@ -94,7 +114,11 @@ func miseLsRecordsInstalled(jsonOut string) (bool, string) {
 }
 
 func (m *MiseManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := executil.ExecTool(ctx, "mise", "install", pkg.ID)
+	// --yes reaches the embedded aube reputation gate (e.g. low weekly
+	// downloads): the manifest is the trust decision, and a provisioner
+	// cannot answer an interactive prompt. Without it, curated niche tools
+	// fail closed in non-interactive runs.
+	cmd := executil.ExecTool(ctx, "mise", "install", "--yes", pkg.ID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("mise install %s failed: %s (%w)", pkg.ID, string(out), err)

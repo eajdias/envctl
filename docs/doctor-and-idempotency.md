@@ -97,8 +97,7 @@ envctl doctor --fix
 ## 🔄 Idempotência Estrita & Backup Atômico
 
 O `doctor` só **relata**: não muta a máquina sem `--fix`. O `envctl update` é o oposto — ele
-muda, e é por isso que tem escopo próprio: só mecanismos user-local (`mise` runtimes,
-`npm -g`, `uv tool`, `go install`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
+muda, e é por isso que tem escopo próprio: só mecanismos user-local (`mise` runtimes + ferramentas, `uv tool`), nunca gerenciador de SO, porque *partial upgrade* no Arch quebra o sistema.
 Para saber o que está atrás sem mudar nada: `envctl update --list` (nem toca a rede) ou
 `envctl update --dry-run`.
 

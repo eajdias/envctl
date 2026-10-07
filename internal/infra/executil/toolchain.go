@@ -24,6 +24,30 @@ func ToolchainDirs(home string) []string {
 	}
 }
 
+// MiseShimDir is where `mise install` links shims: %LOCALAPPDATA% on
+// Windows, ~/.local/share/mise on POSIX.
+func MiseShimDir(home string) string {
+	if runtime.GOOS == "windows" {
+		if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
+			return filepath.Join(localApp, "mise", "shims")
+		}
+	}
+	return filepath.Join(home, ".local", "share", "mise", "shims")
+}
+
+// VoltaBinDir locates the legacy Volta shim directory from the pre-mise
+// toolchain era. Volta shims shadow mise shims on PATH, so the legacy sweep
+// archives them once the mise shim for the same binary exists.
+func VoltaBinDir(home string) string {
+	if runtime.GOOS == "windows" {
+		if localApp := os.Getenv("LOCALAPPDATA"); localApp != "" {
+			return filepath.Join(localApp, "Volta", "bin")
+		}
+		return ""
+	}
+	return filepath.Join(home, ".volta", "bin")
+}
+
 // ToolchainPath joins ToolchainDirs with the process PATH.
 func ToolchainPath(home string) string {
 	return strings.Join(append(ToolchainDirs(home), os.Getenv("PATH")), string(os.PathListSeparator))

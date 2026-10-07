@@ -26,6 +26,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 - **temp:** classify third-party installer/updater caches and attribute the
   TempFolder warning by dominant owner (scratch = WARN, third-party = INFO).
 
+### Refactors
+
+- **toolchain:** absorb npm into mise (`mise install npm:<pkg>`, `--yes` past
+  the aube reputation gate) and drop the go manager with the `gopls` LSP:
+  `NpmManager`/`GoManager`, `PackageTypeNpm`/`PackageTypeGo` and
+  `GroupNpm`/`GroupGo` deleted; `run mise`/`run lsp` archive stale
+  npm-prefix/Volta shims once the mise shim exists, and `run shell`
+  persists the mise shims dir ahead of `~/.local/bin` on PATH.
+
 ## [1.13.1](https://github.com/eajdias/envctl/compare/v1.13.0...v1.13.1) (2026-10-05)
 
 

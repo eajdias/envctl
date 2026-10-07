@@ -8,9 +8,7 @@ type PackageType string
 const (
 	PackageTypeWinget PackageType = "winget"
 	PackageTypeMise   PackageType = "mise"
-	PackageTypeNpm    PackageType = "npm"
 	PackageTypePip    PackageType = "pip"
-	PackageTypeGo     PackageType = "go"
 	PackageTypeApt    PackageType = "apt"
 	PackageTypePacman PackageType = "pacman"
 	PackageTypeParu   PackageType = "paru"

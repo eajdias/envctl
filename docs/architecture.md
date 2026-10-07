@@ -79,9 +79,8 @@ Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
 - **Gerenciadores de Pacotes Concretos**:
   - `WingetManager`: `winget.exe install --exact --id ... --silent --accept-package-agreements`
   - `AptManager`: `apt-get install -y --no-install-recommends ...`
-  - `MiseManager`: `mise install ...`
-  - `GoManager`: `go install ...@latest`
-  - `PipManager`: `pip install ...` / `uv pip install ...`
+  - `MiseManager`: `mise install ...` (runtimes + ferramentas via backends, ex.: `npm:<pkg>`)
+  - `PipManager`: `uv tool install ...` (preferido, PEP 668-safe) / `pip install ... --break-system-packages` (fallback)
 - **Filesystem Atômico**: Cria backups com formato `.bak.YYYYMMDD-HHMMSS` antes de modificar qualquer arquivo existente em disco caso o hash SHA-256 do conteúdo tenha divergido.
 
 ### 4. Camada de Apresentação & UI (`internal/ui/cli`)

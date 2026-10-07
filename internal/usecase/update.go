@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/infra/toolchain"
 )
 
 // UpdateGroup identifies an install mechanism family. Only the families whose
@@ -19,9 +18,7 @@ type UpdateGroup string
 
 const (
 	GroupMise UpdateGroup = "mise"
-	GroupNpm  UpdateGroup = "npm"
 	GroupUV   UpdateGroup = "uv"
-	GroupGo   UpdateGroup = "go"
 )
 
 // automatableGroup maps a manifest install type to the group that can update it.
@@ -30,12 +27,8 @@ func automatableGroup(installType entity.PackageType) (UpdateGroup, bool) {
 	switch installType {
 	case entity.PackageTypeMise:
 		return GroupMise, true
-	case entity.PackageTypeNpm:
-		return GroupNpm, true
 	case entity.PackageTypePip:
 		return GroupUV, true
-	case entity.PackageTypeGo:
-		return GroupGo, true
 	default:
 		return "", false
 	}
@@ -52,12 +45,8 @@ func updateCommand(group UpdateGroup, target string) string {
 	switch group {
 	case GroupMise:
 		return "mise install " + target + pin
-	case GroupNpm:
-		return "npm install -g " + target + pin
 	case GroupUV:
 		return "uv tool upgrade " + target
-	case GroupGo:
-		return "go install " + target + pin
 	default:
 		return ""
 	}
@@ -88,12 +77,10 @@ func (e *realUpdateEnv) installedVersion(binary string) string {
 
 func (e *realUpdateEnv) latestVersion(group UpdateGroup, target string) string {
 	switch group {
-	case GroupMise, GroupNpm:
-		return npmLatest(context.Background(), target)
+	case GroupMise:
+		return npmLatest(context.Background(), strings.TrimPrefix(target, "npm:"))
 	case GroupUV:
 		return uvToolVersionOf(context.Background(), target)
-	case GroupGo:
-		return goLatestOf(target)
 	default:
 		return ""
 	}
@@ -105,18 +92,8 @@ func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, targ
 	switch group {
 	case GroupMise:
 		name, args = "mise", []string{"install", target + "@latest"}
-	case GroupNpm:
-		// Same user-local prefix as NpmManager: a bare `npm install -g`
-		// lands in a root-owned system directory on Arch/Debian.
-		// The display command (updateCommand) shows the portable form.
-		name, args = "npm", []string{"install", "-g", target + "@latest"}
-		if prefix, err := toolchain.UserLocalPrefix(); err == nil {
-			args = []string{"install", "-g", "--prefix", prefix, target + "@latest"}
-		}
 	case GroupUV:
 		name, args = "uv", []string{"tool", "upgrade", target}
-	case GroupGo:
-		name, args = "go", []string{"install", target + "@latest"}
 	default:
 		return "", errUnautomatableGroup
 	}

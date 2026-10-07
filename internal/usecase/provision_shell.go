@@ -15,6 +15,7 @@ import (
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/embedded"
 	"github.com/eajdias/envctl/internal/infra/environment"
+	"github.com/eajdias/envctl/internal/infra/executil"
 	"github.com/eajdias/envctl/internal/infra/filesystem"
 	"github.com/eajdias/envctl/internal/infra/git"
 )
@@ -95,6 +96,18 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				uc.logger.Warn("Failed to ensure ~/.local/bin on PATH: %v", err)
 			} else if changed {
 				uc.logger.LogIdempotency("Environment", "PATH", false, "~/.local/bin prepended to user PATH")
+			}
+		}
+		// Mise shims must precede ~/.local/bin (ToolchainDirs order): legacy
+		// npm-prefix copies archived by the sweep stay shadowed otherwise.
+		// EnsurePathEntry prepends, and this runs after the block above.
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			if shimDir := executil.MiseShimDir(home); shimDir != "" {
+				if changed, err := uc.envManager.EnsurePathEntry(ctx, shimDir); err != nil {
+					uc.logger.Warn("Failed to ensure mise shims on PATH: %v", err)
+				} else if changed {
+					uc.logger.LogIdempotency("Environment", "PATH", false, "mise shims prepended to user PATH")
+				}
 			}
 		}
 	}

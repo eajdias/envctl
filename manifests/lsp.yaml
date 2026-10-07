@@ -10,8 +10,8 @@ lsps:
     server_name: "TypeScript Language Server"
     command: "typescript-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "typescript-language-server"
+    install_type: mise
+    install_target: "npm:typescript-language-server"
     check_binary: "typescript-language-server"
 
   - id: pyright
@@ -19,26 +19,17 @@ lsps:
     server_name: "Pyright Language Server"
     command: "pyright-langserver"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "pyright"
+    install_type: mise
+    install_target: "npm:pyright"
     check_binary: "pyright-langserver"
-
-  - id: gopls
-    language: go
-    server_name: "Go Language Server"
-    command: "gopls"
-    args: []
-    install_type: go
-    install_target: "golang.org/x/tools/gopls@latest"
-    check_binary: "gopls"
 
   - id: bash
     language: bash
     server_name: "Bash Language Server"
     command: "bash-language-server"
     args: ["start"]
-    install_type: npm
-    install_target: "bash-language-server"
+    install_type: mise
+    install_target: "npm:bash-language-server"
     check_binary: "bash-language-server"
 
   - id: sql
@@ -46,8 +37,8 @@ lsps:
     server_name: "SQL Lens Language Server"
     command: "sqllens-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "sqllens-language-server"
+    install_type: mise
+    install_target: "npm:sqllens-language-server"
     check_binary: "sqllens-language-server"
 
   - id: html
@@ -55,8 +46,8 @@ lsps:
     server_name: "VSCode HTML Language Server"
     command: "vscode-html-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "vscode-langservers-extracted"
+    install_type: mise
+    install_target: "npm:vscode-langservers-extracted"
     check_binary: "vscode-html-language-server"
 
   - id: json
@@ -64,8 +55,8 @@ lsps:
     server_name: "VSCode JSON Language Server"
     command: "vscode-json-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "vscode-langservers-extracted"
+    install_type: mise
+    install_target: "npm:vscode-langservers-extracted"
     check_binary: "vscode-json-language-server"
 
   - id: yaml-ls
@@ -73,8 +64,8 @@ lsps:
     server_name: "YAML Language Server"
     command: "yaml-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "yaml-language-server"
+    install_type: mise
+    install_target: "npm:yaml-language-server"
     check_binary: "yaml-language-server"
 
   - id: dockerfile
@@ -82,8 +73,8 @@ lsps:
     server_name: "Dockerfile Language Server"
     command: "docker-langserver"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "dockerfile-language-server-nodejs"
+    install_type: mise
+    install_target: "npm:dockerfile-language-server-nodejs"
     check_binary: "docker-langserver"
 
   - id: css
@@ -91,8 +82,8 @@ lsps:
     server_name: "VSCode CSS Language Server"
     command: "vscode-css-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "vscode-langservers-extracted"
+    install_type: mise
+    install_target: "npm:vscode-langservers-extracted"
     check_binary: "vscode-css-language-server"
 
   - id: markdown
@@ -100,8 +91,8 @@ lsps:
     server_name: "VSCode Markdown Language Server"
     command: "vscode-markdown-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "vscode-langservers-extracted"
+    install_type: mise
+    install_target: "npm:vscode-langservers-extracted"
     check_binary: "vscode-markdown-language-server"
 
   - id: powershell
@@ -119,8 +110,8 @@ lsps:
     server_name: "ESLint Language Server"
     command: "vscode-eslint-language-server"
     args: ["--stdio"]
-    install_type: npm
-    install_target: "vscode-langservers-extracted"
+    install_type: mise
+    install_target: "npm:vscode-langservers-extracted"
     check_binary: "vscode-eslint-language-server"
 
   - id: toml
@@ -128,6 +119,6 @@ lsps:
     server_name: "Taplo TOML Language Server"
     command: "taplo"
     args: ["lsp", "stdio"]
-    install_type: npm
-    install_target: "@taplo/cli"
+    install_type: mise
+    install_target: "npm:@taplo/cli"
     check_binary: "taplo"

@@ -2,11 +2,8 @@ package toolchain
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -14,95 +11,6 @@ import (
 	"github.com/eajdias/envctl/internal/domain/repository"
 	"github.com/eajdias/envctl/internal/infra/executil"
 )
-
-// NpmManager handles global npm packages.
-type NpmManager struct{}
-
-func NewNpmManager() repository.PackageManager {
-	return &NpmManager{}
-}
-
-func (n *NpmManager) Type() entity.PackageType {
-	return entity.PackageTypeNpm
-}
-
-func (n *NpmManager) IsAvailable(ctx context.Context) bool {
-	cmd := executil.ExecTool(ctx, "npm", "-v")
-	return cmd.Run() == nil
-}
-
-func (n *NpmManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	if pkg.CheckCommand != "" {
-		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
-			return true, out, nil
-		}
-	}
-	cmd := executil.ExecTool(ctx, "npm", "list", "-g", "--depth=0", pkg.ID)
-	out, err := cmd.CombinedOutput()
-	if err == nil && strings.Contains(string(out), pkg.ID+"@") {
-		return true, "installed globally via npm", nil
-	}
-	return false, "", nil
-}
-
-func (n *NpmManager) Install(ctx context.Context, pkg entity.Package) error {
-	args := []string{"install", "-g"}
-	// Pin the global prefix to ~/.local: distro npm packages (Arch, Debian)
-	// resolve the global prefix to a root-owned system directory, so an
-	// unpinned `npm install -g` fails or needs sudo.
-	if prefix, err := UserLocalPrefix(); err == nil {
-		args = append(args, "--prefix", prefix)
-	}
-	args = append(args, strings.Fields(pkg.ID)...)
-	cmd := executil.ExecTool(ctx, "npm", args...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("npm install -g %s failed: %s (%w)", pkg.ID, string(out), err)
-	}
-	return nil
-}
-
-// UserLocalPrefix returns ~/.local, creating it when missing, so global
-// toolchain installs land in a user-writable prefix instead of a root-owned
-// system directory.
-func UserLocalPrefix() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil || home == "" {
-		return "", fmt.Errorf("cannot resolve user home directory")
-	}
-	prefix := filepath.Join(home, ".local")
-	if err := os.MkdirAll(prefix, 0o750); err != nil {
-		return "", err
-	}
-	return prefix, nil
-}
-
-func (n *NpmManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	cmd := executil.ExecTool(ctx, "npm", "list", "-g", "--depth=0", "--json")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	var parsed struct {
-		Dependencies map[string]struct {
-			Version string `json:"version"`
-		} `json:"dependencies"`
-	}
-	if err := json.Unmarshal(out, &parsed); err != nil {
-		return nil, err
-	}
-	var pkgs []entity.Package
-	for name, dep := range parsed.Dependencies {
-		pkgs = append(pkgs, entity.Package{
-			ID:      name,
-			Name:    name,
-			Version: dep.Version,
-			Type:    entity.PackageTypeNpm,
-			Status:  entity.StatusInstalled,
-		})
-	}
-	return pkgs, nil
-}
 
 // pipPythonBin returns the correct python binary name for the current OS.
 func pipPythonBin() string {
@@ -208,60 +116,4 @@ func (p *PipManager) ListInstalled(ctx context.Context) ([]entity.Package, error
 		}
 	}
 	return pkgs, nil
-}
-
-// GoManager handles Go tooling via `go install`.
-type GoManager struct{}
-
-func NewGoManager() repository.PackageManager {
-	return &GoManager{}
-}
-
-func (g *GoManager) Type() entity.PackageType {
-	return entity.PackageTypeGo
-}
-
-func (g *GoManager) IsAvailable(ctx context.Context) bool {
-	cmd := executil.ExecTool(ctx, "go", "version")
-	return cmd.Run() == nil
-}
-
-func (g *GoManager) IsInstalled(ctx context.Context, pkg entity.Package) (bool, string, error) {
-	if pkg.CheckCommand != "" {
-		if out, ok := executil.ProbeCheckCommand(ctx, pkg.CheckCommand); ok {
-			return true, out, nil
-		}
-	}
-	binName := pkg.Name
-	if binName == "" {
-		parts := strings.Split(pkg.ID, "/")
-		last := parts[len(parts)-1]
-		binName = strings.Split(last, "@")[0]
-	}
-	if runtime.GOOS == "windows" {
-		cmd := executil.ExecTool(ctx, "where.exe", binName)
-		if out, err := cmd.CombinedOutput(); err == nil {
-			return true, strings.TrimSpace(string(out)), nil
-		}
-	} else {
-		// Resolve against the toolchain PATH (covers ~/go/bin, /usr/local/go/bin).
-		cmd := executil.ExecTool(ctx, "bash", "-lc", "command -v "+binName+" >/dev/null 2>&1")
-		if cmd.Run() == nil {
-			return true, "in toolchain PATH", nil
-		}
-	}
-	return false, "", nil
-}
-
-func (g *GoManager) Install(ctx context.Context, pkg entity.Package) error {
-	cmd := executil.ExecTool(ctx, "go", "install", pkg.ID)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go install %s failed: %s (%w)", pkg.ID, string(out), err)
-	}
-	return nil
-}
-
-func (g *GoManager) ListInstalled(ctx context.Context) ([]entity.Package, error) {
-	return []entity.Package{{ID: "go-tools", Name: "go-tools", Status: entity.StatusInstalled}}, nil
 }
