@@ -4,7 +4,7 @@
 
 - **OS:** Ubuntu Server (LTS) (amd64) · usuário `ubuntu` (não-root, sudo sem senha)
 - **Shell:** Bash (`/bin/bash`) é o shell do OpenCode — use sintaxe POSIX, não PowerShell.
-- **CLIs no PATH:** `rg` (ripgrep), `fd` (via `fdfind`), `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode`.
+- **CLIs no PATH:** `rg` (ripgrep), `fd` (symlink/alias para `fdfind`), `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode`.
 - **Scratch:** `/temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).
 
@@ -20,6 +20,9 @@
 - **Regra de ouro do catálogo:** carregue `code-playbooks` e leia `references/<tema>.md` antes de seguir convenção de stack.
 - **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
 - Nunca hardcode segredos. ACLs restritas em `~/.ssh`.
+- **Worktree criado = sessão movida.** Criou worktree para isolar trabalho? A PRÓXIMA ação é `opencode.session_move` para ele — não siga na árvore antiga nem prefixe `cd` em cada comando. Criar o worktree e continuar no diretório original é o erro mais caro aqui: você edita a árvore compartilhada, `git status` enche de arquivo de outra sessão e o `git add` sequestra o trabalho alheio. Antes de criar: `git worktree list` (branch em um worktree só) e base explícita `origin/main`. Checklist na skill `git-workflow`.
+- **Sessão paralela no mesmo repo:** nunca assuma a árvore só sua. Build/vet/test quebrado com `undefined` em arquivo que você não tocou = outra sessão editando ao vivo. Prove com `git status --short` + `ls -la --time-style=full-iso <arquivo>` antes de reportar como bug seu; arquivo modificado DEPOIS do seu último build é a prova. Nunca `git add -A` — use `git add -- <caminho>`.
+- **APT não-interativo:** instalações pelo gerenciador de pacotes devem usar modo não-interativo: `DEBIAN_FRONTEND=noninteractive sudo apt-get install -y <pkg>`.
 - Delegue o trabalho barulhento (varredura ampla, output volumoso) para preservar o contexto; o critério completo está na skill `subagent-routing`.
 - **Ambiguidade alta** (o alvo, o escopo ou o critério de pronto não estão claros)? **Pergunte antes de agir** — a skill `clarify-before-acting` mede isso de 0 a 100. Melhor perguntar a mais do que executar errado e ter que desfazer.
 
