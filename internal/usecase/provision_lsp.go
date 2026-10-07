@@ -49,8 +49,13 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 		if !entity.MatchesOS(lsp.OS) {
 			continue
 		}
-		// Check if binary is already in PATH
-		if lsp.CheckBinary != "" {
+		// Migrated npm-backend servers: a legacy shim on PATH would pass the
+		// check below and skip the migration, so sweep before probing.
+		sweepMigratedBin(uc.logger, lsp.InstallType, lsp.InstallTarget, lsp.CheckBinary)
+		// Check if binary is already in PATH (non-mise installers only: for
+		// mise entries the ls record owns the truth, since a legacy shim on
+		// PATH is not an install)
+		if lsp.CheckBinary != "" && lsp.InstallType != entity.PackageTypeMise {
 			if toolAvailable(lsp.CheckBinary) {
 				uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("binary '%s' found in PATH", lsp.CheckBinary))
 				results = append(results, LSPResult{
@@ -78,6 +83,18 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 			Type: lsp.InstallType,
 		}
 
+		if lsp.InstallType == entity.PackageTypeMise {
+			if installed, info, err := mgr.IsInstalled(ctx, pkg); err == nil && installed {
+				uc.logger.LogIdempotency("LSP", lsp.ServerName, true, fmt.Sprintf("already installed (%s)", info))
+				results = append(results, LSPResult{
+					LSP:     lsp,
+					Status:  entity.DiagOK,
+					Details: fmt.Sprintf("Already installed (%s)", info),
+				})
+				continue
+			}
+		}
+
 		uc.logger.LogIdempotency("LSP", lsp.ServerName, false, fmt.Sprintf("installing '%s' via %s", lsp.InstallTarget, lsp.InstallType))
 
 		if err := mgr.Install(ctx, pkg); err != nil {
@@ -89,6 +106,9 @@ func (uc *ProvisionLSPsUseCase) Execute(ctx context.Context) ([]LSPResult, error
 			})
 		} else {
 			uc.logger.Info("Successfully installed LSP '%s' via %s", lsp.ServerName, lsp.InstallType)
+			// The shim only exists after install: sweep again so legacy
+			// copies cannot keep shadowing the new one on PATH.
+			sweepMigratedBin(uc.logger, lsp.InstallType, lsp.InstallTarget, lsp.CheckBinary)
 			results = append(results, LSPResult{
 				LSP:     lsp,
 				Status:  entity.DiagOK,

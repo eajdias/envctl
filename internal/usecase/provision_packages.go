@@ -118,6 +118,10 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 			continue
 		}
 
+		// Migrated npm-backend tools: a legacy shim would answer the
+		// installed-probe and skip the migration, so sweep before checking.
+		sweepMigratedBin(uc.logger, pkg.Type, pkg.ID, toolBinName(pkg.CheckCommand))
+
 		mgr, ok := uc.managers[pkg.Type]
 		if !ok {
 			pkg.Status = entity.StatusSkipped
@@ -188,6 +192,9 @@ func (uc *ProvisionPackagesUseCase) provisionListMode(ctx context.Context, allPk
 			pkg.Status = entity.StatusInstalled
 			results = append(results, pkg)
 			uc.logger.Info("Successfully installed package '%s' (%s)", pkg.ID, pkg.Type)
+			// The shim only exists after install: sweep again so legacy
+			// copies cannot keep shadowing the new one on PATH.
+			sweepMigratedBin(uc.logger, pkg.Type, pkg.ID, toolBinName(pkg.CheckCommand))
 			if onProgress != nil {
 				onProgress(pkg, "installed successfully", nil)
 			}

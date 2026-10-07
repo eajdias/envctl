@@ -232,7 +232,7 @@ packages:
     check_command: python --version
 
   # ============================================================================
-  # mise Node.js & npm Global Ecosystem
+  # mise toolchain: runtimes & npm-backed globals (single manager)
   # ============================================================================
   - id: node@24.19.0
     name: Node.js LTS (via mise)
@@ -240,46 +240,46 @@ packages:
     category: mise
     check_command: node -v
 
-  - id: pnpm
+  - id: npm:pnpm
     name: pnpm Fast Disk-Efficient Package Manager
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: pnpm -v
 
-  - id: "@playwright/cli"
+  - id: "npm:@playwright/cli"
     name: Playwright CLI for coding agents (token-efficient browser automation)
-    type: npm
+    type: mise
     category: cli-tools
     check_command: playwright-cli --version
 
-  - id: mcp-ssh-manager
+  - id: npm:mcp-ssh-manager
     name: SSH Manager CLI & MCP Server
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: ssh-manager --version
 
-  - id: stylelint
+  - id: npm:stylelint
     name: Stylelint CSS/SCSS Linter
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: stylelint --version
 
-  - id: typescript
+  - id: npm:typescript
     name: TypeScript compiler (tsc) for local type checks
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: tsc --version
 
-  - id: prettier
+  - id: npm:prettier
     name: Prettier formatter for local format checks
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: prettier --version
 
-  - id: sqllens-language-server
+  - id: npm:sqllens-language-server
     name: SQL Lens Language Server Protocol
-    type: npm
-    category: npm
+    type: mise
+    category: mise
     check_command: sqllens-language-server --version
 
   # NOTE: language servers live in manifests/lsp.yaml (single source,
@@ -302,9 +302,9 @@ packages:
     os: arch,cachyos
     check_command: opencode --version
 
-  - id: command-code
+  - id: npm:command-code
     name: CommandCode CLI
-    type: npm
+    type: mise
     category: ai-agents
     check_command: cmdc --version
 

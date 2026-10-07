@@ -100,9 +100,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		entity.PackageTypePacman: arch.NewPacmanManager(),
 		entity.PackageTypeParu:   arch.NewParuManager(),
 		entity.PackageTypeMise:   toolchain.NewMiseManager(),
-		entity.PackageTypeNpm:    toolchain.NewNpmManager(),
 		entity.PackageTypePip:    toolchain.NewPipManager(),
-		entity.PackageTypeGo:     toolchain.NewGoManager(),
 	}
 
 	packagesUC := usecase.NewProvisionPackagesUseCase(manifestRepo, pkgManagers, fileLogger)

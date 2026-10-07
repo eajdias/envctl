@@ -52,14 +52,11 @@ func (f *fakeUpdateEnv) wasApplied(target string) bool {
 // The manifest already carries "@latest" in some install_target values, so the
 // command must not append a second one.
 func TestUpdateCommandIsWellFormed(t *testing.T) {
-	if got := updateCommand(GroupGo, "golang.org/x/tools/gopls"); got != "go install golang.org/x/tools/gopls@latest" {
-		t.Errorf("go command = %q", got)
+	if got := updateCommand(GroupMise, "npm:typescript"); got != "mise install npm:typescript@latest" {
+		t.Errorf("mise npm-backend command = %q", got)
 	}
-	if got := updateCommand(GroupGo, "golang.org/x/tools/gopls@latest"); got != "go install golang.org/x/tools/gopls@latest" {
+	if got := updateCommand(GroupMise, "npm:typescript@latest"); got != "mise install npm:typescript@latest" {
 		t.Errorf("a target already ending in @latest must not double it: %q", got)
-	}
-	if got := updateCommand(GroupNpm, "typescript"); got != "npm install -g typescript@latest" {
-		t.Errorf("npm command = %q", got)
 	}
 	if got := updateCommand(GroupMise, "node"); got != "mise install node@latest" {
 		t.Errorf("mise command = %q", got)
@@ -79,7 +76,7 @@ func TestUpdateExcludesProvidersRuntimeEntries(t *testing.T) {
 
 	candidates := uc.collect([]entity.Package{
 		{ID: "node@24.19.0", Type: entity.PackageTypeMise, CheckCommand: "node --version"},
-		{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
+		{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"},
 	}, []entity.LSP{})
 
 	for _, c := range candidates {
@@ -88,12 +85,12 @@ func TestUpdateExcludesProvidersRuntimeEntries(t *testing.T) {
 		}
 	}
 	if len(candidates) != 1 {
-		t.Errorf("candidates = %+v, want only typescript", candidates)
+		t.Errorf("candidates = %+v, want only npm:typescript", candidates)
 	}
 }
 
-// Two entries can share an id while naming different npm packages (the
-// "typescript" package and the "typescript-language-server" LSP). Both are real
+// Package and LSP entries name different mise-backed targets (the
+// "npm:typescript" package and the "npm:typescript-language-server" LSP). Both are real
 // tools, so the inventory keeps both and labels them by target.
 func TestUpdateKeepsDistinctTargetsThatShareAnID(t *testing.T) {
 	uc := NewUpdateUseCase(&fakeUpdateEnv{
@@ -102,10 +99,10 @@ func TestUpdateKeepsDistinctTargetsThatShareAnID(t *testing.T) {
 	})
 
 	candidates := uc.collect(
-		[]entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
+		[]entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
 		[]entity.LSP{{
-			ID: "typescript", InstallType: entity.PackageTypeNpm,
-			InstallTarget: "typescript-language-server", CheckBinary: "typescript-language-server",
+			ID: "typescript", InstallType: entity.PackageTypeMise,
+			InstallTarget: "npm:typescript-language-server", CheckBinary: "typescript-language-server",
 		}},
 	)
 
@@ -125,9 +122,8 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 	uc := NewUpdateUseCase(&fakeUpdateEnv{installed: map[string]string{}, latest: map[string]string{}, failOn: map[string]error{}, binaryOf: map[string]string{}})
 
 	candidates := uc.collect([]entity.Package{
-		{ID: "typescript", Type: entity.PackageTypeNpm, OS: "arch,cachyos", CheckCommand: "tsc --version"},
+		{ID: "npm:typescript", Type: entity.PackageTypeMise, OS: "arch,cachyos", CheckCommand: "tsc --version"},
 		{ID: "pytest", Type: entity.PackageTypePip, OS: "arch,cachyos", CheckCommand: "pytest --version"},
-		{ID: "gopls", Type: entity.PackageTypeGo, OS: "", CheckCommand: "gopls version"},
 		// Every OS package manager must stay out: upgrading a subset through
 		// pacman is a partial upgrade, which Arch forbids outright.
 		{ID: "ruff", Type: entity.PackageTypePacman, OS: "arch,cachyos", CheckCommand: "ruff --version"},
@@ -140,7 +136,7 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 	for _, c := range candidates {
 		got[c.ID] = c.Group
 	}
-	want := map[string]UpdateGroup{"typescript": GroupNpm, "pytest": GroupUV, "gopls": GroupGo}
+	want := map[string]UpdateGroup{"npm:typescript": GroupMise, "pytest": GroupUV}
 	if len(got) != len(want) {
 		t.Fatalf("candidates = %v, want exactly %v", got, want)
 	}
@@ -154,25 +150,25 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 func TestUpdateAppliesBehindVersionsAndSkipsCurrent(t *testing.T) {
 	env := &fakeUpdateEnv{
 		installed: map[string]string{"tsc": "5.4.2", "prettier": "3.1.0", "pytest": "9.0.0"},
-		latest:    map[string]string{"typescript": "5.9.2", "prettier": "3.1.0", "pytest": "9.1.1"},
-		appliedTo: map[string]string{"typescript": "5.9.2", "pytest": "9.1.1"},
+		latest:    map[string]string{"npm:typescript": "5.9.2", "npm:prettier": "3.1.0", "pytest": "9.1.1"},
+		appliedTo: map[string]string{"npm:typescript": "5.9.2", "pytest": "9.1.1"},
 		failOn:    map[string]error{},
-		binaryOf:  map[string]string{"typescript": "tsc", "pytest": "pytest"},
+		binaryOf:  map[string]string{"npm:typescript": "tsc", "pytest": "pytest"},
 	}
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
-		LSPs:     []entity.LSP{{ID: "prettier", InstallType: entity.PackageTypeNpm, InstallTarget: "prettier", CheckBinary: "prettier"}},
+		Packages: []entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
+		LSPs:     []entity.LSP{{ID: "prettier", InstallType: entity.PackageTypeMise, InstallTarget: "npm:prettier", CheckBinary: "prettier"}},
 	}, UpdateOptions{})
 
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
-	if len(result.Applied) != 1 || result.Applied[0].ID != "typescript" {
-		t.Fatalf("applied = %+v, want only typescript", result.Applied)
+	if len(result.Applied) != 1 || result.Applied[0].ID != "npm:typescript" {
+		t.Fatalf("applied = %+v, want only npm:typescript", result.Applied)
 	}
-	if env.wasApplied("prettier") {
+	if env.wasApplied("npm:prettier") {
 		t.Error("prettier is already current and must not be touched")
 	}
 	if result.Applied[0].From != "5.4.2" || result.Applied[0].To != "5.9.2" {
@@ -183,15 +179,15 @@ func TestUpdateAppliesBehindVersionsAndSkipsCurrent(t *testing.T) {
 func TestUpdateDryRunNeverApplies(t *testing.T) {
 	env := &fakeUpdateEnv{
 		installed: map[string]string{"tsc": "5.4.2"},
-		latest:    map[string]string{"typescript": "5.9.2"},
-		appliedTo: map[string]string{"typescript": "5.9.2"},
+		latest:    map[string]string{"npm:typescript": "5.9.2"},
+		appliedTo: map[string]string{"npm:typescript": "5.9.2"},
 		failOn:    map[string]error{},
-		binaryOf:  map[string]string{"typescript": "tsc", "pytest": "pytest"},
+		binaryOf:  map[string]string{"npm:typescript": "tsc", "pytest": "pytest"},
 	}
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{DryRun: true})
 
 	if err != nil {
@@ -200,8 +196,8 @@ func TestUpdateDryRunNeverApplies(t *testing.T) {
 	if len(env.applied) != 0 {
 		t.Errorf("dry run applied %v, want nothing", env.applied)
 	}
-	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "npm install -g") {
-		t.Fatalf("planned = %+v, want one npm install command", result.Planned)
+	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "mise install npm:") {
+		t.Fatalf("planned = %+v, want one mise install command", result.Planned)
 	}
 }
 
@@ -213,12 +209,12 @@ func TestUpdateUnknownLatestUpdatesNothing(t *testing.T) {
 		latest:    map[string]string{}, // registry unreachable
 		appliedTo: map[string]string{},
 		failOn:    map[string]error{},
-		binaryOf:  map[string]string{"typescript": "tsc", "pytest": "pytest"},
+		binaryOf:  map[string]string{"npm:typescript": "tsc", "pytest": "pytest"},
 	}
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{})
 
 	if err != nil {
@@ -236,25 +232,25 @@ func TestUpdateUnknownLatestUpdatesNothing(t *testing.T) {
 func TestUpdateFailureIsIsolatedPerTool(t *testing.T) {
 	env := &fakeUpdateEnv{
 		installed: map[string]string{"pytest": "9.0.0", "tsc": "5.4.2"},
-		latest:    map[string]string{"pytest": "9.1.1", "typescript": "5.9.2"},
-		appliedTo: map[string]string{"typescript": "5.9.2"},
+		latest:    map[string]string{"pytest": "9.1.1", "npm:typescript": "5.9.2"},
+		appliedTo: map[string]string{"npm:typescript": "5.9.2"},
 		failOn:    map[string]error{"pytest": errors.New("network down")},
-		binaryOf:  map[string]string{"typescript": "tsc", "pytest": "pytest"},
+		binaryOf:  map[string]string{"npm:typescript": "tsc", "pytest": "pytest"},
 	}
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
 		Packages: []entity.Package{
 			{ID: "pytest", Type: entity.PackageTypePip, CheckCommand: "pytest --version"},
-			{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
+			{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"},
 		},
 	}, UpdateOptions{})
 
 	if err != nil {
 		t.Fatalf("a per-tool failure must not fail the run: %v", err)
 	}
-	if len(result.Applied) != 1 || result.Applied[0].ID != "typescript" {
-		t.Errorf("applied = %+v, want typescript to still go through", result.Applied)
+	if len(result.Applied) != 1 || result.Applied[0].ID != "npm:typescript" {
+		t.Errorf("applied = %+v, want npm:typescript to still go through", result.Applied)
 	}
 	if len(result.Failed) != 1 || result.Failed[0].ID != "pytest" {
 		t.Errorf("failed = %+v, want pytest", result.Failed)
@@ -267,16 +263,16 @@ func TestUpdateFailureIsIsolatedPerTool(t *testing.T) {
 func TestUpdateFilterNarrowsToOneGroup(t *testing.T) {
 	env := &fakeUpdateEnv{
 		installed: map[string]string{"tsc": "5.4.2", "pytest": "9.0.0"},
-		latest:    map[string]string{"typescript": "5.9.2", "pytest": "9.1.1"},
-		appliedTo: map[string]string{"typescript": "5.9.2", "pytest": "9.1.1"},
+		latest:    map[string]string{"npm:typescript": "5.9.2", "pytest": "9.1.1"},
+		appliedTo: map[string]string{"npm:typescript": "5.9.2", "pytest": "9.1.1"},
 		failOn:    map[string]error{},
-		binaryOf:  map[string]string{"typescript": "tsc", "pytest": "pytest"},
+		binaryOf:  map[string]string{"npm:typescript": "tsc", "pytest": "pytest"},
 	}
 	uc := NewUpdateUseCase(env)
 
 	_, err := uc.Execute(context.Background(), UpdateInventory{
 		Packages: []entity.Package{
-			{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"},
+			{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"},
 			{ID: "pytest", Type: entity.PackageTypePip, CheckCommand: "pytest --version"},
 		},
 	}, UpdateOptions{Only: GroupUV})
@@ -287,8 +283,8 @@ func TestUpdateFilterNarrowsToOneGroup(t *testing.T) {
 	if !env.wasApplied("pytest") {
 		t.Error("--only uv must still update pytest")
 	}
-	if env.wasApplied("typescript") {
-		t.Error("--only uv must not touch npm tools")
+	if env.wasApplied("npm:typescript") {
+		t.Error("--only uv must not touch mise tools")
 	}
 }
 
@@ -298,7 +294,7 @@ func TestUpdateListDoesNotQueryLatest(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	if _, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "typescript", Type: entity.PackageTypeNpm, CheckCommand: "tsc --version"}},
+		Packages: []entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
 	}, UpdateOptions{List: true}); err != nil {
 		t.Fatalf("Execute: %v", err)
 	}

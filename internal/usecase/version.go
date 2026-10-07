@@ -143,20 +143,6 @@ func uvToolVersionOf(ctx context.Context, tool string) string {
 	return ""
 }
 
-// goLatestOf resolves the latest released version of a Go module. `go list -m`
-// against the module proxy answers without touching the working tree.
-func goLatestOf(module string) string {
-	path := module
-	if idx := strings.LastIndex(module, "@"); idx >= 0 {
-		path = module[:idx]
-	}
-	out, err := runWithToolchain(context.Background(), "go", "list", "-m", "-f", "{{.Version}}", path+"@latest")
-	if err != nil {
-		return ""
-	}
-	return firstVersionToken(out)
-}
-
 // parseSemver reads the first three numeric segments of a semver-ish string,
 // tolerating a leading "v" and surrounding whitespace. Anything beyond the
 // patch (prerelease/build metadata) is ignored: provider updates are decided

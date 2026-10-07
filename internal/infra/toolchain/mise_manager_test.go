@@ -55,6 +55,11 @@ func TestMiseToolName(t *testing.T) {
 		{"node@24.19.0", "node"},
 		{"go@latest", "go"},
 		{"node", "node"},
+		{"npm:prettier", "npm:prettier"},
+		{"npm:typescript@5.6", "npm:typescript"},
+		{"npm:typescript@latest", "npm:typescript"},
+		{"npm:@playwright/cli", "npm:@playwright/cli"},
+		{"@playwright/cli", "@playwright/cli"},
 		{"", ""},
 	}
 	for _, tt := range tests {

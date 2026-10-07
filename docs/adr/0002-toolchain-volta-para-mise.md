@@ -3,6 +3,11 @@
 ## Status
 Aceito (Accepted) — migração concluída (PR #74, série M1–M9).
 
+> Status 2026-10-07: os globals npm foram absorvidos pelo mise
+> (`mise install npm:<pkg>`, unificação do toolchain) e o `GoManager` foi
+> removido junto com o LSP `gopls` — `NpmManager`/`GoManager` não existem
+> mais. Ver spec `spec-agent/2026-10-07-toolchain-unification-mise.md`.
+
 ## Contexto
 O toolchain Node era gerenciado pelo Volta (`VoltaManager`,
 `PackageTypeVolta`, `run volta`, pacotes `type: volta`). Na prática, o Volta
