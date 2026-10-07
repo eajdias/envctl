@@ -30,6 +30,10 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 - O resultado é cristalizado e retornado para a máquina local, mantendo a janela de contexto local enxuta e de alto sinal.
 
 ### 4. CI/CD e Releases Automatizados por Push na Main
+
+> Status 2026-10-06: releases deixaram de ser automáticos por push
+> (release-please removido, PR #77) — agora manuais via Actions → Release
+> Pipeline (`version: vX.Y.Z`). CI por PR continua automático.
 - GitHub Actions valida compilação e suíte de testes em Linux e Windows a cada Pull Request.
 - A cada merge/push na branch `main`, é gerada uma nova Release pública no GitHub com binários pré-compilados para Windows (amd64, arm64) e Linux (amd64, arm64).
 
