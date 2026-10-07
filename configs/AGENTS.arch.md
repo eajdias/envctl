@@ -6,6 +6,7 @@
 - **Shell:** fish é o shell interativo do usuário; o shell do OpenCode é Bash (`/bin/bash`) — use sintaxe POSIX, não PowerShell nem fish.
 - **CLIs no PATH:** `rg` (ripgrep), `fd`, `fzf`, `bat`, `delta`, `yq`, `gh`, `uv`, `ruff`, `bun`/`bunx` (substitui `npx`), `git`, `docker`, `systemctl`, `opencode` · gerenciadores: `pacman` · `paru` (AUR) · `mise` (Node) + `npm` (globals).
 - **Editor:** Cursor (`cursor-bin` via paru) — habilita `/ide` + `get_diagnostics`.
+- **Python:** para rascunhos, scripts ou execuções Python no scratch, use sempre `uv run` ou `uv venv` para evitar conflito com o Python do sistema Arch (PEP 668).
 - **Scratch:** `/temp` (`ENVCTL_TEMP`). Todo arquivo temporário vai para lá e é removido ao fim da sessão — nunca em `.opencode/`, no projeto ou no sistema.
 - **Git:** `preloadindex`, `autocrlf=input`, `init.defaultBranch=main`, pager `delta` (sem `fscache`/`longpaths` — são do Windows).
 - **Gaming:** CachyOS com stack de jogos instalada (gamescope, MangoHud, emuladores, lact).
@@ -22,6 +23,7 @@
 - **Regra de ouro do catálogo:** carregue `code-playbooks` e leia `references/<tema>.md` antes de seguir convenção de stack.
 - **Zero tolerância a WARNING/ERROR:** corrija no mesmo turno, inclusive pré-existente — falha pré-existente não é desculpa; o que não pôde ser corrigido mantém a tarefa **não concluída** (reporte o bloqueio). Ao fechar TODOs, reconcilie a lista e RE-EXECUTE a verificação.
 - Nunca hardcode segredos. ACLs restritas em `~/.ssh`.
+- **Não-interativo:** comandos de pacotes ou sistema devem ser estritamente não-interativos (ex.: `paru -S --noconfirm`). Se o `sudo` solicitar senha interativa e travar, interrompa e reporte o bloqueio.
 - **Worktree criado = sessão movida.** Criou worktree para isolar trabalho? A PRÓXIMA ação é `opencode.session_move` para ele — não siga na árvore antiga nem prefixe `cd` em cada comando. Criar o worktree e continuar no diretório original é o erro mais caro aqui: você edita a árvore compartilhada, `git status` enche de arquivo de outra sessão e o `git add` sequestra o trabalho alheio. Antes de criar: `git worktree list` (branch em um worktree só) e base explícita `origin/main`. Checklist na skill `git-workflow`.
 - **Sessão paralela no mesmo repo:** nunca assuma a árvore só sua. Build/vet/test quebrado com `undefined` em arquivo que você não tocou = outra sessão editando ao vivo. Prove com `git status --short` + `ls -la --time-style=full-iso <arquivo>` antes de reportar como bug seu; arquivo modificado DEPOIS do seu último build é a prova. Nunca `git add -A` — use `git add -- <caminho>`.
 - Delegue o trabalho barulhento (varredura ampla, output volumoso) para preservar o contexto; o critério completo está na skill `subagent-routing`.
