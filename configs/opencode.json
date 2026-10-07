@@ -764,9 +764,9 @@
           "stdio"
         ],
         "environment": {
-          "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
+          "BRAVE_API_KEY": "{file:~/.config/opencode/secrets/brave.key}"
         },
-        "disabled": false,
+        "disabled": true,
         "timeout": {
           "catalog": 30000,
           "execution": 30000
@@ -776,7 +776,7 @@
         "type": "remote",
         "url": "https://mcp.exa.ai/mcp",
         "headers": {
-          "x-api-key": "{env:EXA_API_KEY}"
+          "x-api-key": "{file:~/.config/opencode/secrets/exa.key}"
         },
         "oauth": false,
         "disabled": false

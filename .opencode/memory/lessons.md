@@ -55,6 +55,8 @@
 - 2026-10-01 ❌ Rodar `gh pr create` sem refs explícitos depois de `git push -u origin HEAD` → ✅ `gh pr create --base main --head <branch> --title … --body …` (porque o `-u` não deixa o upstream como remote-tracking branch e o `gh` aborta com "you must first push the current branch" mesmo com a branch já publicada no remote).
 - 2026-10-01 ❌ Esperar um run/workflow "Release Pipeline" separado depois de mergear o PR do release-please → ✅ conferir a build nos **jobs** do run do Release Please (`gh run view <id> --json jobs` → "Build & attach binaries") (porque release aberto com `GITHUB_TOKEN` não dispara `release: published`; o `release.yml` é chamado via `workflow_call` dentro do mesmo run, então nunca aparece em `gh run list`).
 
+- 2026-10-07 ❌ Referenciar segredo de MCP no opencode via `{env:VAR}` esperando herança do processo → ✅ Usar `{file:~/.config/opencode/secrets/<nome>.key}` com ACL restrita (porque o opencode v2 monta um env próprio pro filho MCP a partir do `environment` do config, sem mesclar o processo — probe ao vivo v2.0.23: `{env:...}` resolveu vazio e o servidor morreu com exit 1; `{file:...}` entregou a chave; no CommandCode `${VAR:-}` continua valendo porque expande do processo).
+
 ## Padrões / Preferências (o que funciona)
 
 <!-- - 2026-08-20 ✅ Quando <situação>, faça <o que funciona> -->
