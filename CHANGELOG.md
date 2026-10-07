@@ -13,6 +13,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Refactors
+
+- **toolchain:** `PipManager` is uv-only — tools via isolated `uv tool install`,
+  importable libraries via `uv pip install --system`; the raw-pip fallback and
+  its `--break-system-packages` override are gone (uv itself refuses on PEP 668
+  hosts, so the risk is closed instead of overridden).
+
 ## [1.14.0](https://github.com/eajdias/envctl/compare/v1.13.1...v1.14.0) (2026-10-07)
 
 
