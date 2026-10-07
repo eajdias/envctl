@@ -28,7 +28,7 @@ envctl/
 │   │   ├── winget/                     # Adaptador para Windows Package Manager
 │   │   ├── apt/                        # Adaptador para APT (Debian/Ubuntu)
 │   │   ├── performance/                # Sysctl, zram e inspeção read-only de performance Linux
-│   │   ├── toolchain/                  # Adaptadores para Volta, Go, UV/Pip
+│   │   ├── toolchain/                  # Adaptadores para mise, Go, UV/Pip
 │   │   ├── windows/                    # Adaptador de Registro e Fontes Windows
 │   │   ├── git/                        # Adaptador Git e GitHub CLI
 │   │   ├── filesystem/                 # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
@@ -47,7 +47,7 @@ envctl/
 
 ### 1. Camada de Domínio (`internal/domain`)
 - **Entidades (`entity/models.go`)**: Modelos puros sem dependências externas.
-  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `volta`, `go`, `pip`), binário esperado, filtro de OS e constraints opcionais de distro/versão.
+  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `mise`, `go`, `pip`), binário esperado, filtro de OS e constraints opcionais de distro/versão.
   - `PerformanceSpec`/`SysctlSetting`: Perfil de performance separado por SO e ajustes sysctl revisáveis.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
@@ -79,7 +79,7 @@ Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
 - **Gerenciadores de Pacotes Concretos**:
   - `WingetManager`: `winget.exe install --exact --id ... --silent --accept-package-agreements`
   - `AptManager`: `apt-get install -y --no-install-recommends ...`
-  - `VoltaManager`: `volta install ...`
+  - `MiseManager`: `mise install ...`
   - `GoManager`: `go install ...@latest`
   - `PipManager`: `pip install ...` / `uv pip install ...`
 - **Filesystem Atômico**: Cria backups com formato `.bak.YYYYMMDD-HHMMSS` antes de modificar qualquer arquivo existente em disco caso o hash SHA-256 do conteúdo tenha divergido.

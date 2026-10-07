@@ -22,7 +22,7 @@ manifests/
 
 | Seção | Arquivo (fonte) | Comando |
 | :--- | :--- | :--- |
-| pacotes | `manifests/packages.yaml` | `envctl run packages` (`run apt`/`run winget`/`run pacman` filtram por gerenciador) |
+| pacotes | `manifests/packages.yaml` | `run apt` / `run winget` / `run pacman` / `run paru` (um por gerenciador; não existe `run packages`) |
 | performance | `manifests/performance_ubuntu.yaml`, `manifests/performance_cachyos.yaml` | `envctl run performance` (perfis `run vps` / `run cachyos`) |
 | shell/env/configs | `manifests/shell.yaml` | `envctl run shell` |
 | git | `manifests/git.yaml` | `envctl run shell` (configs globais) |
