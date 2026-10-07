@@ -15,8 +15,8 @@ Você pode executar etapas específicas conforme sua necessidade:
 # Apenas pacotes do sistema via Winget (VSCode, Windows Terminal, Ripgrep, etc.)
 envctl run winget
 
-# Apenas runtime Node.js LTS e ferramentas globais via Volta
-envctl run volta
+# Apenas runtimes gerenciados pelo mise (Node.js LTS)
+envctl run mise
 
 # Perfil completo da workstation (tweaks + debloat + pacotes + shell + skills + LSPs)
 envctl run windows
@@ -30,7 +30,7 @@ envctl run shell
 # Apenas catálogo de 12 skills do OpenCode/CommandCode
 envctl run skills
 
-# Apenas binários de linguagem p/ shell/IDE (15 LSPs; sem efeito no runtime opencode v2)
+# Apenas binários de linguagem p/ shell/IDE (14 LSPs; sem efeito no runtime opencode v2)
 envctl run lsp
 
 # Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)
@@ -55,4 +55,4 @@ Para garantir que scripts autônomos (como Playwright) funcionem a partir de qua
 Todo arquivo temporário criado por agentes LLM (downloads, builds, extrações, screenshots) deve ir para `C:\temp` — pasta na raiz do disco, sem relação com o OpenCode, facilitando identificação e exclusão. `envctl run cleanup` remove scratch com mais de 24h.
 
 ### D. Automação de Browser (MCP chrome-devtools + playwright-cli)
-- O `envctl` provisiona o MCP `chrome-devtools` (`chrome-devtools-mcp`, `enabled: false` — ative por sessão via `/mcp`) para o interativo (o agente escolhe quando usar; 2FA manual e inspeção ao vivo) e o `playwright-cli` (via volta) para automação determinística no shell. Cada um usa seu próprio build de browser — sem conflito com o navegador do usuário.
+- O `envctl` provisiona o MCP `chrome-devtools` (`chrome-devtools-mcp`, `enabled: false` — ative por sessão via `/mcp`) para o interativo (o agente escolhe quando usar; 2FA manual e inspeção ao vivo) e o `playwright-cli` (via mise/npm, wrapper `pw`) para automação determinística no shell. Cada um usa seu próprio build de browser — sem conflito com o navegador do usuário.

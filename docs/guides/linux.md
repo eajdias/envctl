@@ -23,8 +23,8 @@ No Linux, comandos específicos de Windows (como `run winget`, `run tweaks`, `ru
 # Apenas pacotes do sistema via APT (curl, git, ripgrep, fzf, jq, rsync, tree, etc.)
 envctl run apt
 
-# Apenas runtime Node.js LTS e CLIs globais via Volta
-envctl run volta
+# Apenas runtimes gerenciados pelo mise (Node.js LTS)
+envctl run mise
 
 # Apenas configurações de shell (.bashrc, aliases, git configs)
 envctl run shell
@@ -32,7 +32,7 @@ envctl run shell
 # Apenas extração e validação das 12 skills de agentes
 envctl run skills
 
-# Apenas instalação dos binários de linguagem p/ shell/IDE (15 LSPs; sem efeito no runtime opencode v2)
+# Apenas instalação dos binários de linguagem p/ shell/IDE (14 LSPs; sem efeito no runtime opencode v2)
 envctl run lsp
 
 # Auditoria completa do ambiente
@@ -101,4 +101,4 @@ ssh minha-vps 'nohup opencode run "Executar testes de carga no endpoint /api/v1/
 ```
 
 ### 3. Automação de Browser Headless no Linux:
-O `envctl` instala o runtime `bun` (`bunx`), o `playwright-cli` (via volta, com browsers próprios em `~/.cache/ms-playwright`) e provisiona o MCP `chrome-devtools` (`enabled: false` — ative por sessão via `/mcp`). O agente usa o MCP para o interativo e o CLI no shell para fluxos determinísticos (headless, sem display).
+O `envctl` instala o runtime `bun` (`bunx`), o `playwright-cli` (via mise/npm, wrapper `pw`, com browsers próprios em `~/.cache/ms-playwright`) e provisiona o MCP `chrome-devtools` (`enabled: false` — ative por sessão via `/mcp`). O agente usa o MCP para o interativo e o CLI no shell para fluxos determinísticos (headless, sem display).

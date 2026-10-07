@@ -89,7 +89,7 @@ envctl run debloat      # Só debloat standalone (Windows)
 envctl run mise          # Runtimes gerenciados pelo mise (Node.js)
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das skills
-envctl run lsp          # 15 Servidores de Linguagem (LSP)
+envctl run lsp          # 14 Servidores de Linguagem (LSP)
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 
 # Snapshot reverso e sincronização de estado (Day-2)

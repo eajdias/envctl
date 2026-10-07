@@ -81,7 +81,7 @@ sysctl drop-in; CachyOS apenas garante `zram-generator` sem sobrescrever o tunin
 | Dimensão | OpenCode | CommandCode |
 | :--- | :--- | :--- |
 | Diretório | `~/.config/opencode` | `~/.commandcode` |
-| Arquivos declarados | **11** | **7** |
+| Arquivos declarados | **7** por host em `~/.config/opencode` (8 linhas em `shell.yaml`; variantes por OS colapsam em 1 arquivo) | **8** por host em `~/.commandcode` |
 | Config principal | `opencode.json` (base única; `shell: pwsh` injetado no deploy Windows) | `settings.json` (permissões + hooks) |
 | Regras globais | `AGENTS.md` (win/linux) | `AGENTS.md` (win/linux) |
 | Índice de consulta | `SKILL-INDEX.md` + `REFERENCE.md` | `SKILL-INDEX.md` |
