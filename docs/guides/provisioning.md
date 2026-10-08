@@ -1,5 +1,8 @@
 # Guia de Provisionamento: instalação em qualquer OS
 
+Para quem nunca usou o projeto, comece pelo
+[Primeiros Passos](getting-started.md).
+
 Instalação em uma passada só (scripts) ou passo a passo (binário / fonte).
 O que é específico de cada OS depois da instalação continua nos guias
 próprios: [`linux.md`](linux.md) (§§4–5: subcomandos, performance, subagentes)
@@ -18,7 +21,9 @@ O `bootstrap.sh`:
 1. Identifica a arquitetura (`x86_64` → `amd64`, `aarch64` → `arm64`).
 2. Baixa o binário standalone da release mais recente (`envctl-linux-amd64` ou `envctl-linux-arm64`).
 3. Instala em `~/.local/bin/envctl` (`+x`) e exporta o `PATH`.
-4. Executa `envctl run vps` e a auditoria `envctl doctor`.
+4. Executa `envctl run all` (perfil completo do sistema detectado) — rode
+   `envctl doctor` em seguida para conferir a saúde. Com argumentos, executa o
+   que você pedir (ex.: `bash -s -- run shell`).
 
 ### Windows 11 (PowerShell, usuário comum ou admin)
 
@@ -31,7 +36,9 @@ O `bootstrap.ps1`:
 1. Detecta a arquitetura (`amd64` ou `arm64`).
 2. Baixa a release compilada mais recente via `gh release download` (GitHub CLI autenticado) ou download web; sem binário disponível, compila do fonte se o Go existir.
 3. Instala em `~/.local/bin/envctl.exe` e adiciona ao `PATH` de usuário.
-4. Executa `envctl run windows` e a auditoria `envctl doctor`.
+4. Executa `envctl run all` (perfil completo do sistema detectado) — rode
+   `envctl doctor` em seguida para conferir a saúde. Com o parâmetro
+   `-Subsystem`, executa apenas a parte pedida (ex.: `-Subsystem shell`).
 
 ## 💻 2. Via binário pré-compilado standalone
 
