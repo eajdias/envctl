@@ -45,7 +45,7 @@ ver o arquivo; nenhum exemplo é recopilado aqui).
 | :--- | :--- | :--- |
 | `winget` | Windows Package Manager | `winget install --exact --id <name> --silent` |
 | `apt` | Advanced Package Tool (Debian/Ubuntu) | `apt-get install -y --no-install-recommends <name>` |
-| `mise` | mise dev-tool manager (runtimes + ferramentas via backends, ex.: `npm:<pkg>`) | `mise install <name>` |
+| `mise` | mise dev-tool manager (runtimes + ferramentas via backends, ex.: `npm:<pkg>`) | `mise install --yes <name>` + `mise use -g <name>` (o pin ativa; sem ele o registro fica órfão) |
 | `pip` | Python PIP / UV | `pip install <name>` |
 
 ---

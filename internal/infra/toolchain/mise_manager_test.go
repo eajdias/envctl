@@ -23,6 +23,7 @@ func TestMisePackageManager_Type(t *testing.T) {
 func TestMiseLsRecordsInstalled(t *testing.T) {
 	withNode := `[{"version":"24.19.0","installed":true,"active":true,"install_path":"/home/u/.local/share/mise/installs/node/24.19.0"}]`
 	notInstalled := `[{"version":"24.19.0","installed":false,"active":true}]`
+	orphanShim := `[{"version":"3.8.5","installed":true,"active":false,"install_path":"C:\\Users\\u\\AppData\\Local\\mise\\installs\\npm-mcp-ssh-manager\\3.8.5"}]`
 	empty := `[]`
 
 	tests := []struct {
@@ -32,6 +33,7 @@ func TestMiseLsRecordsInstalled(t *testing.T) {
 	}{
 		{"installed and active", withNode, true},
 		{"requested but missing", notInstalled, false},
+		{"installed but not active (orphan shim)", orphanShim, false},
 		{"no records", empty, false},
 		{"empty output", "", false},
 		{"not JSON", "node 24.19.0", false},

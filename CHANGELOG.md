@@ -13,6 +13,26 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **toolchain:** `MiseManager.Install` pins every tool with `mise use -g <id>`
+  after install — `mise install` alone leaves the record `installed` but not
+  `active` (orphan shim, off PATH), which broke the `ssh-manager` MCP
+  (`mcp connect failed`, 2026-10-08). Unversioned IDs pin `latest`, same as the
+  install already resolved (e.g. `command-code` 1.74.3 → 1.77.0 on converge).
+- **doctor:** mise-backend entries require `installed && active` in `mise ls`
+  (orphan shims now WARN with `run 'envctl run mise'` instead of reporting OK),
+  and a new `PATH (mise shims)` check (1.5b) warns when the shims dir is off the
+  user PATH (`run 'envctl run shell'`).
+- **update:** `applyUpdate` runs `mise install --yes <target>@latest` followed by
+  `mise use -g <target>` (mirroring `MiseManager.Install`) instead of a bare
+  install that recreated orphan shims; the planned-command display says what runs.
+- **providers:** manual mise hints point at `mise use -g` (installs when missing
+  and pins in one command) instead of bare `mise install`.
+- **doctor:** new Windows-only `py launcher default` check (1.5c) warns when the
+  `py` default is a free-threaded build (shared site-packages, C-extension import
+  crashes with green pip metadata), hinting the `%LOCALAPPDATA%\py.ini` pin.
+
 ## [1.15.0](https://github.com/eajdias/envctl/compare/v1.14.1...v1.15.0) (2026-10-08)
 
 

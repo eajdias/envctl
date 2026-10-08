@@ -34,17 +34,26 @@ func automatableGroup(installType entity.PackageType) (UpdateGroup, bool) {
 	}
 }
 
-// updateCommand is the exact command a group runs to move a target to latest.
-// Several install_target values in lsp.yaml already carry the "@latest" suffix,
-// so appending another one would produce an unrunnable command.
-func updateCommand(group UpdateGroup, target string) string {
-	pin := ""
-	if !strings.HasSuffix(target, "@latest") {
-		pin = "@latest"
+// withLatestPin appends "@latest" unless the target already carries it.
+// Several install_target values in lsp.yaml may carry the suffix, and
+// doubling it produces an unrunnable command.
+func withLatestPin(target string) string {
+	if strings.HasSuffix(target, "@latest") {
+		return target
 	}
+	return target + "@latest"
+}
+
+// updateCommand is the exact command a group runs to move a target to latest.
+func updateCommand(group UpdateGroup, target string) string {
+	pin := withLatestPin(target)
 	switch group {
 	case GroupMise:
-		return "mise install " + target + pin
+		// Install resolves the version, `use -g` activates it: an install
+		// without the pin leaves an orphan shim (installed, not active, off
+		// PATH — the ssh-manager outage). --yes keeps the aube reputation
+		// gate non-interactive, mirroring MiseManager.Install.
+		return "mise install --yes " + pin + " && mise use -g " + pin
 	case GroupUV:
 		return "uv tool upgrade " + target
 	default:
@@ -91,7 +100,14 @@ func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, targ
 	var args []string
 	switch group {
 	case GroupMise:
-		name, args = "mise", []string{"install", target + "@latest"}
+		// Mirror MiseManager.Install: --yes passes the aube reputation gate
+		// non-interactively, and the `use -g` pin activates the tool (an
+		// install without it leaves an orphan shim off PATH).
+		pinned := withLatestPin(target)
+		if out, err := runWithToolchain(ctx, "mise", "install", "--yes", pinned); err != nil {
+			return strings.TrimSpace(out), err
+		}
+		name, args = "mise", []string{"use", "-g", pinned}
 	case GroupUV:
 		name, args = "uv", []string{"tool", "upgrade", target}
 	default:
