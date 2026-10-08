@@ -108,6 +108,7 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 - 🧹 [**Guia Windows Debloat Tier 3**](docs/guides/windows-debloat-tier3.md) — OneDrive, energia, Teredo, Docker/WSL: o que é destrutivo e por isso manual.
 
 ### 🏛️ Engenharia & Especificações:
+- 📌 [**Visão**](docs/vision.md) — o modelo do projeto: por que existe, princípios inegociáveis, fluxo de mudança e mapa da documentação.
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
 - 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `performance_*.yaml`, `lsp.yaml`, `windows.yaml`).
 - 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 12 skills, o critério de entrada no catálogo, roteamento de subagentes e convenção de worktree.

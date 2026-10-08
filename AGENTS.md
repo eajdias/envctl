@@ -17,6 +17,8 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   and for each agent, the asymmetries found and their status, coverage per stack,
   and the checklist to touch every layer when adding a package, config file,
   skill or LSP.
+- **`docs/vision.md`** — the project model: why it exists, the non-negotiable
+  principles and the doc map. Structural decisions are the ADRs in `docs/adr/`.
 - **`docs/verification.md`** — the local gate: per-stack checks, the scoping
   rules (linters on changed files, type checks/tests repo-wide), the modes
   (`--hook` static-only, `--git-push` complete, `--dry-run`) and the skips.
