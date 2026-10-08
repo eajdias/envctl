@@ -1,10 +1,13 @@
 package usecase
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 func TestPruneStaleSkillsQuarantinesOnlyUnlistedDirs(t *testing.T) {
@@ -73,5 +76,30 @@ func TestPruneStaleSkillsEmptyWantedIsNoop(t *testing.T) {
 func TestPruneStaleSkillsMissingDirIsNoop(t *testing.T) {
 	if removed := pruneStaleSkills(filepath.Join(t.TempDir(), "does-not-exist"), map[string]bool{"a": true}, &mockLogger{}); len(removed) != 0 {
 		t.Fatalf("expected no removals for a missing dir, got %v", removed)
+	}
+}
+
+func TestExecuteRemovesAbandonedDeployStamp(t *testing.T) {
+	fsys, repo := stampFixture()
+	uc := &ProvisionSkillsUseCase{
+		manifestRepo: repo,
+		fsManager:    filesystem.NewFileSystemManager(),
+		embeddedFS:   fsys,
+		logger:       &mockLogger{},
+	}
+	target := t.TempDir()
+	// Leftover of the retired stamp experiment: provisioning removes it.
+	stamp := filepath.Join(target, ".envctl-deploy.hash")
+	if err := os.WriteFile(stamp, []byte("deadbeef\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, err := uc.Execute(context.Background(), target); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if _, err := os.Stat(stamp); !os.IsNotExist(err) {
+		t.Errorf("abandoned stamp still present: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, "demo", "SKILL.md")); err != nil {
+		t.Errorf("skill not deployed: %v", err)
 	}
 }

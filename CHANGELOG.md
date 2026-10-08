@@ -13,6 +13,13 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **doctor:** new `Skills content` check audits every embedded skill source file
+  byte-for-byte against the deployed trees (both agents) — frontmatter-valid
+  content drift (stale deploy, hand edit) warns naming the file instead of
+  passing silently; unmanaged files (backups, local additions) are ignored.
+
 ## [1.15.1](https://github.com/eajdias/envctl/compare/v1.15.0...v1.15.1) (2026-10-08)
 
 

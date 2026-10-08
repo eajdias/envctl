@@ -375,6 +375,45 @@ func (m *ManifestRepository) LoadSkills() ([]entity.Skill, error) {
 	return manifest.Skills, nil
 }
 
+// WalkSkillSources calls fn for every embedded skill source file applicable
+// to goos: `configs/skills/<name>` — the same root provisioning deploys — in
+// sorted skill and path order, so both sides of a drift check see identical
+// sequences. Disabled and OS-inapplicable skills are skipped, mirroring the
+// deploy filter.
+func (m *ManifestRepository) WalkSkillSources(goos string, fn func(skill, rel string, data []byte) error) error {
+	skills, err := m.LoadSkills()
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, s := range skills {
+		if s.Enabled && s.AppliesToOS(goos) {
+			names = append(names, s.Name)
+		}
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		root := filepath.ToSlash(filepath.Join("configs", "skills", name))
+		walkErr := fs.WalkDir(m.embeddedFS, root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			data, err := fs.ReadFile(m.embeddedFS, path)
+			if err != nil {
+				return err
+			}
+			return fn(name, strings.TrimPrefix(filepath.ToSlash(path), root+"/"), data)
+		})
+		if walkErr != nil {
+			return fmt.Errorf("failed to walk skill %q: %w", name, walkErr)
+		}
+	}
+	return nil
+}
+
 type lspManifest struct {
 	LSPs []entity.LSP `yaml:"lsps"`
 }
