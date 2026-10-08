@@ -6,8 +6,8 @@ O formato é baseado no [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
 > Releases são manuais (sem bot desde 2026-10-06): some entradas em
-> `[Unreleased]` e mova-as para a seção da versão ao cortar a release
-> (Actions → Release Pipeline → `version: vX.Y.Z`).
+> `[Unreleased]` e mova-as para a seção da versão **antes** de disparar o
+> Release Pipeline (Actions → `version: vX.Y.Z`) — o tag precisa conter a seção.
 
 ---
 
