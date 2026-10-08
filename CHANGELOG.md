@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.15.2](https://github.com/eajdias/envctl/compare/v1.15.1...v1.15.2) (2026-10-08)
+
 ### Bug Fixes
 
 - **doctor:** new `Skills content` check audits every embedded skill source file
