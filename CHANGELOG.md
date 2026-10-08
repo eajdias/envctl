@@ -13,6 +13,9 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.15.0](https://github.com/eajdias/envctl/compare/v1.14.1...v1.15.0) (2026-10-08)
+
+
 ### Features
 
 - **packages:** complete the Ubuntu agent-library parity with `python3-pypdf`,
