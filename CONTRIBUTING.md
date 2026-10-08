@@ -110,7 +110,7 @@ multi-OS binaries via GoReleaser. Conventional commits are still the convention
 ```
 cmd/envctl/             Entry point
 internal/
-  ui/cli/               Cobra commands (run, doctor, snapshot, version)
+  ui/cli/               Cobra commands (run, doctor, update, commandcode, opencode, version)
   usecase/              Business logic (provisioning, audit, cleanup)
   infra/                Platform adapters (apt, winget, git, filesystem)
   domain/               Entities and repository interfaces

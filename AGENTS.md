@@ -6,7 +6,7 @@ Windows 11, Ubuntu/Debian and Arch/CachyOS: system packages, shell/env/configs,
 verification gate wired both to the agent and to git.
 
 Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
-`update`, `snapshot`, `commandcode`, `opencode`), `internal/usecase/` (business logic),
+`update`, `commandcode`, `opencode`), `internal/usecase/` (business logic),
 `internal/infra/` (platform adapters), `manifests/*.yaml` (declarative specs),
 `configs/` (embedded templates, `//go:embed` via `assets.go`),
 `configs/bin/envctl-verify` (the local gate, deployed to `~/.local/bin`).

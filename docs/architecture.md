@@ -23,12 +23,12 @@ envctl/
 │   │   ├── provision_tweaks.go         # Núcleo único Windows11/Debloat (CheckBatch no debloat)
 │   │   ├── doctor_audit.go             # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
-│   │   └── snapshot_sync.go            # Sincronizador reverso e criador de PR no GitHub
+│   │   └── update.go                   # Inventário e atualização de toolchains (mise/uv)
 │   ├── infra/                          # Camada de Infraestrutura (Implementações concretas)
 │   │   ├── winget/                     # Adaptador para Windows Package Manager
 │   │   ├── apt/                        # Adaptador para APT (Debian/Ubuntu)
 │   │   ├── performance/                # Sysctl, zram e inspeção read-only de performance Linux
-│   │   ├── toolchain/                  # Adaptadores para mise, Go, UV/Pip
+│   │   ├── toolchain/                  # Adaptadores para mise, UV/Pip
 │   │   ├── windows/                    # Adaptador de Registro e Fontes Windows
 │   │   ├── git/                        # Adaptador Git e GitHub CLI
 │   │   ├── filesystem/                 # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
@@ -47,7 +47,7 @@ envctl/
 
 ### 1. Camada de Domínio (`internal/domain`)
 - **Entidades (`entity/models.go`)**: Modelos puros sem dependências externas.
-  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `mise`, `go`, `pip`), binário esperado, filtro de OS e constraints opcionais de distro/versão.
+  - `Package`: Representa um pacote a ser instalado, seu tipo (`winget`, `apt`, `pacman`, `paru`, `mise`, `pip`), binário esperado, filtro de OS e constraints opcionais de distro/versão.
   - `PerformanceSpec`/`SysctlSetting`: Perfil de performance separado por SO e ajustes sysctl revisáveis.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
@@ -71,7 +71,7 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionLSPsUseCase`**: Garante a presença dos binários de language server p/ shell/IDE (ver `manifests/lsp.yaml`; sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
 - **`ProvisionTweaksUseCase`** (`provision_tweaks.go`): Núcleo único Windows11/Debloat — aplica tweaks de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux); o stack Debloat usa `CheckBatch` e é opt-in via `run debloat`.
 - **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
-- **`SnapshotSyncUseCase`**: Lê o estado vivo da máquina e sincroniza manifestos e configs localmente (sem automação de git/PR).
+- **`UpdateUseCase`**: Inventário e atualização das ferramentas gerenciadas (mise/uv), com `--list` (sem rede) e `--dry-run`.
 
 ### 3. Camada de Infraestrutura (`internal/infra`)
 Implementa os adaptadores para os sistemas operacionais e ferramentas CLI:
