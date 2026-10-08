@@ -59,8 +59,6 @@ envctl commandcode    # só a camada CommandCode
 
 ## Regras de segurança
 
-- **`snapshot` é sync REVERSO (máquina → repo)** e **nunca** deve rodar numa VPS:
-  ele existe para quando você editar algo à mão e quiser levar isso ao repo.
 - `run all` é o caminho da primeira vez; numa máquina já provisionada, use a camada
   específica (`run shell`, `run skills`) para não gastar tempo à toa.
 - Provisionamento é idempotente, mas `--fix` em serviço pode reiniciar processo:

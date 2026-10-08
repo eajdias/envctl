@@ -174,7 +174,7 @@ Levantamento do que o `envctl` provisiona hoje contra as stacks de uso real.
 | Bash | bash, `shellcheck`, **`shfmt`** | — |
 | Fish | `fish` (pacman) | — (`fish_indent` vem com o fish) |
 | Python | `uv`, **`ruff`** (lint+format), **`pyright`** (LSP + tipos), **`pytest`**, pip (fallback) | type checker estrito de CI é por projeto: `envctl-verify` roda `mypy` só onde o projeto tem config `[mypy]` e o binário (venv/`uv`/PATH) |
-| Go | `go`, `gopls`, `gofmt`/`go vet`, `golangci-lint` | — |
+| Go | `go`, `gofmt`/`go vet`, `golangci-lint` | — |
 | TS/JS (Nest/Next) | `node`, `pnpm`, `typescript` (**`tsc`**), `prettier`, `typescript-language-server`, `eslint-ls` | — (eslint global não é provisionado de propósito: plugins resolvem do `node_modules` do projeto) |
 | CSS/HTML | `vscode-css/html-language-server`, `stylelint` | — |
 | SQL | `sqllens-language-server` (LSP), **`sqlfluff`** | — |

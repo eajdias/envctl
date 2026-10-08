@@ -31,7 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via mise), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
-- **Language Server Protocol (binários LSP p/ shell/IDE, ver `manifests/lsp.yaml`)**: TypeScript, Pyright, Gopls, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
+- **Language Server Protocol (binários LSP p/ shell/IDE, ver `manifests/lsp.yaml`)**: TypeScript, Pyright, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 - **Ecossistema OpenCode & CommandCode com 12 Skills**: `opencode.json`, plugins e **12 skills curadas** — só entra no catálogo o que o modelo não faria sozinho; o conhecimento por stack/tool fica em `code-playbooks/references/`. Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via npm) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
@@ -73,7 +73,7 @@ envctl doctor
 # Auto-remediação automática de qualquer divergência
 envctl doctor --fix
 
-# Atualiza o toolchain global (runtimes mise, globals npm, uv tool de Python, go install)
+# Atualiza o toolchain global (mise, uv tool)
 envctl update            # aplica direto; --dry-run faz o preview, --list só inventaria
 
 # Provisionamento granular por subsistema
@@ -89,11 +89,8 @@ envctl run debloat      # Só debloat standalone (Windows)
 envctl run mise          # Runtimes gerenciados pelo mise (Node.js)
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das skills
-envctl run lsp          # 14 Servidores de Linguagem (LSP)
+envctl run lsp          # 13 Servidores de Linguagem (LSP)
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
-
-# Snapshot reverso e sincronização de estado (Day-2)
-envctl snapshot
 ```
 
 ---

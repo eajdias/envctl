@@ -36,9 +36,9 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).
    - Terminal: Implantação de `.bashrc`, `.bash_profile` e `settings.json` do terminal com backup atômico.
 4. **Toolchains & Language Servers (LSPs):**
-   - mise: Node.js (+ Go); npm globals: pacotes LSP (`typescript`, `pyright`, `bash-ls`, `dockerfile-ls`, `yaml-ls`, `sqllens`, etc.).
-   - Python: `uv`, `ruff`.
-   - Go: `gopls`.
+   - mise: runtimes (Node.js etc.) e ferramentas via backend npm (`npm:<pkg>`).
+   - Python: `uv` (ferramentas), `ruff`.
+   - LSPs: binários p/ shell/IDE via `manifests/lsp.yaml` (`run lsp`).
 5. **Ecossistema OpenCode & CommandCode com 12 skills:**
    - Implantação de `opencode.json`, `package.json` e `AGENTS.md`.
    - Extração das 12 skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.
