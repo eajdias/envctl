@@ -61,6 +61,7 @@
 - 2026-10-07 ❌ Assumir layout `~/.local` das instalações npm antigas → ✅ Medir antes: nesta máquina tudo era shim Volta (`Volta\bin`, 62 arquivos) sombreando o mise — o sweep precisou cobrir o dir Volta + persistir os shims mise no PATH (porque sem os dois, ou a migração nunca dispara ou o binário novo continua inalcançável).
 - 2026-10-07 ❌ `git commit -m ... -- <paths>` e assumir que foi tudo → ✅ `git status` DEPOIS de commitar: pathspec commita SÓ o listado, e staged fora da lista fica para trás (aqui a deleção do teste ficou `D ` staged, local verde, CI vermelha com `undefined: NewGoManager`).
 - 2026-10-08 ❌ Tratar `py -m pip show X` verde ("installed" no `run pip`/doctor) como prova de que a lib Python serve aos agentes → ✅ O contrato das libs é o import (`py -c "import yaml"`); no incidente do 3.14t (free-threaded co-instalado na máquina dev, site-packages compartilhado) o metadata ficou verde enquanto `import pypdf` crashava (0xC0000005) e `import docx` quebrava — se uma lib "instalada" falhar em uso, checar primeiro qual interpretador o `py` resolve (`py -0p`; fix de máquina: `py.ini [defaults] python=3.14`).
+- 2026-10-08 ❌ Disparar o Release Pipeline com as entradas ainda em `[Unreleased]` e mover para a seção da versão só depois (PR pós-release) → ✅ Mover (PR) ANTES de disparar, para o commit tagueado já conter a seção — os tags v1.14.0/v1.14.1 ficaram mostrando `[Unreleased]` (evidência: `git show <tag>:CHANGELOG.md`); tag não se move (o pipeline é dono), sem correção retroativa.
 
 ## Padrões / Preferências (o que funciona)
 

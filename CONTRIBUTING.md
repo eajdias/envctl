@@ -101,7 +101,8 @@ version (`vX.Y.Z`). It creates the tag + GitHub release and attaches the
 multi-OS binaries via GoReleaser. Conventional commits are still the convention
 (`feat:`, `fix:`, …), and PRs merge with a **merge commit** (not squash).
 
-- Move `[Unreleased]` CHANGELOG entries under the new version section when cutting.
+- Move `[Unreleased]` CHANGELOG entries under the new version section **before**
+  dispatching the pipeline — the tagged commit must already carry the section.
 - Never create a tag by hand locally — the pipeline owns tags.
 
 ## Project Structure
