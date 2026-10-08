@@ -50,15 +50,17 @@ func (f *fakeUpdateEnv) wasApplied(target string) bool {
 }
 
 // The manifest already carries "@latest" in some install_target values, so the
-// command must not append a second one.
+// command must not append a second one. Both halves pin: `install` resolves
+// the version, `use -g` activates it (an install without the pin leaves an
+// orphan shim — installed, not active, off PATH).
 func TestUpdateCommandIsWellFormed(t *testing.T) {
-	if got := updateCommand(GroupMise, "npm:typescript"); got != "mise install npm:typescript@latest" {
+	if got := updateCommand(GroupMise, "npm:typescript"); got != "mise install --yes npm:typescript@latest && mise use -g npm:typescript@latest" {
 		t.Errorf("mise npm-backend command = %q", got)
 	}
-	if got := updateCommand(GroupMise, "npm:typescript@latest"); got != "mise install npm:typescript@latest" {
+	if got := updateCommand(GroupMise, "npm:typescript@latest"); got != "mise install --yes npm:typescript@latest && mise use -g npm:typescript@latest" {
 		t.Errorf("a target already ending in @latest must not double it: %q", got)
 	}
-	if got := updateCommand(GroupMise, "node"); got != "mise install node@latest" {
+	if got := updateCommand(GroupMise, "node"); got != "mise install --yes node@latest && mise use -g node@latest" {
 		t.Errorf("mise command = %q", got)
 	}
 	if got := updateCommand(GroupUV, "pytest"); got != "uv tool upgrade pytest" {
@@ -196,8 +198,8 @@ func TestUpdateDryRunNeverApplies(t *testing.T) {
 	if len(env.applied) != 0 {
 		t.Errorf("dry run applied %v, want nothing", env.applied)
 	}
-	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "mise install npm:") {
-		t.Fatalf("planned = %+v, want one mise install command", result.Planned)
+	if len(result.Planned) != 1 || !strings.Contains(result.Planned[0].Command, "mise install --yes npm:") || !strings.Contains(result.Planned[0].Command, "mise use -g npm:") {
+		t.Fatalf("planned = %+v, want one mise install+pin command", result.Planned)
 	}
 }
 
