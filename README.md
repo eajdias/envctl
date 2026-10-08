@@ -103,6 +103,7 @@ envctl snapshot
 Para guias passo a passo detalhados, arquitetura e especificações:
 
 ### 📖 Guias de Execução por Sistema Operacional:
+- 🌟 [**Primeiros Passos (para quem nunca usou)**](docs/guides/getting-started.md) — instalação em 1 comando, verificação e uso básico, sem jargão.
 - 🚀 [**Guia de Provisionamento (qualquer OS)**](docs/guides/provisioning.md) — Instalação em uma passada (1-liner, binário ou fonte) com blocos por OS.
 - 🪟 [**Guia Windows 11 PRO**](docs/guides/windows.md) — Subcomandos, shell stack, ajustes de registro, PowerShell 7 + WSL Ubuntu.
 - 🐧 [**Guia Linux (Ubuntu/Debian/VPS)**](docs/guides/linux.md) — Subcomandos, performance, execução em servidores remotos, instâncias AWS/Oracle, orquestração de subagentes e WSL2.
