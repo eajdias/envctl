@@ -303,12 +303,12 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		if !ok {
 			uc.logInfo("Providers: mise manager unavailable for %s", tool.name)
 			add(entity.DiagWarning, tool.name, "Not installed and the mise manager is unavailable",
-				"Run 'mise install npm:"+tool.npmPkg+"' manually")
+				"Run 'mise use -g npm:"+tool.npmPkg+"' manually")
 			return
 		}
 		if err := mgr.Install(ctx, entity.Package{ID: "npm:" + tool.npmPkg, Type: entity.PackageTypeMise}); err != nil {
 			add(entity.DiagWarning, tool.name, fmt.Sprintf("mise install npm:%s failed: %v", tool.npmPkg, err),
-				"Run 'mise install npm:"+tool.npmPkg+"' manually")
+				"Run 'mise use -g npm:"+tool.npmPkg+"' manually")
 			return
 		}
 		add(entity.DiagOK, tool.name, "Installed via mise (npm backend)", "")
@@ -360,12 +360,12 @@ func (uc *ProvisionProvidersUseCase) ensureProviderCLI(ctx context.Context, tool
 		mgr, ok := uc.managers[entity.PackageTypeMise]
 		if !ok {
 			add(entity.DiagWarning, tool.name, fmt.Sprintf("update to v%s skipped: the mise manager is unavailable", latest),
-				"Run 'mise install npm:"+tool.npmPkg+"@latest' manually")
+				"Run 'mise use -g npm:"+tool.npmPkg+"@latest' manually")
 			return
 		}
 		if err := mgr.Install(ctx, entity.Package{ID: "npm:" + tool.npmPkg + "@latest", Type: entity.PackageTypeMise}); err != nil {
 			add(entity.DiagWarning, tool.name, fmt.Sprintf("update to v%s failed: %v", latest, err),
-				"Run 'mise install npm:"+tool.npmPkg+"@latest' manually")
+				"Run 'mise use -g npm:"+tool.npmPkg+"@latest' manually")
 			return
 		}
 		after := installedVersion(ctx, tool.binary)
