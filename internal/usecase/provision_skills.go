@@ -120,6 +120,10 @@ func (uc *ProvisionSkillsUseCase) Execute(ctx context.Context, targetBaseDir str
 			uc.logger.Info("[SKILLS-QUARANTINE] expired %d entr(ies) older than %s in %s", len(aged), staleSkillQuarantineTTL, trashDir)
 		}
 		expired = aged
+		// A deploy-stamp experiment briefly wrote `.envctl-deploy.hash` here;
+		// the content-parity audit replaced it, so remove the leftover.
+		//nolint:errcheck // best effort: absence is the common case.
+		os.Remove(filepath.Join(base, ".envctl-deploy.hash"))
 	} else {
 		uc.logger.Warn("Could not expand skills target '%s' for pruning: %v", targetBaseDir, expandErr)
 	}

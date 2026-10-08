@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -56,6 +57,7 @@ func (uc *DoctorAuditUseCase) auditOpenCodeMCPRefs(ctx context.Context, addDiag 
 func (uc *DoctorAuditUseCase) auditSkills(addDiag func(entity.Diagnostic)) {
 	if skillsDir, expandErr := uc.fsManager.ExpandUserPath("~/.config/opencode/skills"); expandErr == nil {
 		uc.auditSkillTree("Skills", skillsDir, addDiag)
+		uc.auditSkillsContentParity("Skills", skillsDir, addDiag)
 		if catalogSkills, err := uc.manifestRepo.LoadSkills(); err == nil {
 			uc.auditSkillCatalogBudget(catalogSkills, addDiag)
 		}
@@ -175,6 +177,7 @@ func (uc *DoctorAuditUseCase) auditCommandCodeHealth(addDiag func(entity.Diagnos
 			uc.auditCommandCodeAgents(ccConfigDir, addDiag)
 
 			uc.auditSkillTree("CommandCode", filepath.Join(ccConfigDir, "skills"), addDiag)
+			uc.auditSkillsContentParity("CommandCode", filepath.Join(ccConfigDir, "skills"), addDiag)
 		} else {
 			addDiag(entity.Info(
 				"CommandCode",
@@ -420,6 +423,67 @@ func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag
 		"CommandCode",
 		"Agents",
 		fmt.Sprintf("%d custom agent definition(s) valid", valid),
+	))
+}
+
+// auditSkillsContentParity verifies every embedded skill source file
+// byte-for-byte against the deployed tree. The frontmatter audit cannot see
+// content drift (a stale deploy or a hand edit with valid frontmatter passes
+// it), so without this a tree that never converged stays green. Files the
+// sources don't declare (backups, local additions) are ignored: only the
+// managed set is audited.
+func (uc *DoctorAuditUseCase) auditSkillsContentParity(system, skillsDir string, addDiag func(entity.Diagnostic)) {
+	if !uc.fsManager.Exists(skillsDir) {
+		return // the tree check owns a missing directory
+	}
+	skills, err := uc.manifestRepo.LoadSkills()
+	if err != nil {
+		return // manifest unreadable: its own loader diagnostics own that failure
+	}
+	targets := make(map[string]string, len(skills))
+	for _, s := range skills {
+		if !s.Enabled || !s.AppliesToOS(runtime.GOOS) {
+			continue
+		}
+		dir := s.Name
+		if s.TargetDir != "" {
+			dir = s.TargetDir
+		}
+		targets[s.Name] = dir
+	}
+	var bad []string
+	checked := 0
+	walkErr := uc.manifestRepo.WalkSkillSources(runtime.GOOS, func(skill, rel string, data []byte) error {
+		checked++
+		//nolint:gosec // G703: skill/rel come from the embedded manifest walk.
+		live, err := os.ReadFile(filepath.Join(skillsDir, targets[skill], rel))
+		if err != nil || !bytes.Equal(live, data) {
+			bad = append(bad, skill+"/"+rel)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return
+	}
+	if len(bad) > 0 {
+		shown := bad
+		suffix := ""
+		if len(bad) > 5 {
+			shown = bad[:5]
+			suffix = fmt.Sprintf(" and %d more", len(bad)-5)
+		}
+		addDiag(entity.Warn(
+			system,
+			"Skills content",
+			fmt.Sprintf("%d of %d skill file(s) differ from the embedded sources: %s%s", len(bad), checked, strings.Join(shown, ", "), suffix),
+			"run 'envctl run skills' to re-sync",
+		))
+		return
+	}
+	addDiag(entity.OK(
+		system,
+		"Skills content",
+		fmt.Sprintf("%d skill file(s) match the embedded sources", checked),
 	))
 }
 
