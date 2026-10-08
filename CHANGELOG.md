@@ -13,6 +13,9 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.15.1](https://github.com/eajdias/envctl/compare/v1.15.0...v1.15.1) (2026-10-08)
+
+
 ### Bug Fixes
 
 - **toolchain:** `MiseManager.Install` pins every tool with `mise use -g <id>`
