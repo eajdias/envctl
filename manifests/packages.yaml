@@ -552,6 +552,24 @@ packages:
     os: debian,ubuntu
     category: cli-tools
 
+  - id: python3-pypdf
+    name: pypdf (PDF text extraction for python agent scripts)
+    type: apt
+    os: debian,ubuntu
+    category: cli-tools
+
+  - id: python3-docx
+    name: python-docx (Word .docx read/write for python agent scripts)
+    type: apt
+    os: debian,ubuntu
+    category: cli-tools
+
+  - id: python3-lxml
+    name: lxml (fast XML/HTML parsing for python agent scripts)
+    type: apt
+    os: debian,ubuntu
+    category: cli-tools
+
   # ============================================================================
   # Ubuntu Server 24.04+ headless performance/CLI toolbox
   # Verified against Ubuntu 24.04 repositories; exact target fields prevent

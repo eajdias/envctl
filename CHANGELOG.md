@@ -13,6 +13,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Features
+
+- **packages:** complete the Ubuntu agent-library parity with `python3-pypdf`,
+  `python3-docx` and `python3-lxml` (apt) — the CachyOS (pacman) and Windows
+  (pip via uv) sets already carried all seven PyPI libraries; Ubuntu had four.
+
 ## [1.14.1](https://github.com/eajdias/envctl/compare/v1.14.0...v1.14.1) (2026-10-07)
 
 
