@@ -29,6 +29,7 @@ envctl doctor
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
    - `Envctl / PATH`: o próprio `envctl` resolvível no `PATH` (bootstrap persiste o install dir; senão `WARN`).
    - `PATH (mise shims)`: o dir de shims do mise (`%LOCALAPPDATA%\mise\shims` no Windows, `~/.local/share/mise/shims` no POSIX) no `PATH` do usuário — sem ele nenhum binário `type: mise` resolve por nome bare (`run 'envctl run shell'`).
+   - `py launcher default` (só Windows): avisa quando o default do launcher `py` é um build free-threaded (`3.14t` — site-packages compartilhado, imports com C-extension crasham com metadata pip verde); fix com `%LOCALAPPDATA%\py.ini` (`[defaults] python=3.14`).
    - `Envctl / Binary freshness`: quando o binário é executado a partir de um checkout do repo,
      compara a versão embutida com `git describe --tags --always` — binário mais antigo que o
      checkout (ou build `dev`) vira `WARN` pedindo rebuild, porque os templates são `//go:embed`.
