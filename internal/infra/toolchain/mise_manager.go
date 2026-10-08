@@ -91,19 +91,23 @@ func miseToolName(pkgID string) string {
 type miseLsRecord struct {
 	Version     string `json:"version"`
 	Installed   bool   `json:"installed"`
+	Active      bool   `json:"active"`
 	InstallPath string `json:"install_path"`
 }
 
 // miseLsRecordsInstalled reports whether any record in a `mise ls --json`
-// array is installed, returning its version (or install path when the
-// version is empty).
+// array is installed AND active, returning its version (or install path when
+// the version is empty). Installed-but-inactive is an orphan shim: `mise
+// install` without `mise use -g` leaves the tool off PATH (mise's own help:
+// "Installing alone does not add the tool to your config"), so it must not
+// count — otherwise the doctor stays green over unreachable tools.
 func miseLsRecordsInstalled(jsonOut string) (bool, string) {
 	var records []miseLsRecord
 	if err := json.Unmarshal([]byte(jsonOut), &records); err != nil {
 		return false, ""
 	}
 	for _, r := range records {
-		if r.Installed {
+		if r.Installed && r.Active {
 			if r.Version != "" {
 				return true, r.Version
 			}
@@ -122,6 +126,15 @@ func (m *MiseManager) Install(ctx context.Context, pkg entity.Package) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("mise install %s failed: %s (%w)", pkg.ID, string(out), err)
+	}
+	// Installing alone does not add the tool to the mise config, so it stays
+	// inactive (off PATH) until pinned. `mise use -g` writes the same ID to
+	// the global config.toml, which is what flips `active` in `mise ls` and
+	// exposes the shim — the same call phase 0 already makes for the Node
+	// runtime. Same ID string, never an invented version.
+	pin := executil.ExecTool(ctx, "mise", "use", "-g", pkg.ID)
+	if out, err := pin.CombinedOutput(); err != nil {
+		return fmt.Errorf("mise use -g %s failed: %s (%w)", pkg.ID, string(out), err)
 	}
 	return nil
 }

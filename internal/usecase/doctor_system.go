@@ -41,6 +41,28 @@ func (uc *DoctorAuditUseCase) auditEnvVars(addDiag func(entity.Diagnostic)) {
 	}
 }
 
+// pathListsDir reports whether dir is one of the pathVal segments (exact
+// segment match — a prefix like "<dir>-old" is not a hit). Windows compares
+// case-insensitively, POSIX exactly.
+func pathListsDir(pathVal string, sep byte, dir string, foldCase bool) bool {
+	for _, p := range strings.Split(pathVal, string(sep)) {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if foldCase {
+			if strings.EqualFold(p, dir) {
+				return true
+			}
+			continue
+		}
+		if p == dir {
+			return true
+		}
+	}
+	return false
+}
+
 // 1.5. Audit ~/.local/bin on PATH (provisioned helpers like `pw` live here).
 func (uc *DoctorAuditUseCase) auditLocalBinPATH(addDiag func(entity.Diagnostic)) {
 	if localBin, err := uc.fsManager.ExpandUserPath("~/.local/bin"); err == nil && localBin != "" {
@@ -86,6 +108,38 @@ func (uc *DoctorAuditUseCase) auditLocalBinPATH(addDiag func(entity.Diagnostic))
 				"~/.local/bin is not on PATH — provisioned helpers (pw) do not resolve by bare name",
 				"run 'envctl run shell' to prepend ~/.local/bin to the user PATH",
 			))
+		}
+	}
+
+	// 1.5b. Audit the mise shims dir on PATH. Every `type: mise` binary
+	// (ssh-manager, prettier, LSP servers) resolves through a shim, so a
+	// machine with the shims dir off PATH spawns nothing even when
+	// `mise ls` reports installed — the exact shape of the ssh-manager
+	// outage (shims_on_path: no, `mcp-ssh-manager` not recognized).
+	if homeDir, err := uc.fsManager.ExpandUserPath("~"); err == nil && homeDir != "" {
+		if shimDir := executil.MiseShimDir(homeDir); shimDir != "" {
+			onPath := false
+			if runtime.GOOS == "windows" {
+				if pathVal, err := uc.envManager.GetEnvVar("User", "Path"); err == nil {
+					onPath = pathListsDir(pathVal, ';', shimDir, true)
+				}
+			} else {
+				onPath = pathListsDir(os.Getenv("PATH"), ':', shimDir, false)
+			}
+			if onPath {
+				addDiag(entity.OK(
+					"Environment",
+					"PATH (mise shims)",
+					"mise shims dir is on PATH (mise-managed binaries resolve)",
+				))
+			} else {
+				addDiag(entity.Warn(
+					"Environment",
+					"PATH (mise shims)",
+					"mise shims dir is not on PATH — mise-managed binaries (ssh-manager, prettier, LSP servers) do not resolve by bare name",
+					"run 'envctl run shell' to prepend the mise shims dir to the user PATH",
+				))
+			}
 		}
 	}
 
