@@ -31,3 +31,26 @@ func TestPathListsDir(t *testing.T) {
 		})
 	}
 }
+
+// Fixtures from live `py -0p` (Windows launcher): the `*` marks the default.
+func TestPyDefaultIsFreeThreaded(t *testing.T) {
+	healthy := " -V:3.14t         C:\\Program Files\\Python314\\python3.14t.exe\n -V:3.14 *        C:\\Program Files\\Python314\\python.exe\n"
+	broken := " -V:3.14t *        C:\\Program Files\\Python314\\python3.14t.exe\n -V:3.14          C:\\Program Files\\Python314\\python.exe\n"
+	tests := []struct {
+		name string
+		out  string
+		want bool
+	}{
+		{"regular default", healthy, false},
+		{"free-threaded default", broken, true},
+		{"no default marker", " -V:3.14  C:\\Python314\\python.exe\n", false},
+		{"empty output", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pyDefaultIsFreeThreaded(tt.out); got != tt.want {
+				t.Errorf("pyDefaultIsFreeThreaded(%q) = %v, want %v", tt.out, got, tt.want)
+			}
+		})
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/infra/executil"
@@ -61,6 +62,55 @@ func pathListsDir(pathVal string, sep byte, dir string, foldCase bool) bool {
 		}
 	}
 	return false
+}
+
+// pyDefaultIsFreeThreaded reports whether `py -0p` output star-marks a
+// free-threaded (`t`-suffixed, e.g. 3.14t) build as the launcher default. That
+// build shares site-packages with the regular one while breaking C-extension
+// wheels (import crashes with `pip show` still green), so the default must be
+// a regular build. No star line (or no output) means unknown → false.
+func pyDefaultIsFreeThreaded(pyListOut string) bool {
+	for _, line := range strings.Split(pyListOut, "\n") {
+		if !strings.Contains(line, "*") {
+			continue
+		}
+		for _, field := range strings.Fields(line) {
+			if tag, ok := strings.CutPrefix(field, "-V:"); ok {
+				return strings.HasSuffix(tag, "t")
+			}
+		}
+	}
+	return false
+}
+
+// 1.5c. Audit the `py` launcher default (Windows only). A free-threaded
+// default shares site-packages with the regular build and crashes C-extension
+// imports while pip metadata stays green.
+func (uc *DoctorAuditUseCase) auditPyLauncherDefault(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	//nolint:gosec // G204: fixed launcher probe (`py -0p`), no user input.
+	out, err := exec.CommandContext(timeoutCtx, "py", "-0p").CombinedOutput()
+	if err != nil {
+		return // no launcher: nothing pip-related to protect; silent skip
+	}
+	if !pyDefaultIsFreeThreaded(string(out)) {
+		addDiag(entity.OK(
+			"Environment",
+			"py launcher default",
+			"py default is a regular build (no free-threaded site-packages crash)",
+		))
+		return
+	}
+	addDiag(entity.Warn(
+		"Environment",
+		"py launcher default",
+		"py default is a free-threaded (t) build — C-extension imports crash while pip metadata stays green",
+		`pin %LOCALAPPDATA%\py.ini [defaults] python=3.14, then open a new shell`,
+	))
 }
 
 // 1.5. Audit ~/.local/bin on PATH (provisioned helpers like `pw` live here).

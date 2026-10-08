@@ -115,6 +115,9 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditEnvVars(addDiag)
 	// 1.5. Audit ~/.local/bin on PATH (provisioned helpers like `pw` live here).
 	uc.auditLocalBinPATH(addDiag)
+	// 1.5c. Audit the `py` launcher default (free-threaded default breaks
+	// C-extension imports with green pip metadata; Windows only).
+	uc.auditPyLauncherDefault(ctx, addDiag)
 	// 2. Audit Git Global Configurations
 	uc.auditGitConfigs(ctx, addDiag)
 	// 3. Audit Config Files
