@@ -121,7 +121,9 @@ func mcpShimPatches(shimDir, exeSuffix, configID string) []mcpShimPatch {
 // provisioning and the doctor drift comparison for one config file
 // ("opencode_config", "opencode_config_linux", "commandcode_mcp"). Both
 // call sites must use it — a one-sided edit silently reintroduces permanent
-// drift WARN (locked by TestDeployedMCPConfigParity).
+// drift WARN. TestDeployedMCPConfigParity locks the helper behavior
+// end-to-end; keeping both call sites on it is a review-time invariant
+// (grep deployedMCPConfig must show exactly the two call sites).
 func deployedMCPConfig(content []byte, configID string) []byte {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
