@@ -3,7 +3,9 @@ package usecase
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/infra/executil"
@@ -55,8 +57,9 @@ type mcpShimServer struct {
 }
 
 // mcpShimServers is the closed set of local MCP servers both runtimes
-// provision. Versions live in the template pins and the packages manifest —
-// never here — so a bump touches exactly those two places.
+// provision. Versions are pinned in the templates + packages manifest and
+// repeated verbatim in the fragments below — a bump touches all three, and
+// TestMCPShimOverlayOnShippedTemplates fails until the table follows.
 var mcpShimServers = []mcpShimServer{
 	{
 		bin:         "brave-search-mcp-server",
@@ -112,6 +115,23 @@ func mcpShimPatches(shimDir, exeSuffix, configID string) []mcpShimPatch {
 		}
 	}
 	return patches
+}
+
+// deployedMCPConfig applies the deploy-time MCP shim transform shared by
+// provisioning and the doctor drift comparison for one config file
+// ("opencode_config", "opencode_config_linux", "commandcode_mcp"). Both
+// call sites must use it — a one-sided edit silently reintroduces permanent
+// drift WARN (locked by TestDeployedMCPConfigParity).
+func deployedMCPConfig(content []byte, configID string) []byte {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return content
+	}
+	suffix := ""
+	if runtime.GOOS == "windows" {
+		suffix = ".exe"
+	}
+	return withMCPShimOverlay(content, mcpShimPatches(executil.MiseShimDir(home), suffix, configID))
 }
 
 // commandcodeCommand rebuilds a `"command": ..., "args": ...` pair with the

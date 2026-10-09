@@ -284,14 +284,9 @@ func (uc *DoctorAuditUseCase) auditConfigFiles(addDiag func(entity.Diagnostic)) 
 					// Same for the mise-shim overlay: the deployed MCP
 					// commands carry absolute shim paths. Without mirroring
 					// it here, every machine would report drift forever.
+					// Shared helper (never a second copy of the transform).
 					if cf.ID == "opencode_config" || cf.ID == "opencode_config_linux" || cf.ID == "commandcode_mcp" {
-						if home, err := os.UserHomeDir(); err == nil && home != "" {
-							suffix := ""
-							if runtime.GOOS == "windows" {
-								suffix = ".exe"
-							}
-							src = withMCPShimOverlay(src, mcpShimPatches(executil.MiseShimDir(home), suffix, cf.ID))
-						}
+						src = deployedMCPConfig(src, cf.ID)
 					}
 					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {
 						addDiag(entity.Warn(

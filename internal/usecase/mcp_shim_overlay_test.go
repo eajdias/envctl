@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl"
+	"github.com/eajdias/envctl/internal/infra/executil"
 )
 
 // winSep is two literal backslashes (the JSON encoding of one Windows path
@@ -289,5 +290,55 @@ func TestMCPShimOverlayNormalizesCRLFCheckout(t *testing.T) {
 	}
 	if !strings.Contains(string(got), `"C:`+winSep+`shims`+winSep+`mcp-ssh-manager.exe"`) {
 		t.Errorf("overlay on CRLF input did not patch:\n%s", got)
+	}
+}
+
+// TestDeployedMCPConfigParity locks the shared helper both call sites
+// (provisioning and the doctor drift comparison) must use: end-to-end over
+// the shipped templates with a fake HOME, so a one-sided edit is a test
+// failure instead of a permanent drift WARN.
+func TestDeployedMCPConfigParity(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("LOCALAPPDATA", home)
+	shimDir := executil.MiseShimDir(home)
+	if err := os.MkdirAll(shimDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	suffix := ""
+	if runtime.GOOS == "windows" {
+		suffix = ".exe"
+	}
+	for _, bin := range []string{"brave-search-mcp-server", "chrome-devtools-mcp", "mcp-ssh-manager"} {
+		if err := os.WriteFile(filepath.Join(shimDir, bin+suffix), []byte("x"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		template string
+		configID string
+	}{
+		{"configs/opencode.json", "opencode_config"},
+		{"configs/opencode.json", "opencode_config_linux"},
+		{"configs/commandcode/mcp.json", "commandcode_mcp"},
+	} {
+		base, err := envctl.EmbeddedFS.ReadFile(tc.template)
+		if err != nil {
+			t.Fatalf("read %s: %v", tc.template, err)
+		}
+		got := deployedMCPConfig(base, tc.configID)
+		if !json.Valid(got) {
+			t.Fatalf("%s/%s: helper output is not valid JSON", tc.template, tc.configID)
+		}
+		if string(got) == string(base) {
+			t.Fatalf("%s/%s: helper changed nothing", tc.template, tc.configID)
+		}
+		if !strings.Contains(string(got), filepath.ToSlash(shimDir)+"/") {
+			t.Errorf("%s/%s: helper output carries no shim path from the fake HOME", tc.template, tc.configID)
+		}
+		if again := deployedMCPConfig(got, tc.configID); string(again) != string(got) {
+			t.Errorf("%s/%s: helper is not idempotent", tc.template, tc.configID)
+		}
 	}
 }
