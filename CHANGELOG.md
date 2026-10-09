@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.15.3](https://github.com/eajdias/envctl/compare/v1.15.2...v1.15.3) (2026-10-09)
+
 ### Bug Fixes
 
 - **toolchain:** `brave` and `chrome-devtools` MCP servers are now pinned mise
