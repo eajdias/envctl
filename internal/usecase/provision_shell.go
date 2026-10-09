@@ -238,6 +238,21 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 			content = withWindowsShellOverlay(content)
 		}
 
+		// mise-shim overlay for MCP server commands (opencode + commandcode):
+		// bare launcher fragments become absolute shim paths so agent child
+		// processes resolve without depending on the spawning process's PATH
+		// age (a stale background service env breaks bare mise shims even when
+		// the doctor PATH check is green).
+		if cf.ID == "opencode_config" || cf.ID == "opencode_config_linux" || cf.ID == "commandcode_mcp" {
+			if home, err := os.UserHomeDir(); err == nil && home != "" {
+				suffix := ""
+				if runtime.GOOS == "windows" {
+					suffix = ".exe"
+				}
+				content = withMCPShimOverlay(content, mcpShimPatches(executil.MiseShimDir(home), suffix, cf.ID))
+			}
+		}
+
 		// OS overlay for the single ssh-config base: the template carries no
 		// OS-only lines (the old linux copy differed only in the Control*
 		// block, the header suffix and the windows key lookups), so each OS
