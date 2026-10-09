@@ -258,6 +258,19 @@ packages:
     category: mise
     check_command: ssh-manager --version
 
+  # MCP servers below run as agent child processes: no check_command on
+  # purpose — IsInstalled for backend IDs trusts `mise ls` installed&&active
+  # (internal/infra/toolchain/mise_manager.go), never a PATH probe.
+  - id: "npm:@brave/brave-search-mcp-server@2.1.4"
+    name: Brave Search MCP Server (agent web search)
+    type: mise
+    category: mise
+
+  - id: "npm:chrome-devtools-mcp@1.8.0"
+    name: Chrome DevTools MCP Server (browser automation)
+    type: mise
+    category: mise
+
   - id: npm:stylelint
     name: Stylelint CSS/SCSS Linter
     type: mise
