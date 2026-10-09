@@ -28,7 +28,7 @@ envctl doctor
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
    - `Envctl / PATH`: o próprio `envctl` resolvível no `PATH` (bootstrap persiste o install dir; senão `WARN`).
-   - `PATH (mise shims)`: o dir de shims do mise (`%LOCALAPPDATA%\mise\shims` no Windows, `~/.local/share/mise/shims` no POSIX) no `PATH` do usuário — sem ele nenhum binário `type: mise` resolve por nome bare (`run 'envctl run shell'`).
+   - `PATH (mise shims)`: o dir de shims do mise (`%LOCALAPPDATA%\mise\shims` no Windows, `~/.local/share/mise/shims` no POSIX) no `PATH` do usuário — sem ele nenhum binário `type: mise` resolve por nome bare (`run 'envctl run shell'`). **Limite conhecido (2026-10-09):** o background service do opencode (`opencode serve --service`) congela o env no momento em que sobe — colocar os shims no PATH **não** revive MCP local com `failed: Connection closed ... não é reconhecido como comando interno` enquanto o service for anterior à mudança (sintoma igual ao de shim ausente, mas binário saudável via path absoluto). Fix: `opencode service restart` a partir de uma shell com os shims no PATH (config também não é hot-reload — o restart recarrega os dois).
    - `py launcher default` (só Windows): avisa quando o default do launcher `py` é um build free-threaded (`3.14t` — site-packages compartilhado, imports com C-extension crasham com metadata pip verde); fix com `%LOCALAPPDATA%\py.ini` (`[defaults] python=3.14`).
    - `Envctl / Binary freshness`: quando o binário é executado a partir de um checkout do repo,
      compara a versão embutida com `git describe --tags --always` — binário mais antigo que o

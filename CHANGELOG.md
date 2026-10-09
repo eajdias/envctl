@@ -13,6 +13,21 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Bug Fixes
+
+- **toolchain:** `brave` and `chrome-devtools` MCP servers are now pinned mise
+  packages (`npm:@brave/brave-search-mcp-server@2.1.4`,
+  `npm:chrome-devtools-mcp@1.8.0`, matching the template pins) instead of
+  on-demand `bunx`/`npx` launches.
+- **opencode/commandcode:** local MCP server commands (`ssh-manager`, `brave`,
+  `chrome-devtools`) deploy with absolute mise-shim paths
+  (`withMCPShimOverlay`, forward-slash, all three config IDs) — bare launcher
+  fragments only resolve in interactive-session PATH, so a background service
+  started before the shims hit PATH failed MCP spawn with a green doctor
+  (`Connection closed ... not recognized`, 2026-10-09). Templates stay
+  portable; `disabled` defaults untouched. The `ConfigFile` drift comparison
+  mirrors the overlay, else every machine would warn forever.
+
 ## [1.15.2](https://github.com/eajdias/envctl/compare/v1.15.1...v1.15.2) (2026-10-08)
 
 ### Bug Fixes

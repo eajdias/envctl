@@ -160,20 +160,26 @@ by path, never blind `git add -A`.
   DONE 2026-10-09: both installed pinned+active
   (`brave-search-mcp-server.exe`, `chrome-devtools-mcp.exe` + `chrome-devtools.exe`
   shims on disk); no registry-miss, no bump needed.
-- [ ] T2 — RED: `mcp_shim_overlay_test.go` — all 6 patches (§3.2), `json.Valid`
+- [x] T2 — RED: `mcp_shim_overlay_test.go` — all 6 patches (§3.2), `json.Valid`
   output, idempotency, pass-through on missing shim/invalid JSON/zero-or-multiple
   matches, CRLF fixture (pattern `ssh_overlay_test.go:139-155`).
   `go test ./internal/usecase/ -run TestMCPShimOverlay -v` → FAIL (undefined). Rollback: delete file.
-- [ ] T3 — GREEN: implement `withMCPShimOverlay` + wire provision (3 IDs) + doctor
+  DONE 2026-10-09 (true RED: `undefined: mcpShimPatch/withMCPShimOverlay`).
+- [x] T3 — GREEN: implement `withMCPShimOverlay` + wire provision (3 IDs) + doctor
   mirror. `gofmt`, `go build ./...`, `go vet ./...`,
   `go test ./internal/usecase/ -run TestMCPShimOverlay -v` → PASS.
   Locks untouched and green:
   `go test ./internal/usecase/ -run 'TestShippedOpenCodeTemplatesHaveNativeShape|TestMCPServerParityAcrossAgents' -v`.
   Rollback: revert hunks; next `run shell` restores deployed files (atomic `.bak.`).
-- [ ] T4 — Gate + docs: `go test ./...`, `golangci-lint run --new-from-rev=origin/main`
+  DONE 2026-10-09: 7 tests green; full `go build/vet/test ./...` green;
+  `golangci-lint --new-from-rev=origin/main` 0 issues. Real findings fixed:
+  fail-closed on unknown config ID; no trailing comma for single-element
+  arrays; test scoped off context7's legitimate `npx`.
+- [x] T4 — Gate + docs: `go test ./...`, `golangci-lint run --new-from-rev=origin/main`
   (advisories per `docs/verification.md`); matrix §3 row; CHANGELOG `[Unreleased]`
   entry; docs-sync verification (claims cite `file:line`; no usernames/absolute
   paths in repo). Rollback: `git checkout -- docs/ CHANGELOG.md`.
+  DONE 2026-10-09: matrix row #29 + CHANGELOG `Fixed` entry; docs-sync clean.
 - [ ] T5 — Live validation (Windows): `envctl run shell`, `envctl doctor`
   (ConfigFile rows OK, no new WARN vs 136/3/0 baseline of 2026-10-09);
   `opencode service restart`, enable all three via `/mcp`, `opencode mcp list`
