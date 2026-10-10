@@ -22,6 +22,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   tooling. `pyright` (Python type checker) and `taplo` (TOML formatter) are kept as plain
   tools in `manifests/packages.yaml`; `sqllens-language-server` was removed outright.
 
+### Fixed
+
+- **verify-gate:** the verification gate no longer hangs. (1) Every check runs under a
+  per-check timeout (`ENVCTL_VERIFY_TIMEOUT`, 120s hook / 600s push) — a hung check fails
+  fast as `TIMED OUT` instead of blocking a turn or push forever. (2) The global `pre-push`
+  hook, when the verifier is missing, now **warns and allows** the push by default instead
+  of aborting every push in every repo; set `ENVCTL_REQUIRE_GATE=1` to fail closed. (3) The
+  hook delegator resolves the repo's own hook via `--git-common-dir`, so linked worktrees run
+  their local hooks again. (4) The Stop-hook payload read is bounded, so a manual/empty
+  invocation cannot block on stdin.
+
 ## [1.15.3](https://github.com/eajdias/envctl/compare/v1.15.2...v1.15.3) (2026-10-09)
 
 ### Bug Fixes

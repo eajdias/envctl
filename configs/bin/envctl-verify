@@ -23,9 +23,10 @@
 # findings are printed as non-blocking diagnostics and exit 0 when no blocking
 # check failed.
 #
-# Deliberately no timeout: the suite runs in seconds on a warm cache, so a
-# check that hangs is a broken check and should say so instead of being waited
-# out. The Stop hook additionally runs under the engine's own cap.
+# Every check runs under a per-check timeout (ENVCTL_VERIFY_TIMEOUT; 120s for the
+# Stop hook, 600s for the push gate): a check that hangs is a broken check and
+# fails fast at the cap with a TIMED OUT marker instead of being waited out. The
+# Stop hook additionally runs under the engine's own cap.
 
 set -uo pipefail
 
@@ -41,8 +42,38 @@ RUN_TESTS=1
 DRY_RUN=0
 [ "$MODE" = "--dry-run" ] && DRY_RUN=1
 
+# Per-check timeout (seconds). A check that hangs is a broken check and must say
+# so instead of being waited out. Static checks are fast, so the Stop hook gets a
+# tight cap; the push gate runs test suites and gets a generous one. Override with
+# ENVCTL_VERIFY_TIMEOUT. When coreutils `timeout` is unavailable the check runs
+# uncapped (the old behaviour) rather than failing.
+CHECK_TIMEOUT="${ENVCTL_VERIFY_TIMEOUT:-}"
+if [ -z "$CHECK_TIMEOUT" ]; then
+	if [ "$MODE" = "--hook" ]; then
+		CHECK_TIMEOUT=120
+	else
+		CHECK_TIMEOUT=600
+	fi
+fi
+
 log() { printf 'envctl-verify: %s\n' "$*" >&2; }
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# run_capped runs a command under the per-check timeout when `timeout` is on PATH.
+# On a timeout (rc 124) it appends a TIMED OUT marker to stdout so the caller's
+# output names the cap instead of showing a bare failure.
+run_capped() {
+	if ! have timeout; then
+		"$@"
+		return $?
+	fi
+	timeout "$CHECK_TIMEOUT" "$@"
+	rc=$?
+	if [ "$rc" -eq 124 ]; then
+		printf '\nTIMED OUT after %ss (raise ENVCTL_VERIFY_TIMEOUT to allow more)\n' "$CHECK_TIMEOUT"
+	fi
+	return "$rc"
+}
 has_any_file() {
 	for candidate in "$@"; do
 		[ -e "$candidate" ] && return 0
@@ -94,7 +125,16 @@ resolve_tool() {
 [ "${ENVCTL_SKIP_VERIFY:-0}" = "1" ] && exit 0
 
 if [ "$MODE" = "--hook" ]; then
-	payload=$(cat)
+	payload=""
+	# Only read the Stop payload from a pipe (the hook path). A terminal has no
+	# payload, and an idle pipe is bounded so a manual invocation cannot hang.
+	if [ ! -t 0 ]; then
+		if have timeout; then
+			payload=$(timeout 2 cat 2>/dev/null || true)
+		else
+			payload=$(cat 2>/dev/null || true)
+		fi
+	fi
 	# A retry already carries this hook's own feedback: let the turn end instead
 	# of looping (the engine additionally caps retries at three).
 	case "$payload" in
@@ -149,7 +189,7 @@ check() {
 		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
-	out=$("$@" 2>&1)
+	out=$(run_capped "$@" 2>&1)
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
 		ok_count=$((ok_count + 1))
@@ -192,7 +232,7 @@ check_soft() {
 		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
-	out=$("$@" 2>&1)
+	out=$(run_capped "$@" 2>&1)
 	rc=$?
 	if [ "$rc" -eq 0 ]; then
 		ok_count=$((ok_count + 1))
@@ -238,7 +278,7 @@ check_ok_codes() {
 		printf '  [%s] %s\n' "$severity" "$label"
 		return 0
 	fi
-	out=$("$@" 2>&1)
+	out=$(run_capped "$@" 2>&1)
 	rc=$?
 	for code in $codes; do
 		if [ "$rc" -eq "$code" ]; then
@@ -364,7 +404,7 @@ check_go() {
 	if [ "$DRY_RUN" = "1" ]; then
 		printf '  [advisory] %s\n' "gofmt -l ."
 	elif have gofmt; then
-		gofmt_output=$(gofmt -l . 2>&1)
+		gofmt_output=$(run_capped gofmt -l . 2>&1)
 		gofmt_rc=$?
 		if [ "$gofmt_rc" -ne 0 ]; then
 			if is_tool_unavailable "$gofmt_rc" "$gofmt_output"; then

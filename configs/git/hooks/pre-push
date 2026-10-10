@@ -24,9 +24,17 @@ if [ -n "$verifier" ] && [ -x "$verifier" ]; then
 	exec "$verifier" --git-push
 fi
 
+# No verifier found. By default this warns and lets the push through — the gate is
+# a local dev convenience (a push can always use --no-verify), and blocking every
+# push in a repo that never provisioned envctl is the worse failure. Set
+# ENVCTL_REQUIRE_GATE=1 to restore the hard gate.
 if [ -z "${HOME:-}" ]; then
 	printf '%s\n' 'envctl-verify: HOME is not set and no verifier was found on PATH' >&2
 else
-	printf '%s\n' 'envctl-verify: verifier not found; refusing an ungated push' >&2
+	printf '%s\n' 'envctl-verify: verifier not found; pushing without the gate' >&2
 fi
-exit 2
+if [ "${ENVCTL_REQUIRE_GATE:-0}" = "1" ]; then
+	printf '%s\n' 'envctl-verify: ENVCTL_REQUIRE_GATE=1 set; refusing an ungated push' >&2
+	exit 2
+fi
+exit 0

@@ -1,12 +1,14 @@
 package usecase
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The verifier is a shell script but it sits on the critical path of every push,
@@ -773,16 +775,29 @@ func TestVerifyScriptFindsWindowsPythonToolFromScripts(t *testing.T) {
 	}
 }
 
-func TestPrePushHookFailsClosedWithoutVerifier(t *testing.T) {
+func TestPrePushHookAllowsUngatedPushWithoutVerifier(t *testing.T) {
 	dir := t.TempDir()
 	initRepo(t, dir)
 
 	code, out := runPrePushHook(t, dir, []string{"HOME=", "PATH=/usr/bin:/bin"})
-	if code != 2 {
-		t.Fatalf("a missing verifier must not allow an ungated push, got %d\n%s", code, out)
+	if code != 0 {
+		t.Fatalf("a missing verifier must not block the push by default, got %d\n%s", code, out)
 	}
-	if !strings.Contains(out, "refusing an ungated push") && !strings.Contains(out, "HOME is not set") {
-		t.Errorf("the hook must explain why it failed closed, got:\n%s", out)
+	if !strings.Contains(out, "pushing without the gate") && !strings.Contains(out, "HOME is not set") {
+		t.Errorf("the hook must explain it pushed ungated, got:\n%s", out)
+	}
+}
+
+func TestPrePushHookFailsClosedWhenGateRequired(t *testing.T) {
+	dir := t.TempDir()
+	initRepo(t, dir)
+
+	code, out := runPrePushHook(t, dir, []string{"HOME=", "PATH=/usr/bin:/bin", "ENVCTL_REQUIRE_GATE=1"})
+	if code != 2 {
+		t.Fatalf("ENVCTL_REQUIRE_GATE=1 must fail closed, got %d\n%s", code, out)
+	}
+	if !strings.Contains(out, "refusing an ungated push") {
+		t.Errorf("the hook must say it refused the push, got:\n%s", out)
 	}
 }
 
@@ -796,6 +811,115 @@ func TestPrePushHookFindsVerifierOnPathWithoutHome(t *testing.T) {
 	code, out := runPrePushHook(t, dir, []string{"HOME=", pathEnv})
 	if code != 7 {
 		t.Fatalf("the PATH verifier must remain authoritative, got %d\n%s", code, out)
+	}
+}
+
+// A hung check must fail fast at the per-check timeout instead of blocking the
+// push forever. .commandcode/verify.sh runs through the blocking `check` helper,
+// so it exercises run_capped without depending on any toolchain.
+func TestVerifyTimeoutBoundsHungCheck(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("envctl-verify is a POSIX shell script")
+	}
+	if _, err := exec.LookPath("timeout"); err != nil {
+		t.Skip("coreutils timeout not available")
+	}
+	dir := t.TempDir()
+	initRepo(t, dir)
+	// `exec sleep 30` replaces the shell so there is no orphan child holding the
+	// output pipe; without the per-check timeout this hangs for the full 30s.
+	writeTestFile(t, dir, ".commandcode/verify.sh", "#!/bin/sh\nexec sleep 30\n")
+
+	start := time.Now()
+	code, out := runVerify(t, dir, []string{"ENVCTL_VERIFY_TIMEOUT=1"}, "--git-push")
+	elapsed := time.Since(start)
+	if elapsed > 5*time.Second {
+		t.Fatalf("a hung check must be bounded by the per-check timeout, took %s", elapsed)
+	}
+	if code != 2 {
+		t.Fatalf("a timed-out blocking check must abort the push (exit 2), got %d\n%s", code, out)
+	}
+	if !strings.Contains(out, "TIMED OUT") {
+		t.Errorf("the failure must name the timeout, got:\n%s", out)
+	}
+}
+
+// The delegator must find the repository's own hook from the COMMON git dir so
+// linked worktrees still run their hooks (--git-dir points at the per-worktree
+// dir, which has no hooks/).
+func TestDelegateRunsRepoHookInLinkedWorktree(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("git hook delegation requires a POSIX shell")
+	}
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+	dir := t.TempDir()
+	initRepo(t, dir)
+
+	marker := filepath.Join(dir, "hook-ran")
+	hooksDir := filepath.Join(dir, ".git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatalf("mkdir hooks: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(hooksDir, "pre-commit"), []byte("#!/bin/sh\ntouch \""+marker+"\"\n"), 0o755); err != nil {
+		t.Fatalf("write repo hook: %v", err)
+	}
+
+	// A linked worktree needs at least one commit for HEAD to exist.
+	commit := exec.Command("git", "-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "--allow-empty", "-qm", "init")
+	commit.Dir = dir
+	commit.Env = testEnv(nil)
+	if out, err := commit.CombinedOutput(); err != nil {
+		t.Fatalf("seed commit: %v (%s)", err, out)
+	}
+
+	wt := filepath.Join(dir, "wt")
+	add := exec.Command("git", "worktree", "add", "--detach", wt, "HEAD")
+	add.Dir = dir
+	add.Env = testEnv(nil)
+	if out, err := add.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v (%s)", err, out)
+	}
+
+	delegate, err := filepath.Abs(filepath.Join("..", "..", "configs", "git", "hooks", "_envctl-delegate"))
+	if err != nil {
+		t.Fatalf("resolve delegate: %v", err)
+	}
+	cmd := exec.Command("sh", delegate, "pre-commit")
+	cmd.Dir = wt
+	cmd.Env = testEnv(nil)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("running delegate: %v (%s)", err, out)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("the repo hook must run inside a linked worktree (git-common-dir): %v", err)
+	}
+}
+
+// The Stop payload is read from stdin; an idle pipe (open, no data) must be
+// bounded instead of hanging on `cat` forever.
+func TestVerifyScriptHookModeDoesNotBlockOnIdleStdin(t *testing.T) {
+	dir := t.TempDir()
+	initRepo(t, dir)
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	defer pr.Close()
+	defer pw.Close() // stays open until now: an idle pipe, never EOF
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", verifyScriptPath(t), "--hook")
+	cmd.Dir = dir
+	cmd.Env = testEnv(nil)
+	cmd.Stdin = pr
+	cmd.WaitDelay = 2 * time.Second
+	out, _ := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("--hook hung on idle stdin (the bounded read regressed):\n%s", out)
 	}
 }
 
