@@ -22,7 +22,7 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   principles and the doc map. Structural decisions are the ADRs in `docs/adr/`.
 - **`docs/verification.md`** — the local gate: per-stack checks, the scoping
   rules (linters on changed files, type checks/tests repo-wide), the modes
-  (`--hook` static-only, `--git-push` complete, `--dry-run`) and the skips.
+  (`--static` static-only, `--git-push` complete, `--dry-run`) and the skips.
 - **`docs/doctor-and-idempotency.md`** — what the audit verifies, `--fix`, the
   atomic backup and log conventions.
 - **Phase 0 — `run providers`** — runs first inside `run all` and guarantees mise,

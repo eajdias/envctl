@@ -2,7 +2,7 @@
 
 Este documento existe para que uma sessão futura (LLM ou humana) **retome daqui** em vez de
 redescobrir o problema. Cada item traz o objetivo, o que já se sabe hoje e o que falta decidir.
-Não é um plano fechado: a ordem sugerida está no fim e nenhum item tem prazo.
+Não é um plano fechado: nenhum item tem prazo.
 
 - **Antes de propor trabalho "novo"**, confira se ele já está aqui.
 - Ao concluir um item, mova o resultado para `CHANGELOG.md` e para
@@ -117,7 +117,7 @@ GitHub (org/repo), npm, PyPI, crates.io, AUR e winget.
 O rename é mecânico mas atravessa: módulo Go (`github.com/eajdias/envctl`), diretório
 `cmd/envctl`, `bootstrap.ps1`/`bootstrap.sh` (URLs), nome dos artefatos de release, binários
 instalados (`~/.local/bin/envctl`, `envctl-verify`), o diretório de estado `~/.envctl/`
-(hooks globais e logs), toda a documentação e **os prompts/skills dos agentes que chamam o
+(logs de `~/.envctl/`), toda a documentação e **os prompts/skills dos agentes que chamam o
 envctl**.
 
 **Sugestão:** um commit mecânico só para isso + alias/symlink de compatibilidade por uma

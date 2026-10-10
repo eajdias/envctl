@@ -13,6 +13,30 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Added
+
+- **verify:** fixture de regressão que trava a seleção de arquivos do advisory do
+  prettier (só arquivos de código/estilo alterados; docs nunca vazam) — a anomalia
+  histórica (advisory listando `.md`) não tem como voltar em silêncio.
+
+### Changed
+
+- **verify:** o modo `--hook` passa a se chamar `--static` (alias legado `--hook`
+  continua aceito); o parse do payload do CommandCode Stop (stdin JSON,
+  `stop_hook_active`) saiu junto com os hooks — `envctl-verify` não lê mais stdin.
+- **test:** os fixtures POSIX do verifier agora rodam no Windows via o bash do Git
+  for Windows, em vez de serem pulados — o skip escondia quebra real do run local
+  (descoberta só na CI).
+- **doctor:** o WARN de wiring legado aponta para `envctl doctor --fix`; o cleanup de
+  shell desarma um `core.hooksPath` global que aponte para o diretório removido
+  (nunca toca em hooksPath de propriedade do usuário apontando para outro lugar).
+- **ci:** `fail-fast: false` na matriz de testes — cada OS reporta o próprio resultado.
+
+### Removed
+
+- **manifest:** o entry de `directories:` que criava `~/.config/git/hooks` saiu (a v2
+  não instala hooks nem o diretório deles).
+
 ## [2.0.0](https://github.com/eajdias/envctl/compare/v1.16.0...v2.0.0) (2026-10-10)
 
 ### Removed
