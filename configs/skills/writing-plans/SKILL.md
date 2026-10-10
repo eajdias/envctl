@@ -31,6 +31,14 @@ Escreva um plano executável antes de modificar produção. O objetivo não é p
 
 - Se a execução estiver em um worktree isolado, use a skill `git-workflow` para verificar ou preparar o isolamento. Detecte o worktree antes de criar outro e peça consentimento quando a criação exigir uma decisão do usuário.
 - Salve o plano em `spec-agent/YYYY-MM-DD-<feature-name>.md`, na raiz do projeto. Uma preferência explícita do usuário por outro local prevalece.
+- **Plano com 4+ tasks → subpasta** `spec-agent/YYYY-MM-DD-<slug>/` com `index.md`
+  (fonte da verdade: objetivo, ordem/dependências, tabela de tasks com status
+  `pending|doing|done`, verificação global) + um `NN-<slug>.md` por task (escopo,
+  arquivos exatos, passos, critérios de aceite Dado/Quando/Então, verificação,
+  rollback, resultado esperado). `findings.md` opcional, só em plano com pesquisa
+  pesada. **Regra de leitura:** coordenador lê SÓ o `index.md`; worker abre 1 task
+  por vez. **Checkpoint:** usuário aprova o `index.md` antes de implementar.
+  **Regra de `done`:** só marcar após colar a evidência do comando de verificação.
 - Não implemente enquanto o requisito, o impacto ou um unknown bloqueante não estiver claro.
 - Se o pedido misturar subsistemas independentes, proponha specs/planos separados; cada um deve entregar software testável por conta própria.
 
@@ -118,6 +126,62 @@ Revise o plano contra a spec e o código encontrado, sem delegar essa conferênc
 - confirme que cada risco tem mitigação e cada unknown tem resposta/dono;
 - confirme que breaking changes, rollback e DoD aparecem no ponto em que são relevantes;
 - reduza tarefas sem resultado ou qualquer trabalho fora do escopo.
+
+## Templates de plano em subpasta (4+ tasks)
+
+Copie e preencha; não invente campos novos sem motivo.
+
+### `index.md`
+
+```markdown
+# Plano: <objetivo> (`spec-agent/YYYY-MM-DD-<slug>/`)
+
+> Fonte da verdade. Coordenador lê SÓ este arquivo; worker abre 1 task por vez.
+> Constituição: `AGENTS.md` + `configs/REFERENCE.md`. Aprovado pelo usuário em: <data>
+
+## Objetivo
+<1-3 linhas: o que muda e por quê>
+
+## Ordem e dependências
+1. `01-<slug>.md` — <resumo 1 linha> (sem deps)
+2. `02-<slug>.md` — <resumo 1 linha> (depois da 01)
+
+## Status
+| Task | Status | Evidência do `done` |
+|---|---|---|
+| 01 | pending\|doing\|done | <comando colado / link do gate> |
+
+## Verificação global
+<`go build ./... && go vet ./... && go test ./...` + gates do repo>
+```
+
+### `NN-<slug>.md` (uma por task)
+
+```markdown
+# Task NN — <título>
+
+## Escopo
+<o que entra / o que NÃO entra>
+
+## Arquivos
+- modificar: <paths exatos>
+- testar: <paths exatos>
+
+## Passos
+- [ ] <ação pequena e verificável>
+
+## Critérios de aceite (Dado/Quando/Então)
+- Dado <estado>, Quando <ação>, Então <resultado observável>
+
+## Verificação
+<`go test ./internal/... -run TestX -v` + resultado esperado; RED antes do GREEN>
+
+## Rollback
+<como desfazer: `git checkout HEAD -- <paths>` / backup em …>
+
+## Resultado esperado
+<condição observável que encerra a task>
+```
 
 ## Execução do plano
 

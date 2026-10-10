@@ -111,7 +111,7 @@ amarra versão, changelog e assets em um commit tagueado — ver
 Fluxo padrão para implementações multi-arquivo:
 
 ```
-spec (spec-agent/) → branch → implementar → excluir a spec → PR → merge → release
+spec (spec-agent/) → branch → implementar → excluir a spec/pasta → PR → merge → release
 ```
 
 - Specs são **temporárias**: guiam a implementação e são deletadas quando
