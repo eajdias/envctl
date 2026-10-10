@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [1.16.0](https://github.com/eajdias/envctl/compare/v1.15.3...v1.16.0) (2026-10-10)
+
 ### Added
 
 - **planning:** specs with 4+ tasks now use a subfolder layout —
