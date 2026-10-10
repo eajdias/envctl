@@ -1,6 +1,6 @@
 # Manifestos Declarativos do envctl
 
-O `envctl` é orientado a **infraestrutura declarativa como código** (IaC). Todas as ferramentas, variáveis de ambiente, servidores de linguagem, skills de IA e ajustes de sistema são definidos em arquivos YAML na pasta `manifests/`.
+O `envctl` é orientado a **infraestrutura declarativa como código** (IaC). Todas as ferramentas, variáveis de ambiente, skills de IA e ajustes de sistema são definidos em arquivos YAML na pasta `manifests/`.
 
 ---
 
@@ -13,7 +13,6 @@ manifests/
 ├── performance_cachyos.yaml # Perfil opt-in CachyOS (zram; sem tuning genérico)
 ├── git.yaml         # Otimizações de performance e configurações globais do Git
 ├── shell.yaml       # Variáveis de ambiente, diretórios protegidos e templates de arquivo
-├── lsp.yaml         # Servidores de linguagem (LSP) para IDEs e OpenCode
 ├── skills.yaml      # Catálogo das 12 skills de agentes de IA (com escopo por ambiente)
 └── windows.yaml     # Tweaks de registro, Developer Mode e fontes do Windows 11
 ```
@@ -26,7 +25,6 @@ manifests/
 | performance | `manifests/performance_ubuntu.yaml`, `manifests/performance_cachyos.yaml` | `envctl run performance` (perfis `run vps` / `run cachyos`) |
 | shell/env/configs | `manifests/shell.yaml` | `envctl run shell` |
 | git | `manifests/git.yaml` | `envctl run shell` (configs globais) |
-| LSP | `manifests/lsp.yaml` | `envctl run lsp` |
 | skills | `manifests/skills.yaml` | `envctl run skills` |
 | windows tweaks | `manifests/windows.yaml` | `envctl run tweaks` (perfil `run windows`) |
 | debloat | `manifests/debloat_windows.yaml`, `manifests/debloat_linux.yaml` | `envctl run debloat` |
@@ -118,16 +116,7 @@ recopilado aqui).
 
 ---
 
-## 📄 5. `manifests/lsp.yaml`
-
-Registra os servidores de linguagem utilizados por agentes de IA e IDEs.
-Fonte: `manifests/lsp.yaml` (campos reais: `id`, `language`, `server_name`,
-`command`, `args`, `install_type`, `install_target`, `check_binary` — ver o
-arquivo; nenhum exemplo é recopilado aqui).
-
----
-
-## 📄 6. `manifests/windows.yaml`
+## 📄 5. `manifests/windows.yaml`
 
 Define ajustes de registro do Windows 11 para desenvolvedores. Fonte:
 `manifests/windows.yaml` (campos reais: `id`, `description`, `path`,
@@ -136,7 +125,7 @@ recopilado aqui).
 
 ---
 
-## 📄 7. `manifests/debloat_windows.yaml`
+## 📄 6. `manifests/debloat_windows.yaml`
 
 Debloat do Windows 11 absorvido do `windows11-clean` — aplicado pelo perfil
 `envctl run windows` ou standalone via `envctl run debloat`. São **99 tweaks**
@@ -225,7 +214,7 @@ vive em `docs/guides/windows-debloat-tier3.md`.
 
 ---
 
-## 📄 8. `manifests/extras.yaml`
+## 📄 7. `manifests/extras.yaml`
 
 Aplicativos **opcionais** preferidos do dono, fora do provisionamento padrão:
 o repo é público e neutro — nada de extras instala sem opt-in explícito.

@@ -13,6 +13,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Removed
+
+- **lsp:** removed the entire LSP subsystem — `envctl run lsp`, `manifests/lsp.yaml`, the
+  `entity.LSP` type, `LoadLSPs`/`ProvisionLSPsUseCase`, the doctor LSP presence + stdio
+  handshake checks and `envctl update` LSP inventory. **BREAKING:** the `run lsp` subcommand
+  is gone. The OpenCode V2 runtime ignores LSP, so these language servers were non-functional
+  tooling. `pyright` (Python type checker) and `taplo` (TOML formatter) are kept as plain
+  tools in `manifests/packages.yaml`; `sqllens-language-server` was removed outright.
+
 ## [1.15.3](https://github.com/eajdias/envctl/compare/v1.15.2...v1.15.3) (2026-10-09)
 
 ### Bug Fixes

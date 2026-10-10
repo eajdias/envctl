@@ -6,7 +6,7 @@ license: MIT
 
 # envctl — operar o ambiente
 
-O envctl padroniza o ambiente de trabalho: pacotes, shells, configs, skills, LSPs,
+O envctl padroniza o ambiente de trabalho: pacotes, shells, configs, skills,
 agentes e quality gates, com provisionamento **idempotente** em Windows 11 e Linux
 (Ubuntu/Debian, Arch/CachyOS), incluindo servidores remotos.
 
@@ -51,7 +51,6 @@ antes de seguir em frente.
 envctl run all        # provisionamento completo (o padrão)
 envctl run shell      # shell, env vars e configs de agente
 envctl run skills     # só as skills dos agentes
-envctl run lsp        # binários de language server
 envctl run cleanup    # cache, logs, tool-output e tmp acumulada
 envctl opencode       # só a camada OpenCode
 envctl commandcode    # só a camada CommandCode

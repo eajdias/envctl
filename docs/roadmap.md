@@ -49,7 +49,6 @@ Auditoria por subsistema:
 | Shell | fish + bash existem | reaproveitar `.profile`/`.bashrc`/fish |
 | Configs | são texto portável | deve aplicar quase tudo |
 | Skills | portáveis (texto) | aplicar integralmente |
-| LSPs | vários sem binário arm64 | lista explícita de pulados |
 | Tweaks / gaming | Windows/Arch-only | fora |
 | Docker | sem daemon no Termux | fora |
 | Verificação (`envctl-verify`) | depende das toolchains | roda o subconjunto presente |
@@ -81,7 +80,7 @@ das outras máquinas por SSH, com evidência.
 - Baseline: já existem o skill de dispatch remoto e o inventário SSH
   (`~/.ssh-manager`, `ssh_servers.md`). Comece por eles.
 - Verificar no destino: PATH/toolchain **não-interativo** (`command -v cmdc/opencode`, shims do
-  mise), configs do agente presentes após o provisionamento (skills/LSP), execução longa
+  mise), configs do agente presentes após o provisionamento (skills), execução longa
   (`nohup`/`tmux`/`systemd-run`), retorno de artefatos (`scp`/`rsync`) e os modos de falha
   (prompt de host key travando o agente, multiplexação, retry).
 - **Entregável:** um cenário de teste por par origem→destino e as correções no skill de

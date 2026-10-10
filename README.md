@@ -31,7 +31,6 @@ curl -fsSL https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.sh | 
 
 - **Shell & Utilitários de Alta Performance**: PowerShell 7 (primário) + WSL Ubuntu (secundário) com `ripgrep`, `fd`, `fzf`, `bat`, `delta`, `tree`, `yq`, `jq`, `rsync`.
 - **Toolchains Completas**: Node.js LTS (via mise), Python 3.14 (`uv` + `ruff`), Go (`golangci-lint` incluso), Docker CLI, Cursor IDE (Windows/Arch).
-- **Language Server Protocol (binários LSP p/ shell/IDE, ver `manifests/lsp.yaml`)**: TypeScript, Pyright, Bash-LS, Sqllens, Dockerfile, TOML, PowerShell, etc. (bloco `lsp` removido do `opencode.json` — runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
 - **Ecossistema OpenCode & CommandCode com 12 Skills**: `opencode.json`, plugins e **12 skills curadas** — só entra no catálogo o que o modelo não faria sozinho; o conhecimento por stack/tool fica em `code-playbooks/references/`. Suporte equivalente a **CommandCode** (agente `code-reviewer`, MCPs, configs) — diferenças de plataforma documentadas na [tabela de paridade](docs/skills.md).
 - **Automação Web em Dois Trilhos**: MCP `chrome-devtools` para o interativo (2FA manual, inspeção ao vivo, opt-in por sessão) + `pw` (wrapper versionado de `playwright-cli`, via npm) para automação determinística e token-efficient no shell, sem travar o agente — cada um com seu próprio build de browser, sem conflito com o navegador do usuário.
 - **Temp Hygiene & Cleanup Subsystem**: Gerenciamento de diretórios temporários (`C:\temp`, `/temp`), rotação de logs e limpeza de cache/DB/tool-output do OpenCode via `envctl run cleanup`.
@@ -89,7 +88,6 @@ envctl run debloat      # Só debloat standalone (Windows)
 envctl run mise          # Runtimes gerenciados pelo mise (Node.js)
 envctl run shell        # Variáveis de ambiente, perfis e configs
 envctl run skills       # Extração e sincronização das skills
-envctl run lsp          # 13 Servidores de Linguagem (LSP)
 envctl run cleanup      # Limpeza de cache/DB/tool-output do OpenCode
 ```
 
@@ -110,10 +108,10 @@ Para guias passo a passo detalhados, arquitetura e especificações:
 ### 🏛️ Engenharia & Especificações:
 - 📌 [**Visão**](docs/vision.md) — o modelo do projeto: por que existe, princípios inegociáveis, fluxo de mudança e mapa da documentação.
 - 🏗️ [**Arquitetura de Software**](docs/architecture.md) — Clean Architecture, camadas internas, abstração de I/O e binário standalone (`//go:embed`).
-- 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `performance_*.yaml`, `lsp.yaml`, `windows.yaml`).
+- 📋 [**Manifestos Declarativos**](docs/manifests.md) — Estrutura e customização dos schemas YAML (`packages.yaml`, `shell.yaml`, `git.yaml`, `performance_*.yaml`, `windows.yaml`).
 - 🤖 [**Catálogo de Skills & Subagentes**](docs/skills.md) — As 12 skills, o critério de entrada no catálogo, roteamento de subagentes e convenção de worktree.
 - ©️ [**Atribuição de Skills**](docs/skills-attribution.md) — De onde veio cada skill adotada de terceiros (autor + repositório), o que foi adaptado e como creditar skill nova.
-- 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, LSPs, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
+- 🩺 [**Doctor, Idempotência & Logs**](docs/doctor-and-idempotency.md) — diagnóstico de todo o ecossistema (pacotes, configs, skills, agentes, ambiente), flag `--fix`, backups atômicos (`.bak.timestamp`) e trilha de auditoria em `~/.envctl/logs/`.
 - ✅ [**Verificação Local**](docs/verification.md) — os quality gates rodados na máquina: hook `Stop` do CommandCode, pre-push global do git, checks por stack e variáveis de controle.
 - 🧭 [**Matriz OS × Agente**](docs/os-and-agent-matrix.md) — o que é provisionado em cada OS (Windows/Ubuntu/Arch) e em cada agente (OpenCode/CommandCode), assimetrias conhecidas e checklist para adições novas.
 - 🗺️ [**Roadmap**](docs/roadmap.md) — os objetivos acordados para o futuro (Termux/Android, skills de Tailscale/Cloudflared, SSH entre os OS, dispatch remoto, rename do projeto, envctl como serviço de background), cada um com o contexto já levantado.

@@ -54,21 +54,6 @@ func (uc *ProvisionBootstrapUseCase) shellEnv() []string {
 	return executil.ToolchainEnv(uc.userHome())
 }
 
-// toolAvailable reports whether a binary resolves on the platform PATH. On
-// Linux it additionally resolves the toolchain dirs, which are not part of a
-// non-login process PATH. Filesystem lookup replaces the previous
-// `bash -lc "command -v"` spawn: same verdict for binary names, no subshell.
-func toolAvailable(name string) bool {
-	if runtime.GOOS == "linux" {
-		if home, err := os.UserHomeDir(); err == nil && home != "" {
-			_, err := executil.LookPathIn(executil.ToolchainPath(home), name)
-			return err == nil
-		}
-	}
-	_, err := exec.LookPath(name)
-	return err == nil
-}
-
 // ensureProcessToolchainPath mutates the process environment so that mise
 // shims, user-local binaries and Go are resolvable by subsequent provisioning
 // steps running in the same process.

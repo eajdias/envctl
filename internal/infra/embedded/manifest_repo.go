@@ -414,17 +414,7 @@ func (m *ManifestRepository) WalkSkillSources(goos string, fn func(skill, rel st
 	return nil
 }
 
-type lspManifest struct {
-	LSPs []entity.LSP `yaml:"lsps"`
-}
 
-func (m *ManifestRepository) LoadLSPs() ([]entity.LSP, error) {
-	manifest, err := loadManifestFile(m, "lsp.yaml", func() *lspManifest { return &lspManifest{} })
-	if err != nil {
-		return nil, err
-	}
-	return manifest.LSPs, nil
-}
 
 type gitManifest struct {
 	Configs []entity.GitConfig `yaml:"configs"`

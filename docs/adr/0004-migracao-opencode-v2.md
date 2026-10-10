@@ -16,9 +16,11 @@ config silenciosamente ignorada.
   `disabled` + `timeout`, `experimental.subagent_depth: 2`;
   `opencode debug config` com zero diagnostics como gate (CHANGELOG,
   seção "OpenCode configs em formato nativo V2").
-- **Bloco `lsp` removido**: runtime v2 ignora LSP — binários seguem
-  provisionados (`manifests/lsp.yaml` + `run lsp` + doctor como toolchain),
-  diagnóstico do agente via lint/typecheck.
+- **Bloco `lsp` removido**: runtime v2 ignora LSP — diagnóstico do agente via
+  lint/typecheck. Os binários de language server seguiram provisionados por um
+  tempo como toolchain (manifesto próprio + subcomando dedicado + doctor), até o
+  subsistema de LSP ser removido por inteiro em seguida: nada provisiona
+  language servers hoje.
 - **`dcp.jsonc` removido do provisioning** (YAGNI): plugin V1 quebra o boot
   do v2; dcp + ponytail saíram dos plugins (resta só o goal-plugin);
   pruning agora é o compaction nativo.

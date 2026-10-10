@@ -227,7 +227,7 @@ dedicado `run performance` **aborta** com saída não-zero, mas os comandos de
 perfil completo (`run all`, `run vps`, `run cachyos`) apenas **avisam** e seguem.
 Kernel pendente é a regra em servidor de vida longa, e abortar impedia o
 bootstrap — o `run all` na `vps_oracle_2` morria na fase de performance e as fases
-de shell/config, skills e LSPs nunca rodavam. `--force-reboot-pending` contorna o
+de shell/config e skills nunca rodavam. `--force-reboot-pending` contorna o
 abort do comando dedicado.
 
 ## O que este perfil nunca toca
@@ -294,7 +294,7 @@ resolvido contra o PATH de toolchain antes de executar, e a sonda e o comando
 compartilham o mesmo resolvedor.
 
 **Fase de providers antes do toolchain.** A ordem das fases é
-providers → toolchain → pacotes → performance → shell → skills → LSPs, e
+providers → toolchain → pacotes → performance → shell → skills, e
 providers garante o mise (Fase 0), então a ordem está correta. O que faltava era a
 resolução de path acima.
 

@@ -32,9 +32,6 @@ envctl run shell
 # Apenas extração e validação das 12 skills de agentes
 envctl run skills
 
-# Apenas instalação dos binários de linguagem p/ shell/IDE (13 LSPs; sem efeito no runtime opencode v2)
-envctl run lsp
-
 # Auditoria completa do ambiente
 envctl doctor
 

@@ -129,19 +129,6 @@ func (s Skill) AppliesToOS(goos string) bool {
 	return MatchOS(s.OS, goos, DetectedDistro())
 }
 
-// LSP represents a Language Server Protocol configuration.
-type LSP struct {
-	ID            string      `yaml:"id"`
-	Language      string      `yaml:"language"`
-	ServerName    string      `yaml:"server_name"`
-	Command       string      `yaml:"command"`
-	Args          []string    `yaml:"args"`
-	InstallType   PackageType `yaml:"install_type"`
-	InstallTarget string      `yaml:"install_target"`
-	CheckBinary   string      `yaml:"check_binary"`
-	OS            string      `yaml:"os,omitempty"` // "windows", "linux" or empty for all
-}
-
 // EnvironmentVar represents an OS environment variable.
 type EnvironmentVar struct {
 	Name   string `yaml:"name"`
@@ -226,7 +213,7 @@ const (
 // Diagnostic contains the result of an audit check.
 type Diagnostic struct {
 	Category DiagnosticStatus `yaml:"status"` // Status (OK/WARN/ERROR)
-	System   string           `yaml:"system"` // e.g. "Winget", "Git", "Skills", "LSP"
+	System   string           `yaml:"system"` // e.g. "Winget", "Git", "Skills"
 	Target   string           `yaml:"target"`
 	Details  string           `yaml:"details"`
 	FixHint  string           `yaml:"fix_hint,omitempty"`

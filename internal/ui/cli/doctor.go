@@ -72,7 +72,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Audit and verify the health of your Windows 11 / Ubuntu Linux / OpenCode + CommandCode environment",
-		Long:  `Performs comprehensive diagnostic checks across packages, configs, git, env vars, skills, and LSPs. Use --fix to automatically remediate any issues.`,
+		Long:  `Performs comprehensive diagnostic checks across packages, configs, git, env vars, and skills. Use --fix to automatically remediate any issues.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
 			pterm.DefaultHeader.WithFullWidth().Println("Running Environment Health Diagnostics (Doctor)")
@@ -94,24 +94,20 @@ func newDoctorCmd() *cobra.Command {
 				pterm.DefaultHeader.WithFullWidth().Println("Executing Auto-Remediation (--fix)")
 
 				// 1. Windows Tweaks
-				PrintSection("1/5 Applying Windows 11 System Tweaks")
+				PrintSection("1/4 Applying Windows 11 System Tweaks")
 				runWindowsProvisioning()
 
 				// 2. Packages
-				PrintSection("2/5 Remediating System Packages & Toolchains")
+				PrintSection("2/4 Remediating System Packages & Toolchains")
 				runPackagesProvisioning("")
 
 				// 3. Shell & Configs
-				PrintSection("3/5 Remediating Shell, Environment & Config Files")
+				PrintSection("3/4 Remediating Shell, Environment & Config Files")
 				runShellProvisioning()
 
 				// 4. Skills
-				PrintSection("4/5 Remediating Agent Skills (OpenCode + CommandCode)")
+				PrintSection("4/4 Remediating Agent Skills (OpenCode + CommandCode)")
 				runSkillsProvisioning()
-
-				// 5. LSPs
-				PrintSection("5/5 Remediating Language Server Protocols (LSP)")
-				runLSPProvisioning()
 
 				pterm.Println()
 				pterm.DefaultHeader.WithFullWidth().Println("Post-Fix Verification")

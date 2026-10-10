@@ -2,7 +2,7 @@
 
 Go CLI (Clean Architecture) that provisions and audits dev environments on
 Windows 11, Ubuntu/Debian and Arch/CachyOS: system packages, shell/env/configs,
-12 agent skills (OpenCode + CommandCode), LSPs (ver `manifests/lsp.yaml`), Windows tweaks, and a local
+12 agent skills (OpenCode + CommandCode), Windows tweaks, and a local
 verification gate wired both to the agent and to git.
 
 Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
@@ -16,7 +16,7 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
 - **`docs/os-and-agent-matrix.md`** — start here. What is provisioned on each OS
   and for each agent, the asymmetries found and their status, coverage per stack,
   and the checklist to touch every layer when adding a package, config file,
-  skill or LSP.
+  or skill.
 - **`docs/vision.md`** — the project model: why it exists, the non-negotiable
   principles and the doc map. Structural decisions are the ADRs in `docs/adr/`.
 - **`docs/verification.md`** — the local gate: per-stack checks, the scoping
@@ -49,7 +49,7 @@ Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
   created by the manual Release Pipeline (Actions tab → `version: vX.Y.Z`),
   never by hand locally.
 
-Counts (packages, skills, LSPs) drift by design; the manifests are the source of
+Counts (packages, skills) drift by design; the manifests are the source of
 truth and `envctl doctor` asserts the machine against them. When a number in the
 docs disagrees with a manifest, the manifest wins — fix the doc.
 

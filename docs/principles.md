@@ -14,7 +14,7 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
 
 ### B. Isolamento de Responsabilidades (Clean Architecture)
 - A camada de **Domínio** não possui dependências de pacotes externos, chamadas de sistema operacional diretas ou APIs específicas de plataforma.
-- A camada de **Casos de Uso** orquestra o fluxo de negócio (ex: "Instalar Gerenciadores de Pacotes antes de Toolchains", "Configurar Shell antes de LSPs").
+- A camada de **Casos de Uso** orquestra o fluxo de negócio (ex: "Instalar Gerenciadores de Pacotes antes de Toolchains", "Configurar Shell antes das Skills").
 - A camada de **Infraestrutura** lida com a realidade suja do sistema operacional (subshells, pipes, registry, códigos de saída de processos, gerenciamento de pacotes por OS).
 
 ### C. Self-Contained Binary (`//go:embed`)
@@ -35,10 +35,9 @@ Este documento estabelece as diretrizes fundamentais que guiam o desenvolvimento
    - Variáveis de ambiente (`NODE_PATH`, `ENVCTL_TEMP`).
    - Git: Otimizações globais (`core.fscache`, `core.preloadindex`, `core.longpaths`, `core.autocrlf input`, `delta`).
    - Terminal: Implantação de `.bashrc`, `.bash_profile` e `settings.json` do terminal com backup atômico.
-4. **Toolchains & Language Servers (LSPs):**
+4. **Toolchains:**
    - mise: runtimes (Node.js etc.) e ferramentas via backend npm (`npm:<pkg>`).
-   - Python: `uv` (ferramentas), `ruff`.
-   - LSPs: binários p/ shell/IDE via `manifests/lsp.yaml` (`run lsp`).
+   - Python: `uv` (ferramentas), `ruff`, `pyright` (type checker).
 5. **Ecossistema OpenCode & CommandCode com 12 skills:**
    - Implantação de `opencode.json`, `package.json` e `AGENTS.md`.
    - Extração das 12 skills do OpenCode/CommandCode para `~/.config/opencode/skills` e `~/.commandcode/skills`.

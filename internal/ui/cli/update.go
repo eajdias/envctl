@@ -50,11 +50,6 @@ func runUpdateProvisioning(flags updateFlags) {
 		pterm.Error.Printf("  • failed to load packages manifest: %v\n", err)
 		return
 	}
-	lsps, err := appCtx.ManifestRepo.LoadLSPs()
-	if err != nil {
-		pterm.Error.Printf("  • failed to load LSP manifest: %v\n", err)
-		return
-	}
 
 	opts := usecase.UpdateOptions{DryRun: flags.dryRun, List: flags.list}
 	if flags.only != "" {
@@ -70,7 +65,6 @@ func runUpdateProvisioning(flags updateFlags) {
 
 	result, err := appCtx.UpdateUC.Execute(ctx, usecase.UpdateInventory{
 		Packages: applicablePackages(packages),
-		LSPs:     applicableLSPs(lsps),
 	}, opts)
 	if err != nil {
 		pterm.Error.Printf("  • update failed: %v\n", err)
@@ -96,16 +90,6 @@ func applicablePackages(packages []entity.Package) []entity.Package {
 	for _, p := range packages {
 		if entity.MatchesOS(p.OS) {
 			out = append(out, p)
-		}
-	}
-	return out
-}
-
-func applicableLSPs(lsps []entity.LSP) []entity.LSP {
-	var out []entity.LSP
-	for _, l := range lsps {
-		if entity.MatchesOS(l.OS) {
-			out = append(out, l)
 		}
 	}
 	return out

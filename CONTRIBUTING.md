@@ -37,7 +37,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) format:
 Examples:
 ```
 feat: add Docker Engine provisioning for Linux
-fix: correct LSP detection on ARM64
+fix: correct package detection on ARM64
 chore: update Go to 1.22
 ```
 
@@ -114,7 +114,7 @@ internal/
   usecase/              Business logic (provisioning, audit, cleanup)
   infra/                Platform adapters (apt, winget, git, filesystem)
   domain/               Entities and repository interfaces
-manifests/              Declarative YAML specs (packages, shell, lsp, skills)
+manifests/              Declarative YAML specs (packages, shell, skills)
 configs/                Config file templates (opencode.json, AGENTS.md, etc.)
 ```
 

@@ -79,7 +79,7 @@ func TestUpdateExcludesProvidersRuntimeEntries(t *testing.T) {
 	candidates := uc.collect([]entity.Package{
 		{ID: "node@24.19.0", Type: entity.PackageTypeMise, CheckCommand: "node --version"},
 		{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"},
-	}, []entity.LSP{})
+	})
 
 	for _, c := range candidates {
 		if c.ID == "node@24.19.0" {
@@ -91,35 +91,9 @@ func TestUpdateExcludesProvidersRuntimeEntries(t *testing.T) {
 	}
 }
 
-// Package and LSP entries name different mise-backed targets (the
-// "npm:typescript" package and the "npm:typescript-language-server" LSP). Both are real
-// tools, so the inventory keeps both and labels them by target.
-func TestUpdateKeepsDistinctTargetsThatShareAnID(t *testing.T) {
-	uc := NewUpdateUseCase(&fakeUpdateEnv{
-		installed: map[string]string{}, latest: map[string]string{},
-		failOn: map[string]error{}, binaryOf: map[string]string{},
-	})
-
-	candidates := uc.collect(
-		[]entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
-		[]entity.LSP{{
-			ID: "typescript", InstallType: entity.PackageTypeMise,
-			InstallTarget: "npm:typescript-language-server", CheckBinary: "typescript-language-server",
-		}},
-	)
-
-	if len(candidates) != 2 {
-		t.Fatalf("candidates = %+v, want both targets", candidates)
-	}
-	seen := map[string]bool{}
-	for _, c := range candidates {
-		if seen[c.Target] {
-			t.Errorf("target %q appears twice", c.Target)
-		}
-		seen[c.Target] = true
-	}
-}
-
+// Package and LSP entries once named different mise-backed targets; with the
+// LSP subsystem removed, collect() only reads packages. A target already
+// current must not be touched.
 func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 	uc := NewUpdateUseCase(&fakeUpdateEnv{installed: map[string]string{}, latest: map[string]string{}, failOn: map[string]error{}, binaryOf: map[string]string{}})
 
@@ -132,7 +106,7 @@ func TestUpdateCollectsOnlyAutomatableGroups(t *testing.T) {
 		{ID: "git", Type: entity.PackageTypeApt, OS: "debian,ubuntu", CheckCommand: "git --version"},
 		{ID: "7zip", Type: entity.PackageTypeWinget, OS: "windows", CheckCommand: "7z --version"},
 		{ID: "cachyos-settings", Type: entity.PackageTypeParu, OS: "arch,cachyos", CheckCommand: "cachyos-settings --version"},
-	}, []entity.LSP{})
+	})
 
 	got := map[string]UpdateGroup{}
 	for _, c := range candidates {
@@ -160,8 +134,10 @@ func TestUpdateAppliesBehindVersionsAndSkipsCurrent(t *testing.T) {
 	uc := NewUpdateUseCase(env)
 
 	result, err := uc.Execute(context.Background(), UpdateInventory{
-		Packages: []entity.Package{{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"}},
-		LSPs:     []entity.LSP{{ID: "prettier", InstallType: entity.PackageTypeMise, InstallTarget: "npm:prettier", CheckBinary: "prettier"}},
+		Packages: []entity.Package{
+			{ID: "npm:typescript", Type: entity.PackageTypeMise, CheckCommand: "tsc --version"},
+			{ID: "npm:prettier", Type: entity.PackageTypeMise, CheckCommand: "prettier --version"},
+		},
 	}, UpdateOptions{})
 
 	if err != nil {
