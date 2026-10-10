@@ -3,7 +3,8 @@
 Go CLI (Clean Architecture) that provisions and audits dev environments on
 Windows 11, Ubuntu/Debian and Arch/CachyOS: system packages, shell/env/configs,
 12 agent skills (OpenCode + CommandCode), Windows tweaks, and a local
-verification gate wired both to the agent and to git.
+verification tool (`envctl-verify`) run explicitly per project — v2 installs no
+global hooks/gates; they interfered with other repositories' own hooks.
 
 Key entry points: `internal/ui/cli/` (cobra commands `run`, `doctor`,
 `update`, `commandcode`, `opencode`), `internal/usecase/` (business logic),

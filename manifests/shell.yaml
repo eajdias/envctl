@@ -98,7 +98,7 @@ config_files:
 
   # --- CommandCode Configs ---
   - id: commandcode_settings
-    description: "CommandCode project settings (permissions, hooks)"
+    description: "CommandCode project settings (permissions)"
     source: "configs/commandcode/settings.json"
     destination: "~/.commandcode/settings.json"
     strict_acl: false
@@ -194,33 +194,11 @@ config_files:
         executable: "true"
 
   - id: envctl_verify
-    description: "Repository quality gates run locally (CommandCode Stop hook + git pre-push) so a broken tree never reaches a push"
+    description: "Repository quality gate tool — invoked explicitly per project (envctl-verify --hook/--git-push/--dry-run); installs no hooks and gates nothing automatically"
     source: "configs/bin/envctl-verify"
     destination: "~/.local/bin/envctl-verify"
     strict_acl: false
     executable: true
-
-  - id: git_pre_push_hook
-    description: "Global git pre-push hook: chains the repository's own hook, then runs the envctl verifier"
-    source: "configs/git/hooks/pre-push"
-    destination: "~/.config/git/hooks/pre-push"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_delegate
-    description: "Shared delegator that hands any git hook back to the repository's own .git/hooks script (core.hooksPath overrides them otherwise)"
-    source: "configs/git/hooks/_envctl-delegate"
-    destination: "~/.config/git/hooks/_envctl-delegate"
-    strict_acl: false
-    executable: true
-
-  - id: git_hook_{{name}}
-    description: "git hook: chains the repository's own hook"
-    source: "configs/git/hooks/_envctl-shim"
-    destination: "~/.config/git/hooks/{{name}}"
-    strict_acl: false
-    executable: true
-    instances: [pre-commit, prepare-commit-msg, commit-msg, post-commit, post-checkout, pre-rebase]
 
   - id: windows_terminal_settings
     description: "Windows Terminal profile configuration (PowerShell default, WSL Ubuntu, Dark+ theme)"
@@ -441,6 +419,11 @@ cleanup:
     description: "Remove stale agent markdown definitions (agents now live in opencode.json only)"
     path: "~/.config/opencode/agents"
     category: "opencode"
+    recursive: true
+  - id: stale_git_hooks_dir
+    description: "Remove legacy envctl global git hooks (v2 installs none: core.hooksPath overrode other repos' own pre-commit/commit-msg). If 'git config --global core.hooksPath' points here, unset it too"
+    path: "~/.config/git/hooks"
+    category: "git"
     recursive: true
   - id: stale_commandcode_settings_jsonc
     description: "Remove stale CommandCode settings.jsonc (standardized on settings.json)"

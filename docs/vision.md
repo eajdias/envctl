@@ -86,10 +86,11 @@ em cada eixo, as assimetrias conhecidas e o status de cada uma.
 6. **Determinismo de versão.** Manifests, configs e skills são embutidos no
    binário (`//go:embed`): uma versão = um conjunto coerente, executável
    offline.
-7. **Feedback em segundos, não em minutos.** O gate local
-   (`envctl-verify`) roda no fim do turno do agente e no `pre-push`; o CI
-   espelha os mesmos checks — ver [verification.md](verification.md) e o
-   [ADR 0006](adr/0006-gate-de-verificacao-local.md).
+7. **Feedback em segundos, não em minutos.** O gate local (`envctl-verify`) é
+   ferramenta de **invocação explícita** — desde a v2 nada é plugado
+   automaticamente (hooks globais interferiam nos hooks dos outros repositórios);
+   o CI espelha os mesmos checks — ver [verification.md](verification.md) e o
+   [ADR 0009](adr/0009-sem-hooks-globais.md).
 8. **Decisão vira registro.** Decisão estrutural → ADR; lição → memória do
    projeto; mudança → CHANGELOG. Nada de conhecimento tribal.
 

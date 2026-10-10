@@ -124,30 +124,7 @@ func (m *ManifestRepository) LoadConfigFiles() ([]entity.ConfigFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return expandConfigFileInstances(expanded), nil
-}
-
-// expandConfigFileInstances turns entries declaring instances: into one
-// deployment per name, substituting {{name}} in id, source and destination.
-// Entries without instances pass through untouched, so the expansion is a
-// no-op for the rest of the manifest.
-func expandConfigFileInstances(configs []entity.ConfigFile) []entity.ConfigFile {
-	expanded := make([]entity.ConfigFile, 0, len(configs))
-	for _, cf := range configs {
-		if len(cf.Instances) == 0 {
-			expanded = append(expanded, cf)
-			continue
-		}
-		for _, name := range cf.Instances {
-			instance := cf
-			instance.Instances = nil
-			instance.ID = strings.ReplaceAll(cf.ID, "{{name}}", name)
-			instance.Source = strings.ReplaceAll(cf.Source, "{{name}}", name)
-			instance.Destination = strings.ReplaceAll(cf.Destination, "{{name}}", name)
-			expanded = append(expanded, instance)
-		}
-	}
-	return expanded
+	return expanded, nil
 }
 
 // osVariant is one os_values entry resolved to its os filter: the manifest

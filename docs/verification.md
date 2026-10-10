@@ -1,27 +1,26 @@
 # Verificação Local (Quality Gates)
 
-O `envctl` provisiona um verificador único e o conecta aos dois pontos por onde uma
-mudança pode escapar da máquina sem ser checada. A ideia: o erro aparecer em segundos
+O `envctl` provisiona um verificador único — o `envctl-verify` — para ser rodado
+**explicitamente** num projeto. A ideia continua a mesma: o erro aparece em segundos
 no seu terminal, não minutos depois no CI.
 
 ---
 
-## 🧩 As Duas Camadas
+## 🧩 O Modelo (v2): nenhuma instalação automática
+
+**Desde a v2 o envctl não instala hooks nem gates globais.** Um `core.hooksPath`
+global sobrepõe o `.git/hooks` de *todo* repositório — o `pre-commit`/`commit-msg`
+dos outros projetos eram silenciados — e um hook de turno global gateava sessões
+de qualquer repositório. Interferir em projetos que não pediram é inaceitável:
+nada disso existe mais.
 
 | Camada | Onde | Quando dispara | Efeito |
 | :--- | :--- | :--- | :--- |
-| **Hook `Stop` do CommandCode** | `~/.commandcode/settings.json` | Ao fim de cada turno do agente | Roda os **checks estáticos** (o que um editor diria ao salvar). Findings de lint/formatação são informativos; builds, vets, testes e comandos explícitos podem bloquear |
-| **Pre-push do git** | `~/.config/git/hooks/pre-push` (`core.hooksPath`) | Antes de qualquer `git push` | Roda o **gate completo, com a suíte de testes**. Somente falhas bloqueantes abortam o push; advisories são mostradas e registradas |
+| **Invocação explícita** | `envctl-verify --hook` / `--git-push` / `--dry-run` | Quando **você** (ou um agente) decide rodar | `--hook` = checks estáticos · `--git-push` = gate completo com testes · `--dry-run` = mostra o que seria rodado |
 
-O hook de turno gateia o repositório do **cwd da sessão**: abra o `cmd` dentro do
-projeto para o feedback automático valer ali. O pre-push é global e independe do agente.
-
-**Os outros hooks também são encadeados.** `core.hooksPath` faz o git ignorar o
-`.git/hooks` de *todo* repositório, então o envctl instala um delegator e um shim para
-`pre-commit`, `prepare-commit-msg`, `commit-msg`, `post-commit`, `post-checkout` e
-`pre-rebase`, que devolvem o controle ao hook local do projeto. Repositórios husky não são
-afetados de qualquer forma: eles definem `core.hooksPath` **local**, e a config do
-repositório vence a global.
+Quem quiser gate automático num projeto instala um **hook local daquele projeto**
+(`.git/hooks/pre-push`, husky, lefthook) chamando `envctl-verify --git-push` — o git
+roda o hook do repositório normalmente, sem nenhuma camada do envctl por cima.
 
 ---
 
@@ -59,7 +58,7 @@ se uma diretriz advisory é relevante para aquele repositório.
 **Script explícito do projeto.** Quando `package.json` declara `scripts.lint`, o verifier
 executa `pnpm run lint`, `npm run lint`, `yarn lint` ou `bun run lint` conforme o
 `packageManager`/lockfile; sem metadata, `npm` é o fallback. Esse comando é a autoridade do
-projeto e pode abortar o push. Se
+projeto e pode derrubar o gate. Se
 não houver script, o binário local do ESLint é apenas um fallback advisory; arquivos de
 configuração do próprio ESLint são excluídos dessa dedução.
 
@@ -69,7 +68,7 @@ configuração do próprio ESLint são excluídos dessa dedução.
 
 **Ferramenta ausente não é falha.** Se o binário não existe, o check opcional é omitido; se
 ele existe mas não consegue rodar naquele projeto (shim do mise sem dependência local,
-`uv run` sem virtualenv), o check é **skip** e aparece nomeado no resumo do push. No
+`uv run` sem virtualenv), o check é **skip** e aparece nomeado no resumo da execução. No
 `--dry-run`, o script `package.json lint` com package manager indisponível aparece como
 `[skip]`.
 
@@ -83,9 +82,8 @@ bloqueante.
 
 | Variável | Padrão | Efeito |
 | :--- | :--- | :--- |
-| `ENVCTL_SKIP_VERIFY` | `0` | `1` desliga a verificação naquela execução (push pontual) |
-| `ENVCTL_VERIFY_TIMEOUT` | `120` hook / `600` push | Teto (segundos) por check; um check travado falha como `TIMED OUT` |
-| `ENVCTL_REQUIRE_GATE` | `0` | `1` faz o pre-push falhar fechado quando o verifier está ausente |
+| `ENVCTL_SKIP_VERIFY` | `0` | `1` desliga a verificação naquela execução (execução pontual) |
+| `ENVCTL_VERIFY_TIMEOUT` | `120` no `--hook` / `600` no `--git-push` | Teto (segundos) por check; um check travado falha como `TIMED OUT` |
 | `ENVCTL_VERIFY_MAX_LINES` | `25` | Linhas de saída por check no relatório (mantém o contexto enxuto) |
 
 Saída enxuta por design: uma execução sem findings fica silenciosa; uma execução advisory-only
@@ -98,12 +96,12 @@ de cada falha.
 
 | Modo | O que roda |
 | :--- | :--- |
-| `--hook` (fim de turno) | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o push, então um turno nunca espera por ela |
-| `--git-push` | **O gate completo**, testes incluídos; somente findings bloqueantes abortam |
+| `--hook` | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o `--git-push`, então uma chamada rápida nunca espera por ela |
+| `--git-push` | **O gate completo**, testes incluídos; somente findings bloqueantes retornam exit ≠ 0 |
 | `--dry-run` | Não roda nada: imprime as stacks detectadas e cada check detectado como `[blocking]`, `[advisory]` ou `[skip]`, incluindo a política que seria aplicada |
 
 **Cache por estado da árvore (só no modo hook).** Se nada mudou desde a última execução
-verde, o verificador sai em ~20ms em vez de rodar os checks de novo — um turno que apenas
+verde, o verificador sai em ~20ms em vez de rodar os checks de novo — uma chamada que apenas
 leu arquivos não paga nada. O carimbo fica em `.git/envctl-verify.stamp`, nunca na árvore de
 trabalho. Execuções com skip, overrides executáveis e arquivos untracked maiores que 1 MiB
 não são cacheadas, para que uma ferramenta ou um conteúdo não observado não possa produzir um
@@ -121,33 +119,23 @@ e o que denuncia um check que vive sendo pulado.
 
 ## ⏱️ Timeout por Check — Fail-Fast
 
-Cada check roda sob um timeout individual (`ENVCTL_VERIFY_TIMEOUT`; **120s** no hook de
-turno, **600s** no pre-push). Um check que trava é um check quebrado e **falha rápido no
-teto** com o marcador `TIMED OUT`, em vez de ser aguardado para sempre — o gate deixa de
-travar turnos e pushes. O conjunto saudável continua rápido com cache quente (gofmt 21ms,
-build 478ms, vet 133ms, testes 299ms, cross-compile Windows 638ms, lint 0,7s quente).
+Cada check roda sob um timeout individual (`ENVCTL_VERIFY_TIMEOUT`; **120s** no
+`--hook`, **600s** no `--git-push`). Um check que trava é um check quebrado e **falha
+rápido no teto** com o marcador `TIMED OUT`, em vez de ser aguardado para sempre. O
+conjunto saudável continua rápido com cache quente (gofmt 21ms, build 478ms, vet 133ms,
+testes 299ms, cross-compile Windows 638ms, lint 0,7s quente).
 
 Quando o coreutils `timeout` não está disponível, o check roda sem teto (comportamento
-anterior) em vez de falhar. O hook de turno continua sob o teto do engine do CommandCode
-como proteção adicional.
-
----
-
-## 🪝 Encadeamento com Hooks Locais
-
-`core.hooksPath` sobrepõe `.git/hooks` de **todos** os repositórios, então o hook
-deployado invoca primeiro o pre-push local do repositório (husky e afins continuam
-funcionando) e só então roda o verificador. A delegação resolve o hook do repo pelo
-`--git-common-dir`, então worktrees linkados também executam seus hooks locais. Um hook
-local que falhar continua abortando o push antes mesmo do verificador global. Se o
-verifier não estiver disponível, o hook **avisa e libera o push** por padrão (a trava
-real é `--no-verify` sempre disponível; bloquear todo push em repo que nunca provisionou
-o envctl é pior). Defina `ENVCTL_REQUIRE_GATE=1` para restaurar o fail-closed (`exit 2`).
+anterior) em vez de falhar. Quando o modo `--hook` é plugado num hook de turno (ex.:
+CommandCode, por conta e risco do projeto), o engine também aplica o seu próprio teto.
 
 ---
 
 ## 🩺 Auditoria
 
-O `doctor` verifica o wiring (script e hook presentes e executáveis) e reporta como
-`Verify`. Um script ausente ou sem bit de execução aparece como `WARN` com o fix
-`envctl run shell`.
+O `doctor` verifica que o verificador está deployado e que **nenhum resquício do wiring
+global legado sobrou** (os antigos hooks de `~/.config/git/hooks`, que sobrepunham os
+hooks de todos os repositórios). O verificador ausente ou sem bit de execução aparece
+como `WARN` com o fix `envctl run shell`; qualquer resquício de hook global também é
+`WARN`, com a instrução de remoção (`remove ~/.config/git/hooks` +
+`git config --global --unset core.hooksPath`).
