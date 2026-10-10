@@ -96,11 +96,6 @@ type ConfigFile struct {
 	// must not report the runtime's own writes as drift.
 	RuntimeManaged bool `yaml:"runtime_managed,omitempty"`
 	Executable     bool `yaml:"executable,omitempty"` // chmod +x after write (POSIX scripts deployed to ~/bin-style dirs)
-	// Instances expands one manifest entry into one deployment per name:
-	// {{name}} in destination/source is replaced by each instance. Used by
-	// the git hook shim, where a single script serves every hook and only
-	// the installed filename differs.
-	Instances []string `yaml:"instances,omitempty"`
 	// OSValues expands this entry into one deployment per OS variant; see
 	// EnvironmentVar.OSValues. Overridable fields: "id", "description",
 	// "source", "destination", "executable" (the string "true" or "false").

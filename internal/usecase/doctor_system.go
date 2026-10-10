@@ -390,39 +390,45 @@ func (uc *DoctorAuditUseCase) auditWorktreeSupport(ctx context.Context, addDiag 
 	}
 }
 
-// 10.5 Audit the local verification wiring: the same gates run by the
-// CommandCode Stop hook and the git pre-push hook. Without them a broken
-// tree only surfaces after the push, which is what this wiring exists to
-// prevent.
+// 10.5 Audit the local verification tool and the absence of legacy global
+// wiring. Since v2 envctl installs no git hooks and no agent hooks at all: a
+// global core.hooksPath overrides the .git/hooks of every repository on the
+// machine (their pre-commit/commit-msg were silently disabled), which is
+// interference this tool must never cause. The verifier itself is a tool, run
+// explicitly per project.
 func (uc *DoctorAuditUseCase) auditVerifyWiring(addDiag func(entity.Diagnostic)) {
 	verifierPath, verifierErr := uc.fsManager.ExpandUserPath("~/.local/bin/envctl-verify")
-	prePushPath, prePushErr := uc.fsManager.ExpandUserPath("~/.config/git/hooks/pre-push")
-	if verifierErr != nil || prePushErr != nil {
-		uc.logger.Warn("Could not resolve the verification paths: %v / %v", verifierErr, prePushErr)
+	if verifierErr != nil {
+		uc.logger.Warn("Could not resolve the verifier path: %v", verifierErr)
 	}
-	verifierReady := executil.IsExecutableFile(verifierPath)
-	prePushReady := executil.IsExecutableFile(prePushPath)
-
-	switch {
-	case verifierReady && prePushReady:
+	if executil.IsExecutableFile(verifierPath) {
 		addDiag(entity.OK(
 			"Verify",
-			"local quality gates",
-			"envctl-verify deployed and the git pre-push hook is executable",
+			"envctl-verify",
+			"local verifier deployed (run explicitly per project: envctl-verify --hook|--git-push)",
 		))
-	case verifierReady:
-		addDiag(entity.Warn(
-			"Verify",
-			"git pre-push hook",
-			"pre-push hook missing or not executable — pushes are not gated locally",
-			"run 'envctl run shell' to deploy ~/.config/git/hooks/pre-push",
-		))
-	default:
+	} else {
 		addDiag(entity.Warn(
 			"Verify",
 			"envctl-verify",
 			"local verifier not deployed — lint/test failures surface only in CI",
 			"run 'envctl run shell' to deploy ~/.local/bin/envctl-verify",
+		))
+	}
+
+	// Legacy global hook wiring must survive nowhere. _envctl-delegate is the
+	// unique marker of a provisioned hooks directory; any leftover means the
+	// machine still overrides other repositories' own hooks.
+	hooksPath, hooksErr := uc.fsManager.ExpandUserPath("~/.config/git/hooks")
+	if hooksErr != nil {
+		uc.logger.Warn("Could not resolve the git hooks path: %v", hooksErr)
+	}
+	if executil.IsExecutableFile(filepath.Join(hooksPath, "_envctl-delegate")) {
+		addDiag(entity.Warn(
+			"Verify",
+			"global git hooks",
+			"legacy envctl git hooks found — envctl never installs global hooks; they override other repositories' own pre-commit/commit-msg",
+			"remove ~/.config/git/hooks and run 'git config --global --unset core.hooksPath'",
 		))
 	}
 }
