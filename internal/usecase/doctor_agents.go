@@ -354,10 +354,6 @@ func (uc *DoctorAuditUseCase) auditAgentsIdentityCoverage(addDiag func(entity.Di
 	}
 }
 
-// lspConnectionMarkers identifies a server that failed to bind its stdio
-// transport (exit codes lie — node servers exit 1 on
-// EOF when healthy; only the absence of a connection error proves health).
-
 func (uc *DoctorAuditUseCase) auditCommandCodeAgents(ccConfigDir string, addDiag func(entity.Diagnostic)) {
 	agentsDir := filepath.Join(ccConfigDir, "agents")
 	entries, err := os.ReadDir(agentsDir)

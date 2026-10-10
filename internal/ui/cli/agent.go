@@ -21,7 +21,7 @@ func newCommandCodeCmd() *cobra.Command {
   ~/.commandcode/agents/          custom subagents
   ~/.commandcode/skills/          skill tree
 
-Machine-level layers (packages, toolchains, LSP binaries, shell/git config) stay
+Machine-level layers (packages, toolchains, shell/git config) stay
 with 'envctl run all'.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()
@@ -45,7 +45,7 @@ func newOpenCodeCmd() *cobra.Command {
   ~/.config/opencode/memory/         lessons/patterns seeds
   ~/.config/opencode/skills/         skill tree
 
-Machine-level layers (packages, toolchains, LSP binaries, shell/git config) stay
+Machine-level layers (packages, toolchains, shell/git config) stay
 with 'envctl run all'.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintBanner()

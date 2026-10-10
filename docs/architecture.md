@@ -12,14 +12,13 @@ envctl/
 │   └── envctl/                         # Entrypoint da aplicação (main.go, injeção de dependências)
 ├── internal/
 │   ├── domain/                         # Camada de Domínio (Entidades e Interfaces/Contratos)
-│   │   ├── entity/                     # Modelos puros: Package, ConfigFile, Skill, LSP, WindowsTweak, Diagnostic
+│   │   ├── entity/                     # Modelos puros: Package, ConfigFile, Skill, WindowsTweak, Diagnostic
 │   │   └── repository/                 # Interfaces: PackageManager, FileSystemManager, WindowsTweaksManager, Logger
 │   ├── usecase/                        # Casos de Uso da Aplicação
 │   │   ├── provision_packages.go       # Instalador multi-gerenciador de pacotes
 │   │   ├── provision_performance.go    # Perfil opt-in Ubuntu/CachyOS + sysctl
 │   │   ├── provision_shell.go          # Provisionador de shell, variáveis e configs com backup atômico
 │   │   ├── provision_skills.go         # Extração e atualização das 12 skills
-│   │   ├── provision_lsp.go            # Instalação e validação dos binários LSP (shell/IDE)
 │   │   ├── provision_tweaks.go         # Núcleo único Windows11/Debloat (CheckBatch no debloat)
 │   │   ├── doctor_audit.go             # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
@@ -51,7 +50,6 @@ envctl/
   - `PerformanceSpec`/`SysctlSetting`: Perfil de performance separado por SO e ajustes sysctl revisáveis.
   - `ConfigFile`: Arquivo de configuração gerenciado, permissões esperadas e caminho expandido.
   - `Skill`: Skill de agente de IA (OpenCode), metadados e arquivos de referência associados.
-  - `LSP`: Servidor de linguagem (Language Server Protocol), gerenciador de pacote nativo e linguagens suportadas.
   - `WindowsTweak`: Chave de registro, recurso opcional ou fonte de sistema.
   - `Diagnostic`: Item de auditoria do subsistema `doctor` com severidade (`OK`, `WARN`, `ERROR`).
 - **Repositórios e Contratos (`repository/interfaces.go`)**:
@@ -68,7 +66,6 @@ Orquestra o fluxo de negócio do provisionador sem acoplamento a implementaçõe
 - **`ProvisionPerformanceUseCase`**: Seleciona exatamente Ubuntu 24.04+ ou CachyOS, executa o perfil opt-in e impede que sysctl seja aplicado ao perfil errado.
 - **`ProvisionShellUseCase`**: Configura variáveis de ambiente globais, copia arquivos com backup atômico, instala dependências e executa hooks pós-instalação (ex: download do Chromium para Playwright).
 - **`ProvisionSkillsUseCase`**: Extrai as 12 skills do sistema embutido para o diretório local do OpenCode/CommandCode (`~/.config/opencode/skills/` e `~/.commandcode/skills/`).
-- **`ProvisionLSPsUseCase`**: Garante a presença dos binários de language server p/ shell/IDE (ver `manifests/lsp.yaml`; sem bloco `lsp` no `opencode.json` — runtime v2 ignora LSP).
 - **`ProvisionTweaksUseCase`** (`provision_tweaks.go`): Núcleo único Windows11/Debloat — aplica tweaks de registro, Developer Mode e fontes no Windows (ignorado de forma segura em Linux); o stack Debloat usa `CheckBatch` e é opt-in via `run debloat`.
 - **`DoctorAuditUseCase`**: Executa uma bateria de checagens diagnósticas cobrindo todo o ecossistema; a auditoria de performance Linux é somente leitura.
 - **`UpdateUseCase`**: Inventário e atualização das ferramentas gerenciadas (mise/uv), com `--list` (sem rede) e `--dry-run`.

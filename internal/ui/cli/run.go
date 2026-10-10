@@ -43,7 +43,6 @@ var runTargets = []runTarget{
 	{"pip", "Provision global Python packages (pyyaml, requests, etc.)", func() { runPackagesProvisioning(entity.PackageTypePip) }},
 	{"shell", "Provision environment variables, restricted directories, and shell configs (.bashrc, etc.)", func() { runShellProvisioning() }},
 	{"skills", "Provision and deploy agent skills (OpenCode + CommandCode)", func() { runSkillsProvisioning() }},
-	{"lsp", "Provision Language Server Protocol tools", func() { runLSPProvisioning() }},
 	{"tweaks", "Provision Windows 11 registry tweaks only (LongPaths, DevMode, Explorer, Themes)", func() { runWindowsProvisioning() }},
 	{"cleanup", "Clean agent storage accumulation (legacy configs, duplicate cache, oversized tool-output, stale scratch)", func() { runCleanup() }},
 }
@@ -64,7 +63,7 @@ func newRunCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run [subsystem]",
 		Short: "Provision and configure the environment",
-		Long:  `Executes idempotent provisioning tasks for system packages, shell, skills, and LSPs.`,
+		Long:  `Executes idempotent provisioning tasks for system packages, shell, and skills.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 || args[0] == "all" {
 				if withExtras {
@@ -101,7 +100,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "windows",
-		Short: "Full Windows 11 workstation profile (tweaks + debloat + packages + shell + skills + LSPs)",
+		Short: "Full Windows 11 workstation profile (tweaks + debloat + packages + shell + skills)",
 		Run: func(cmd *cobra.Command, args []string) {
 			runWindowsProfile()
 		},
@@ -109,7 +108,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "vps",
-		Short: "Ubuntu Server 24+ profile (providers + bootstrap + apt + performance + shell + skills + LSPs)",
+		Short: "Ubuntu Server 24+ profile (providers + bootstrap + apt + performance + shell + skills)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runVPSProfile(usecase.PerformanceOptions{Umbrella: true})
 		},
@@ -117,7 +116,7 @@ func newRunCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "cachyos",
-		Short: "Full CachyOS desktop profile (providers + bootstrap + pacman/paru + gaming + performance + shell + skills + LSPs)",
+		Short: "Full CachyOS desktop profile (providers + bootstrap + pacman/paru + gaming + performance + shell + skills)",
 		Run: func(cmd *cobra.Command, args []string) {
 			runCachyOSProfile()
 		},
@@ -268,10 +267,6 @@ func runWindowsProfile() {
 			runSkillsProvisioning()
 			return nil
 		}},
-		{"Provisioning Language Server Protocols (LSP)", func() error {
-			runLSPProvisioning()
-			return nil
-		}},
 	}
 	if err := runProfileSteps(steps); err != nil {
 		pterm.Error.Printf("%v\n", err)
@@ -318,10 +313,6 @@ func runVPSProfile(perfOpts usecase.PerformanceOptions) error {
 			runSkillsProvisioning()
 			return nil
 		}},
-		{"Provisioning Language Server Protocols (LSP)", func() error {
-			runLSPProvisioning()
-			return nil
-		}},
 	}
 	if err := runProfileSteps(steps); err != nil {
 		return err
@@ -366,10 +357,6 @@ func runCachyOSProfile() {
 		}},
 		{"Provisioning Agent Skills (OpenCode + CommandCode)", func() error {
 			runSkillsProvisioning()
-			return nil
-		}},
-		{"Provisioning Language Server Protocols (LSP)", func() error {
-			runLSPProvisioning()
 			return nil
 		}},
 	}
@@ -576,7 +563,7 @@ func runSkillsProvisioning() {
 
 // runAgentProvisioning provisions a single agent end to end — its config files,
 // agent directories, cleanup items and skill tree — leaving the other agent
-// untouched. Machine-level layers (packages, toolchains, LSP binaries, shell/git
+// untouched. Machine-level layers (packages, toolchains, shell/git
 // config) stay with `envctl run all`.
 func runAgentProvisioning(category, label, skillsTarget string) {
 	PrintSection(fmt.Sprintf("Provisioning %s (configs, agents, MCP, skills)", label))
@@ -587,27 +574,6 @@ func runAgentProvisioning(category, label, skillsTarget string) {
 
 	pterm.Println()
 	pterm.Success.Printf("%s provisioning complete (%d skills deployed, %d quarantined, %d expired). Run 'envctl doctor' to verify.", label, deployed, pruned, expired)
-}
-
-func runLSPProvisioning() {
-	spinner, _ := pterm.DefaultSpinner.Start("Verifying and installing Language Servers...")
-	ctx := context.Background()
-
-	results, err := appCtx.ProvisionLSPUC.Execute(ctx)
-	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed LSP provisioning: %v", err))
-		return
-	}
-
-	for _, r := range results {
-		if r.Status == entity.DiagOK {
-			pterm.Success.Printf("  • LSP %s (%s): %s\n", r.LSP.Language, r.LSP.ServerName, r.Details)
-		} else {
-			pterm.Warning.Printf("  • LSP %s (%s): %s\n", r.LSP.Language, r.LSP.ServerName, r.ErrorMessage)
-		}
-	}
-
-	spinner.Success(fmt.Sprintf("Checked %d language servers", len(results)))
 }
 
 func runCleanup() {

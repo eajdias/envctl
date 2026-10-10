@@ -6,7 +6,7 @@
     Can be run via:
         irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1 | iex
     Or with parameters:
-        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1))) -Subsystem lsp
+        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1))) -Subsystem shell
 
     CONTRACT (mirrored in bootstrap.sh - keep both in sync):
       REPO=eajdias/envctl | VERSION from -Version (default latest) | asset name

@@ -142,12 +142,6 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 
 	// 6. Audit Skills (only the ones that belong on this OS and are enabled).
 	uc.auditSkills(addDiag)
-	// 7. Audit LSPs
-	uc.auditLSPPresence(addDiag)
-	// 7.5. Audit LSP stdio handshakes (presence in PATH is not proof the
-	// server speaks LSP: exit codes lie, so health is proven by the
-	// absence of a stdio connection error, not by the exit status).
-	uc.auditLSPHandshake(ctx, addDiag)
 
 	// 8. Audit Windows 11 Registry Tweaks, Features & Fonts (Windows only)
 	uc.auditWindowsTweaks(ctx, addDiag)

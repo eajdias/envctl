@@ -13,7 +13,7 @@ Anteriormente, a replicação desses ambientes dependia de scripts manuais espar
 ## Decisões Arquiteturais
 
 ### 1. Clean Architecture em Go
-- **Domínio Puro**: Entidades `Package`, `ConfigFile`, `Skill`, `LSP`, `Diagnostic` e interfaces de repositório isoladas de detalhes de sistema operacional.
+- **Domínio Puro**: Entidades `Package`, `ConfigFile`, `Skill`, `Diagnostic` e interfaces de repositório isoladas de detalhes de sistema operacional.
 - **Multi-Gerenciadores de Pacotes**: Adaptadores modulares para `Winget`, `APT`, `Pacman`, `Paru`, `Volta`, `Go` e `UV/Pip`.
 - **Filtro Declarativo por SO**: Suporte a campo `os` nos manifestos YAML para provisionar apenas pacotes aplicáveis à plataforma de execução (`windows`, `linux`), com `target_distro`/`min_distro_version` para separar Ubuntu 24.04+ de outros membros da família Debian.
 

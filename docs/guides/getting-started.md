@@ -55,7 +55,7 @@ Windows:
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eajdias/envctl/main/bootstrap.ps1))) -Subsystem shell
-# troque "shell" pelo subsistema desejado: shell, skills, lsp, mise, pip,
+# troque "shell" pelo subsistema desejado: shell, skills, mise, pip,
 # winget, tweaks, cleanup… (lista completa no README)
 ```
 

@@ -289,16 +289,21 @@ packages:
     category: mise
     check_command: prettier --version
 
-  - id: npm:sqllens-language-server
-    name: SQL Lens Language Server Protocol
+  - id: npm:pyright
+    name: Pyright (Python type checker)
     type: mise
     category: mise
-    check_command: sqllens-language-server --version
+    check_command: pyright --version
 
-  # NOTE: language servers live in manifests/lsp.yaml (single source,
-  # installed via `run lsp`). They are intentionally absent here so one
-  # addition cannot land in one manifest and be forgotten in the other
-  # (TestLSPSingleSource pins this).
+  # Taplo is the TOML formatter/linter (taplo fmt / taplo lint), not a language
+  # server. The Arch family gets it from pacman (taplo-cli below); everywhere
+  # else it comes from npm.
+  - id: npm:@taplo/cli
+    name: Taplo (TOML formatter/linter)
+    type: mise
+    category: mise
+    os: windows,debian,ubuntu
+    check_command: taplo --version
 
   # ============================================================================
   # AI Coding Agents

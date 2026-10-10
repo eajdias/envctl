@@ -35,8 +35,8 @@ func automatableGroup(installType entity.PackageType) (UpdateGroup, bool) {
 }
 
 // withLatestPin appends "@latest" unless the target already carries it.
-// Several install_target values in lsp.yaml may carry the suffix, and
-// doubling it produces an unrunnable command.
+// Several install_target values may carry the suffix, and doubling it produces
+// an unrunnable command.
 func withLatestPin(target string) string {
 	if strings.HasSuffix(target, "@latest") {
 		return target
@@ -121,10 +121,8 @@ func (e *realUpdateEnv) applyUpdate(ctx context.Context, group UpdateGroup, targ
 var errUnautomatableGroup = errors.New("install group is not automatable")
 
 // UpdateCandidate is one tool that envctl knows how to keep current. Target is
-// the real install name, which can differ from the manifest id: the "typescript"
-// package installs tsc, while the "typescript" LSP installs
-// typescript-language-server. Label keeps the inventory readable when the two
-// share an id.
+// the real install name, which can differ from the manifest id. Label keeps the
+// inventory readable when the two share an id.
 type UpdateCandidate struct {
 	ID      string
 	Label   string
@@ -159,7 +157,6 @@ type UpdateOutcome struct {
 // UpdateInventory is what the manifests declare, before any OS filtering.
 type UpdateInventory struct {
 	Packages []entity.Package
-	LSPs     []entity.LSP
 }
 
 // UpdateOptions is the caller's intent.
@@ -194,7 +191,7 @@ func NewUpdateUseCase(env UpdateEnv) *UpdateUseCase {
 
 // collect turns manifest entries into the automatable inventory, dropping every
 // OS package manager.
-func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) []UpdateCandidate {
+func (uc *UpdateUseCase) collect(packages []entity.Package) []UpdateCandidate {
 	var out []UpdateCandidate
 	seen := map[string]bool{}
 
@@ -219,9 +216,6 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 		})
 	}
 
-	for _, l := range lsps {
-		add(l.ID, l.InstallTarget, l.InstallType, l.InstallTarget, l.CheckBinary)
-	}
 	for _, p := range packages {
 		binary := p.CheckCommand
 		if idx := strings.Index(binary, " "); idx > 0 {
@@ -238,7 +232,7 @@ func (uc *UpdateUseCase) collect(packages []entity.Package, lsps []entity.LSP) [
 func (uc *UpdateUseCase) Execute(ctx context.Context, inv UpdateInventory, opts UpdateOptions) (*UpdateResult, error) {
 	result := &UpdateResult{}
 
-	for _, c := range uc.collect(inv.Packages, inv.LSPs) {
+	for _, c := range uc.collect(inv.Packages) {
 		if opts.Only != "" && c.Group != opts.Only {
 			continue
 		}

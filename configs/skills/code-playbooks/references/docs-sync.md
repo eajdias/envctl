@@ -15,7 +15,7 @@
    - doc **errada** (diz o que não é) → corrige a doc;
    - doc **ausente** (feature sem doc) → escreve onde a doc do tema vive;
    - doc **obsoleta** (assunto que não existe mais) → remove.
-5. **Números**: contagem de skill/pacote/LSP é o caso que mais mente. Confira a
+5. **Números**: contagem de skill/pacote é o caso que mais mente. Confira a
    verdade no manifesto, não no texto.
 6. **Promessa que o código não cumpre**: é bug de produto, não de doc — reporte antes de
    ajustar o texto. Nunca "suavizar" a doc para esconder promessa quebrada.

@@ -39,10 +39,8 @@ envctl doctor
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
    - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
      como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
-4. **Language Servers (ver `manifests/lsp.yaml`; `powershell` é windows-only)**:
-   - Presença do binário no `PATH` + handshake stdio de stdin fechado para cada servidor — check de **toolchain** (shell/IDE), não de runtime do agente: o bloco `lsp` foi removido do `opencode.json` (runtime v2 ignora LSP; diagnósticos do agente via lint/typecheck).
-5. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
-6. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
+4. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
+5. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.
    - **Quarentena com janela de recuperação**: diretório de skill que saiu do manifesto é
      **movido** (nunca apagado) para `~/.config/opencode/.envctl-trash/skills/<nome>-<stamp>`,
@@ -51,7 +49,7 @@ envctl doctor
      recuperação não vire armazenamento permanente. Sem esse limite a árvore crescia 1 diretório
      por skill removida, para sempre (39 diretórios por runtime na máquina em que o catálogo foi
      de 50 para 12). Arquivos soltos no trash não são tocados: a árvore não é exclusivamente nossa.
-7. **Agentes & Config do OpenCode**:
+6. **Agentes & Config do OpenCode**:
    - `Config shape` (read-only): valida o formato V2 nativo do `~/.config/opencode/opencode.json` —
      sem `agent`/`permission` de V1, sem ações de permissão `bash`/`task`, `mode` em
      `primary|subagent|all` e `description` obrigatória em agente dispatchable. `OK` no shape
@@ -70,10 +68,10 @@ envctl doctor
      (trabalho intencional). Vale para worktrees do OpenCode **e** do CommandCode
      (`~/.commandcode/worktrees/`), porque ambas são `git worktree` do mesmo repo. O
      `doctor` nunca poda, destrava ou remove worktree.
-8. **Performance Linux (read-only)**:
+7. **Performance Linux (read-only)**:
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
-9. **Verificação Local (`Verify`)**:
+8. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
 
 ---
@@ -93,7 +91,7 @@ envctl doctor --fix
 - Reinstala variáveis de ambiente do usuário.
 - Restaura templates de shell e configurações com backup atômico.
 - Extrai e sincroniza skills ausentes ou desatualizadas.
-- Baixa runtimes ou componentes de LSP faltantes (ex: `pyright`, `docker-langserver` ou binários do Chromium).
+- Baixa componentes de runtime faltantes (ex: binários do Chromium para Playwright).
 
 ---
 

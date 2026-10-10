@@ -18,7 +18,7 @@ envctl run winget
 # Apenas runtimes gerenciados pelo mise (Node.js LTS)
 envctl run mise
 
-# Perfil completo da workstation (tweaks + debloat + pacotes + shell + skills + LSPs)
+# Perfil completo da workstation (tweaks + debloat + pacotes + shell + skills)
 envctl run windows
 
 # Apenas ajustes de Registro, Modo Desenvolvedor e Modo Escuro
@@ -29,9 +29,6 @@ envctl run shell
 
 # Apenas catálogo de 12 skills do OpenCode/CommandCode
 envctl run skills
-
-# Apenas binários de linguagem p/ shell/IDE (13 LSPs; sem efeito no runtime opencode v2)
-envctl run lsp
 
 # Limpeza de acúmulo do OpenCode (cache duplicado, tool-output, scratch >24h)
 envctl run cleanup

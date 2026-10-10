@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
 	"github.com/eajdias/envctl/internal/infra/executil"
@@ -48,34 +47,6 @@ func (uc *DoctorAuditUseCase) auditEnvPackages(ctx context.Context, addDiag func
 				pkg.ID,
 				fmt.Sprintf("Installed (%s)", info),
 			))
-		}
-	}
-}
-
-// 7. Audit LSPs
-//
-//nolint:errcheck // audit continues with an empty list when the manifest fails to load.
-func (uc *DoctorAuditUseCase) auditLSPPresence(addDiag func(entity.Diagnostic)) {
-	lsps, _ := uc.manifestRepo.LoadLSPs()
-	for _, lsp := range lsps {
-		if !entity.MatchesOS(lsp.OS) {
-			continue
-		}
-		if lsp.CheckBinary != "" {
-			if !toolAvailable(lsp.CheckBinary) {
-				addDiag(entity.Warn(
-					"LSP",
-					lsp.ServerName,
-					fmt.Sprintf("Binary '%s' not found in PATH", lsp.CheckBinary),
-					fmt.Sprintf("run 'envctl run lsp' to install %s", lsp.InstallTarget),
-				))
-			} else {
-				addDiag(entity.OK(
-					"LSP",
-					lsp.ServerName,
-					fmt.Sprintf("Ready (%s in PATH)", lsp.CheckBinary),
-				))
-			}
 		}
 	}
 }
@@ -323,79 +294,6 @@ func (uc *DoctorAuditUseCase) auditLinuxToolchain(ctx context.Context, addDiag f
 					"run 'envctl run bootstrap'",
 				))
 			}
-		}
-	}
-}
-
-var lspConnectionMarkers = []string{
-	"input stream is not set",
-	"connection input stream",
-	"no stdin",
-	"stdin is not",
-	"failed to bind",
-}
-
-// auditLSPHandshake runs every provisioned LSP with closed stdin and reports
-// the ones that cannot bind their stdio transport. A server that starts and
-// waits (killed by timeout) or exits quietly on EOF is healthy; only
-// connection-error output fails the check.
-
-func (uc *DoctorAuditUseCase) auditLSPHandshake(ctx context.Context, addDiag func(entity.Diagnostic)) {
-	lsps, err := uc.manifestRepo.LoadLSPs()
-	if err != nil {
-		return
-	}
-	for _, lsp := range lsps {
-		if !entity.MatchesOS(lsp.OS) || lsp.CheckBinary == "" {
-			continue
-		}
-		if !toolAvailable(lsp.CheckBinary) {
-			continue // missing binary already reported by the LSP presence check
-		}
-		timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		//nolint:gosec // G204: command/args come from the local manifests (same trust level as package installs), not from user input.
-		cmd := exec.CommandContext(timeoutCtx, lsp.Command, lsp.Args...)
-		devNull, err := os.Open(os.DevNull)
-		if err != nil {
-			cancel()
-			continue
-		}
-		cmd.Stdin = devNull
-		out, cmdErr := cmd.CombinedOutput()
-		devNull.Close()
-		cancel()
-		if cmdErr != nil && len(out) == 0 {
-			// Process died before producing output. Quiet exit is the
-			// HEALTHY shape for stdio servers (node servers exit 1 on
-			// healthy EOF — calibrated live across the 14 Linux LSPs), and
-			// it is indistinguishable from a spawn crash at this layer, so
-			// silence is the safe default: a warning here would flag every
-			// healthy quiet server and break the 0 WARN/0 ERRO contract.
-			// (SPEC Task 11.3a proposed a warning; rejected on this
-			// evidence — see TestDoctorAudit_LSPHandshakeQuietExitPasses.)
-			continue
-		}
-		lowered := strings.ToLower(string(out))
-		for _, marker := range lspConnectionMarkers {
-			if !strings.Contains(lowered, marker) {
-				continue
-			}
-			snippet := strings.TrimSpace(string(out))
-			if len(snippet) > 200 {
-				snippet = snippet[:200] + "…"
-			}
-			nullDev := "/dev/null"
-			if runtime.GOOS == "windows" {
-				nullDev = "NUL"
-			}
-			repro := strings.TrimSpace(lsp.Command + " " + strings.Join(lsp.Args, " ") + " < " + nullDev)
-			addDiag(entity.Warn(
-				"LSP",
-				lsp.ServerName,
-				fmt.Sprintf("stdio handshake failed (%s): %s", snippet, repro),
-				fmt.Sprintf("run '%s' by hand; reinstall via 'envctl run lsp' (%s)", repro, lsp.InstallTarget),
-			))
-			break
 		}
 	}
 }

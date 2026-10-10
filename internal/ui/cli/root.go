@@ -40,7 +40,6 @@ type AppContext struct {
 	ProvisionPerformanceUC *usecase.ProvisionPerformanceUseCase
 	ProvisionShellUC       *usecase.ProvisionShellUseCase
 	ProvisionSkillsUC      *usecase.ProvisionSkillsUseCase
-	ProvisionLSPUC         *usecase.ProvisionLSPsUseCase
 	ProvisionWindowsUC     *usecase.ProvisionTweaksUseCase
 	ProvisionDebloatUC     *usecase.ProvisionTweaksUseCase
 	ProvisionBootstrapUC   *usecase.ProvisionBootstrapUseCase
@@ -122,7 +121,6 @@ func InitApp(embeddedFS fs.FS, version string) {
 			performance.NewLinuxDebloatManager("", "", packageInstalledProbe(pkgManagers))),
 		ProvisionShellUC:     usecase.NewProvisionShellUseCase(manifestRepo, fsManager, envManager, gitManager, embeddedFS, fileLogger),
 		ProvisionSkillsUC:    usecase.NewProvisionSkillsUseCase(manifestRepo, fsManager, embeddedFS, fileLogger),
-		ProvisionLSPUC:       usecase.NewProvisionLSPsUseCase(manifestRepo, pkgManagers, fileLogger),
 		ProvisionWindowsUC:   usecase.NewProvisionWindowsUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
 		ProvisionDebloatUC:   usecase.NewProvisionDebloatUseCase(manifestRepo, windowsTweaksMgr, fileLogger),
 		ProvisionBootstrapUC: usecase.NewProvisionBootstrapUseCase(fsManager, manifestRepo, envManager, pkgManagers, fileLogger),

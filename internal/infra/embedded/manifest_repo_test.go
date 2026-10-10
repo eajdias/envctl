@@ -58,15 +58,6 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 		t.Errorf("expected config files to be non-empty")
 	}
 
-	lsps, err := repo.LoadLSPs()
-	if err != nil {
-		t.Fatalf("failed to load lsp manifest: %v", err)
-	}
-
-	if len(lsps) == 0 {
-		t.Errorf("expected lsp servers to be non-empty")
-	}
-
 	skills, err := repo.LoadSkills()
 	if err != nil {
 		t.Fatalf("failed to load skills manifest: %v", err)
@@ -110,11 +101,6 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 	}
 	if len(shipped) != expectedSkills {
 		t.Errorf("expected exactly %d embedded skill directories, got %d", expectedSkills, len(shipped))
-	}
-
-	const expectedLSPs = 13
-	if len(lsps) != expectedLSPs {
-		t.Errorf("expected exactly %d LSPs in manifest, got %d", expectedLSPs, len(lsps))
 	}
 
 	// Verify Google Chrome is present and Brave Nightly is absent
