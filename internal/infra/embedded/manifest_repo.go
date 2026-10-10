@@ -391,8 +391,6 @@ func (m *ManifestRepository) WalkSkillSources(goos string, fn func(skill, rel st
 	return nil
 }
 
-
-
 type gitManifest struct {
 	Configs []entity.GitConfig `yaml:"configs"`
 }
