@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.1](https://github.com/eajdias/envctl/compare/v2.1.0...v2.1.1) (2026-10-10)
+
 ### Changed
 
 - **writing-plans:** regra de local de plano com precedência explícita — convenção
