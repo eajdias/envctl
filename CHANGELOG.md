@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.0.0](https://github.com/eajdias/envctl/compare/v1.16.0...v2.0.0) (2026-10-10)
+
 ### Removed
 
 - **hooks (BREAKING):** o envctl **não instala mais hooks nem gates globais** —
