@@ -259,3 +259,28 @@ func TestWhenToUseFitsCommandCodeCatalog(t *testing.T) {
 		t.Errorf("%d skill(s) declare when_to_use, want %d (the routing set)", seen, len(whenToUseSkills))
 	}
 }
+
+// The plan-location rules are the only thing stopping agents from scattering
+// plans across spec-agent/, plans/ and docs/. If any of these sentences is
+// removed from the skill, the next planning silently regresses (seen live on
+// 2026-10-10: an 11-task plan landed as a single spec-agent/ file while the
+// repo convention was plans/ folders).
+func TestWritingPlansDeclaresLocationPrecedence(t *testing.T) {
+	data, err := envctl.EmbeddedFS.ReadFile("configs/skills/writing-plans/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(data)
+	for _, want := range []string{
+		"Convenção declarada do projeto",
+		"sempre vence",
+		"Plano curto",
+		"arquivo único monolítico",
+		"4+ tasks",
+		"index.md",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("writing-plans SKILL.md lost the plan-location rule (%q missing)", want)
+		}
+	}
+}

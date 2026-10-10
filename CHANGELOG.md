@@ -13,6 +13,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Changed
+
+- **writing-plans:** regra de local de plano com precedência explícita — convenção
+  declarada do projeto vence o default (`spec-agent/`), e o formato segue o tamanho:
+  plano curto (≤3 tasks) em arquivo único monolítico, 4+ tasks em subpasta com
+  `index.md` + um arquivo por task. Contrato travado em
+  `TestWritingPlansDeclaresLocationPrecedence` (regressão observada em 2026-10-10:
+  plano de 11 tasks caiu como arquivo único enquanto o repo usava `plans/`).
+
 ## [2.1.0](https://github.com/eajdias/envctl/compare/v2.0.0...v2.1.0) (2026-10-10)
 
 ### Added
