@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.0](https://github.com/eajdias/envctl/compare/v2.0.0...v2.1.0) (2026-10-10)
+
 ### Added
 
 - **verify:** fixture de regressão que trava a seleção de arquivos do advisory do
