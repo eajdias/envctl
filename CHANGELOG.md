@@ -13,6 +13,30 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Removed
+
+- **hooks (BREAKING):** o envctl **não instala mais hooks nem gates globais** —
+  removidos o `pre-push` global, o delegator e os shims de git
+  (`core.hooksPath` sobrepunha o `.git/hooks` de todos os repositórios da
+  máquina: o `pre-commit`/`commit-msg` de outros projetos eram silenciados), e o
+  hook `Stop` global do CommandCode (`envctl-verify --hook` em toda sessão, em
+  qualquer repositório). O verificador `envctl-verify` **permanece**, agora como
+  ferramenta de invocação explícita por projeto (`--hook`/`--git-push`/
+  `--dry-run`); gate automático é opt-in do próprio projeto (hook local chamando
+  `envctl-verify --git-push`). Ver ADR 0009.
+- **cleanup:** `envctl run shell` remove `~/.config/git/hooks` (wiring legado).
+  Em máquinas já provisionadas, rode também
+  `git config --global --unset core.hooksPath` (o `doctor` avisa se encontrar
+  resquício).
+- **manifest:** removido o mecanismo `instances:` de expansão de entradas do
+  manifesto — ficou sem nenhum usuário com a saída dos hooks (código morto).
+
+### Changed
+
+- **doctor:** a auditoria `Verify` agora valida o verificador deployado e a
+  **ausência** do wiring global legado (WARN + instrução de limpeza), em vez de
+  esperar o hook `pre-push`.
+
 ## [1.16.0](https://github.com/eajdias/envctl/compare/v1.15.3...v1.16.0) (2026-10-10)
 
 ### Added

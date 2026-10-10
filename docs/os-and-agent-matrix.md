@@ -38,7 +38,7 @@ camada). Todos os números vêm dos manifestos e do código — se divergirem, u
 | Temp padrão (ENVCTL_TEMP) | `C:\temp` | `/temp` | `/temp` |
 | Atualização de toolchain (`envctl update`) | `mise` (runtimes + ferramentas via backend npm) · `uv tool` (Python) — **aplica sem perguntar**, `--dry-run` faz o preview | `uv tool` (Python) · `mise` | idem desktop |
 | — | **Gerenciadores de SO nunca automatizados**: atualizar subconjunto via `pacman -S` é *partial upgrade*, que o Arch proíbe; `apt`/`winget` seguem o update do SO |
-| Quality gates (`envctl-verify` + pre-push) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
+| Quality gates (`envctl-verify`, invocação explícita) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) | ✓ (advisory lint + blocking tests) |
 
 **Escopo por subsistema:** `run winget`/`run tweaks`/`run debloat` são Windows-only; `run apt` é
 Debian/Ubuntu; `run pacman`/`run paru`/`run gaming` são Arch; `run bootstrap` é Linux
@@ -123,7 +123,7 @@ Travas (não unificar sem adaptador de formato):
 | :--- | :--- |
 | OpenCode | `AGENTS.md (global rules)` · `Config file references` (refs `{file:...}` do `opencode.json`) · `Config shape` (V2: sem `agent`/`permission` legacy, sem ações `bash`/`task`, subagent com `description`) · `Database` (tamanho + páginas livres do `opencode.db`) · `Tool Output` (diretório) · `Skills` (frontmatter + contagem) |
 | CommandCode | `CommandCode CLI` · `~/.commandcode/` · `Settings` (JSON válido) · `MCP config` (JSON válido) · `Agents` (frontmatter `name` == arquivo **e** schema documentado: `tools`/`disallowedTools`, `permissionMode`, `maxTurns`, `background`, `showOutput`, `model`; `agent`/`agent_output` em `tools` = WARN) · `Skills` (frontmatter + contagem) |
-| Ambos | `Verify` (verificador + pre-push) · `Git` · `git worktree` (parse de `--porcelain`: `prunable` = WARN, `locked` = INFO, nunca auto-poda) · `TempFolder` |
+| Ambos | `Verify` (verificador deployado + ausência de hooks globais legados) · `Git` · `git worktree` (parse de `--porcelain`: `prunable` = WARN, `locked` = INFO, nunca auto-poda) · `TempFolder` |
 
 ---
 

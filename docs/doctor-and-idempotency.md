@@ -72,7 +72,7 @@ envctl doctor
    - `Performance` agrega swap, zram, governor, scheduler, journald, `fstrim.timer` e serviços.
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
 8. **Verificação Local (`Verify`)**:
-   - `~/.local/bin/envctl-verify` e `~/.config/git/hooks/pre-push` presentes e executáveis, e `core.hooksPath` apontando para o diretório de hooks (ver [verification.md](./verification.md)).
+   - `~/.local/bin/envctl-verify` presente e executável (ver [verification.md](./verification.md)); nenhum resquício do wiring global legado (hooks de `~/.config/git/hooks` — o envctl nunca mais instala hooks).
 
 ---
 
