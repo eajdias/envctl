@@ -14,8 +14,12 @@ set -u
 hook_name="$1"
 shift
 
-git_dir=$(git rev-parse --git-dir 2>/dev/null) || exit 0
-repo_hook="${git_dir}/hooks/${hook_name}"
+# The repository's own hooks live in the COMMON git dir, which is where
+# --git-common-dir points. --git-dir returns the per-worktree dir in a linked
+# worktree (.git/worktrees/<name>), which has no hooks/ — the repo's hook would be
+# silently skipped there. --git-common-dir resolves correctly in both cases.
+git_common=$(git rev-parse --git-common-dir 2>/dev/null) || exit 0
+repo_hook="${git_common}/hooks/${hook_name}"
 
 if [ -x "$repo_hook" ]; then
 	exec "$repo_hook" "$@"

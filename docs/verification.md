@@ -84,6 +84,8 @@ bloqueante.
 | Variável | Padrão | Efeito |
 | :--- | :--- | :--- |
 | `ENVCTL_SKIP_VERIFY` | `0` | `1` desliga a verificação naquela execução (push pontual) |
+| `ENVCTL_VERIFY_TIMEOUT` | `120` hook / `600` push | Teto (segundos) por check; um check travado falha como `TIMED OUT` |
+| `ENVCTL_REQUIRE_GATE` | `0` | `1` faz o pre-push falhar fechado quando o verifier está ausente |
 | `ENVCTL_VERIFY_MAX_LINES` | `25` | Linhas de saída por check no relatório (mantém o contexto enxuto) |
 
 Saída enxuta por design: uma execução sem findings fica silenciosa; uma execução advisory-only
@@ -117,16 +119,17 @@ e o que denuncia um check que vive sendo pulado.
 
 ---
 
-## ⏱️ Sem Timeout — Fail-Fast
+## ⏱️ Timeout por Check — Fail-Fast
 
-O verificador **não** impõe timeout: o conjunto completo roda em ~2s com cache quente
-(gofmt 21ms, build 478ms, vet 133ms, testes 299ms, cross-compile Windows 638ms, lint
-0,7s quente / 3,2s frio). Esperar minutos por um check travado seria desperdício em
-automação — ou funciona, ou não funciona e reporta.
+Cada check roda sob um timeout individual (`ENVCTL_VERIFY_TIMEOUT`; **120s** no hook de
+turno, **600s** no pre-push). Um check que trava é um check quebrado e **falha rápido no
+teto** com o marcador `TIMED OUT`, em vez de ser aguardado para sempre — o gate deixa de
+travar turnos e pushes. O conjunto saudável continua rápido com cache quente (gofmt 21ms,
+build 478ms, vet 133ms, testes 299ms, cross-compile Windows 638ms, lint 0,7s quente).
 
-O hook de turno roda sob o teto do próprio engine do CommandCode, que é a única
-proteção contra um check patológico. O pre-push não tem teto: ali o tempo gasto é o
-tempo necessário antes de liberar um push.
+Quando o coreutils `timeout` não está disponível, o check roda sem teto (comportamento
+anterior) em vez de falhar. O hook de turno continua sob o teto do engine do CommandCode
+como proteção adicional.
 
 ---
 
@@ -134,9 +137,12 @@ tempo necessário antes de liberar um push.
 
 `core.hooksPath` sobrepõe `.git/hooks` de **todos** os repositórios, então o hook
 deployado invoca primeiro o pre-push local do repositório (husky e afins continuam
-funcionando) e só então roda o verificador. Um hook local que falhar continua abortando o
-push antes mesmo do verificador global; se o verifier não estiver disponível, o hook global
-falha fechado em vez de permitir um push sem gate.
+funcionando) e só então roda o verificador. A delegação resolve o hook do repo pelo
+`--git-common-dir`, então worktrees linkados também executam seus hooks locais. Um hook
+local que falhar continua abortando o push antes mesmo do verificador global. Se o
+verifier não estiver disponível, o hook **avisa e libera o push** por padrão (a trava
+real é `--no-verify` sempre disponível; bloquear todo push em repo que nunca provisionou
+o envctl é pior). Defina `ENVCTL_REQUIRE_GATE=1` para restaurar o fail-closed (`exit 2`).
 
 ---
 
