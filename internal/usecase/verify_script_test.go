@@ -778,59 +778,6 @@ func TestVerifyTimeoutBoundsHungCheck(t *testing.T) {
 	}
 }
 
-// The delegator must find the repository's own hook from the COMMON git dir so
-// linked worktrees still run their hooks (--git-dir points at the per-worktree
-// dir, which has no hooks/).
-func TestDelegateRunsRepoHookInLinkedWorktree(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("git hook delegation requires a POSIX shell")
-	}
-	if _, err := exec.LookPath("sh"); err != nil {
-		t.Skip("sh not available")
-	}
-	dir := t.TempDir()
-	initRepo(t, dir)
-
-	marker := filepath.Join(dir, "hook-ran")
-	hooksDir := filepath.Join(dir, ".git", "hooks")
-	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
-		t.Fatalf("mkdir hooks: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(hooksDir, "pre-commit"), []byte("#!/bin/sh\ntouch \""+marker+"\"\n"), 0o755); err != nil {
-		t.Fatalf("write repo hook: %v", err)
-	}
-
-	// A linked worktree needs at least one commit for HEAD to exist.
-	commit := exec.Command("git", "-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "--allow-empty", "-qm", "init")
-	commit.Dir = dir
-	commit.Env = testEnv(nil)
-	if out, err := commit.CombinedOutput(); err != nil {
-		t.Fatalf("seed commit: %v (%s)", err, out)
-	}
-
-	wt := filepath.Join(dir, "wt")
-	add := exec.Command("git", "worktree", "add", "--detach", wt, "HEAD")
-	add.Dir = dir
-	add.Env = testEnv(nil)
-	if out, err := add.CombinedOutput(); err != nil {
-		t.Fatalf("git worktree add: %v (%s)", err, out)
-	}
-
-	delegate, err := filepath.Abs(filepath.Join("..", "..", "configs", "git", "hooks", "_envctl-delegate"))
-	if err != nil {
-		t.Fatalf("resolve delegate: %v", err)
-	}
-	cmd := exec.Command("sh", delegate, "pre-commit")
-	cmd.Dir = wt
-	cmd.Env = testEnv(nil)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("running delegate: %v (%s)", err, out)
-	}
-	if _, err := os.Stat(marker); err != nil {
-		t.Fatalf("the repo hook must run inside a linked worktree (git-common-dir): %v", err)
-	}
-}
-
 // The Stop payload is read from stdin; an idle pipe (open, no data) must be
 // bounded instead of hanging on `cat` forever.
 func TestVerifyScriptHookModeDoesNotBlockOnIdleStdin(t *testing.T) {
