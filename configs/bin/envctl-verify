@@ -2,10 +2,12 @@
 # envctl-verify - run the repository's own quality gates locally.
 #
 # Modes:
-#   envctl-verify --hook      CommandCode Stop hook (JSON payload on stdin).
-#                             Static checks only: what an editor would tell you
-#                             on save. Test suites belong to the push gate.
-#   envctl-verify --git-push  git pre-push hook. The complete gate.
+#   envctl-verify --static    Static checks only: what an editor would tell you
+#                             on save (build, type check, lint, format).
+#                             (--hook is accepted as a legacy alias.)
+#   envctl-verify --git-push  The complete gate, tests included. Run it
+#                             explicitly before a push or from whatever
+#                             automation the project owns.
 #   envctl-verify --dry-run   Print the checks this repository would run and
 #                             exit. Use it to audit the detection and the skips.
 #
@@ -23,33 +25,33 @@
 # findings are printed as non-blocking diagnostics and exit 0 when no blocking
 # check failed.
 #
-# Every check runs under a per-check timeout (ENVCTL_VERIFY_TIMEOUT; 120s for the
-# Stop hook, 600s for the push gate): a check that hangs is a broken check and
-# fails fast at the cap with a TIMED OUT marker instead of being waited out. The
-# Stop hook additionally runs under the engine's own cap.
+# Every check runs under a per-check timeout (ENVCTL_VERIFY_TIMEOUT; 120s for
+# --static, 600s for --git-push): a check that hangs is a broken check and fails
+# fast at the cap with a TIMED OUT marker instead of being waited out.
 
 set -uo pipefail
 
 MODE="--git-push"
 case "${1:-}" in
---hook | --git-push | --dry-run) MODE="$1" ;;
+--static | --hook) MODE="--static" ;; # --hook: legacy alias, kept for old callers
+--git-push | --dry-run) MODE="$1" ;;
 esac
 
-# In hook mode only the static half runs, so a turn never waits on a test suite;
-# the pre-push gate remains complete.
+# Only the static half runs in --static mode, so a quick call never waits on a
+# test suite; --git-push remains complete.
 RUN_TESTS=1
-[ "$MODE" = "--hook" ] && RUN_TESTS=0
+[ "$MODE" = "--static" ] && RUN_TESTS=0
 DRY_RUN=0
 [ "$MODE" = "--dry-run" ] && DRY_RUN=1
 
 # Per-check timeout (seconds). A check that hangs is a broken check and must say
-# so instead of being waited out. Static checks are fast, so the Stop hook gets a
-# tight cap; the push gate runs test suites and gets a generous one. Override with
+# so instead of being waited out. Static checks are fast, so --static gets a
+# tight cap; --git-push runs test suites and gets a generous one. Override with
 # ENVCTL_VERIFY_TIMEOUT. When coreutils `timeout` is unavailable the check runs
 # uncapped (the old behaviour) rather than failing.
 CHECK_TIMEOUT="${ENVCTL_VERIFY_TIMEOUT:-}"
 if [ -z "$CHECK_TIMEOUT" ]; then
-	if [ "$MODE" = "--hook" ]; then
+	if [ "$MODE" = "--static" ]; then
 		CHECK_TIMEOUT=120
 	else
 		CHECK_TIMEOUT=600
@@ -121,26 +123,8 @@ resolve_tool() {
 	command -v "$1" 2>/dev/null
 }
 
-# Escape hatch for one-off pushes (docs-only, intentionally red tree, ...).
+# Escape hatch for one-off runs (docs-only, intentionally red tree, ...).
 [ "${ENVCTL_SKIP_VERIFY:-0}" = "1" ] && exit 0
-
-if [ "$MODE" = "--hook" ]; then
-	payload=""
-	# Only read the Stop payload from a pipe (the hook path). A terminal has no
-	# payload, and an idle pipe is bounded so a manual invocation cannot hang.
-	if [ ! -t 0 ]; then
-		if have timeout; then
-			payload=$(timeout 2 cat 2>/dev/null || true)
-		else
-			payload=$(cat 2>/dev/null || true)
-		fi
-	fi
-	# A retry already carries this hook's own feedback: let the turn end instead
-	# of looping (the engine additionally caps retries at three).
-	case "$payload" in
-	*'"stop_hook_active":true'*) exit 0 ;;
-	esac
-fi
 
 command -v git >/dev/null 2>&1 || exit 0
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
@@ -324,7 +308,7 @@ changed_matching() {
 	done
 }
 
-# --- state cache (hook mode only) -------------------------------------------
+# --- state cache (--static mode only) ---------------------------------------
 # A turn that changed nothing cannot produce a different verdict, so the previous
 # green result stands. The stamp lives in the git dir, never in the work tree.
 #
@@ -390,7 +374,7 @@ state_hash() {
 	} | git hash-object --stdin 2>/dev/null
 }
 current_state=""
-if [ "$MODE" = "--hook" ] && [ "$DRY_RUN" = "0" ] && [ ! -x .commandcode/verify.sh ]; then
+if [ "$MODE" = "--static" ] && [ "$DRY_RUN" = "0" ] && [ ! -x .commandcode/verify.sh ]; then
 	if ! has_oversized_untracked; then
 		current_state=$(state_hash)
 		if [ -n "$current_state" ] && [ -f "$stamp_file" ] && [ "$(cat "$stamp_file" 2>/dev/null)" = "$current_state" ]; then
@@ -724,7 +708,7 @@ if [ "$fail_count" -eq 0 ]; then
 	elif [ "$skip_count" -gt 0 ]; then
 		trail "ok=${ok_count} skip=${skip_count} skipped:${skip_notes}"
 	fi
-	if [ "$MODE" = "--hook" ] && { [ "$skip_count" -gt 0 ] || [ -z "$current_state" ]; }; then
+	if [ "$MODE" = "--static" ] && { [ "$skip_count" -gt 0 ] || [ -z "$current_state" ]; }; then
 		rm -f "$stamp_file" 2>/dev/null || true
 	elif [ "$skip_count" -eq 0 ] && [ -n "$current_state" ]; then
 		printf '%s' "$current_state" >"$stamp_file" 2>/dev/null || true

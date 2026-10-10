@@ -194,7 +194,7 @@ config_files:
         executable: "true"
 
   - id: envctl_verify
-    description: "Repository quality gate tool — invoked explicitly per project (envctl-verify --hook/--git-push/--dry-run); installs no hooks and gates nothing automatically"
+    description: "Repository quality gate tool — invoked explicitly per project (envctl-verify --static/--git-push/--dry-run); installs no hooks and gates nothing automatically"
     source: "configs/bin/envctl-verify"
     destination: "~/.local/bin/envctl-verify"
     strict_acl: false
@@ -353,9 +353,6 @@ directories:
   - path: "~/.local/bin"
     strict_acl: false
     description: "User local binaries and custom CLI scripts"
-  - path: "~/.config/git/hooks"
-    strict_acl: false
-    description: "Global git hooks directory (core.hooksPath) with the pre-push verifier"
   - path: "~/.config/opencode/skills"
     strict_acl: false
     description: "OpenCode agent skills directory"

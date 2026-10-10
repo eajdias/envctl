@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,14 +16,40 @@ import (
 // (shellcheck, hadolint, tsc) are skipped when absent, which keeps the suite
 // deterministic on a bare runner.
 
-func verifyScriptPath(t *testing.T) string {
+// bashBin resolves a POSIX shell on any OS. On Windows the Git for Windows bash
+// is a first-class test host (the fixtures are POSIX scripts), so tests run
+// there instead of being skipped — a Windows skip hides real breakage from the
+// local run and leaves only CI to catch it. The WSL launcher (System32\bash.exe)
+// is deliberately not a host: it sees a different filesystem namespace.
+func bashBin(t *testing.T) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("envctl-verify is a POSIX shell script")
+		for _, candidate := range []string{
+			filepath.Join(os.Getenv("ProgramFiles"), "Git", "bin", "bash.exe"),
+			filepath.Join(os.Getenv("ProgramFiles(x86)"), "Git", "bin", "bash.exe"),
+			filepath.Join(os.Getenv("LocalAppData"), "Programs", "Git", "bin", "bash.exe"),
+		} {
+			if !strings.HasSuffix(strings.ToLower(candidate), `\git\bin\bash.exe`) {
+				continue
+			}
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate
+			}
+		}
 	}
-	if _, err := exec.LookPath("bash"); err != nil {
-		t.Skip("bash not available")
+	if path, err := exec.LookPath("bash"); err == nil {
+		lower := strings.ToLower(filepath.ToSlash(path))
+		if !strings.Contains(lower, "/windows/system32/") {
+			return path
+		}
 	}
+	t.Skip("bash not available (install Git for Windows)")
+	return ""
+}
+
+func verifyScriptPath(t *testing.T) string {
+	t.Helper()
+	bashBin(t) // skip when no POSIX shell is available on this OS
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -83,10 +108,12 @@ func testEnv(overrides []string) []string {
 	return stripGitRepoEnv(mergeEnv(overrides))
 }
 
-// runVerify executes the verifier with dir as the working directory.
+// runVerify executes the verifier with dir as the working directory. The script
+// path is given to bash in slash form: backslashes are escape characters for a
+// POSIX shell (C:\x\y becomes C:xy).
 func runVerify(t *testing.T, dir string, env []string, args ...string) (int, string) {
 	t.Helper()
-	cmd := exec.Command("bash", append([]string{verifyScriptPath(t)}, args...)...)
+	cmd := exec.Command(bashBin(t), append([]string{filepath.ToSlash(verifyScriptPath(t))}, args...)...)
 	cmd.Dir = dir
 	cmd.Env = testEnv(env)
 	out, err := cmd.CombinedOutput()
@@ -99,18 +126,18 @@ func runVerify(t *testing.T, dir string, env []string, args ...string) (int, str
 	return code, string(out)
 }
 
-func runVerifyHook(t *testing.T, dir string, env []string) (int, string) {
+// runVerifyStatic runs the static half of the gate (--static).
+func runVerifyStatic(t *testing.T, dir string, env []string) (int, string) {
 	t.Helper()
-	cmd := exec.Command("bash", verifyScriptPath(t), "--hook")
+	cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--static")
 	cmd.Dir = dir
 	cmd.Env = testEnv(env)
-	cmd.Stdin = strings.NewReader(`{"hook_event_name":"Stop","stop_hook_active":false}`)
 	out, err := cmd.CombinedOutput()
 	code := 0
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		code = exitErr.ExitCode()
 	} else if err != nil {
-		t.Fatalf("running verifier hook: %v", err)
+		t.Fatalf("running verifier: %v", err)
 	}
 	return code, string(out)
 }
@@ -232,7 +259,7 @@ func TestVerifyScriptWithoutHomeUsesFallbackLogPath(t *testing.T) {
 	initRepo(t, dir)
 	writeTestFile(t, dir, "notes.txt", "nothing to check here\n")
 
-	cmd := exec.Command("env", "-u", "HOME", "bash", verifyScriptPath(t), "--git-push")
+	cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--git-push")
 	cmd.Dir = dir
 	cmd.Env = testEnv([]string{"HOME="})
 	out, err := cmd.CombinedOutput()
@@ -342,6 +369,35 @@ func TestVerifyScriptDryRunLabelsAdvisoryChecks(t *testing.T) {
 	}
 }
 
+// The prettier advisory must stay scoped to the changed code/style files its
+// selection covers: docs must never leak into it. The stub prettier prints its
+// own argv, which pins the selection exactly and independent of toolchains.
+func TestVerifyPrettierAdvisoryScopedToCodeFiles(t *testing.T) {
+	dir := t.TempDir()
+	initRepo(t, dir)
+	writeTestFile(t, dir, "package.json", `{"name":"fixture","private":true}`)
+	writeTestFile(t, dir, ".prettierrc", "{}\n")
+	writeTestFile(t, dir, "note.md", "# unformatted   \n")
+	writeTestFile(t, dir, "app.ts", "const x   =   1\n")
+	bin := t.TempDir()
+	writeTestFile(t, bin, "prettier", "#!/bin/sh\nprintf 'PRETTIER-ARGS:'\nfor arg in \"$@\"; do printf ' <%s>' \"$arg\"; done\nprintf '\\n'\nexit 1\n")
+	pathEnv := "PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH")
+
+	code, out := runVerify(t, dir, []string{pathEnv}, "--hook")
+	if code != 0 {
+		t.Fatalf("a prettier finding is advisory only, got exit %d\n%s", code, out)
+	}
+	if !strings.Contains(out, "PRETTIER-ARGS:") {
+		t.Fatalf("the advisory must invoke prettier on the selected files, got:\n%s", out)
+	}
+	if !strings.Contains(out, "<app.ts>") {
+		t.Errorf("the changed code file must be selected, got:\n%s", out)
+	}
+	if strings.Contains(out, "<note.md>") {
+		t.Errorf("docs must not leak into the prettier advisory selection, got:\n%s", out)
+	}
+}
+
 func nodeOnlyPath(t *testing.T) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -367,7 +423,7 @@ func TestVerifyScriptDoesNotCacheUnavailablePackageLint(t *testing.T) {
 
 	bin := strings.Split(path, string(os.PathListSeparator))[0]
 	writeTestFile(t, bin, "pnpm", "#!/bin/sh\nexit 0\n")
-	code, out := runVerifyHook(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
+	code, out := runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
 	if code != 0 {
 		t.Fatalf("the initial explicit lint must be green, got exit %d\n%s", code, out)
 	}
@@ -378,7 +434,7 @@ func TestVerifyScriptDoesNotCacheUnavailablePackageLint(t *testing.T) {
 	if err := os.Remove(filepath.Join(bin, "pnpm")); err != nil {
 		t.Fatal(err)
 	}
-	code, out = runVerifyHook(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
+	code, out = runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
 	if code != 0 {
 		t.Fatalf("removing the package manager must be a skip, got exit %d\n%s", code, out)
 	}
@@ -387,7 +443,7 @@ func TestVerifyScriptDoesNotCacheUnavailablePackageLint(t *testing.T) {
 	}
 
 	writeTestFile(t, bin, "pnpm", "#!/bin/sh\nprintf 'project lint ran\\n' >&2\nexit 1\n")
-	code, out = runVerifyHook(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
+	code, out = runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
 	if code != 2 {
 		t.Fatalf("a newly available explicit lint must run and block, got exit %d\n%s", code, out)
 	}
@@ -460,7 +516,7 @@ func TestVerifyScriptCacheIncludesBaseRef(t *testing.T) {
 	}
 	env := []string{"PATH=" + path, "MARKER=" + marker}
 
-	code, out := runVerifyHook(t, dir, env)
+	code, out := runVerifyStatic(t, dir, env)
 	if code != 0 {
 		t.Fatalf("the initial base must be green, got exit %d\n%s", code, out)
 	}
@@ -472,7 +528,7 @@ func TestVerifyScriptCacheIncludesBaseRef(t *testing.T) {
 	}
 	moveRemoteBase(t, dir)
 
-	code, out = runVerifyHook(t, dir, env)
+	code, out = runVerifyStatic(t, dir, env)
 	if code != 2 {
 		t.Fatalf("moving the comparison base must invalidate the cache, got exit %d\n%s", code, out)
 	}
@@ -492,14 +548,14 @@ func TestVerifyScriptDoesNotCacheRemovedLocalTool(t *testing.T) {
 	writeTestFile(t, dir, "node_modules/.bin/tsc", "#!/bin/sh\nexit 0\n")
 	writeTestFile(t, dir, "node_modules/.bin/prettier", "#!/bin/sh\nif [ -x node_modules/.bin/tsc ]; then exit 0; fi\nprintf 'prettier reran\\n' >&2\nexit 1\n")
 
-	code, out := runVerifyHook(t, dir, nil)
+	code, out := runVerifyStatic(t, dir, nil)
 	if code != 0 {
 		t.Fatalf("the initial local-tool fixture must be green, got exit %d\n%s", code, out)
 	}
 	if err := os.Remove(filepath.Join(dir, "node_modules", ".bin", "tsc")); err != nil {
 		t.Fatal(err)
 	}
-	code, out = runVerifyHook(t, dir, nil)
+	code, out = runVerifyStatic(t, dir, nil)
 	if code != 0 {
 		t.Fatalf("removing an advisory local tool must remain non-blocking, got exit %d\n%s", code, out)
 	}
@@ -532,7 +588,7 @@ func TestVerifyScriptDoesNotCacheIgnoredOverride(t *testing.T) {
 	writeTestFile(t, dir, "go.mod", "module example.com/fixture\n\ngo 1.21\n")
 	writeTestFile(t, dir, "main.go", "package fixture\n")
 
-	code, out := runVerifyHook(t, dir, nil)
+	code, out := runVerifyStatic(t, dir, nil)
 	if code != 0 {
 		t.Fatalf("the initial hook must be green, got exit %d\n%s", code, out)
 	}
@@ -541,7 +597,7 @@ func TestVerifyScriptDoesNotCacheIgnoredOverride(t *testing.T) {
 	}
 
 	writeTestFile(t, dir, ".commandcode/verify.sh", "#!/bin/sh\nexit 1\n")
-	code, out = runVerifyHook(t, dir, nil)
+	code, out = runVerifyStatic(t, dir, nil)
 	if code != 2 {
 		t.Fatalf("an ignored executable override must invalidate the cache, got exit %d\n%s", code, out)
 	}
@@ -557,7 +613,7 @@ func TestVerifyScriptDoesNotCacheOversizedUntrackedEdit(t *testing.T) {
 	padding := strings.Repeat("// "+strings.Repeat("x", 120)+"\n", 9000)
 	writeTestFile(t, dir, "large.go", "package large\n"+padding)
 
-	code, out := runVerifyHook(t, dir, nil)
+	code, out := runVerifyStatic(t, dir, nil)
 	if code != 0 {
 		t.Fatalf("the initial oversized fixture must be non-blocking, got exit %d\n%s", code, out)
 	}
@@ -566,7 +622,7 @@ func TestVerifyScriptDoesNotCacheOversizedUntrackedEdit(t *testing.T) {
 	}
 
 	writeTestFile(t, dir, "large.go", "package large\nfunc broken( {\n"+padding)
-	code, out = runVerifyHook(t, dir, nil)
+	code, out = runVerifyStatic(t, dir, nil)
 	if code != 2 {
 		t.Fatalf("an edit to an oversized untracked file must invalidate the cache, got exit %d\n%s", code, out)
 	}
@@ -778,45 +834,17 @@ func TestVerifyTimeoutBoundsHungCheck(t *testing.T) {
 	}
 }
 
-// The Stop payload is read from stdin; an idle pipe (open, no data) must be
-// bounded instead of hanging on `cat` forever.
-func TestVerifyScriptHookModeDoesNotBlockOnIdleStdin(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
+// --hook is a legacy alias of --static: old callers keep working with the same
+// semantics (static half only — the test suite never blocks).
+func TestVerifyStaticModeAcceptsLegacyHookAlias(t *testing.T) {
+	dir := goFixture(t)
 
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("pipe: %v", err)
+	code, out := runVerify(t, dir, nil, "--hook")
+	if code != 0 {
+		t.Fatalf("the legacy --hook alias must behave like --static (failing tests never block), got exit %d\n%s", code, out)
 	}
-	defer pr.Close()
-	defer pw.Close() // stays open until now: an idle pipe, never EOF
-
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", verifyScriptPath(t), "--hook")
-	cmd.Dir = dir
-	cmd.Env = testEnv(nil)
-	cmd.Stdin = pr
-	cmd.WaitDelay = 2 * time.Second
-	out, _ := cmd.CombinedOutput()
-	if ctx.Err() != nil {
-		t.Fatalf("--hook hung on idle stdin (the bounded read regressed):\n%s", out)
-	}
-}
-
-func TestVerifyScriptHookModeIgnoresRetry(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	writeTestFile(t, dir, ".commandcode/verify.sh", "#!/bin/sh\nexit 1\n")
-
-	payload := `{"hook_event_name":"Stop","stop_hook_active":true}`
-	cmd := exec.Command("bash", verifyScriptPath(t), "--hook")
-	cmd.Dir = dir
-	cmd.Env = testEnv(nil)
-	cmd.Stdin = strings.NewReader(payload)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Errorf("a retry fire must let the turn end: %v\n%s", err, out)
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("a green static run must stay silent, got:\n%s", out)
 	}
 }
 
@@ -864,12 +892,12 @@ func TestVerifyScriptPushModeRunsTests(t *testing.T) {
 	}
 }
 
-func TestVerifyScriptHookModeSkipsTestsAndCachesGreenState(t *testing.T) {
+func TestVerifyStaticModeSkipsTestsAndCachesGreenState(t *testing.T) {
 	dir := goFixture(t)
 	payload := `{"hook_event_name":"Stop","stop_hook_active":false}`
 
 	runHook := func() (int, string) {
-		cmd := exec.Command("bash", verifyScriptPath(t), "--hook")
+		cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--hook")
 		cmd.Dir = dir
 		cmd.Env = testEnv(nil)
 		cmd.Stdin = strings.NewReader(payload)
@@ -905,12 +933,12 @@ func TestVerifyScriptHookModeSkipsTestsAndCachesGreenState(t *testing.T) {
 // The cache must not swallow an edit to a file that is still untracked: while a
 // new file is being written it appears in `git status` by path only, so a hash
 // that ignored its content would keep reporting the previous green verdict.
-func TestVerifyScriptHookModeReRunsAfterUntrackedEdit(t *testing.T) {
+func TestVerifyStaticModeReRunsAfterUntrackedEdit(t *testing.T) {
 	dir := goFixture(t)
 	payload := `{"hook_event_name":"Stop","stop_hook_active":false}`
 
 	runHook := func() (int, string) {
-		cmd := exec.Command("bash", verifyScriptPath(t), "--hook")
+		cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--hook")
 		cmd.Dir = dir
 		cmd.Env = testEnv(nil)
 		cmd.Stdin = strings.NewReader(payload)

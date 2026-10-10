@@ -16,11 +16,11 @@ nada disso existe mais.
 
 | Camada | Onde | Quando dispara | Efeito |
 | :--- | :--- | :--- | :--- |
-| **Invocação explícita** | `envctl-verify --hook` / `--git-push` / `--dry-run` | Quando **você** (ou um agente) decide rodar | `--hook` = checks estáticos · `--git-push` = gate completo com testes · `--dry-run` = mostra o que seria rodado |
+| **Invocação explícita** | `envctl-verify --static` / `--git-push` / `--dry-run` | Quando **você** (ou um agente) decide rodar | `--static` = checks estáticos · `--git-push` = gate completo com testes · `--dry-run` = mostra o que seria rodado |
 
-Quem quiser gate automático num projeto instala um **hook local daquele projeto**
-(`.git/hooks/pre-push`, husky, lefthook) chamando `envctl-verify --git-push` — o git
-roda o hook do repositório normalmente, sem nenhuma camada do envctl por cima.
+Quem quiser automatizar roda o `envctl-verify` explicitamente a partir da automação
+que o **projeto** já tiver (script, CI, task runner) — o envctl não instala nem
+recomenda hooks: automação é assunto de cada projeto.
 
 ---
 
@@ -83,7 +83,7 @@ bloqueante.
 | Variável | Padrão | Efeito |
 | :--- | :--- | :--- |
 | `ENVCTL_SKIP_VERIFY` | `0` | `1` desliga a verificação naquela execução (execução pontual) |
-| `ENVCTL_VERIFY_TIMEOUT` | `120` no `--hook` / `600` no `--git-push` | Teto (segundos) por check; um check travado falha como `TIMED OUT` |
+| `ENVCTL_VERIFY_TIMEOUT` | `120` no `--static` / `600` no `--git-push` | Teto (segundos) por check; um check travado falha como `TIMED OUT` |
 | `ENVCTL_VERIFY_MAX_LINES` | `25` | Linhas de saída por check no relatório (mantém o contexto enxuto) |
 
 Saída enxuta por design: uma execução sem findings fica silenciosa; uma execução advisory-only
@@ -96,11 +96,11 @@ de cada falha.
 
 | Modo | O que roda |
 | :--- | :--- |
-| `--hook` | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o `--git-push`, então uma chamada rápida nunca espera por ela |
+| `--static` | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o `--git-push`, então uma chamada rápida nunca espera por ela |
 | `--git-push` | **O gate completo**, testes incluídos; somente findings bloqueantes retornam exit ≠ 0 |
 | `--dry-run` | Não roda nada: imprime as stacks detectadas e cada check detectado como `[blocking]`, `[advisory]` ou `[skip]`, incluindo a política que seria aplicada |
 
-**Cache por estado da árvore (só no modo hook).** Se nada mudou desde a última execução
+**Cache por estado da árvore (só no modo `--static`).** Se nada mudou desde a última execução
 verde, o verificador sai em ~20ms em vez de rodar os checks de novo — uma chamada que apenas
 leu arquivos não paga nada. O carimbo fica em `.git/envctl-verify.stamp`, nunca na árvore de
 trabalho. Execuções com skip, overrides executáveis e arquivos untracked maiores que 1 MiB
@@ -120,14 +120,13 @@ e o que denuncia um check que vive sendo pulado.
 ## ⏱️ Timeout por Check — Fail-Fast
 
 Cada check roda sob um timeout individual (`ENVCTL_VERIFY_TIMEOUT`; **120s** no
-`--hook`, **600s** no `--git-push`). Um check que trava é um check quebrado e **falha
+`--static`, **600s** no `--git-push`). Um check que trava é um check quebrado e **falha
 rápido no teto** com o marcador `TIMED OUT`, em vez de ser aguardado para sempre. O
 conjunto saudável continua rápido com cache quente (gofmt 21ms, build 478ms, vet 133ms,
 testes 299ms, cross-compile Windows 638ms, lint 0,7s quente).
 
 Quando o coreutils `timeout` não está disponível, o check roda sem teto (comportamento
-anterior) em vez de falhar. Quando o modo `--hook` é plugado num hook de turno (ex.:
-CommandCode, por conta e risco do projeto), o engine também aplica o seu próprio teto.
+anterior) em vez de falhar.
 
 ---
 

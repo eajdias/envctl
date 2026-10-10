@@ -393,6 +393,14 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				}
 				continue
 			}
+			if disarmGlobalHooksPath(ctx, uc.fsManager.ExpandUserPath, nil, expandedPath) {
+				uc.logger.Info("Unset global core.hooksPath pointing at removed %s (it overrides every repository's own hooks)", expandedPath)
+				result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+					"Cleanup",
+					"core.hooksPath",
+					"Global hooksPath unset before removing "+expandedPath,
+				))
+			}
 			if item.Recursive {
 				err = os.RemoveAll(expandedPath)
 			} else {
@@ -576,4 +584,36 @@ func validBackupSuffix(s string) bool {
 		}
 	}
 	return true
+}
+
+// disarmGlobalHooksPath removes a global core.hooksPath that points at (or
+// into) targetDir. Deleting the directory a global hooksPath points to would
+// leave git silently ignoring every repository's own pre-commit/commit-msg —
+// exactly the wiring this cleanup exists to undo. A hooksPath pointing anywhere
+// else is user-owned and is never touched. expand resolves "~" the same way the
+// rest of provisioning does; env lets tests isolate the git config
+// (GIT_CONFIG_GLOBAL) instead of touching the real one.
+func disarmGlobalHooksPath(ctx context.Context, expand func(string) (string, error), env []string, targetDir string) bool {
+	git := func(args ...string) *exec.Cmd {
+		cmd := exec.CommandContext(ctx, "git", args...)
+		if len(env) > 0 {
+			cmd.Env = append(os.Environ(), env...)
+		}
+		return cmd
+	}
+	out, err := git("config", "--global", "--get", "core.hooksPath").Output()
+	value := strings.TrimSpace(string(out))
+	if err != nil || value == "" {
+		return false
+	}
+	expanded, err := expand(value)
+	if err != nil {
+		return false
+	}
+	expanded = filepath.Clean(expanded)
+	target := filepath.Clean(targetDir)
+	if expanded != target && !strings.HasPrefix(expanded, target+string(filepath.Separator)) {
+		return false
+	}
+	return git("config", "--global", "--unset", "core.hooksPath").Run() == nil
 }

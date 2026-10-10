@@ -428,7 +428,7 @@ func (uc *DoctorAuditUseCase) auditVerifyWiring(addDiag func(entity.Diagnostic))
 			"Verify",
 			"global git hooks",
 			"legacy envctl git hooks found — envctl never installs global hooks; they override other repositories' own pre-commit/commit-msg",
-			"remove ~/.config/git/hooks and run 'git config --global --unset core.hooksPath'",
+			"run 'envctl doctor --fix' (or 'envctl run shell') to remove them and unset core.hooksPath",
 		))
 	}
 }
