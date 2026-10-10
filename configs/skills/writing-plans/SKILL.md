@@ -30,8 +30,9 @@ Escreva um plano executável antes de modificar produção. O objetivo não é p
 ## Regras de contexto e escopo
 
 - Se a execução estiver em um worktree isolado, use a skill `git-workflow` para verificar ou preparar o isolamento. Detecte o worktree antes de criar outro e peça consentimento quando a criação exigir uma decisão do usuário.
-- Salve o plano em `spec-agent/YYYY-MM-DD-<feature-name>.md`, na raiz do projeto. Uma preferência explícita do usuário por outro local prevalece.
-- **Plano com 4+ tasks → subpasta** `spec-agent/YYYY-MM-DD-<slug>/` com `index.md`
+- **Onde salvar (precedência: projeto > default > palpite):** antes de escolher, verifique a convenção declarada do projeto — `AGENTS.md` ou pasta de planos existente (ex.: `plans/` com `index.md`). Convenção declarada do projeto **sempre vence** o default abaixo; não crie um segundo local de planos no mesmo repo. Sem convenção declarada, salve em `spec-agent/YYYY-MM-DD-<feature-name>.md`, na raiz do projeto. Uma preferência explícita do usuário por outro local prevalece sobre tudo.
+- **Plano curto (≤3 tasks) → arquivo único monolítico:** no default, o próprio `spec-agent/YYYY-MM-DD-<feature>.md`; na convenção do projeto, um único `<pasta>/<slug>.md` (ex.: `plans/<slug>.md`). Não crie pasta para plano curto.
+- **Plano com 4+ tasks → subpasta com `index.md`** no local do plano (`spec-agent/YYYY-MM-DD-<slug>/` no default, ou a pasta da convenção do projeto, ex. `plans/<slug>/`)
   (fonte da verdade: objetivo, ordem/dependências, tabela de tasks com status
   `pending|doing|done`, verificação global) + um `NN-<slug>.md` por task (escopo,
   arquivos exatos, passos, critérios de aceite Dado/Quando/Então, verificação,
@@ -134,7 +135,7 @@ Copie e preencha; não invente campos novos sem motivo.
 ### `index.md`
 
 ```markdown
-# Plano: <objetivo> (`spec-agent/YYYY-MM-DD-<slug>/`)
+# Plano: <objetivo> (`<local-do-plano>/` — default `spec-agent/YYYY-MM-DD-<slug>/`, ou a pasta da convenção do projeto)
 
 > Fonte da verdade. Coordenador lê SÓ este arquivo; worker abre 1 task por vez.
 > Constituição: `AGENTS.md` + `configs/REFERENCE.md`. Aprovado pelo usuário em: <data>

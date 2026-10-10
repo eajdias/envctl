@@ -10,7 +10,7 @@
 | Situação | Skill |
 |---|---|
 | Precisar que a tarefa está ambígua (perguntar antes de agir) | `clarify-before-acting` |
-| Planejar antes de tocar produção (spec em `spec-agent/`) | `writing-plans` |
+| Planejar antes de tocar produção (pasta da convenção do projeto, default `spec-agent/`) | `writing-plans` |
 | Depurar achando a causa raiz e depois as variantes | `systematic-debugging` |
 | Mudar comportamento com teste primeiro | `test-driven-development` |
 | Git, branches, commits, PR, worktree | `git-workflow` |
