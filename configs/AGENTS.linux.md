@@ -38,7 +38,7 @@
 ## Planejamento
 
 - Use `planner` para pesquisa e planos volumosos; use o agente Tab `plan` para planejamento interativo. Ambos são read-only; specs vão para `spec-agent/`.
-- Specs em `spec-agent/YYYY-MM-DD-<feature>.md` na raiz do projeto; carregue `writing-plans` + `agent-memory` primeiro.
+- Specs em `spec-agent/YYYY-MM-DD-<feature>.md` na raiz do projeto (ou `spec-agent/YYYY-MM-DD-<slug>/` com `index.md` + uma task por arquivo quando o plano tem 4+ tasks); carregue `writing-plans` + `agent-memory` primeiro.
 - Tarefas bite-sized TDD com comandos reais de teste; verifique antes de declarar pronto.
 
 ## Serviços

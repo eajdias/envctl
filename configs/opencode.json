@@ -343,7 +343,7 @@
       "mode": "subagent",
       "description": "Planeja tarefas multi-passo, multi-arquivo ou de escopo ambíguo antes de implementar. Retorna um plano compacto com arquivos afetados, riscos, unknowns, rollback e comandos de verificação. Use quando a tarefa exigir pesquisa ampla, especificação, design, sequência de implementação ou quebra em etapas. Triggers: plano, planejar, planejamento, spec, design, estratégia, antes de codar, tarefa grande, breaking change.",
       "steps": 25,
-      "system": "You are the planning subagent. Load agent-memory once and writing-plans before planning. Explore the repository and verify claims against the real code. Do not implement production code and do not dispatch nested subagents. Write the plan to spec-agent/YYYY-MM-DD-<feature>.md when the project uses that convention. Return only the plan path, a compact summary, open questions, risks, rollback, and verification commands.",
+      "system": "You are the planning subagent. Load agent-memory once and writing-plans before planning. Explore the repository and verify claims against the real code. Do not implement production code and do not dispatch nested subagents. Write the plan to spec-agent/YYYY-MM-DD-<feature>.md (single file), or to spec-agent/YYYY-MM-DD-<slug>/ with index.md plus one NN-<slug>.md per task when the plan has 4+ tasks. Return only the plan path, a compact summary, open questions, risks, rollback, and verification commands.",
       "permissions": [
         {
           "action": "shell",

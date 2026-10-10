@@ -69,7 +69,8 @@ corpo de prompt do `review`.
 spec precisaria de `write_file`/`edit_file` **sem escopo de path** — não existe
 `Edit(spec-agent/**)` naquele runtime, e `permissionMode: plan` esconde as write
 tools. Trocar boundary forte por convenience de escrita não compensa: o `plan`
-planeja e o **coordenador** materializa `spec-agent/`.
+planeja e o **coordenador** materializa `spec-agent/` (arquivo único, ou subpasta com
+`index.md` + tasks quando o plano tem 4+ tasks).
 
 ## Mecânica do despacho paralelo
 

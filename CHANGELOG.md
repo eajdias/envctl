@@ -13,6 +13,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Added
+
+- **planning:** specs with 4+ tasks now use a subfolder layout —
+  `spec-agent/YYYY-MM-DD-<slug>/` with an `index.md` (objective, order, task table with
+  `pending|doing|done` status, global verification) plus one `NN-<slug>.md` per task
+  (scope, exact files, steps, Dado/Quando/Então acceptance criteria, verification,
+  rollback). The coordinator reads only the index; workers open one task at a time.
+  Smaller plans keep the single-file format.
+
 ### Removed
 
 - **lsp:** removed the entire LSP subsystem — `envctl run lsp`, `manifests/lsp.yaml`, the
