@@ -13,6 +13,14 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.2](https://github.com/eajdias/envctl/compare/v2.1.1...v2.1.2) (2026-10-15)
+
+### Fixed
+
+- **git:** removido `core.hooksPath` global do manifesto — o v2 não instala hooks
+  e o wiring legado sobrepunha o `.git/hooks` de todos os repositórios da
+  máquina, podendo barrar pushes com o verifier em projetos alheios (#117).
+
 ## [2.1.1](https://github.com/eajdias/envctl/compare/v2.1.0...v2.1.1) (2026-10-10)
 
 ### Changed
