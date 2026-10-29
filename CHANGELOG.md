@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.3](https://github.com/eajdias/envctl/compare/v2.1.2...v2.1.3) (2026-10-29)
+
 ### Fixed
 
 - **providers:** o update do OpenCode no Windows não falha mais quando há
