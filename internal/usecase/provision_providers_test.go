@@ -207,6 +207,33 @@ func TestOpenCodeProviderUsesV2Installer(t *testing.T) {
 	t.Fatal("OpenCode provider is missing from providerCLIs()")
 }
 
+// A running opencode.exe locks the file, so extracting over it in place
+// fails with access denied when providers re-runs while an old session is
+// alive. The Windows installer must stop the process first and retry the
+// replacement (observed 2026-10-29: update 2.0.23 -> 2.2.1 failed in
+// Expand-Archive over a live binary).
+func TestOpenCodeWindowsInstallerReplacesLiveBinary(t *testing.T) {
+	for _, tool := range providerCLIs() {
+		if tool.binary != "opencode" {
+			continue
+		}
+		if tool.windowsInstaller == "" {
+			t.Fatal("OpenCode has no Windows installer")
+		}
+		if !strings.Contains(tool.windowsInstaller, "Stop-Process") {
+			t.Error("Windows installer does not stop a running opencode before replacing the binary")
+		}
+		if !strings.Contains(tool.windowsInstaller, "Expand-Archive") {
+			t.Error("Windows installer does not extract the downloaded zip")
+		}
+		if strings.Contains(tool.windowsInstaller, "Expand-Archive -Path $tmp -DestinationPath $bin") {
+			t.Error("Windows installer extracts over ~/.local/bin in place; a live opencode.exe locks the file and fails the update")
+		}
+		return
+	}
+	t.Fatal("OpenCode provider is missing from providerCLIs()")
+}
+
 func TestPacmanOwnsOpenCodeUsesPackageDatabase(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("pacman ownership is Linux-only")
