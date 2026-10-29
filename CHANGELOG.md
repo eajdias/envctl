@@ -13,6 +13,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Fixed
+
+- **providers:** o update do OpenCode no Windows não falha mais quando há
+  sessão antiga rodando — o instalador PowerShell para o processo `opencode`
+  antes de extrair e retria a troca do binário (antes, `Expand-Archive -Force`
+  sobre o `.exe` travado abortava com acesso negado). O processo morto é o
+  binário antigo sendo substituído; sessões novas sobem na versão nova.
+- **bootstrap:** removido o BOM UTF-8 do `bootstrap.ps1` — `irm ... | iex`
+  falhava no parse (`The 'from' keyword is not supported...`); travado por
+  teste de regressão.
+
 ## [2.1.2](https://github.com/eajdias/envctl/compare/v2.1.1...v2.1.2) (2026-10-15)
 
 ### Fixed
