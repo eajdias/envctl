@@ -15,8 +15,8 @@ do stack Wayland (v2.1.5).
 | 4 | Docs com contagem hardcoded | A matriz dizia "44 pkgs" em 2 lugares; o guia repetia o quarteto X11 em 2 pontos. Atualizamos à mão para 40. | Drift garantido a cada mudança de manifesto. |
 | 5 | Dois parsers de PATH + ambiente global | `pathListsDir` (`internal/usecase/doctor_system.go:48`) e `path_entry.go`; `fishAvailable()`/`resolveHome()` leem o host dentro do manager, o que tornou `TestPathStepPersistsEachDirOnce` dependente de fish instalado. | Divergência de semântica e testes não determinísticos. |
 | 6 | Pacotes órfãos invisíveis | Após remover o quarteto, `xorg-server`, `xf86-input-libinput` e `xf86-video-amdgpu` continuam instalados e nada reporta. `ListInstalled` existe, mas usa `pacman -Q` (inclui dependências). | Máquina acumula pacotes que o manifesto não gerencia mais. |
-| 7 | Código morto (150 linhas) | `deadcode ./...` → 12 funções inalcançáveis; 4 delas só existem para o próprio teste (`AssessRemovalState`, `AssessJournaldPolicy`, `AdoptedDiskSwap`, `skillDescription`). | Manutenção paga por código que o produto não usa. |
-| 8 | Cache do gate sem gatilho | Nasceu em `afa5dd1` ("chain every repository hook"); o v2 não instala hook nenhum (`manifests/shell.yaml`). | ~125 linhas de bash + 3 testes para economizar ~2s numa execução explícita. |
+| 7 | Código morto (150 linhas) | `deadcode ./...` → 11 funções inalcançáveis; 4 delas só existem para o próprio teste (`AssessRemovalState`, `AssessJournaldPolicy`, `AdoptedDiskSwap`, `skillDescription`). | Manutenção paga por código que o produto não usa. |
+| 8 | Cache do gate sem gatilho | Nasceu em `afa5dd1` ("chain every repository hook"); o v2 não instala hook nenhum (`manifests/shell.yaml`). | ~70 linhas de bash + ~98 de teste para economizar ~2s numa execução explícita. |
 
 Itens 1–6 são gaps de produto; 7–8 são dívida de complexidade encontrada na auditoria de 2026-11-01.
 
@@ -36,7 +36,7 @@ Fechar os 6 gaps e as 2 dívidas acima com mudanças pequenas, testáveis e reve
 | Comando de atualização | Novo `envctl self-update` com uma única flag read-only `--check`; sem `update --self` | `update` já tem contrato de toolchain; misturar binário confunde o `--only` e o relatório. |
 | Fonte da versão | GitHub API `releases/latest` (`tag_name`), **sem cache** | Toda chamada de rede já está atrás de uma invocação explícita (`self-update`, `self-update --check`, `doctor --check-updates`); cache não protege caminho nenhum. |
 | Instalação | Asset loose (`envctl-<os>-<arch>[.exe]`), checksum contra `SHA256SUMS.txt`, backup `.bak.YYYYMMDD-HHMMSS`, rename atômico | Mesmo contrato de nomes do `.goreleaser.yml`/bootstrap; backup segue a convenção do repo. |
-| Doctor e rede | `doctor --check-updates` é opt-in; sem a flag o doctor continua offline. `dev` build vira INFO offline | Preserva o doctor utilizável em VPS/CI sem rede. |
+| Doctor e rede | `doctor --check-updates` é opt-in; sem a flag o doctor continua offline. `dev` build fora de checkout vira INFO offline | Preserva o doctor utilizável em VPS/CI sem rede; o WARN de dev-em-checkout existe hoje e fica. |
 | Órfãos | `doctor --unmanaged` opt-in, Arch-only, sempre INFO, uma linha agregada | Sem a flag o output atual não muda; `INFO` nunca vira WARN/`--fix`. |
 | CHANGELOG | Consolidar em uma `[Unreleased]`; bloco da linha 359 → `1.11.0`; bloco da linha 522 → `1.10.0` | Evidência: `git tag --contains` dos commits que introduziram cada bloco. |
 | Docs | Remover contagens de pacote da prosa; o manifesto é a fonte | Regra já declarada no `AGENTS.md` ("manifest wins"). |
@@ -78,7 +78,7 @@ rename (evita brickar o binário), interface opcional `ExplicitPackageLister`
 **Contratos que NÃO mudam:**
 
 - `envctl run`, `doctor` sem flags, `update`, `commandcode`, `opencode`: mesmos flags e exit codes.
-- Formato do relatório do doctor (contagens podem mudar apenas quando flags novas são usadas).
+- Formato do relatório do doctor (contagens podem mudar quando flags novas são usadas; a única exceção sem flag é o INFO de dev-fora-de-checkout).
 - `PackageManager` existente: a nova interface é opcional, não altera os 5 managers.
 - `NewWindowsEnvManager()` continua sem parâmetros; `WindowsEnvManager` continua `struct{}`.
 - Assets de release: nomes e `SHA256SUMS.txt` continuam os mesmos.
@@ -99,7 +99,7 @@ na máquina gerenciada continua `0 warnings` sem flags.
 | `--unmanaged` poluir a saída | Opt-in, uma linha agregada, INFO; sem remoção automática. |
 | Mover bloco errado no CHANGELOG | Evidência por `git tag --contains`; revisão do diff antes do merge. |
 | `pacman -Qeq` indisponível/versão diferente | Feature só em Arch com manager pacman disponível; erro vira skip silencioso. |
-| CI passar a rodar em PR docs-only | Custo de ~2–3 min por PR de doc; em troca, `docs_claims_test.go` passa a rodar onde o drift nasce. |
+| CI passar a rodar em PR docs-only | A matriz completa de testes 2-OS roda no PR de doc (`ci.yml:73-101`) — minutos, não segundos; aceito porque é o que faz `docs_claims_test.go` rodar onde o drift nasce. |
 
 **Unknowns**
 
@@ -159,6 +159,10 @@ func versionLess(a, b string) bool // "dev" é sempre mais antigo
 - CLI: `self-update` chama `Apply(ctx, os.Executable())`; `--check` imprime
   `current → latest`, o asset e o caminho do backup, sem escrever. Se
   `!versionLess(appVersion, latest)`, imprime "already at latest" e sai 0.
+- `versionLess` se compõe de `parseSemver` (`version.go:150` — numérico, descarta
+  prerelease/metadados) + o caso especial `dev`. Não reutilizar `versionsDiffer`
+  (`version.go:171`) no check da CLI: é igualdade, não ordem — um binário local
+  mais novo apareceria como "diferente" e forçaria um downgrade.
 
 **Passos**
 
@@ -202,18 +206,24 @@ adulterado falha antes de qualquer escrita; instalação válida deixa o backup.
 
 **Comportamento**
 
-- Sem flag: mantém o check atual (repo checkout) e adiciona **INFO** quando
-  `envctlVersion == "dev"` ("unversioned build; release provenance unknown").
+- Sem flag: o check atual fica intacto — binário `dev` num checkout com tag
+  continua WARN ("embedded templates are stale"; `envctlBinaryFresh` classifica
+  `dev` como not-fresh de propósito, `doctor_system.go:668-682`). O INFO novo só
+  preenche o silêncio de hoje: `envctlVersion == "dev"` **e** `repoRootFinder()`
+  falhar (binário dev sem checkout acima para comparar).
 - Com `--check-updates`: se `latest > current`, **WARN** com
   `run 'envctl self-update'`; se igual, **OK**; erro de rede → nenhum diagnóstico
-  (apenas log debug).
+  (apenas log debug). `dev` é sempre "behind", então fora de checkout vira WARN.
 - `versionLess` cobre `dev`, `v2.1.5`, `2.1.5`, `2.2.0`, `10.0.0` (numérico, não
   lexicográfico).
 
 **Passos**
 
-- [ ] `TestAuditEnvctlFreshnessFlagsDevBuild` (sem rede) — RED.
-- [ ] Implementar o INFO de `dev` — GREEN.
+- [ ] `TestAuditEnvctlFreshnessInfoForDevOutsideRepo` — dois casos num teste só
+  (RED): sem repo acima → **INFO**; repo com tag → **WARN** como hoje
+  (`TestAuditEnvctlFreshnessWarnsWhenStale`, `doctor_audit_test.go:284`,
+  não pode regredir).
+- [ ] Implementar o INFO até GREEN.
 - [ ] `TestAuditEnvctlFreshnessWarnsBehindLatest` com `latestRelease` fake — RED/GREEN.
 - [ ] `TestAuditEnvctlFreshnessSilentOnNetworkError` — GREEN.
 - [ ] Adicionar a flag e o wire; rodar o gate.
@@ -228,7 +238,8 @@ envctl doctor                   # sem flag: output atual, 0 warnings na máquina
 
 **Rollback:** flag default off; reverter o PR remove o check.
 **Resultado esperado:** `doctor --check-updates` numa release antiga aponta a
-diferença; sem a flag nada muda.
+diferença; sem a flag, hosts com checkout não mudam e um `dev` fora de checkout
+ganha o INFO que hoje é silêncio.
 
 **Commit sugerido:** `feat(doctor): flag dev builds and stale releases`
 
@@ -343,7 +354,10 @@ do host de dentro das funções que decidem os rc files.
 - modificar: `internal/infra/environment/env_manager_test.go`
 - modificar: `internal/usecase/doctor_system.go` (usar `environment.PathListsDir`)
 - modificar: `internal/usecase/doctor_system_test.go` (mover o teste de tabela)
-- modificar: `internal/usecase/provision_bootstrap_test.go` (remover o `t.Setenv("PATH", ...)`)
+- **não mexer:** `internal/usecase/provision_bootstrap_test.go` — o
+  `t.Setenv("PATH", ...)` fica: os métodos do manager continuam resolvendo
+  `fishAvailable()` no call time, e com fish instalado o composite path depende
+  dele (o comentário em linha no `:22-28` já explica).
 
 **Interfaces**
 
@@ -357,15 +371,19 @@ func withinHome(home, path string) bool
 - Sem options, sem campos novos: `WindowsEnvManager` continua `struct{}`. Os
   métodos resolvem `home`/`fish` uma vez e chamam as funções puras.
 - `doctor_system.go` troca as 3 chamadas por `environment.PathListsDir`.
-- Testes chamam as funções puras com argumentos literais e não dependem mais de
-  `t.Setenv("HOME"/"PATH")`.
+- Os testes do pacote `environment` chamam as funções puras com argumentos
+  literais (sem `t.Setenv` de host). O teste de bootstrap do `usecase`
+  (`TestPathStepPersistsEachDirOnce`) mantém o seu `t.Setenv("PATH", ...)`: a
+  composição `pathStep → EnsurePathEntry → rcFiles(resolveHome(),
+  fishAvailable())` continua dependendo do fish do host.
 
 **Passos**
 
 - [ ] Mover `pathListsDir` + teste de tabela para `environment`; observar RED
   (símbolo ainda não existe) e GREEN.
 - [ ] Tornar `rcFiles`/`withinHome` puros e ajustar os call sites.
-- [ ] Ajustar os testes; remover os `t.Setenv` desnecessários.
+- [ ] Ajustar os testes do `environment`; remover os `t.Setenv` que a pureza
+  tornou desnecessários lá (o de `provision_bootstrap_test.go` fica).
 - [ ] Rodar o gate completo.
 
 **Verificação**
@@ -377,8 +395,9 @@ go build ./... && go vet ./... && golangci-lint run --new-from-rev=origin/main
 ```
 
 **Rollback:** reverter o PR; não há migração de dados.
-**Resultado esperado:** um único parser; testes de PATH passam sem depender de
-fish/HOME do host.
+**Resultado esperado:** um único parser; os testes de PATH do pacote
+`environment` passam sem depender de fish/HOME do host; o teste de bootstrap
+continua POSIX-only via `Setenv`, como hoje.
 
 **Commit sugerido:** `refactor(path): share one PATH parser and make the rc helpers pure`
 
@@ -472,7 +491,7 @@ go test ./internal/infra/embedded/ -run TestDocsNoHardcodedPackageCounts -v
 **Escopo:** remover 150 linhas sem chamador e desfazer duas abstrações que só
 existem para o teste passar. Zero mudança de comportamento.
 
-**Evidência:** `go run golang.org/x/tools/cmd/deadcode@latest ./...` → 12 funções
+**Evidência:** `go run golang.org/x/tools/cmd/deadcode@latest ./...` → 11 funções
 inalcançáveis; cada uma conferida com `rg` para separar "sem chamador" de "só teste".
 
 | Símbolo | Local | Linhas | Situação |
@@ -547,9 +566,10 @@ do projeto. **Não** remove o log de trilha — ver "não entra".
 - O cache só liga quando `.commandcode/verify.sh` **não** existe
   (`configs/bin/envctl-verify:377`) — ou seja, nas execuções explícitas, onde ~2s
   não mudam nada.
-- Custo atual: `MAX_UNTRACKED_HASH_BYTES`, `stamp_file`, `has_oversized_untracked`,
-  `local_tool_state`, `state_hash`, o bloco `current_state` (linhas 320-384) e a
-  escrita/remoção do stamp (711-715), mais 3 testes e um parágrafo de doc.
+- Custo atual medido: 65 linhas (320-384) + 5 (711-715) = **70 de bash**; 3 testes
+  de cache = **98 linhas de Go** (37+35+26); parágrafo de doc ≈ 9. Símbolos
+  envolvidos: `MAX_UNTRACKED_HASH_BYTES`, `stamp_file`, `has_oversized_untracked`,
+  `local_tool_state`, `state_hash`, `current_state`.
 
 **Contra-argumento registrado:** o subagente `verifier` roda o gate várias vezes
 por sessão e o cache economiza ~2s por chamada. Se isso virar dor real, o cache
@@ -585,8 +605,9 @@ envctl-verify --static
 
 **Rollback:** reverter o PR; nenhum estado persistido além do stamp em `.git/`,
 que pode ser apagado.
-**Resultado esperado:** ~125 linhas a menos no gate; `--static`, `--git-push` e
-`--dry-run` com o mesmo veredito de antes.
+**Resultado esperado:** ~70 linhas a menos no gate (~177 no PR inteiro, contando
+os 98 de teste e ~9 de doc); `--static`, `--git-push` e `--dry-run` com o mesmo
+veredito de antes.
 
 **Commit sugerido:** `refactor(verify): drop the state cache the hooks used to need`
 
@@ -625,7 +646,7 @@ primeiro PR se a prioridade for começar por risco zero.
 - [ ] Release Pipeline falha com versão sem seção no CHANGELOG.
 - [ ] `grep -c "^## \[Unreleased\]" CHANGELOG.md` → 1; PR docs-only roda os testes de doc.
 - [ ] `rg "\b[0-9]+ pkgs\b" docs/` → vazio.
-- [ ] Um parser de PATH só; testes de PATH não dependem de fish/HOME do host.
+- [ ] Um parser de PATH só; os testes de PATH do `environment` não dependem de fish/HOME do host.
 - [ ] `deadcode ./...` sem saída para `internal/`.
 - [ ] `executePerformance` recebe `PerformanceOptions`; `NewDoctorAuditUseCase` sem variádico.
 - [ ] `envctl-verify` sem o cache de estado; `--static`, `--git-push` e `--dry-run`
