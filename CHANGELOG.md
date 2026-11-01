@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.4](https://github.com/eajdias/envctl/compare/v2.1.3...v2.1.4) (2026-11-01)
+
 ### Fixed
 
 - **shell/PATH:** persistência e auditoria de entradas de `PATH` passaram a ser
