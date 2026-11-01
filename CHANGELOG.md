@@ -13,6 +13,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Fixed
+
+- **shell/PATH:** persistência e auditoria de entradas de `PATH` passaram a ser
+  line-aware. O guard era `strings.Contains` no arquivo inteiro, o que (a)
+  duplicava a entrada quando o startup file já a declarava na forma portável
+  (`$HOME/...`, `${HOME}/...`, `~/...` — o formato que todo instalador escreve) e
+  (b) pulava a escrita, reportando "already present", quando o caminho aparecia
+  num comentário, em outra variável (`NODE_PATH`) ou num dir irmão de mesmo
+  prefixo. O `doctor` agora audita `.profile`, `.bashrc` **e** fish
+  (`fish_add_path` incluído), em vez de procurar substring só nos dois primeiros.
+
 ## [2.1.3](https://github.com/eajdias/envctl/compare/v2.1.2...v2.1.3) (2026-10-29)
 
 ### Fixed

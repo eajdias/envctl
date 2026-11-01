@@ -192,6 +192,150 @@ func TestEnsurePathEntrySkipsFishWithoutFish(t *testing.T) {
 	}
 }
 
+// writeRC writes a shell startup file under home, creating parent directories.
+func writeRC(t *testing.T, home, rel, content string) string {
+	t.Helper()
+	path := filepath.Join(home, rel)
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// withoutFishOnPATH makes fish unavailable so EnsurePathEntry only touches the
+// POSIX files: a fake fish would create config.fish and report a change that
+// has nothing to do with the assertion under test.
+func withoutFishOnPATH(t *testing.T) {
+	t.Helper()
+	t.Setenv("PATH", t.TempDir())
+}
+
+// TestEnsurePathEntryRecognizesPortableForms locks the detection contract: a
+// PATH line already declaring the dir in any portable spelling is a hit, so no
+// second line is appended. The absolute spelling used to be the only one
+// recognized, and the `$HOME` one (which every installer writes) produced a
+// duplicate entry on the live PATH.
+func TestEnsurePathEntryRecognizesPortableForms(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not shell rc files")
+	}
+	tests := []struct {
+		name string
+		line func(home string) string
+	}{
+		{"home", func(string) string { return `export PATH="$HOME/.local/bin:$PATH"` }},
+		{"braced home", func(string) string { return `export PATH="${HOME}/.local/bin:$PATH"` }},
+		{"tilde", func(string) string { return `export PATH=~/.local/bin:$PATH` }},
+		{"absolute", func(home string) string { return `export PATH="` + home + `/.local/bin:$PATH"` }},
+		{"appended after others", func(home string) string {
+			return `export PATH="/usr/bin:` + home + `/.local/bin:$PATH"`
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			withoutFishOnPATH(t)
+			bashrc := writeRC(t, home, ".bashrc", tt.line(home)+"\n")
+
+			if _, err := (&WindowsEnvManager{}).EnsurePathEntry(context.Background(), filepath.Join(home, ".local", "bin")); err != nil {
+				t.Fatalf("EnsurePathEntry: %v", err)
+			}
+
+			if got := readFileOrFail(t, bashrc); strings.Count(got, "export PATH=") != 1 {
+				t.Errorf("an existing declaration must not be duplicated:\n%s", got)
+			}
+		})
+	}
+}
+
+// TestEnsurePathEntryIgnoresNonPathContext pins the other half of the
+// contract: only a PATH declaration counts. A mention inside a comment or in a
+// different variable used to satisfy the old substring guard, so envctl
+// reported "already present" while the shell never received the entry.
+func TestEnsurePathEntryIgnoresNonPathContext(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not shell rc files")
+	}
+	tests := []struct {
+		name    string
+		content func(home, dir string) string
+	}{
+		{"comment", func(_, dir string) string { return "# " + dir + " is managed elsewhere" }},
+		{"different variable", func(_, dir string) string {
+			return `export NODE_PATH="` + dir + `:$HOME/node_modules"`
+		}},
+		{"sibling with the same prefix", func(_, dir string) string {
+			return `export PATH="` + dir + `-tools:$PATH"`
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			withoutFishOnPATH(t)
+			dir := filepath.Join(home, ".local", "bin")
+			bashrc := writeRC(t, home, ".bashrc", tt.content(home, dir)+"\n")
+
+			if _, err := (&WindowsEnvManager{}).EnsurePathEntry(context.Background(), dir); err != nil {
+				t.Fatalf("EnsurePathEntry: %v", err)
+			}
+
+			want := `export PATH="` + dir + `:$PATH"`
+			if got := readFileOrFail(t, bashrc); !strings.Contains(got, want) {
+				t.Errorf("missing %q after a non-PATH mention:\n%s", want, got)
+			}
+		})
+	}
+}
+
+// TestEnsurePathEntryRecognizesFishAddPath covers the idiomatic fish spelling:
+// fish_add_path is how a user declares PATH entries by hand, so appending
+// `set -gx PATH` next to it would add the dir twice in every fish session.
+func TestEnsurePathEntryRecognizesFishAddPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not shell rc files")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	withFakeFishOnPATH(t)
+	fish := writeRC(t, home, ".config/fish/config.fish", "fish_add_path ~/.local/bin\n")
+
+	if _, err := (&WindowsEnvManager{}).EnsurePathEntry(context.Background(), filepath.Join(home, ".local", "bin")); err != nil {
+		t.Fatalf("EnsurePathEntry: %v", err)
+	}
+
+	if got := readFileOrFail(t, fish); strings.Contains(got, "set -gx PATH") {
+		t.Errorf("fish_add_path already declares the dir; no extra PATH line expected:\n%s", got)
+	}
+}
+
+// TestPathEntryPersistedAuditsEveryShell covers the doctor side: the audit used
+// to look only at ~/.profile and ~/.bashrc with a substring match, so a fish
+// host (the login shell on CachyOS) was reported as missing a persisted entry
+// that was in fact declared in config.fish.
+func TestPathEntryPersistedAuditsEveryShell(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PATH persistence on Windows writes the registry value, not shell rc files")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".local", "bin")
+
+	writeRC(t, home, ".config/fish/config.fish", `set -gx PATH "`+dir+`" $PATH`+"\n")
+	if !(&WindowsEnvManager{}).PathEntryPersisted(dir) {
+		t.Errorf("a fish declaration must satisfy the audit")
+	}
+
+	writeRC(t, home, ".config/fish/config.fish", "# "+dir+" is managed elsewhere\n")
+	if (&WindowsEnvManager{}).PathEntryPersisted(dir) {
+		t.Errorf("a comment must not satisfy the audit")
+	}
+}
+
 func TestEnsurePathEntryAddsFishPathOnce(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PATH persistence on Windows writes the registry value, not fish rc files")
