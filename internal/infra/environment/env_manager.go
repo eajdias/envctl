@@ -355,15 +355,44 @@ func (e *WindowsEnvManager) EnsureEnvVars(ctx context.Context, vars []entity.Env
 	return diagnostics, nil
 }
 
+// PathEntryPersisted reports whether dir is declared on a PATH line in any
+// managed shell startup file. A mention in a comment or in another variable
+// does not count.
+func (e *WindowsEnvManager) PathEntryPersisted(dir string) bool {
+	home, err := resolveHome()
+	if err != nil || home == "" {
+		return false
+	}
+	for _, rc := range e.rcFiles() {
+		if rc.path == "" || !withinHome(rc.path) {
+			continue
+		}
+		data, readErr := os.ReadFile(rc.path)
+		if readErr != nil {
+			continue
+		}
+		if hasPathEntry(string(data), dir, home, rc.fish) {
+			return true
+		}
+	}
+	return false
+}
+
 // EnsurePathEntry guarantees that dir is present in the user PATH,
 // prepending it when missing. Windows: User-scope Path registry value.
 // POSIX: `export PATH="<dir>:$PATH"` in ~/.profile and ~/.bashrc; fish:
 // `set -gx PATH "<dir>" $PATH` in ~/.config/fish/config.fish.
 // A differing live file is backed up first (.bak.YYYYMMDD-HHMMSS), following
-// the repo's atomic-backup convention. The guard is a substring match, so
-// lines written by the legacy shell installers (which used the same
-// `$HOME/...` form) count as present.
-// Returns changed=true when the PATH was modified.
+// the repo's atomic-backup convention.
+//
+// The presence guard is line-aware (see pathLineDirs): a declaration already
+// present in any portable spelling ($HOME, ${HOME}, ~, absolute) counts as a
+// hit, while a path mentioned in a comment, in another variable, or in a
+// sibling directory with the same prefix does not. A plain substring match got
+// both wrong — it appended a duplicate for every installer-written `$HOME`
+// line and silently skipped the write when a comment mentioned the path.
+//
+// Returns changed=true when a PATH line was added.
 func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bool, error) {
 	if dir == "" {
 		return false, fmt.Errorf("empty dir provided")
@@ -387,6 +416,10 @@ func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bo
 		}
 		return true, nil
 	}
+	home, err := resolveHome()
+	if err != nil || home == "" {
+		return false, fmt.Errorf("cannot resolve the home directory for %s", dir)
+	}
 	changed := false
 	for _, rc := range e.rcFiles() {
 		if rc.path == "" || !withinHome(rc.path) {
@@ -405,7 +438,7 @@ func (e *WindowsEnvManager) EnsurePathEntry(ctx context.Context, dir string) (bo
 				continue
 			}
 		}
-		if strings.Contains(string(data), dir) {
+		if hasPathEntry(string(data), dir, home, rc.fish) {
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(rc.path), 0o750); err != nil {
