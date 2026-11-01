@@ -15,10 +15,14 @@ do stack Wayland (v2.1.5).
 | 4 | Docs com contagem hardcoded | A matriz dizia "44 pkgs" em 2 lugares; o guia repetia o quarteto X11 em 2 pontos. Atualizamos à mão para 40. | Drift garantido a cada mudança de manifesto. |
 | 5 | Dois parsers de PATH + ambiente global | `pathListsDir` (`internal/usecase/doctor_system.go:48`) e `path_entry.go`; `fishAvailable()`/`resolveHome()` leem o host dentro do manager, o que tornou `TestPathStepPersistsEachDirOnce` dependente de fish instalado. | Divergência de semântica e testes não determinísticos. |
 | 6 | Pacotes órfãos invisíveis | Após remover o quarteto, `xorg-server`, `xf86-input-libinput` e `xf86-video-amdgpu` continuam instalados e nada reporta. `ListInstalled` existe, mas usa `pacman -Q` (inclui dependências). | Máquina acumula pacotes que o manifesto não gerencia mais. |
+| 7 | Código morto (150 linhas) | `deadcode ./...` → 12 funções inalcançáveis; 4 delas só existem para o próprio teste (`AssessRemovalState`, `AssessJournaldPolicy`, `AdoptedDiskSwap`, `skillDescription`). | Manutenção paga por código que o produto não usa. |
+| 8 | Cache do gate sem gatilho | Nasceu em `afa5dd1` ("chain every repository hook"); o v2 não instala hook nenhum (`manifests/shell.yaml`). | ~125 linhas de bash + 3 testes para economizar ~2s numa execução explícita. |
+
+Itens 1–6 são gaps de produto; 7–8 são dívida de complexidade encontrada na auditoria de 2026-11-01.
 
 ## 1. Objetivo
 
-Fechar os 6 gaps acima com mudanças pequenas, testáveis e reversíveis, mantendo:
+Fechar os 6 gaps e as 2 dívidas acima com mudanças pequenas, testáveis e reversíveis, mantendo:
 
 - `envctl doctor` com **0 WARN/0 ERROR** por padrão na máquina gerenciada;
 - rede **opt-in** (doctor offline por default);
@@ -65,6 +69,9 @@ rename (evita brickar o binário), interface opcional `ExplicitPackageLister`
 - `internal/infra/environment/` — `PathListsDir` exportado; `rcFiles`/`withinHome` puros.
 - `internal/infra/arch/` — `ListExplicit` (`pacman -Qeq`).
 - `internal/domain/repository/interfaces.go` — interface opcional `ExplicitPackageLister`.
+- `internal/domain/entity/`, `internal/infra/windows/`, `internal/infra/performance/`, `internal/infra/embedded/` — remoção de 8 símbolos sem chamador (T8).
+- `internal/usecase/provision_performance.go` — `PerformanceOptions` adiante em vez de 3 primitivos (T8).
+- `configs/bin/envctl-verify` — remoção do cache de estado (T9); `docs/verification.md` acompanha.
 - `.github/workflows/release.yml` (guard) e `ci.yml` (remove `paths-ignore`).
 - `CHANGELOG.md`, `docs/os-and-agent-matrix.md`, `docs/guides/provisioning.md`.
 
@@ -460,6 +467,131 @@ go test ./internal/infra/embedded/ -run TestDocsNoHardcodedPackageCounts -v
 
 ---
 
+### T8 — Apagar código morto e parâmetros que fingem ser opcionais
+
+**Escopo:** remover 150 linhas sem chamador e desfazer duas abstrações que só
+existem para o teste passar. Zero mudança de comportamento.
+
+**Evidência:** `go run golang.org/x/tools/cmd/deadcode@latest ./...` → 12 funções
+inalcançáveis; cada uma conferida com `rg` para separar "sem chamador" de "só teste".
+
+| Símbolo | Local | Linhas | Situação |
+|---|---|---|---|
+| `TweaksManager.EnsureTweaks` | `internal/infra/windows/tweaks_manager.go:888` | 50 | nenhum chamador |
+| `ProvisionPerformanceUseCase.ExecutePerformance` | `internal/usecase/provision_performance.go:68` | 10 | nenhum chamador (o real é `...WithOptions`) |
+| `saveManifestFile` + `SaveSkills` + `SaveGitConfigs` | `internal/infra/embedded/manifest_repo.go:552-575` | 24 | só entre si |
+| `entity.DetectedDistroID` / `DetectedDistroVersion` | `internal/domain/entity/platform.go:47-55` | 9 | nenhum chamador |
+| `performance.AssessJournaldPolicy` | `internal/infra/performance/journald_manager.go:149-174` | 26 | só testes |
+| `entity.AssessRemovalState` | `internal/domain/entity/debloat.go:128-140` | 13 | só teste |
+| `entity.HardwareState.AdoptedDiskSwap` | `internal/domain/entity/swap.go:176-182` | 7 | só teste |
+| `skillDescription` | `internal/usecase/skill_contract.go:103-113` | 11 | só teste |
+
+**Abstrações a desfazer**
+
+1. `NewDoctorAuditUseCase(..., performanceInspectors ...*performance.PerformanceInspector)`
+   (`doctor_audit.go:47`) — variádico para simular parâmetro opcional, seguido de
+   `if len(...) > 0`. Vira parâmetro normal; os 3 call sites de teste passam `nil`.
+2. `executePerformance(..., dryRun bool, allowDebloat bool, optionsNoReexec bool,
+   optionsTimezone string)` (`provision_performance.go:92`) — desmonta
+   `PerformanceOptions` em 3 primitivos: 7 parâmetros, ciclomática 48. Passa a
+   receber `PerformanceOptions`, que já existe em `performance_options.go:50`.
+
+**Também:** `version.go` (318 linhas, 20 funções) mistura semver, consulta npm/uv,
+capacidade do fzf e arquivamento de binários shadowed. Mover
+`fzfSupportsWalker`/`fzfHasWalker` para `provision_bootstrap.go` (são métodos de
+`ProvisionBootstrapUseCase`) e `archiveShadowedUserCopies`, `isProviderRuntime` e
+`defaultLatestProviderVersion` para `provision_providers.go`. `version.go` fica só
+com versão.
+
+**Não entra:** `ProvisionShellUseCase.Execute` (ciclomática 85,
+`provision_shell.go:77`). É refactor de risco médio sem ganho de comportamento —
+YAGNI vale para limpeza também. Fica registrado para quando a função for tocada.
+
+**Passos**
+
+- [ ] `rg` de confirmação (0 chamadores fora de teste) para cada símbolo antes de apagar.
+- [ ] Apagar os 8 símbolos e os testes que só existiam para eles; a asserção de
+  `skillDescription` passa a exercitar `parseSkillFrontmatter`, o caminho real.
+- [ ] Trocar o variádico por parâmetro normal; ajustar os 3 call sites.
+- [ ] `executePerformance` recebe `PerformanceOptions`; apagar o wrapper morto.
+- [ ] Mover os helpers de `version.go`.
+- [ ] Rodar o gate.
+
+**Verificação**
+
+```bash
+go run golang.org/x/tools/cmd/deadcode@latest ./...   # sem saída para internal/
+go build ./... && go vet ./... && go test -count=1 ./...
+golangci-lint run --new-from-rev=origin/main
+envctl doctor   # 0 warnings na máquina gerenciada
+```
+
+**Rollback:** reverter o PR.
+**Resultado esperado:** ~150 linhas de produção removidas, 1 variádico a menos,
+`executePerformance` com 4 parâmetros em vez de 7, comportamento idêntico.
+
+**Commit sugerido:** `refactor: delete unreachable helpers and unwrap optional parameters`
+
+---
+
+### T9 — Enxugar o `envctl-verify`: remover o cache de estado
+
+**Escopo:** remover o cache de estado do gate, cuja motivação original foi apagada
+do projeto. **Não** remove o log de trilha — ver "não entra".
+
+**Evidência**
+
+- O cache nasceu em `afa5dd1` ("chain every repository hook") para rodar **a cada commit**.
+- O v2 não instala hook nenhum: `manifests/shell.yaml` declara "invoked explicitly
+  per project; installs no hooks and gates nothing automatically".
+- O cache só liga quando `.commandcode/verify.sh` **não** existe
+  (`configs/bin/envctl-verify:377`) — ou seja, nas execuções explícitas, onde ~2s
+  não mudam nada.
+- Custo atual: `MAX_UNTRACKED_HASH_BYTES`, `stamp_file`, `has_oversized_untracked`,
+  `local_tool_state`, `state_hash`, o bloco `current_state` (linhas 320-384) e a
+  escrita/remoção do stamp (711-715), mais 3 testes e um parágrafo de doc.
+
+**Contra-argumento registrado:** o subagente `verifier` roda o gate várias vezes
+por sessão e o cache economiza ~2s por chamada. Se isso virar dor real, o cache
+volta — com o gatilho correto (hook), não ligado justamente quando não há hook.
+
+**Não entra:** `trail()` / `~/.envctl/verify.log` (15 linhas). Nada no código lê o
+arquivo, mas é um log para o operador e responde "esse gate já pegou algo?".
+Cortar seria over-correction: 15 linhas com consumidor humano declarado.
+
+**Arquivos**
+
+- modificar: `configs/bin/envctl-verify` (linhas 320-384 e 711-715)
+- modificar: `internal/usecase/verify_script_test.go` (remover os 3 testes de cache)
+- modificar: `docs/verification.md` (remover "Cache por estado da árvore" e a menção a "cache quente")
+
+**Passos**
+
+- [ ] Remover o bloco e o stamp; `current_state` deixa de existir.
+- [ ] Remover `TestVerifyScriptDoesNotCacheUnavailablePackageLint`,
+  `TestVerifyScriptCacheIncludesBaseRef` e `TestVerifyScriptDoesNotCacheRemovedLocalTool`.
+- [ ] Ajustar a doc.
+- [ ] Rodar o script neste repo nos 3 modos.
+
+**Verificação**
+
+```bash
+bash -n configs/bin/envctl-verify
+shellcheck configs/bin/envctl-verify
+go test ./internal/usecase/ -run TestVerifyScript -v
+envctl-verify --dry-run
+envctl-verify --static
+```
+
+**Rollback:** reverter o PR; nenhum estado persistido além do stamp em `.git/`,
+que pode ser apagado.
+**Resultado esperado:** ~125 linhas a menos no gate; `--static`, `--git-push` e
+`--dry-run` com o mesmo veredito de antes.
+
+**Commit sugerido:** `refactor(verify): drop the state cache the hooks used to need`
+
+---
+
 ## 6. Ordem e dependências
 
 | Ordem | Task | Depende de | PR sugerido |
@@ -470,13 +602,19 @@ go test ./internal/infra/embedded/ -run TestDocsNoHardcodedPackageCounts -v
 | 4 | T5 PATH unificado | — | `refactor/path-parser` |
 | 5 | T6 órfãos | — | `feat/doctor-unmanaged` |
 | 6 | T7 docs counts | — | `docs/no-hardcoded-counts` |
+| 7 | T8 código morto + params | — | `refactor/dead-code` |
+| 8 | T9 cache do gate | — | `refactor/verify-cache` |
 
 T1 e T2 vão no mesmo PR: T2 só consome `Latest` e `versionLess` de T1, e separar
 duplicaria o wire no `root.go`. Cada PR é mergeável e revertível sozinho.
 
+T8 é o melhor custo/benefício e não depende de nada: ~150 linhas removidas com
+zero mudança de comportamento, provado por `go build`/`go test`. Pode ser o
+primeiro PR se a prioridade for começar por risco zero.
+
 ## 7. Definition of Done
 
-- [ ] As 6 tasks têm PR mergeado com evidência de gate no corpo.
+- [ ] As 8 tasks têm PR mergeado com evidência de gate no corpo.
 - [ ] `go build ./...`, `go vet ./...`, `go test -count=1 ./...`,
   `golangci-lint run --new-from-rev=origin/main` verdes.
 - [ ] `envctl doctor` sem flags na máquina gerenciada continua `0 warnings`.
@@ -488,6 +626,10 @@ duplicaria o wire no `root.go`. Cada PR é mergeável e revertível sozinho.
 - [ ] `grep -c "^## \[Unreleased\]" CHANGELOG.md` → 1; PR docs-only roda os testes de doc.
 - [ ] `rg "\b[0-9]+ pkgs\b" docs/` → vazio.
 - [ ] Um parser de PATH só; testes de PATH não dependem de fish/HOME do host.
+- [ ] `deadcode ./...` sem saída para `internal/`.
+- [ ] `executePerformance` recebe `PerformanceOptions`; `NewDoctorAuditUseCase` sem variádico.
+- [ ] `envctl-verify` sem o cache de estado; `--static`, `--git-push` e `--dry-run`
+  com o mesmo veredito de antes.
 - [ ] Nenhuma flag ou arquivo previsto em §2.1 aparece no diff.
 - [ ] Nenhum segredo no diff; nenhum `git add -A`; worktrees removidos sem `--force`.
 
@@ -498,4 +640,6 @@ duplicaria o wire no `root.go`. Cada PR é mergeável e revertível sozinho.
   é copiar de volta. Nenhuma migração de dados, nenhum cache a limpar.
 - Flags novas são default off; remover o PR não deixa estado persistido.
 - CHANGELOG/docs: reversão textual, sem impacto em runtime.
+- T8/T9: reversão de código; o único estado persistido é o stamp em `.git/envctl-verify.stamp`,
+  que pode ser apagado.
 - Nenhuma task desinstala pacote ou altera manifesto existente.
