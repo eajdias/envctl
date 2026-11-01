@@ -469,20 +469,6 @@ func (uc *DoctorAuditUseCase) auditGamingTuning(ctx context.Context, addDiag fun
 			"MangoHud preset present",
 		))
 	}
-	if !uc.fsManager.Exists("/usr/bin/X") {
-		addDiag(entity.Warn(
-			"Gaming",
-			"X11 session",
-			"/usr/bin/X missing (plasma-x11-session cannot start without xorg-server)",
-			"run 'envctl run gaming' to install xorg-server",
-		))
-	} else {
-		addDiag(entity.OK(
-			"Gaming",
-			"X11 session",
-			"/usr/bin/X present",
-		))
-	}
 	if data, err := os.ReadFile("/etc/pacman.conf"); err == nil {
 		if !multilibEnabled(string(data)) {
 			addDiag(entity.Warn(
