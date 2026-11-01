@@ -29,25 +29,43 @@ Fechar os 6 gaps acima com mudanças pequenas, testáveis e reversíveis, manten
 
 | Ponto | Decisão | Motivo |
 |---|---|---|
-| Comando de atualização | Novo `envctl self-update` (`--check`, `--version`, `--dry-run`), não `update --self` | `update` já tem contrato de toolchain; misturar binário confunde o `--only` e o relatório. |
-| Fonte da versão | GitHub API `releases/latest` (`tag_name`) + cache 24h em `os.UserCacheDir()/envctl/latest-release.json`; `--refresh` ignora o cache | Rate limit anônimo é 60/h; cache evita castigar a API em cada doctor. |
-| Instalação | Download do asset loose (`envctl-<os>-<arch>[.exe]`), verificação contra `SHA256SUMS.txt`, backup `.bak.YYYYMMDD-HHMMSS`, rename atômico | Mesmo contrato de nomes do `.goreleaser.yml`/bootstrap; backup segue a convenção do repo. |
+| Comando de atualização | Novo `envctl self-update` com uma única flag read-only `--check`; sem `update --self` | `update` já tem contrato de toolchain; misturar binário confunde o `--only` e o relatório. |
+| Fonte da versão | GitHub API `releases/latest` (`tag_name`), **sem cache** | Toda chamada de rede já está atrás de uma invocação explícita (`self-update`, `self-update --check`, `doctor --check-updates`); cache não protege caminho nenhum. |
+| Instalação | Asset loose (`envctl-<os>-<arch>[.exe]`), checksum contra `SHA256SUMS.txt`, backup `.bak.YYYYMMDD-HHMMSS`, rename atômico | Mesmo contrato de nomes do `.goreleaser.yml`/bootstrap; backup segue a convenção do repo. |
 | Doctor e rede | `doctor --check-updates` é opt-in; sem a flag o doctor continua offline. `dev` build vira INFO offline | Preserva o doctor utilizável em VPS/CI sem rede. |
 | Órfãos | `doctor --unmanaged` opt-in, Arch-only, sempre INFO, uma linha agregada | Sem a flag o output atual não muda; `INFO` nunca vira WARN/`--fix`. |
 | CHANGELOG | Consolidar em uma `[Unreleased]`; bloco da linha 359 → `1.11.0`; bloco da linha 522 → `1.10.0` | Evidência: `git tag --contains` dos commits que introduziram cada bloco. |
 | Docs | Remover contagens de pacote da prosa; o manifesto é a fonte | Regra já declarada no `AGENTS.md` ("manifest wins"). |
-| PATH | Mover `pathListsDir` para `environment` e injetar home/fish via functional options | Um parser só; testes determinísticos sem `t.Setenv("PATH", ...)`. |
+| PATH | Um parser só em `environment`; `rcFiles`/`withinHome` viram **funções puras** que recebem `home`/`fish` | `WindowsEnvManager` é `struct{}`: injetar estado nele (options + tri-state `fishSet`) seria complexidade sem ganho. |
+
+### 2.1 Orçamento de complexidade (o que ficou de fora)
+
+Cortado da primeira versão deste plano, por não fechar gap nenhum:
+
+| Cortado | Onde estava | Por que não entra |
+|---|---|---|
+| Cache 24h + `--refresh` | T1/T2 | Nenhuma chamada de rede é automática; o cache só serviria para quem roda `doctor --check-updates` 60×/h. Custo: arquivo, TTL, invalidação, testes. |
+| `--version vX.Y.Z` | T1 | `bootstrap.sh` já fixa versão (`VERSION=`); rollback imediato é o `.bak`. Um caminho de download a menos. |
+| `--dry-run` separado de `--check` | T1 | Os dois são read-only. `--check` passa a imprimir current → latest, asset e destino do backup. Duas flags viram uma. |
+| `scripts/cut-release.sh` + target no Makefile | T3 | ~7 passos de coreografia `gh` para uma ação mensal; o gap real (tag sem seção) fecha com o guard de 6 linhas no workflow. |
+| `.github/workflows/docs.yml` novo | T4 | Workflow novo = superfície nova. O `paths-ignore` do `ci.yml` é justamente o que torna os testes de doc inúteis em PR docs-only: apagar o filtro remove um caso especial em vez de criar outro. |
+| Functional options no `WindowsEnvManager` | T5 | O manager é `struct{}`. `WithHome`/`WithFishInstalled` + tri-state `fishSet` só existiam para testabilidade; funções puras resolvem com zero estado. |
+| 2 das 4 asserções do teste de CHANGELOG | T4 | "Unreleased seguida de heading" e "formato do link compare" não são a regressão que aconteceu; a regressão real é a seção duplicada. |
+
+Mantidos porque o custo é o mesmo da alternativa ou menor: checksum + backup +
+rename (evita brickar o binário), interface opcional `ExplicitPackageLister`
+(idiomática em Go, não toca os 5 managers), teste de contagem nos docs (~15 linhas).
 
 ## 3. Impacto e contratos
 
 **Superfície alterada:**
 
-- `internal/ui/cli/` — novo comando `self-update`; flags `--check-updates` (doctor) e `--unmanaged` (doctor).
-- `internal/usecase/` — `self_update.go` novo; `doctor_audit.go`/`doctor_system.go`/`doctor_packages.go`; `version.go` (comparação semver).
-- `internal/infra/environment/` — `PathListsDir` exportado; `WindowsEnvManager` com options.
+- `internal/ui/cli/` — novo comando `self-update` (`--check`); flags `--check-updates` e `--unmanaged` no doctor.
+- `internal/usecase/` — `self_update.go` novo; `doctor_audit.go`/`doctor_system.go`/`doctor_packages.go`; `version.go` (`versionLess`).
+- `internal/infra/environment/` — `PathListsDir` exportado; `rcFiles`/`withinHome` puros.
 - `internal/infra/arch/` — `ListExplicit` (`pacman -Qeq`).
 - `internal/domain/repository/interfaces.go` — interface opcional `ExplicitPackageLister`.
-- `.github/workflows/release.yml`, `.github/workflows/docs.yml` novo, `scripts/cut-release.sh` novo.
+- `.github/workflows/release.yml` (guard) e `ci.yml` (remove `paths-ignore`).
 - `CHANGELOG.md`, `docs/os-and-agent-matrix.md`, `docs/guides/provisioning.md`.
 
 **Contratos que NÃO mudam:**
@@ -55,6 +73,7 @@ Fechar os 6 gaps acima com mudanças pequenas, testáveis e reversíveis, manten
 - `envctl run`, `doctor` sem flags, `update`, `commandcode`, `opencode`: mesmos flags e exit codes.
 - Formato do relatório do doctor (contagens podem mudar apenas quando flags novas são usadas).
 - `PackageManager` existente: a nova interface é opcional, não altera os 5 managers.
+- `NewWindowsEnvManager()` continua sem parâmetros; `WindowsEnvManager` continua `struct{}`.
 - Assets de release: nomes e `SHA256SUMS.txt` continuam os mesmos.
 
 **Não-regressão:** `go build ./...`, `go vet ./...`, `go test -count=1 ./...`,
@@ -67,12 +86,13 @@ na máquina gerenciada continua `0 warnings` sem flags.
 
 | Risco | Mitigação |
 |---|---|
-| Self-update trocar o binário errado / corromper | Checksum obrigatório; download em temp no mesmo dir; rename com rollback; `--dry-run`; backup preservado. |
+| Self-update trocar o binário errado / corromper | Checksum obrigatório; download em temp no mesmo dir; rename com rollback; backup preservado. |
 | Windows não permitir sobrescrever o exe em execução | Renomear o exe atual para `.bak` antes de mover o novo; se o move falhar, restaurar o backup. Validar manualmente no Windows (CI não troca o binário em execução). |
-| Rate limit do GitHub | Cache 24h + `--refresh`; erro de rede no doctor com flag vira INFO/silêncio, nunca WARN. |
+| Rate limit do GitHub | Uma requisição por invocação explícita; erro de rede vira mensagem clara no comando e silêncio no doctor, nunca WARN. |
 | `--unmanaged` poluir a saída | Opt-in, uma linha agregada, INFO; sem remoção automática. |
 | Mover bloco errado no CHANGELOG | Evidência por `git tag --contains`; revisão do diff antes do merge. |
 | `pacman -Qeq` indisponível/versão diferente | Feature só em Arch com manager pacman disponível; erro vira skip silencioso. |
+| CI passar a rodar em PR docs-only | Custo de ~2–3 min por PR de doc; em troca, `docs_claims_test.go` passa a rodar onde o drift nasce. |
 
 **Unknowns**
 
@@ -80,81 +100,81 @@ na máquina gerenciada continua `0 warnings` sem flags.
 - Formato exato do JSON de `releases/latest`: fixar com `httptest` a partir de uma resposta real (`tag_name`, `assets[].name`).
 - Se o repo um dia virar privado, a API anônima para de funcionar; o erro deve ser claro e o doctor silencioso.
 
-**Breaking changes:** nenhuma. Comando e flags são aditivos; `NewWindowsEnvManager`
-passa a aceitar options variádicas (callers existentes compilam sem mudança);
-`pathListsDir` é interno ao pacote `usecase` e será substituído por equivalente
-exportado em `environment`.
+**Breaking changes:** nenhuma. Comando e flags são aditivos; `WindowsEnvManager`
+mantém a assinatura do construtor; `pathListsDir` é interno ao pacote `usecase` e
+será substituído por equivalente exportado em `environment`.
 
 ## 5. Tarefas
 
 ### T1 — `envctl self-update`
 
-**Escopo:** comando que baixa, verifica e instala a última release (ou uma versão
-explícita), com backup e rollback. **Não** instala dependências, não usa sudo,
-não altera manifests.
+**Escopo:** comando que baixa, verifica e instala a última release, com backup e
+rollback. **Não** instala dependências, não usa sudo, não altera manifests, não
+faz downgrade (para isso existe o `.bak` e o `bootstrap.sh`).
 
 **Arquivos**
 
 - criar: `internal/usecase/self_update.go`, `internal/usecase/self_update_test.go`
 - criar: `internal/ui/cli/self_update.go`
 - modificar: `internal/ui/cli/root.go` (registrar o comando)
-- modificar: `internal/usecase/version.go` + teste (comparação semver)
-- modificar: `docs/guides/provisioning.md` (substituir o curl manual por `envctl self-update`)
+- modificar: `internal/usecase/version.go` + teste (`versionLess`)
+- modificar: `docs/guides/provisioning.md` (substituir o curl manual da linha 54)
 
 **Interfaces**
 
 ```go
 type SelfUpdateUseCase struct {
-    client     *http.Client
-    goos       string
-    goarch     string
-    executable func() (string, error)
-    now        func() time.Time
+    client *http.Client
+    now    func() time.Time
 }
 
 func NewSelfUpdateUseCase() *SelfUpdateUseCase
-func (uc *SelfUpdateUseCase) Latest(ctx context.Context, refresh bool) (string, error)
-func (uc *SelfUpdateUseCase) Apply(ctx context.Context, target string) (Result, error)
+func (uc *SelfUpdateUseCase) Latest(ctx context.Context) (string, error)
+func (uc *SelfUpdateUseCase) Apply(ctx context.Context, dest string) (Result, error)
 
 type Result struct {
-    From, To string
-    Backup   string
-    Asset    string
+    To     string
+    Backup string
+    Asset  string
 }
+
+func assetName(goos, goarch string) string
+func versionLess(a, b string) bool // "dev" é sempre mais antigo
 ```
 
-- `assetName(goos, goarch)` → `envctl-linux-amd64`, `envctl-windows-amd64.exe`, etc.
-- `Latest` consulta `https://api.github.com/repos/eajdias/envctl/releases/latest`,
-  valida `tag_name` (`vX.Y.Z`) e grava o cache.
-- `Apply` baixa `https://github.com/eajdias/envctl/releases/download/<tag>/<asset>`
-  e `SHA256SUMS.txt`, confere o hash, grava temp no diretório do executável,
-  cria `.bak.YYYYMMDD-HHMMSS`, renomeia e devolve `Result`.
-- CLI: `self-update` (aplica), `--check` (só compara), `--version vX.Y.Z`
-  (target explícito), `--dry-run` (mostra URL/asset/backup, não escreve).
+- `Latest` faz um GET em `https://api.github.com/repos/eajdias/envctl/releases/latest`,
+  valida `tag_name` (`vX.Y.Z`) e devolve a tag.
+- `Apply` resolve a release, baixa
+  `https://github.com/eajdias/envctl/releases/download/<tag>/<asset>` +
+  `SHA256SUMS.txt`, confere o hash, grava temp no **mesmo diretório** de `dest`,
+  cria `<dest>.bak.YYYYMMDD-HHMMSS`, renomeia o novo por cima e devolve `Result`.
+  Em qualquer falha depois do backup, restaura o original.
+- CLI: `self-update` chama `Apply(ctx, os.Executable())`; `--check` imprime
+  `current → latest`, o asset e o caminho do backup, sem escrever. Se
+  `!versionLess(appVersion, latest)`, imprime "already at latest" e sai 0.
 
 **Passos**
 
-- [ ] Escrever `TestSelfUpdateRejectsChecksumMismatch` (servidor `httptest` serve binário e sums adulterado) e observar RED.
+- [ ] `TestSelfUpdateRejectsChecksumMismatch` (servidor `httptest` serve binário e sums adulterado) — RED.
 - [ ] Implementar download + verificação até GREEN.
-- [ ] Escrever `TestSelfUpdateInstallsVerifiedBinaryAndKeepsBackup` (temp dir como exe, sums correto) e observar RED.
+- [ ] `TestSelfUpdateInstallsVerifiedBinaryAndKeepsBackup` (temp dir como `dest`, sums correto) — RED.
 - [ ] Implementar backup + rename + restauração em erro até GREEN.
-- [ ] Escrever `TestSelfUpdateDryRunWritesNothing` e `TestLatestUsesCache`; GREEN.
+- [ ] `TestSelfUpdateCheckWritesNothing` e `TestAssetName` (linux/windows × amd64/arm64); GREEN.
 - [ ] Ligar o comando no `root.go`, atualizar `docs/guides/provisioning.md`.
 - [ ] Rodar `go test ./internal/usecase/ -run TestSelfUpdate -v` e o gate.
 
 **Verificação**
 
 ```bash
-go test ./internal/usecase/ -run 'TestSelfUpdate|TestVersionCompare' -v
+go test ./internal/usecase/ -run 'TestSelfUpdate|TestAssetName|TestVersionLess' -v
 go build ./... && go vet ./...
 golangci-lint run --new-from-rev=origin/main
-/tmp/opencode/envctl-selfupdate self-update --check   # mostra current/latest sem escrever
-/tmp/opencode/envctl-selfupdate self-update --dry-run  # mostra asset/URL/backup
+/tmp/opencode/envctl-selfupdate self-update --check   # current/latest/asset, sem escrever
 ```
 
 **Rollback:** reverter o PR; em runtime, restaurar `envctl.bak.<timestamp>`.
-**Resultado esperado:** `self-update --check` reporta versão atual e última;
-`--dry-run` não altera o binário; teste de checksum adulterado falha antes de escrever.
+**Resultado esperado:** `--check` reporta a diferença sem tocar no binário; checksum
+adulterado falha antes de qualquer escrita; instalação válida deixa o backup.
 
 **Commit sugerido:** `feat(self-update): install the latest verified release with backup`
 
@@ -163,11 +183,11 @@ golangci-lint run --new-from-rev=origin/main
 ### T2 — Doctor: frescor contra a última release
 
 **Escopo:** detectar `dev` build offline e, com `--check-updates`, comparar com a
-última release. Reutiliza `Latest`/cache de T1.
+última release. Reutiliza `Latest` de T1.
 
 **Arquivos**
 
-- modificar: `internal/usecase/doctor_audit.go` (campo `latestRelease func(ctx, bool) (string, error)` + setter)
+- modificar: `internal/usecase/doctor_audit.go` (campo `latestRelease func(ctx) (string, error)` + setter)
 - modificar: `internal/usecase/doctor_system.go` (`auditEnvctlFreshness`)
 - modificar: `internal/ui/cli/doctor.go` (flag `--check-updates`)
 - modificar: `internal/ui/cli/root.go` (wire do setter)
@@ -180,8 +200,8 @@ golangci-lint run --new-from-rev=origin/main
 - Com `--check-updates`: se `latest > current`, **WARN** com
   `run 'envctl self-update'`; se igual, **OK**; erro de rede → nenhum diagnóstico
   (apenas log debug).
-- Comparação semver em `version.go` (`versionLess(a, b)`), com teste de
-  `dev`, `v2.1.5`, `2.1.5`, `2.2.0`, `10.0.0`.
+- `versionLess` cobre `dev`, `v2.1.5`, `2.1.5`, `2.2.0`, `10.0.0` (numérico, não
+  lexicográfico).
 
 **Passos**
 
@@ -207,17 +227,15 @@ diferença; sem a flag nada muda.
 
 ---
 
-### T3 — Guard no Release Pipeline + `cut-release.sh`
+### T3 — Guard de CHANGELOG no Release Pipeline
 
-**Escopo:** impedir tag sem seção no CHANGELOG e automatizar o ritual de release
-(branch docs → PR → merge → dispatch → verificação).
+**Escopo:** impedir tag sem a seção correspondente no CHANGELOG. Só isso — o
+ritual de release continua manual.
 
 **Arquivos**
 
 - modificar: `.github/workflows/release.yml`
-- criar: `scripts/cut-release.sh`
-- modificar: `Makefile` (`release:` chamando o script)
-- modificar: `docs/guides/provisioning.md` (como cortar release)
+- modificar: `docs/guides/provisioning.md` (documentar a ordem: PR da seção → merge → dispatch)
 
 **Workflow (antes do step que cria a tag):**
 
@@ -232,52 +250,36 @@ diferença; sem a flag nada muda.
     }
 ```
 
-**Script:** `scripts/cut-release.sh <vX.Y.Z> [--dry-run] [--no-merge]`
-
-1. valida árvore limpa, branch `main`, `git fetch`, `gh auth status`;
-2. calcula a versão anterior com `git describe --tags --abbrev=0`;
-3. cria `docs/release-<versão>` e insere a seção
-   `## [<versão>](...compare/v<prev>...v<versão>) (<data>)` logo após
-   `## [Unreleased]` (o conteúdo existente passa a pertencer à nova seção);
-4. commit `docs: move Unreleased entries to <versão> for release`, push, PR;
-5. `gh pr checks --watch` (se não houver checks, segue — PR docs-only é skip por design);
-6. `gh pr merge --merge`; `gh workflow run release.yml -f version=<versão>`; `gh run watch`;
-7. confere `gh release view <versão> --json tagName,assets` (11 assets).
-
 **Passos**
 
-- [ ] Adicionar o step de validação no workflow.
-- [ ] Escrever o script com `--dry-run` (imprime cada comando, não altera nada).
-- [ ] Testar localmente: `bash -n scripts/cut-release.sh`, `shellcheck scripts/cut-release.sh`, `scripts/cut-release.sh v9.9.9 --dry-run`.
+- [ ] Adicionar o step de validação.
 - [ ] Simular a falha do guard: `grep -qE '^## \[9\.9\.9\]' CHANGELOG.md; echo $?` → 1.
-- [ ] Rodar `actionlint`.
+- [ ] `actionlint`.
 
 **Verificação**
 
 ```bash
-bash -n scripts/cut-release.sh
-shellcheck scripts/cut-release.sh
 actionlint
-scripts/cut-release.sh v9.9.9 --dry-run   # nenhum efeito colateral
+grep -qE '^## \[9\.9\.9\]' CHANGELOG.md; echo "exit=$?"   # exit=1 → guard rejeitaria
 ```
 
 **Rollback:** reverter o PR; o workflow volta ao comportamento anterior.
-**Resultado esperado:** dispatch com versão sem seção falha antes de criar a tag;
-`--dry-run` mostra o plano completo sem tocar no repo.
+**Resultado esperado:** dispatch com versão sem seção falha antes de criar a tag.
 
-**Commit sugerido:** `ci(release): require the CHANGELOG section and script the cut`
+**Commit sugerido:** `ci(release): require the CHANGELOG section before tagging`
 
 ---
 
-### T4 — CHANGELOG: uma `[Unreleased]` + teste + CI de docs
+### T4 — CHANGELOG: uma `[Unreleased]` + teste rodando em PR de docs
 
-**Escopo:** consolidar as 3 seções `[Unreleased]` e impedir regressão estrutural.
+**Escopo:** consolidar as 3 seções `[Unreleased]` e fazer o teste de estrutura
+rodar onde o drift nasce.
 
 **Arquivos**
 
 - modificar: `CHANGELOG.md`
 - criar: `internal/infra/embedded/changelog_test.go`
-- criar: `.github/workflows/docs.yml`
+- modificar: `.github/workflows/ci.yml` (remover o bloco `paths-ignore`)
 
 **Movimentos (com evidência já coletada)**
 
@@ -291,45 +293,46 @@ scripts/cut-release.sh v9.9.9 --dry-run   # nenhum efeito colateral
 **Teste (`changelog_test.go`, usa `repoRootForDocs`):**
 
 - exatamente uma `## [Unreleased]`;
-- headings `## [x.y.z]` em ordem estritamente decrescente;
-- `[Unreleased]` seguida imediatamente de um heading de versão (sem conteúdo);
-- links de versão no formato `compare/v<prev>...v<x.y.z>`.
+- headings `## [x.y.z]` em ordem estritamente decrescente (numérica).
 
-**Workflow `docs.yml`:** dispara em `pull_request` com
-`paths: ['**.md', 'docs/**', 'spec-agent/**', '.github/workflows/docs.yml']` e roda
-`go test ./internal/infra/embedded/ -run 'TestChangelog|TestDocumentation'`.
+**Por que remover `paths-ignore` em vez de criar `docs.yml`:** o filtro atual pula
+`docs/**`, `**.md`, `CHANGELOG.md` e `spec-agent/**`, o que significa que
+`docs_claims_test.go` (já existente) nunca roda no PR que o quebraria. Apagar o
+filtro é uma remoção de caso especial; um workflow novo é mais uma peça para
+manter. Custo aceito: CI completo em PR docs-only.
 
 **Passos**
 
 - [ ] Mover/deduplicar os dois blocos.
 - [ ] Escrever o teste e observar RED com o estado atual (3 Unreleased).
 - [ ] Consolidar até GREEN.
-- [ ] Adicionar o workflow e validar com `actionlint`.
+- [ ] Remover o `paths-ignore` e validar com `actionlint`.
 
 **Verificação**
 
 ```bash
 grep -c "^## \[Unreleased\]" CHANGELOG.md          # 1
-go test ./internal/infra/embedded/ -run TestChangelog -v
+go test ./internal/infra/embedded/ -run 'TestChangelog|TestDocumentation' -v
 actionlint
 ```
 
 **Rollback:** reverter o PR; o CHANGELOG é histórico, sem impacto em runtime.
-**Resultado esperado:** uma única `[Unreleased]`; PR docs-only passa a ter check.
+**Resultado esperado:** uma única `[Unreleased]`; PR docs-only passa a rodar os
+testes de doc.
 
 **Commit sugerido:** `docs(changelog): consolidate Unreleased and guard its shape`
 
 ---
 
-### T5 — PATH: um parser e ambiente injetado
+### T5 — PATH: um parser, funções puras
 
-**Escopo:** eliminar a duplicação `pathListsDir`/`path_entry.go` e remover a
-dependência de estado global nos testes do `WindowsEnvManager`.
+**Escopo:** eliminar a duplicação `pathListsDir`/`path_entry.go` e tirar o estado
+do host de dentro das funções que decidem os rc files.
 
 **Arquivos**
 
 - modificar: `internal/infra/environment/path_entry.go` (exportar `PathListsDir`)
-- modificar: `internal/infra/environment/env_manager.go` (options + métodos)
+- modificar: `internal/infra/environment/env_manager.go` (puros + call sites)
 - modificar: `internal/infra/environment/env_manager_test.go`
 - modificar: `internal/usecase/doctor_system.go` (usar `environment.PathListsDir`)
 - modificar: `internal/usecase/doctor_system_test.go` (mover o teste de tabela)
@@ -338,32 +341,30 @@ dependência de estado global nos testes do `WindowsEnvManager`.
 **Interfaces**
 
 ```go
-type EnvManagerOption func(*WindowsEnvManager)
-func WithHome(home string) EnvManagerOption
-func WithFishInstalled(installed bool) EnvManagerOption
-func NewWindowsEnvManager(opts ...EnvManagerOption) *WindowsEnvManager
-
+// environment
 func PathListsDir(pathVal string, sep byte, dir string, foldCase bool) bool
+func rcFiles(home string, fish bool) []shellRC
+func withinHome(home, path string) bool
 ```
 
-- `rcFiles`, `withinHome` e `fishAvailable` passam a usar os campos do manager
-  (`home`, `fishInstalled`, `fishSet`); sem option, comportamento atual.
+- Sem options, sem campos novos: `WindowsEnvManager` continua `struct{}`. Os
+  métodos resolvem `home`/`fish` uma vez e chamam as funções puras.
 - `doctor_system.go` troca as 3 chamadas por `environment.PathListsDir`.
-- Testes do environment constroem `NewWindowsEnvManager(WithHome(home), WithFishInstalled(false))`
-  e não dependem mais de `t.Setenv("HOME"/"PATH")`.
+- Testes chamam as funções puras com argumentos literais e não dependem mais de
+  `t.Setenv("HOME"/"PATH")`.
 
 **Passos**
 
 - [ ] Mover `pathListsDir` + teste de tabela para `environment`; observar RED
   (símbolo ainda não existe) e GREEN.
-- [ ] Adicionar as options e migrar `rcFiles`/`withinHome`/`fishAvailable`.
-- [ ] Ajustar os testes para usar as options; remover os `t.Setenv` desnecessários.
+- [ ] Tornar `rcFiles`/`withinHome` puros e ajustar os call sites.
+- [ ] Ajustar os testes; remover os `t.Setenv` desnecessários.
 - [ ] Rodar o gate completo.
 
 **Verificação**
 
 ```bash
-go test ./internal/infra/environment/ -run 'Path' -v
+go test ./internal/infra/environment/ -run 'Path|RCFiles|WithinHome' -v
 go test ./internal/usecase/ -run 'Path' -v
 go build ./... && go vet ./... && golangci-lint run --new-from-rev=origin/main
 ```
@@ -372,7 +373,7 @@ go build ./... && go vet ./... && golangci-lint run --new-from-rev=origin/main
 **Resultado esperado:** um único parser; testes de PATH passam sem depender de
 fish/HOME do host.
 
-**Commit sugerido:** `refactor(path): share one PATH parser and inject the shell environment`
+**Commit sugerido:** `refactor(path): share one PATH parser and make the rc helpers pure`
 
 ---
 
@@ -435,7 +436,7 @@ explícitos fora do manifesto, em INFO; sem a flag, nada muda.
 
 **Arquivos**
 
-- modificar: `docs/os-and-agent-matrix.md` (2 ocorrências)
+- modificar: `docs/os-and-agent-matrix.md` (linhas 37 e 189)
 - modificar: `internal/infra/embedded/docs_claims_test.go`
 
 **Passos**
@@ -463,42 +464,38 @@ go test ./internal/infra/embedded/ -run TestDocsNoHardcodedPackageCounts -v
 
 | Ordem | Task | Depende de | PR sugerido |
 |---|---|---|---|
-| 1 | T1 self-update | — | `feat/self-update` |
-| 2 | T2 doctor frescor | T1 (`Latest`/cache) | junto com T1 ou `feat/doctor-release-freshness` |
-| 3 | T3 release guard + script | — | `ci/release-guard` |
-| 4 | T4 CHANGELOG + docs CI | — | `docs/changelog-hygiene` |
-| 5 | T5 PATH unificado | — | `refactor/path-parser` |
-| 6 | T6 órfãos | — | `feat/doctor-unmanaged` |
-| 7 | T7 docs counts | — | `docs/no-hardcoded-counts` |
+| 1 | T1 + T2 self-update e frescor | — | `feat/self-update` |
+| 2 | T3 guard de release | — | `ci/release-guard` |
+| 3 | T4 CHANGELOG + CI de docs | — | `docs/changelog-hygiene` |
+| 4 | T5 PATH unificado | — | `refactor/path-parser` |
+| 5 | T6 órfãos | — | `feat/doctor-unmanaged` |
+| 6 | T7 docs counts | — | `docs/no-hardcoded-counts` |
 
-Cada PR é independente e mergeável sozinho; T1+T2 podem ir no mesmo PR porque
-compartilham o cliente/cache. Releases: cada merge entra em `[Unreleased]`; o
-corte continua manual (T3 automatiza o ritual).
+T1 e T2 vão no mesmo PR: T2 só consome `Latest` e `versionLess` de T1, e separar
+duplicaria o wire no `root.go`. Cada PR é mergeável e revertível sozinho.
 
 ## 7. Definition of Done
 
-- [ ] As 7 tasks têm PR mergeado com evidência de gate no corpo.
+- [ ] As 6 tasks têm PR mergeado com evidência de gate no corpo.
 - [ ] `go build ./...`, `go vet ./...`, `go test -count=1 ./...`,
   `golangci-lint run --new-from-rev=origin/main` verdes.
 - [ ] `envctl doctor` sem flags na máquina gerenciada continua `0 warnings`.
-- [ ] `envctl self-update --check` e `--dry-run` funcionam; checksum adulterado
-  é rejeitado antes de escrever; backup é criado.
+- [ ] `envctl self-update --check` reporta current/latest e não escreve; checksum
+  adulterado é rejeitado antes de escrever; instalação válida deixa `.bak`.
 - [ ] `doctor --check-updates` avisa release antiga e fica silencioso em erro de rede.
 - [ ] `doctor --unmanaged` reporta o quarteto restante em INFO; sem a flag nada muda.
-- [ ] Release Pipeline falha com versão sem seção no CHANGELOG; `cut-release.sh --dry-run`
-  não altera nada.
-- [ ] `grep -c "^## \[Unreleased\]" CHANGELOG.md` → 1; teste de estrutura verde;
-  PR docs-only roda o check de docs.
+- [ ] Release Pipeline falha com versão sem seção no CHANGELOG.
+- [ ] `grep -c "^## \[Unreleased\]" CHANGELOG.md` → 1; PR docs-only roda os testes de doc.
 - [ ] `rg "\b[0-9]+ pkgs\b" docs/` → vazio.
 - [ ] Um parser de PATH só; testes de PATH não dependem de fish/HOME do host.
+- [ ] Nenhuma flag ou arquivo previsto em §2.1 aparece no diff.
 - [ ] Nenhum segredo no diff; nenhum `git add -A`; worktrees removidos sem `--force`.
 
 ## 8. Rollback
 
 - Cada task é um PR independente: `git revert <merge>` restaura o comportamento.
 - Self-update: o binário anterior fica em `envctl.bak.YYYYMMDD-HHMMSS`; restaurar
-  é copiar de volta. Nenhuma migração de dados.
-- Flags novas são default off; remover o PR não deixa estado persistido (exceto
-  o cache `~/.cache/envctl/latest-release.json`, que pode ser apagado).
+  é copiar de volta. Nenhuma migração de dados, nenhum cache a limpar.
+- Flags novas são default off; remover o PR não deixa estado persistido.
 - CHANGELOG/docs: reversão textual, sem impacto em runtime.
 - Nenhuma task desinstala pacote ou altera manifesto existente.
