@@ -13,6 +13,8 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+## [2.1.5](https://github.com/eajdias/envctl/compare/v2.1.4...v2.1.5) (2026-11-01)
+
 ### Removed
 
 - **gaming:** o stack deixa de provisionar a sessão X11 (`plasma-x11-session`,
