@@ -249,30 +249,10 @@ packages:
     os: arch,cachyos
     category: gaming
 
-  # X11 session trio (plasma-x11-session does NOT pull xorg-server — install together)
-  - id: plasma-x11-session
-    name: KDE Plasma X11 session (lower stutter on Polaris + Proton)
-    type: pacman
-    os: arch,cachyos
-    category: gaming
-
-  - id: xorg-server
-    name: X.Org server (required by plasma-x11-session, not pulled automatically)
-    type: pacman
-    os: arch,cachyos
-    category: gaming
-
-  - id: xf86-input-libinput
-    name: libinput X.Org input driver
-    type: pacman
-    os: arch,cachyos
-    category: gaming
-
-  - id: xf86-video-amdgpu
-    name: X.Org AMDGPU driver (required by the X11 session on Polaris; nothing else pulls it)
-    type: pacman
-    os: arch,cachyos
-    category: gaming
+  # The gaming stack targets the Wayland session. The X11 quartet
+  # (plasma-x11-session, xorg-server, xf86-input-libinput, xf86-video-amdgpu) is
+  # deliberately absent: XWayland covers legacy apps, and none of the four is
+  # pulled by another declared package.
 
   # Scraper & Switch tooling (AUR binaries, no compilation)
   - id: skyscraper-git

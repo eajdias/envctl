@@ -13,6 +13,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Removed
+
+- **gaming:** o stack deixa de provisionar a sessão X11 (`plasma-x11-session`,
+  `xorg-server`, `xf86-input-libinput`, `xf86-video-amdgpu`). O ambiente-alvo é
+  Wayland e o XWayland cobre apps legados; numa máquina Wayland o quarteto só
+  ocupava espaço e o `plasma-x11-session` nunca instalado virava WARN
+  permanente. O `doctor` perde o check `X11 session` (`/usr/bin/X`) pelo mesmo
+  motivo, e o guia documenta a instalação manual para quem ainda precisar.
+
 ## [2.1.4](https://github.com/eajdias/envctl/compare/v2.1.3...v2.1.4) (2026-11-01)
 
 ### Fixed
