@@ -40,6 +40,14 @@ envctl doctor
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
    - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
      como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
+    - `ConfigFile` em modo overwrite (`opencode.json`, `AGENTS.md`, `REFERENCE.md`, `mcp.json`,
+      `agents/*.md`, ...): o doctor compara em 3 vias - template vs ao vivo vs último deploy
+      registrado em `~/.envctl/deploys.json` (gravado a cada `run shell`, inclusive quando já
+      estava convergido). Ao vivo igual ao último deploy mas diferente do template = template
+      mudou: `WARN` (seguro reaplicar). Ao vivo diferente dos dois = customização do operador:
+      `INFO` (o provisioning não toca). Sem registro de deploy = `INFO` (tratado como
+      customização). `envctl doctor --diff` mostra o preview template-vs-ao-vivo por arquivo
+      (read-only).
 4. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 5. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.

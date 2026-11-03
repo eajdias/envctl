@@ -37,6 +37,14 @@ type DoctorAuditUseCase struct {
 	// specsProbe is a seam for the Windows hardware collector. Tests inject a
 	// fake readout; production leaves it nil and calls the real probe.
 	specsProbe func(ctx context.Context) (map[string]string, error)
+	// deploySnapshots is a seam for the last-deploy record index. Tests
+	// inject a fake map; production leaves it nil and reads
+	// ~/.envctl/deploys.json through DeploySnapshotStore.
+	deploySnapshots func() map[string]DeployRecord
+	// showDiff enables template-vs-live previews for divergent overwrite
+	// config files, collected into AuditReport.Diffs. Wired from the
+	// doctor --diff flag; off by default so the table stays compact.
+	showDiff bool
 }
 
 func NewDoctorAuditUseCase(
@@ -86,6 +94,16 @@ type AuditReport struct {
 	Passed      int
 	Warnings    int
 	Errors      int
+	// Diffs holds template-vs-live previews for divergent overwrite config
+	// files. Populated only when diff preview is enabled (SetShowDiff);
+	// empty otherwise, so the default report shape is unchanged.
+	Diffs []FileDiff
+}
+
+// SetShowDiff enables template-vs-live previews for divergent overwrite
+// config files. Wired from the doctor --diff flag.
+func (uc *DoctorAuditUseCase) SetShowDiff(show bool) {
+	uc.showDiff = show
 }
 
 func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error) {
@@ -124,7 +142,7 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	// 2. Audit Git Global Configurations
 	uc.auditGitConfigs(ctx, addDiag)
 	// 3. Audit Config Files
-	uc.auditConfigFiles(addDiag)
+	uc.auditConfigFiles(addDiag, report)
 	// 4. Audit OpenCode Global Rules (AGENTS.md)
 	uc.auditAGENTSRules(addDiag)
 	// 4.5. Audit OpenCode MCP file references: opencode fails hard at

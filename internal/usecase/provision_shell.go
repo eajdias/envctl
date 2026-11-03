@@ -27,6 +27,10 @@ type ProvisionShellUseCase struct {
 	gitManager   *git.GitManager
 	embeddedFS   fs.FS
 	logger       repository.Logger
+	// snapshotPath overrides the deploy-snapshot index location (default
+	// ~/.envctl/deploys.json). Tests point it at a temp dir so the real
+	// home is never touched; production leaves it empty.
+	snapshotPath string
 }
 
 func NewProvisionShellUseCase(
@@ -356,6 +360,23 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 				cf.Destination,
 				detail,
 			))
+
+			// Pin the deployed bytes for overwrite-mode files the operator
+			// is allowed to edit (AGENTS.md, opencode.json, ...): the
+			// doctor compares template vs live vs this record, so operator
+			// customization stops looking like template drift. Merge, seed
+			// and runtime-managed files have their own semantics and are
+			// never snapshotted. Recording on "Already up to date" too
+			// backfills machines deployed before this store existed.
+			if cf.Merge == entity.MergeOverwrite && !cf.SeedIfMissing && !cf.RuntimeManaged {
+				store := newDeploySnapshotStore(uc.fsManager)
+				if uc.snapshotPath != "" {
+					store.path = uc.snapshotPath
+				}
+				if err := store.Record(cf.Destination, content); err != nil {
+					uc.logger.Warn("Could not record deploy snapshot for '%s': %v", cf.Destination, err)
+				}
+			}
 		}
 	}
 
