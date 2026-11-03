@@ -152,6 +152,7 @@ func TestAuditOpenCodeConfigShapeReportsProblems(t *testing.T) {
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
 		&mockLogger{},
+		nil,
 	)
 
 	var diagnostics []entity.Diagnostic

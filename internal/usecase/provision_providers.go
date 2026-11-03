@@ -562,3 +562,59 @@ func sourceLabel(source string) string {
 		return "system package"
 	}
 }
+
+// defaultLatestProviderVersion resolves the newest version of a standalone
+// provider. OpenCode publishes its own update channel, separate from npm (which
+// lags the release line); the official installer itself reads this same URL.
+func defaultLatestProviderVersion(ctx context.Context, binary string) string {
+	switch binary {
+	case "opencode":
+		out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://opencode.ai/update/api/latest/cli/npm")
+		if err != nil {
+			return ""
+		}
+		return latestFromJSON(out)
+	default:
+		return ""
+	}
+}
+
+// providerRuntimePrefix marks manifest ids that pin a runtime version rather
+// than naming a tool. The providers phase owns those (node@24.19.0), and
+// "mise install node@24.19.0@latest" is not a thing you can run.
+func isProviderRuntime(id string) bool {
+	return strings.Contains(id, "@")
+}
+
+// archiveShadowedUserCopies archives every active non-system copy of binary
+// while pacman owns it, re-probing version and source after each archive so
+// the caller decides on the distro-owned binary. Phase 0 and the Linux
+// bootstrap share this loop so both converge a stale user-local copy the
+// same way; the surrounding flows keep their own diagnostics and log
+// prefixes, which is why the wording arrives as parameters. The returned
+// ok is false when archival failed and the caller must stop.
+func archiveShadowedUserCopies(
+	ctx context.Context,
+	log func(format string, args ...any),
+	name, binary, locateHint, archiveHint string,
+	pacmanOwns bool,
+	installed, source string,
+	warn func(target, details, fixHint string),
+) (string, string, bool) {
+	for pacmanOwns && source != sourceSystem {
+		path, err := resolveOnToolchainPath(binary)
+		if err != nil {
+			warn(name, fmt.Sprintf("could not locate the user-local binary to archive: %v", err), locateHint)
+			return installed, source, false
+		}
+		backup, err := filesystem.ArchivePath(path)
+		if err != nil {
+			warn(name, fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err), archiveHint)
+			return installed, source, false
+		}
+		log("archived user-local %s at %s; pacman remains authoritative", binary, backup)
+		installed = installedVersion(ctx, binary)
+		source = installSource(binary)
+	}
+	return installed, source, true
+}

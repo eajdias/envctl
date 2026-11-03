@@ -101,3 +101,12 @@ go build -ldflags "-s -w -X main.Version=v1.0.13" -o envctl.exe ./cmd/envctl
 make build
 make doctor
 ```
+
+## 🚀 4. Cortar uma release (mantenedor)
+
+Ordem obrigatória — o pipeline valida antes de taguear:
+
+1. Mova as entradas de `[Unreleased]` para a seção `## [X.Y.Z]` no `CHANGELOG.md`
+   (PR próprio, mergeado antes de tudo — o tag precisa conter a seção).
+2. Dispare o Release Pipeline (Actions → `version: vX.Y.Z`); o workflow aborta
+   sem tag se a seção não existir.

@@ -198,6 +198,7 @@ func TestAuditCommandCodeAgentsReportsSchemaProblems(t *testing.T) {
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
 		&mockLogger{},
+		nil,
 	)
 
 	var diagnostics []entity.Diagnostic
@@ -242,6 +243,7 @@ func TestAuditCommandCodeAgentsCleanTreeIsOK(t *testing.T) {
 		nil,
 		map[entity.PackageType]repository.PackageManager{},
 		&mockLogger{},
+		nil,
 	)
 
 	var diagnostics []entity.Diagnostic

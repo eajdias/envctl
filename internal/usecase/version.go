@@ -3,21 +3,20 @@
 // Every version string this codebase compares, prints or probes flows through
 // here: parsing (parseSemver), normalization (normalizeVersion,
 // firstVersionToken), liveness probes (installedVersion, toolVersion,
-// installSource), latest-resolution (npmLatest, defaultLatestProviderVersion,
-// uvToolVersionOf, goLatestOf, latestFromJSON) and policy
-// (openCodeWithinMajorUpdateNeeded, versionMajorAtLeast, fzfHasWalker,
-// isProviderRuntime, printableVersion).
+// installSource), latest-resolution (npmLatest, uvToolVersionOf, goLatestOf,
+// latestFromJSON) and policy (openCodeWithinMajorUpdateNeeded,
+// versionMajorAtLeast, printableVersion). Provider bootstrap helpers
+// (defaultLatestProviderVersion, isProviderRuntime, archiveShadowedUserCopies)
+// live in provision_providers.go and fzf helpers (fzfSupportsWalker,
+// fzfHasWalker) in provision_bootstrap.go, next to their only callers.
 package usecase
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/eajdias/envctl/internal/infra/filesystem"
 )
 
 // installedVersion runs `<binary> --version` and reduces the output to the first
@@ -85,22 +84,6 @@ func npmLatest(ctx context.Context, pkg string) string {
 	// Deliberately dependency-free: the registry answers with a JSON object whose
 	// "version" field is all this needs.
 	return latestFromJSON(out)
-}
-
-// defaultLatestProviderVersion resolves the newest version of a standalone
-// provider. OpenCode publishes its own update channel, separate from npm (which
-// lags the release line); the official installer itself reads this same URL.
-func defaultLatestProviderVersion(ctx context.Context, binary string) string {
-	switch binary {
-	case "opencode":
-		out, err := runWithToolchain(ctx, "curl", "-fsSL", "https://opencode.ai/update/api/latest/cli/npm")
-		if err != nil {
-			return ""
-		}
-		return latestFromJSON(out)
-	default:
-		return ""
-	}
 }
 
 // latestFromJSON extracts the "version" field from a minimal registry-style
@@ -249,70 +232,4 @@ func openCodeWithinMajorUpdateNeeded(installed, latest string, requiredMajor int
 		return iMin < lMin
 	}
 	return iPat < lPat
-}
-
-// providerRuntimePrefix marks manifest ids that pin a runtime version rather
-// than naming a tool. The providers phase owns those (node@24.19.0), and
-// "mise install node@24.19.0@latest" is not a thing you can run.
-func isProviderRuntime(id string) bool {
-	return strings.Contains(id, "@")
-}
-
-// fzfSupportsWalker reports whether the installed fzf provides the built-in
-// directory walker (0.47+).
-func (uc *ProvisionBootstrapUseCase) fzfSupportsWalker(ctx context.Context) bool {
-	out, err := uc.runShellStdout(ctx, `command -v fzf >/dev/null 2>&1 && fzf --version 2>/dev/null | awk '{print $1}'`)
-	if err != nil {
-		return false
-	}
-	return fzfHasWalker(out)
-}
-
-// fzfHasWalker reports whether a "MAJOR.MINOR[.PATCH]" version string is at
-// least 0.47, the release that replaced the `find` fallback with fzf's own
-// directory walker.
-func fzfHasWalker(version string) bool {
-	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
-	if len(parts) < 2 {
-		return false
-	}
-	major, majorErr := strconv.Atoi(parts[0])
-	minor, minorErr := strconv.Atoi(parts[1])
-	if majorErr != nil || minorErr != nil {
-		return false
-	}
-	return major > 0 || minor >= 47
-}
-
-// archiveShadowedUserCopies archives every active non-system copy of binary
-// while pacman owns it, re-probing version and source after each archive so
-// the caller decides on the distro-owned binary. Phase 0 and the Linux
-// bootstrap share this loop so both converge a stale user-local copy the
-// same way; the surrounding flows keep their own diagnostics and log
-// prefixes, which is why the wording arrives as parameters. The returned
-// ok is false when archival failed and the caller must stop.
-func archiveShadowedUserCopies(
-	ctx context.Context,
-	log func(format string, args ...any),
-	name, binary, locateHint, archiveHint string,
-	pacmanOwns bool,
-	installed, source string,
-	warn func(target, details, fixHint string),
-) (string, string, bool) {
-	for pacmanOwns && source != sourceSystem {
-		path, err := resolveOnToolchainPath(binary)
-		if err != nil {
-			warn(name, fmt.Sprintf("could not locate the user-local binary to archive: %v", err), locateHint)
-			return installed, source, false
-		}
-		backup, err := filesystem.ArchivePath(path)
-		if err != nil {
-			warn(name, fmt.Sprintf("could not archive user-local opencode at %s: %v", path, err), archiveHint)
-			return installed, source, false
-		}
-		log("archived user-local %s at %s; pacman remains authoritative", binary, backup)
-		installed = installedVersion(ctx, binary)
-		source = installSource(binary)
-	}
-	return installed, source, true
 }

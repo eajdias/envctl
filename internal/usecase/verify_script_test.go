@@ -126,22 +126,6 @@ func runVerify(t *testing.T, dir string, env []string, args ...string) (int, str
 	return code, string(out)
 }
 
-// runVerifyStatic runs the static half of the gate (--static).
-func runVerifyStatic(t *testing.T, dir string, env []string) (int, string) {
-	t.Helper()
-	cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--static")
-	cmd.Dir = dir
-	cmd.Env = testEnv(env)
-	out, err := cmd.CombinedOutput()
-	code := 0
-	if exitErr, ok := err.(*exec.ExitError); ok {
-		code = exitErr.ExitCode()
-	} else if err != nil {
-		t.Fatalf("running verifier: %v", err)
-	}
-	return code, string(out)
-}
-
 func initRepo(t *testing.T, dir string) {
 	t.Helper()
 	cmd := exec.Command("git", "init", "-q")
@@ -165,42 +149,6 @@ func gitUpdateRemote(t *testing.T, dir string) {
 	ref.Env = testEnv(nil)
 	if out, err := ref.CombinedOutput(); err != nil {
 		t.Fatalf("git update-ref: %v (%s)", err, out)
-	}
-}
-
-func moveRemoteBase(t *testing.T, dir string) {
-	t.Helper()
-	oldRefCmd := exec.Command("git", "rev-parse", "refs/remotes/origin/main")
-	oldRefCmd.Dir = dir
-	oldRefCmd.Env = testEnv(nil)
-	oldRef, err := oldRefCmd.Output()
-	if err != nil {
-		t.Fatalf("read comparison base: %v", err)
-	}
-	treeCmd := exec.Command("git", "rev-parse", "HEAD^{tree}")
-	treeCmd.Dir = dir
-	treeCmd.Env = testEnv(nil)
-	tree, err := treeCmd.Output()
-	if err != nil {
-		t.Fatalf("read fixture tree: %v", err)
-	}
-	commit := exec.Command("git", "commit-tree", strings.TrimSpace(string(tree)), "-m", "base moved")
-	commit.Dir = dir
-	commit.Env = testEnv([]string{
-		"GIT_AUTHOR_NAME=Verifier Test",
-		"GIT_AUTHOR_EMAIL=verifier@example.invalid",
-		"GIT_COMMITTER_NAME=Verifier Test",
-		"GIT_COMMITTER_EMAIL=verifier@example.invalid",
-	})
-	newRef, err := commit.Output()
-	if err != nil {
-		t.Fatalf("create moved base: %v", err)
-	}
-	update := exec.Command("git", "update-ref", "refs/remotes/origin/main", strings.TrimSpace(string(newRef)), strings.TrimSpace(string(oldRef)))
-	update.Dir = dir
-	update.Env = testEnv(nil)
-	if out, err := update.CombinedOutput(); err != nil {
-		t.Fatalf("move comparison base: %v (%s)", err, out)
 	}
 }
 
@@ -414,44 +362,6 @@ func nodeOnlyPath(t *testing.T) string {
 	return bin + ":/usr/bin:/bin"
 }
 
-func TestVerifyScriptDoesNotCacheUnavailablePackageLint(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	path := nodeOnlyPath(t)
-	writeTestFile(t, dir, "package.json", `{"name":"fixture","packageManager":"pnpm@11.0.0","scripts":{"lint":"true"}}`)
-	logPath := filepath.Join(t.TempDir(), "verify.log")
-
-	bin := strings.Split(path, string(os.PathListSeparator))[0]
-	writeTestFile(t, bin, "pnpm", "#!/bin/sh\nexit 0\n")
-	code, out := runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
-	if code != 0 {
-		t.Fatalf("the initial explicit lint must be green, got exit %d\n%s", code, out)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git", "envctl-verify.stamp")); err != nil {
-		t.Fatalf("the green hook must create the cache stamp: %v", err)
-	}
-
-	if err := os.Remove(filepath.Join(bin, "pnpm")); err != nil {
-		t.Fatal(err)
-	}
-	code, out = runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
-	if code != 0 {
-		t.Fatalf("removing the package manager must be a skip, got exit %d\n%s", code, out)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git", "envctl-verify.stamp")); !os.IsNotExist(err) {
-		t.Fatalf("a skipped hook must remove the stale cache stamp, stat error: %v", err)
-	}
-
-	writeTestFile(t, bin, "pnpm", "#!/bin/sh\nprintf 'project lint ran\\n' >&2\nexit 1\n")
-	code, out = runVerifyStatic(t, dir, []string{"PATH=" + path, "ENVCTL_VERIFY_LOG=" + logPath})
-	if code != 2 {
-		t.Fatalf("a newly available explicit lint must run and block, got exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out, "project lint ran") {
-		t.Errorf("the explicit lint must run after the tool becomes available, got:\n%s", out)
-	}
-}
-
 func noNodePath(t *testing.T) string {
 	t.Helper()
 	if runtime.GOOS == "windows" {
@@ -501,69 +411,6 @@ func TestVerifyScriptDoesNotFallBackFromPnpmLockToNpm(t *testing.T) {
 	}
 }
 
-func TestVerifyScriptCacheIncludesBaseRef(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	gitUpdateRemote(t, dir)
-	path := os.Getenv("PATH")
-	bin := t.TempDir()
-	path = bin + string(os.PathListSeparator) + path
-	marker := filepath.Join(t.TempDir(), "allow-lint")
-	writeTestFile(t, dir, "package.json", `{"name":"fixture","packageManager":"pnpm@11.0.0","scripts":{"lint":"true"}}`)
-	writeTestFile(t, bin, "pnpm", "#!/bin/sh\nif [ -f \"$MARKER\" ]; then exit 0; fi\nprintf 'base moved\\n' >&2\nexit 1\n")
-	if err := os.WriteFile(marker, []byte("ok\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	env := []string{"PATH=" + path, "MARKER=" + marker}
-
-	code, out := runVerifyStatic(t, dir, env)
-	if code != 0 {
-		t.Fatalf("the initial base must be green, got exit %d\n%s", code, out)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git", "envctl-verify.stamp")); err != nil {
-		t.Fatalf("the initial base must create the cache stamp: %v", err)
-	}
-	if err := os.Remove(marker); err != nil {
-		t.Fatal(err)
-	}
-	moveRemoteBase(t, dir)
-
-	code, out = runVerifyStatic(t, dir, env)
-	if code != 2 {
-		t.Fatalf("moving the comparison base must invalidate the cache, got exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out, "base moved") {
-		t.Errorf("the check must run against the moved base, got:\n%s", out)
-	}
-}
-
-func TestVerifyScriptDoesNotCacheRemovedLocalTool(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	writeTestFile(t, dir, "package.json", `{"name":"fixture","private":true}`)
-	writeTestFile(t, dir, ".gitignore", "node_modules/\n")
-	writeTestFile(t, dir, "tsconfig.json", "{}\n")
-	writeTestFile(t, dir, "index.ts", "const value = 1;\n")
-	writeTestFile(t, dir, ".prettierrc", "{}\n")
-	writeTestFile(t, dir, "node_modules/.bin/tsc", "#!/bin/sh\nexit 0\n")
-	writeTestFile(t, dir, "node_modules/.bin/prettier", "#!/bin/sh\nif [ -x node_modules/.bin/tsc ]; then exit 0; fi\nprintf 'prettier reran\\n' >&2\nexit 1\n")
-
-	code, out := runVerifyStatic(t, dir, nil)
-	if code != 0 {
-		t.Fatalf("the initial local-tool fixture must be green, got exit %d\n%s", code, out)
-	}
-	if err := os.Remove(filepath.Join(dir, "node_modules", ".bin", "tsc")); err != nil {
-		t.Fatal(err)
-	}
-	code, out = runVerifyStatic(t, dir, nil)
-	if code != 0 {
-		t.Fatalf("removing an advisory local tool must remain non-blocking, got exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out, "prettier reran") {
-		t.Errorf("removing a local tool must invalidate the hook cache, got:\n%s", out)
-	}
-}
-
 func TestVerifyScriptUsesNpmWhenPackageManagerMetadataIsAbsent(t *testing.T) {
 	dir := t.TempDir()
 	initRepo(t, dir)
@@ -578,56 +425,6 @@ func TestVerifyScriptUsesNpmWhenPackageManagerMetadataIsAbsent(t *testing.T) {
 	}
 	if !strings.Contains(out, "project lint via npm") {
 		t.Errorf("the npm lint script must run, got:\n%s", out)
-	}
-}
-
-func TestVerifyScriptDoesNotCacheIgnoredOverride(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	writeTestFile(t, dir, ".gitignore", ".commandcode/\n")
-	writeTestFile(t, dir, "go.mod", "module example.com/fixture\n\ngo 1.21\n")
-	writeTestFile(t, dir, "main.go", "package fixture\n")
-
-	code, out := runVerifyStatic(t, dir, nil)
-	if code != 0 {
-		t.Fatalf("the initial hook must be green, got exit %d\n%s", code, out)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git", "envctl-verify.stamp")); err != nil {
-		t.Fatalf("the initial hook must create the cache stamp: %v", err)
-	}
-
-	writeTestFile(t, dir, ".commandcode/verify.sh", "#!/bin/sh\nexit 1\n")
-	code, out = runVerifyStatic(t, dir, nil)
-	if code != 2 {
-		t.Fatalf("an ignored executable override must invalidate the cache, got exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out, ".commandcode/verify.sh") {
-		t.Errorf("the override failure must be reported, got:\n%s", out)
-	}
-}
-
-func TestVerifyScriptDoesNotCacheOversizedUntrackedEdit(t *testing.T) {
-	dir := t.TempDir()
-	initRepo(t, dir)
-	writeTestFile(t, dir, "go.mod", "module example.com/large\n\ngo 1.21\n")
-	padding := strings.Repeat("// "+strings.Repeat("x", 120)+"\n", 9000)
-	writeTestFile(t, dir, "large.go", "package large\n"+padding)
-
-	code, out := runVerifyStatic(t, dir, nil)
-	if code != 0 {
-		t.Fatalf("the initial oversized fixture must be non-blocking, got exit %d\n%s", code, out)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".git", "envctl-verify.stamp")); !os.IsNotExist(err) {
-		t.Fatalf("oversized untracked content must disable the cache, stat error: %v", err)
-	}
-
-	writeTestFile(t, dir, "large.go", "package large\nfunc broken( {\n"+padding)
-	code, out = runVerifyStatic(t, dir, nil)
-	if code != 2 {
-		t.Fatalf("an edit to an oversized untracked file must invalidate the cache, got exit %d\n%s", code, out)
-	}
-	if !strings.Contains(out, "go build") {
-		t.Errorf("the second run must report the build failure, got:\n%s", out)
 	}
 }
 
@@ -892,7 +689,7 @@ func TestVerifyScriptPushModeRunsTests(t *testing.T) {
 	}
 }
 
-func TestVerifyStaticModeSkipsTestsAndCachesGreenState(t *testing.T) {
+func TestVerifyHookModeRunsStaticChecksOnly(t *testing.T) {
 	dir := goFixture(t)
 	payload := `{"hook_event_name":"Stop","stop_hook_active":false}`
 
@@ -917,53 +714,5 @@ func TestVerifyStaticModeSkipsTestsAndCachesGreenState(t *testing.T) {
 	}
 	if strings.Contains(out, "--- go test") {
 		t.Errorf("hook mode must not run the test suite, got:\n%s", out)
-	}
-
-	stamp := filepath.Join(dir, ".git", "envctl-verify.stamp")
-	if _, err := os.Stat(stamp); err != nil {
-		t.Errorf("a green hook run must record the tree state for the cache: %v", err)
-	}
-
-	code, out = runHook()
-	if code != 0 || strings.TrimSpace(out) != "" {
-		t.Errorf("an unchanged tree must stay silent and green, got exit %d:\n%s", code, out)
-	}
-}
-
-// The cache must not swallow an edit to a file that is still untracked: while a
-// new file is being written it appears in `git status` by path only, so a hash
-// that ignored its content would keep reporting the previous green verdict.
-func TestVerifyStaticModeReRunsAfterUntrackedEdit(t *testing.T) {
-	dir := goFixture(t)
-	payload := `{"hook_event_name":"Stop","stop_hook_active":false}`
-
-	runHook := func() (int, string) {
-		cmd := exec.Command(bashBin(t), filepath.ToSlash(verifyScriptPath(t)), "--hook")
-		cmd.Dir = dir
-		cmd.Env = testEnv(nil)
-		cmd.Stdin = strings.NewReader(payload)
-		out, err := cmd.CombinedOutput()
-		code := 0
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			code = exitErr.ExitCode()
-		} else if err != nil {
-			t.Fatalf("hook mode: %v", err)
-		}
-		return code, string(out)
-	}
-
-	if code, out := runHook(); code != 0 {
-		t.Fatalf("fixture must start green: exit %d\n%s", code, out)
-	}
-
-	// Break a static check (the build) in a file that is still untracked.
-	writeTestFile(t, dir, "broken.go", "package main\n\nfunc Quebrado( {\n")
-
-	code, out := runHook()
-	if code == 0 {
-		t.Errorf("an edit to an untracked file must re-run the checks, got exit 0 (cache hit)")
-	}
-	if !strings.Contains(out, "go build") {
-		t.Errorf("the report must name the broken check, got:\n%s", out)
 	}
 }

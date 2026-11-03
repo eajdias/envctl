@@ -548,28 +548,3 @@ func (m *ManifestRepository) ListPerformanceProfiles() ([]entity.PerformanceProf
 	}
 	return metas, nil
 }
-
-func saveManifestFile(localDir, filename string, manifest any) error {
-	data, err := yaml.Marshal(manifest)
-	if err != nil {
-		return err
-	}
-	dest := filepath.Join("manifests", filename)
-	if localDir != "" {
-		dest = filepath.Join(localDir, "manifests", filename)
-	}
-	//nolint:gosec // G301: manifests are repo content (shared, not secrets).
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-		return fmt.Errorf("failed to create manifest dir for %s: %w", dest, err)
-	}
-	//nolint:gosec // G306: manifests are repo content (world-readable by design), never secrets.
-	return os.WriteFile(dest, data, 0644)
-}
-
-func (m *ManifestRepository) SaveSkills(skills []entity.Skill) error {
-	return saveManifestFile(m.localDir, "skills.yaml", skillsManifest{Skills: skills})
-}
-
-func (m *ManifestRepository) SaveGitConfigs(configs []entity.GitConfig) error {
-	return saveManifestFile(m.localDir, "git.yaml", gitManifest{Configs: configs})
-}

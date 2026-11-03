@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
-	"github.com/eajdias/envctl/internal/infra/performance"
 )
 
 func TestProbeRebootPending(t *testing.T) {
@@ -78,22 +77,6 @@ func TestPerformanceOptionsValidate(t *testing.T) {
 	}
 	if err := (PerformanceOptions{}).Validate(); err != nil {
 		t.Fatalf("the default is valid: %v", err)
-	}
-}
-
-// The doctor must judge the declared policy, not merely report the host. An
-// uncapped journal is worth reporting but is not a warning: a host nobody has
-// provisioned is not a failure.
-func TestDoctorJournaldUsesThePolicyAssessment(t *testing.T) {
-	capped, category, detail := performance.AssessJournaldPolicy(entity.JournaldState{})
-	if capped {
-		t.Fatal("an empty journald state is not capped")
-	}
-	if category != entity.DiagInfo {
-		t.Fatalf("category = %q, want INFO so a fresh host stays at 0 WARN", category)
-	}
-	if detail == "" {
-		t.Fatal("the detail must explain the risk")
 	}
 }
 

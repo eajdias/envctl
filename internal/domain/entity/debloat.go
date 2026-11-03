@@ -125,18 +125,6 @@ func ResolveRemoval(removal PackageRemoval, guards map[string]bool, installed bo
 	}
 }
 
-// AssessRemovalState classifies a package after a completed run.
-func AssessRemovalState(installed, guarded bool, guardName string) (DiagnosticStatus, string) {
-	switch {
-	case !installed:
-		return DiagOK, "absent as declared"
-	case guarded:
-		return DiagInfo, fmt.Sprintf("still installed because %s is present; the removal is guarded", guardName)
-	default:
-		return DiagError, "still installed after a completed run; the declared policy did not hold"
-	}
-}
-
 // renderNeedrestartConfig forces Ubuntu's needrestart into list-only mode.
 //
 // The package is installed by default on Ubuntu Server (3.11 was measured on
