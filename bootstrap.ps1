@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Bootstrap installer and runner for envctl (Windows 11 PRO).
 .DESCRIPTION

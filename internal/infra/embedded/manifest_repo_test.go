@@ -255,8 +255,6 @@ func TestLoadManifestsFromDiskOrEmbed(t *testing.T) {
 //     cachyos-ananicy-rules. Without it the guide references a missing binary.
 //   - cachyos-ananicy-rules owns /etc/ananicy.d/*; the ananicy-cpp daemon ships
 //     without a single rule, so `systemctl is-active` passes on a rulesless host.
-//   - xf86-video-amdgpu is the X.Org driver that the declared Plasma X11
-//     session trio needs; nothing else pulls it.
 //   - retroarch-assets-ozone/xmb are the RetroArch menu assets.
 //   - protontricks is the per-game Proton/Wine tuning tool.
 //
@@ -269,7 +267,6 @@ var gamingParityPackages = []string{
 	"protontricks",
 	"retroarch-assets-ozone",
 	"retroarch-assets-xmb",
-	"xf86-video-amdgpu",
 }
 
 func TestGamingManifestDeclaresRuntimeParity(t *testing.T) {

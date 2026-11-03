@@ -129,20 +129,14 @@ func (uc *DoctorAuditUseCase) auditLocalBinPATH(addDiag func(entity.Diagnostic))
 				onPath = true
 			}
 		} else {
-			for _, rc := range []string{filepath.Join(os.Getenv("HOME"), ".profile"), filepath.Join(os.Getenv("HOME"), ".bashrc")} {
-				//nolint:gosec // G703: rc paths are fixed $HOME/.profile and $HOME/.bashrc, not user input.
-				if data, err := os.ReadFile(rc); err == nil && strings.Contains(string(data), localBin) {
-					onPath = true
-					break
-				}
-			}
+			// The audit reads every managed startup file (fish included) with the
+			// same line-aware parser the writer uses, then falls back to the live
+			// process PATH. The previous substring match over ~/.profile and
+			// ~/.bashrc missed config.fish entirely (the login shell on CachyOS)
+			// and counted a path mentioned in a comment as a real entry.
+			onPath = uc.envManager.PathEntryPersisted(localBin)
 			if !onPath {
-				for _, seg := range strings.Split(os.Getenv("PATH"), string(os.PathListSeparator)) {
-					if seg == localBin {
-						onPath = true
-						break
-					}
-				}
+				onPath = pathListsDir(os.Getenv("PATH"), byte(os.PathListSeparator), localBin, false)
 			}
 		}
 		if onPath {

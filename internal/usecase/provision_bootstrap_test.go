@@ -19,6 +19,12 @@ func TestPathStepPersistsEachDirOnce(t *testing.T) {
 	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// Keep the test on the POSIX startup files it asserts. With fish installed
+	// the manager legitimately writes config.fish too, so the second run
+	// reports a change and the assertion becomes machine-dependent. Fish
+	// coverage lives in the environment package
+	// (TestEnsurePathEntryAddsFishPathOnce, TestEnsurePathEntryRecognizesFishAddPath).
+	t.Setenv("PATH", t.TempDir())
 	for _, name := range []string{".bashrc", ".profile"} {
 		if err := os.WriteFile(filepath.Join(home, name), nil, 0600); err != nil {
 			t.Fatalf("WriteFile(%s): %v", name, err)

@@ -34,6 +34,9 @@ type DoctorAuditUseCase struct {
 	// returns its trimmed output. A function so the freshness audit is testable
 	// without a real checkout; production wires the git-backed default.
 	gitDescribe func(ctx context.Context, repoDir string) (string, error)
+	// specsProbe is a seam for the Windows hardware collector. Tests inject a
+	// fake readout; production leaves it nil and calls the real probe.
+	specsProbe func(ctx context.Context) (map[string]string, error)
 }
 
 func NewDoctorAuditUseCase(
@@ -161,5 +164,8 @@ func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error)
 	uc.auditTempAndScratch(addDiag)
 	// 13. Audit CommandCode Agent Health
 	uc.auditCommandCodeHealth(addDiag)
+	// 14. Audit System Specs (Windows-only hardware inventory; informational,
+	// never a warning: absence is context). Other platforms are silent.
+	uc.auditSystemSpecs(ctx, addDiag)
 	return report, nil
 }

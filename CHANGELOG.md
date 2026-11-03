@@ -13,6 +13,64 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Added
+
+- **hardware/specs:** o `doctor` passa a coletar o inventário de hardware do host
+  (Windows) — sistema (hostname, fabricante/modelo, BIOS, OS, uptime, timezone),
+  CPU, RAM (total/livre + módulos físicos), discos com a física mapeada
+  (SSD/NVMe/HD), GPU, rede + IP, USB, ativação do Windows e antivírus. Tudo
+  `INFO` (`System: Hardware`) — "inventário sem julgamento": ausência é contexto
+  e falha do probe é `INFO`, nunca `WARN`. O probe é fail-closed em protocolo
+  `SPECS|||field|||value` (mesma regra do startup probe: campo desconhecido,
+  duplicado ou ausente é erro, nunca "absente"). Coleta absorvida do utilitário
+  legado `windows_util` (`coletas/specs.ps1`), limpa dos blocos de negócio; teste
+  vivo opt-in via `SPECS_LIVE_PROBE=1`.
+
+## [2.1.5](https://github.com/eajdias/envctl/compare/v2.1.4...v2.1.5) (2026-11-01)
+
+### Removed
+
+- **gaming:** o stack deixa de provisionar a sessão X11 (`plasma-x11-session`,
+  `xorg-server`, `xf86-input-libinput`, `xf86-video-amdgpu`). O ambiente-alvo é
+  Wayland e o XWayland cobre apps legados; numa máquina Wayland o quarteto só
+  ocupava espaço e o `plasma-x11-session` nunca instalado virava WARN
+  permanente. O `doctor` perde o check `X11 session` (`/usr/bin/X`) pelo mesmo
+  motivo, e o guia documenta a instalação manual para quem ainda precisar.
+
+## [2.1.4](https://github.com/eajdias/envctl/compare/v2.1.3...v2.1.4) (2026-11-01)
+
+### Fixed
+
+- **shell/PATH:** persistência e auditoria de entradas de `PATH` passaram a ser
+  line-aware. O guard era `strings.Contains` no arquivo inteiro, o que (a)
+  duplicava a entrada quando o startup file já a declarava na forma portável
+  (`$HOME/...`, `${HOME}/...`, `~/...` — o formato que todo instalador escreve) e
+  (b) pulava a escrita, reportando "already present", quando o caminho aparecia
+  num comentário, em outra variável (`NODE_PATH`) ou num dir irmão de mesmo
+  prefixo. O `doctor` agora audita `.profile`, `.bashrc` **e** fish
+  (`fish_add_path` incluído), em vez de procurar substring só nos dois primeiros.
+
+## [2.1.3](https://github.com/eajdias/envctl/compare/v2.1.2...v2.1.3) (2026-10-29)
+
+### Fixed
+
+- **providers:** o update do OpenCode no Windows não falha mais quando há
+  sessão antiga rodando — o instalador PowerShell para o processo `opencode`
+  antes de extrair e retria a troca do binário (antes, `Expand-Archive -Force`
+  sobre o `.exe` travado abortava com acesso negado). O processo morto é o
+  binário antigo sendo substituído; sessões novas sobem na versão nova.
+- **bootstrap:** removido o BOM UTF-8 do `bootstrap.ps1` — `irm ... | iex`
+  falhava no parse (`The 'from' keyword is not supported...`); travado por
+  teste de regressão.
+
+## [2.1.2](https://github.com/eajdias/envctl/compare/v2.1.1...v2.1.2) (2026-10-15)
+
+### Fixed
+
+- **git:** removido `core.hooksPath` global do manifesto — o v2 não instala hooks
+  e o wiring legado sobrepunha o `.git/hooks` de todos os repositórios da
+  máquina, podendo barrar pushes com o verifier em projetos alheios (#117).
+
 ## [2.1.1](https://github.com/eajdias/envctl/compare/v2.1.0...v2.1.1) (2026-10-10)
 
 ### Changed

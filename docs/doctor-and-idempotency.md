@@ -28,6 +28,7 @@ envctl doctor
    - `NODE_PATH` resolvido e validado contra módulos globais.
    - `ENVCTL_TEMP` apontando para a pasta de scratch padrão (`C:\temp` no Windows, `/temp` no Linux).
    - `Envctl / PATH`: o próprio `envctl` resolvível no `PATH` (bootstrap persiste o install dir; senão `WARN`).
+   - `PATH (~/.local/bin)`: o dir de helpers provisionados (`pw`, `envctl-verify`) declarado no startup file de **cada** shell gerenciado (`.profile`, `.bashrc` e fish). A detecção é line-aware: só conta declaração de `PATH` (`export PATH=...`, `set -gx PATH ...`, `fish_add_path`), em qualquer grafia portável (`$HOME`, `${HOME}`, `~`, absoluto) — menção em comentário, em outra variável (`NODE_PATH`) ou em dir irmão de mesmo prefixo não vale. O writer (`EnsurePathEntry`) usa o mesmo parser, então uma linha escrita por instalador de terceiro na forma `$HOME` não vira duplicata (o guard antigo era `strings.Contains` no arquivo inteiro e errava os dois lados).
    - `PATH (mise shims)`: o dir de shims do mise (`%LOCALAPPDATA%\mise\shims` no Windows, `~/.local/share/mise/shims` no POSIX) no `PATH` do usuário — sem ele nenhum binário `type: mise` resolve por nome bare (`run 'envctl run shell'`). **Limite conhecido (2026-10-09):** o background service do opencode (`opencode serve --service`) congela o env no momento em que sobe — colocar os shims no PATH **não** revive MCP local com `failed: Connection closed ... não é reconhecido como comando interno` enquanto o service for anterior à mudança (sintoma igual ao de shim ausente, mas binário saudável via path absoluto). Fix: `opencode service restart` a partir de uma shell com os shims no PATH (config também não é hot-reload — o restart recarrega os dois).
    - `py launcher default` (só Windows): avisa quando o default do launcher `py` é um build free-threaded (`3.14t` — site-packages compartilhado, imports com C-extension crasham com metadata pip verde); fix com `%LOCALAPPDATA%\py.ini` (`[defaults] python=3.14`).
    - `Envctl / Binary freshness`: quando o binário é executado a partir de um checkout do repo,
@@ -73,6 +74,10 @@ envctl doctor
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
 8. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` presente e executável (ver [verification.md](./verification.md)); nenhum resquício do wiring global legado (hooks de `~/.config/git/hooks` — o envctl nunca mais instala hooks).
+9. **Inventário de Hardware (`Hardware`, só Windows, read-only)**:
+   - Coleta via PowerShell/CIM (Win32_* + Storage/Network cmdlets): sistema (hostname, fabricante/modelo, BIOS, OS, uptime, timezone, usuário), CPU, RAM (total/livre + módulos), discos lógicos mapeados para a física (tipo SSD/NVMe/HD, modelo), GPU, rede (adapters Up + IP), USB, ativação do Windows e antivírus.
+   - Todo resultado é `INFO` — "inventário sem julgamento" (absorvido do utilitário legado `windows_util`): ausência é contexto, e falha do probe (`specs-probe`) também é `INFO`, nunca `WARN`.
+   - Parse fail-closed em protocolo `SPECS|||field|||value` (mesma regra do startup probe: campo desconhecido, duplicado ou ausente é erro). Teste vivo opt-in: `SPECS_LIVE_PROBE=1`.
 
 ---
 

@@ -8,7 +8,8 @@
 O `envctl` provisiona **tudo** do stack de gaming de forma idempotente num PC
 formatado:
 
-- **Pacotes** (`gaming.yaml`): Steam, emuladores, Proton, LACT, scx, quarteto X11.
+- **Pacotes** (`gaming.yaml`): Steam, emuladores, Proton, LACT, scx — stack
+  Wayland (XWayland cobre apps legados; nenhum pacote X11 é provisionado).
 - **Presets de usuário** (`gaming.conf`, `MangoHud.conf`, configs dos 9
   emuladores em `configs/emulators/`): seed só quando o arquivo não existe —
   ajustes manuais seus vencem.
@@ -61,7 +62,7 @@ x86-64-v2 + Polaris). As limitações deste hardware são o teto honesto do stac
 4. Scheduler: `/etc/scx_loader/config.toml` com `default_sched="scx_bpfland"` + `default_mode="Auto"`; `game-performance` troca p/ perfil gaming sozinho. Rollback: `systemctl disable --now scx_loader`.
 5. GPU AMD: `lactd` ativo + fan curve conservadora em `/etc/lact/config.yaml` (exemplo real Polaris: `40:0.2, 55:0.35, 65:0.55, 75:0.8, 85:1.0`, 500ms, `performance_level: auto` — o ID da GPU varia por máquina, nunca copie às cegas); nunca clock/voltagem sem testar estabilidade jogo a jogo. `MESA_SHADER_CACHE_MAX_SIZE=12G` + `RADV_PERFTEST=gpl` em `~/.config/environment.d/gaming.conf` (provisionado pelo envctl); manter RADV, nunca AMDVLK.
 6. MangoHud preset (`~/.config/MangoHud/MangoHud.conf`, provisionado pelo envctl): `fps,frametime,cpu/gpu/vram`, toggle Shift+F12, `fps_metrics=avg,0.01` (AVG + 1% low). Launch padrão Steam: `game-performance mangohud --dlsym %command%` (`LD_PRELOAD=""` se overlay/recorder travar).
-7. KDE: `[Compositing]` no kwinrc com `AllowBlockCompositing=true` + `UnredirectFullscreen=true` (fullscreen bypassa o compositor); `plasma-x11-session` NÃO puxa o `xorg-server` — instalar o quarteto (`plasma-x11-session`, `xorg-server`, `xf86-input-libinput`, `xf86-video-amdgpu`) junto ou a sessão X11 nem sobe (`/usr/bin/X` ausente) e, sem o driver AMD, cai em modesetting genérico.
+7. KDE: `[Compositing]` no kwinrc com `AllowBlockCompositing=true` + `UnredirectFullscreen=true` (fullscreen bypassa o compositor). A sessão é **Wayland**: o envctl não provisiona a sessão X11 (`plasma-x11-session`, `xorg-server`, `xf86-input-libinput`, `xf86-video-amdgpu`) — XWayland cobre apps legados. Se você ainda precisa de uma sessão X11, instale o quarteto manualmente e saiba que ele fica fora do manifesto e da auditoria.
 
 ## Steam/Proton
 - Biblioteca ativa em disco Linux (Btrfs/ext4); NTFS só backup frio (`ntfs-3g`), exFAT via `exfatprogs`; nunca prefix Proton em NTFS/exFAT.
@@ -106,6 +107,6 @@ x86-64-v2 + Polaris). As limitações deste hardware são o teto honesto do stac
   - configs de emuladores em `INFO`: cada emulador com o renderer Vulkan
     aplicado (Dolphin, RetroArch, PPSSPP, PCSX2, DuckStation, Azahar, Eden,
     Vita3K, Cemu) — ausência significa que o dono não fez o ajuste, não é drift;
-  - `/usr/bin/X` e `[multilib]` ativo.
+  - `[multilib]` ativo.
 - `envctl doctor`, seção Performance: `.pacnew` pendentes em `/etc` (INFO, via `pacdiff`), swap/zram, governor, scheduler de I/O, journald, `fstrim.timer` e os 5 daemons.
 - Manual (o que nenhum check cobre por depender de arquivo privilegiado ou de gameplay): `systemctl is-active` dos 4 serviços, launch options do Steam, `vulkaninfo | grep RADV`, 1 jogo Steam + 1 emu com MangoHud (AVG + 1% low). Tetos: GPU 85°C, CPU 80°C.

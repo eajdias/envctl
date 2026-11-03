@@ -161,10 +161,15 @@ func providerCLIs() []providerCLI {
 	return []providerCLI{
 		{name: "CommandCode CLI", binary: "cmdc", npmPkg: "command-code"},
 		{
-			name:             "OpenCode CLI",
-			binary:           "opencode",
-			installer:        openCodeLinuxV2Installer,
-			windowsInstaller: `$ErrorActionPreference='Stop'; $bin=Join-Path $HOME '.local\bin'; New-Item -ItemType Directory -Force -Path $bin | Out-Null; $ver=(Invoke-RestMethod 'https://opencode.ai/update/api/latest/cli/npm').version; $arch='x64'; if ($env:PROCESSOR_ARCHITECTURE -match 'ARM64') { $arch='arm64' }; $variant="opencode-windows-$arch.zip"; try { Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool IsProcessorFeaturePresent(int f);' -Name K32 -Namespace W32 -PassThru | Out-Null; if ($arch -eq 'x64' -and -not [W32.K32]::IsProcessorFeaturePresent(40)) { $variant='opencode-windows-x64-baseline.zip' } } catch {}; $url="https://opencode.ai/files/bin/$ver/$variant"; $tmp=Join-Path $env:TEMP 'opencode-win.zip'; Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing; Expand-Archive -Path $tmp -DestinationPath $bin -Force; Remove-Item $tmp -Force; $p=[Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike "*$bin*") { [Environment]::SetEnvironmentVariable('Path', "$p;$bin", 'User') }`,
+			name:      "OpenCode CLI",
+			binary:    "opencode",
+			installer: openCodeLinuxV2Installer,
+			// A running opencode.exe locks the file, so Expand-Archive -Force
+			// fails with access denied when the agent re-runs providers while
+			// an old session is alive. Stop it first, and when the lock is
+			// still held (process exiting, handle leak), retry the move over
+			// the old binary instead of failing the update.
+			windowsInstaller: `$ErrorActionPreference='Stop'; $bin=Join-Path $HOME '.local\bin'; New-Item -ItemType Directory -Force -Path $bin | Out-Null; Get-Process opencode -ErrorAction SilentlyContinue | Stop-Process -Force; $ver=(Invoke-RestMethod 'https://opencode.ai/update/api/latest/cli/npm').version; $arch='x64'; if ($env:PROCESSOR_ARCHITECTURE -match 'ARM64') { $arch='arm64' }; $variant="opencode-windows-$arch.zip"; try { Add-Type -MemberDefinition '[DllImport("kernel32.dll")] public static extern bool IsProcessorFeaturePresent(int f);' -Name K32 -Namespace W32 -PassThru | Out-Null; if ($arch -eq 'x64' -and -not [W32.K32]::IsProcessorFeaturePresent(40)) { $variant='opencode-windows-x64-baseline.zip' } } catch {}; $url="https://opencode.ai/files/bin/$ver/$variant"; $tmp=Join-Path $env:TEMP 'opencode-win.zip'; Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing; $stage=Join-Path $env:TEMP 'opencode-win-stage'; if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }; New-Item -ItemType Directory -Force -Path $stage | Out-Null; Expand-Archive -Path $tmp -DestinationPath $stage -Force; Remove-Item $tmp -Force; $target=Join-Path $bin 'opencode.exe'; $staged=Join-Path $stage 'opencode.exe'; $done=$false; for ($i=0; $i -lt 10 -and -not $done; $i++) { try { if ($i -gt 0) { Start-Sleep -Seconds 1 }; Move-Item -Path $staged -Destination $target -Force; $done=$true } catch { if ($i -eq 9) { throw } } }; Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue; $p=[Environment]::GetEnvironmentVariable('Path','User'); if ($p -notlike "*$bin*") { [Environment]::SetEnvironmentVariable('Path', "$p;$bin", 'User') }`,
 			requiredMajor:    2,
 		},
 	}
