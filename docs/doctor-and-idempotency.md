@@ -38,16 +38,27 @@ envctl doctor
      (`opencode`, `commandcode`, `node-compile-cache`, `tsx-*`), e `INFO` quando o dominante é
      cache de terceiros (Docker Desktop, WinGet, Brave updaters) — regenerável pelo app dono.
    - Integridade de `settings.json` do Terminal, perfis do PowerShell e `opencode.json`.
-   - `ConfigFile` com `merge: markdown_sections` (ex.: `AGENTS.md` do CommandCode) é reportado
-     como "merged with user content" — o bloco `envctl:user` é preservado, nunca drift.
-    - `ConfigFile` em modo overwrite (`opencode.json`, `AGENTS.md`, `REFERENCE.md`, `mcp.json`,
-      `agents/*.md`, ...): o doctor compara em 3 vias - template vs ao vivo vs último deploy
-      registrado em `~/.envctl/deploys.json` (gravado a cada `run shell`, inclusive quando já
-      estava convergido). Ao vivo igual ao último deploy mas diferente do template = template
-      mudou: `WARN` (seguro reaplicar). Ao vivo diferente dos dois = customização do operador:
-      `INFO` (o provisioning não toca). Sem registro de deploy = `INFO` (tratado como
-      customização). `envctl doctor --diff` mostra o preview template-vs-ao-vivo por arquivo
-      (read-only).
+    - `ConfigFile` com merge é reportado como "merged with user content" (nunca drift):
+      `markdown_sections` (todos os `.md` gerenciados: `AGENTS.md` ×3, `SKILL-INDEX.md` ×2,
+      `REFERENCE.md`, agentes do CommandCode) preserva o bloco `envctl:user` byte a byte;
+      `script_sections` faz o mesmo no perfil PowerShell com marcadores `#`;
+      `json_deep` (`opencode.json` ×2, `mcp.json` do CommandCode, Terminal `settings.json`)
+      mescla recursiva com o ao vivo vencendo conflitos; `json_deps` une dependências npm;
+      `ssh_hosts` preserva stanzas; `permissions_union` une as listas allow/ask/deny do
+      `settings.json` do CommandCode (runtime-managed: o agente anexa aprovações e o
+      provisioning não realinha mais por cima). Migração de arquivos legados sem marcador:
+      idêntico ao gerenciado = deploy limpo; bloco gerenciado intacto + resto = resto vira
+      conteúdo do usuário; editado por dentro = preservado inteiro (o `--diff` mostra para
+      um trim manual único).
+    - `ConfigFile` em modo overwrite (só scripts gerados: helpers `pw`, `envctl-verify`):
+      o doctor compara em 3 vias - template vs ao vivo vs último deploy registrado em
+      `~/.envctl/deploys.json` (gravado a cada `run shell`, inclusive quando já estava
+      convergido). Ao vivo igual ao último deploy mas diferente do template = template
+      mudou: `WARN` (seguro reaplicar). Ao vivo diferente dos dois = customização do
+      operador: `INFO` (o provisioning não toca). Sem registro de deploy = `INFO`
+      (tratado como customização). `run shell` pula customização comprovada (diagnóstico
+      "Skipped") a menos que `--force`; `envctl doctor --diff` mostra o preview
+      template-vs-ao-vivo por arquivo (read-only).
 4. **Runtime do usuário (npm libs)**: dependências de automação (`axios`, `cheerio`, `papaparse`) instaladas em `~/node_modules` via `npm install` quando `~/package.json` é mais novo.
 5. **Catálogo de Skills (12 portáteis, + espelho CommandCode)**:
    - Existência e conformidade das Skills em `~/.config/opencode/skills/`.

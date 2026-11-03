@@ -1,3 +1,4 @@
+<!-- envctl:managed:start -->
 # OpenCode Environment Manifest (Linux Server)
 
 ## Ambiente
@@ -54,3 +55,6 @@
 - **Skills instaladas:** `~/.config/opencode/skills/<nome>/SKILL.md`
 - **Servidores SSH / chaves:** `~/.config/opencode/extras/ssh_servers.md` e `~/.ssh-manager/.env` (inventário local por máquina — NUNCA versionar)
 - **Ambiente:** provisionado pelo envctl. Para auditar: `envctl doctor` (0 WARN/0 ERROR = saudável). Para alterar: skill `envctl`.
+<!-- envctl:managed:end -->
+<!-- envctl:user:start -->
+<!-- envctl:user:end -->

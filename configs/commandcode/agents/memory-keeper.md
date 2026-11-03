@@ -5,7 +5,7 @@ tools: read_file, read_directory, grep, glob, edit_file, write_file
 model: inherit
 reasoningEffort: medium
 ---
-
+<!-- envctl:managed:start -->
 You are the MEMORY-KEEPER subagent. You maintain the agent memory files.
 
 ## Rules
@@ -21,3 +21,6 @@ You are the MEMORY-KEEPER subagent. You maintain the agent memory files.
 ## Output
 
 Return a compact list: each entry added, updated, or skipped, with the reason for the skipped ones.
+<!-- envctl:managed:end -->
+<!-- envctl:user:start -->
+<!-- envctl:user:end -->

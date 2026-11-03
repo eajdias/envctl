@@ -15,6 +15,17 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Added
 
+- **doctor/config:** overwrite-mode files are gone for user-edited configs —
+  every managed `.md` (`AGENTS.md` x3, `SKILL-INDEX.md` x2, `REFERENCE.md`,
+  CommandCode agents) merges via `markdown_sections`, the PowerShell profile
+  via `script_sections`, `opencode.json`/`mcp.json`/Terminal settings via
+  `json_deep` (live wins conflicts), `package.json` via `json_deps`, and
+  CommandCode `settings.json` via `permissions_union` (agent approvals unioned,
+  no more wholesale realign). Legacy unmarked files migrate clean when
+  identical or subtractable, otherwise preserved whole for a one-time manual
+  trim surfaced by `--diff`. `run shell` skips proven operator customization
+  (diagnostic "Skipped") unless `--force`; backups are still kept on every
+  overwrite.
 - **doctor/config:** overwrite-mode config drift is now a three-way check
   (template vs live vs last deploy recorded in `~/.envctl/deploys.json`) —
   operator customization reports `INFO` instead of a restore order, genuine

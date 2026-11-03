@@ -31,6 +31,27 @@ type ProvisionShellUseCase struct {
 	// ~/.envctl/deploys.json). Tests point it at a temp dir so the real
 	// home is never touched; production leaves it empty.
 	snapshotPath string
+	// forceOverwrite re-applies overwrite-mode files even when they carry
+	// proven operator customization (live differs from template and from
+	// the last deploy). Default off: customized files are skipped with a
+	// diagnostic. Wired from the run --force flag.
+	forceOverwrite bool
+}
+
+// SetForceOverwrite allows overwrite-mode deploys over proven operator
+// customization (with timestamped backup as always).
+func (uc *ProvisionShellUseCase) SetForceOverwrite(force bool) {
+	uc.forceOverwrite = force
+}
+
+// snapshotIndex returns the last-deploy record index, honoring the test
+// seam. Production reads ~/.envctl/deploys.json (or snapshotPath).
+func (uc *ProvisionShellUseCase) snapshotIndex() map[string]DeployRecord {
+	store := newDeploySnapshotStore(uc.fsManager)
+	if uc.snapshotPath != "" {
+		store.path = uc.snapshotPath
+	}
+	return store.Load()
 }
 
 func NewProvisionShellUseCase(
@@ -283,31 +304,49 @@ func (uc *ProvisionShellUseCase) Execute(ctx context.Context, categories ...stri
 		}
 
 		// Merge modes combine the template with whatever is already on disk
-		// instead of replacing it, so user-owned entries (ssh host stanzas,
-		// extra npm dependencies) are never silently discarded.
+		// instead of replacing it, so user-owned content (ssh host stanzas,
+		// extra npm dependencies, user markdown blocks, JSON customizations)
+		// is never silently discarded.
 		existedBefore := uc.fsManager.Exists(cf.Destination)
 		if cf.Merge != entity.MergeOverwrite && existedBefore {
 			existingContent, readErr := uc.fsManager.ReadFile(cf.Destination)
 			if readErr == nil {
-				switch cf.Merge {
-				case entity.MergeSSHHosts:
-					content = mergeSSHHosts(content, existingContent)
-				case entity.MergeMarkdownSections:
-					content = mergeMarkdownSections(content, existingContent)
-				case entity.MergeJSONDeps:
-					mergedContent, mergeErr := mergeJSONDeps(content, existingContent)
-					if mergeErr != nil {
-						// Never replace an unparseable user file with the template.
-						uc.logger.Warn("Keeping '%s' untouched: %v", cf.Destination, mergeErr)
-						result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Warn(
-							"ConfigFile",
-							cf.Destination,
-							fmt.Sprintf("Preserved user content (not mergeable: %v)", mergeErr),
-							"Fix the JSON syntax so provisioning can merge the managed baseline",
-						))
-						continue
-					}
-					content = mergedContent
+				if cf.Merge == entity.MergeMarkdownSections || cf.Merge == entity.MergeScriptSections {
+					// Marker migration: an unmarked destination identical to the
+					// template managed section carries no operator content, so the
+					// first marked deploy starts clean instead of duplicating.
+					existingContent = freshMigrationTarget(content, existingContent, cf.Merge)
+				}
+				mergedContent, mergeErr := applyConfigMerge(cf.Merge, content, existingContent)
+				if mergeErr != nil {
+					// Never replace an unparseable user file with the template.
+					uc.logger.Warn("Keeping '%s' untouched: %v", cf.Destination, mergeErr)
+					result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.Warn(
+						"ConfigFile",
+						cf.Destination,
+						fmt.Sprintf("Preserved user content (not mergeable: %v)", mergeErr),
+						"Fix the JSON syntax so provisioning can merge the managed baseline",
+					))
+					continue
+				}
+				content = mergedContent
+			}
+		}
+
+		// Overwrite guard: never silently replace proven operator
+		// customization. A live file that differs from the template AND from
+		// the last deploy we recorded is skipped unless --force; everything
+		// else converges with backup as before.
+		if cf.Merge == entity.MergeOverwrite && !cf.SeedIfMissing && !cf.RuntimeManaged && existedBefore {
+			if live, readErr := uc.fsManager.ReadFile(cf.Destination); readErr == nil && string(live) != string(content) {
+				if snap, ok := uc.snapshotIndex()[cf.Destination]; ok && sha256Hex(live) != snap.SHA256 && !uc.forceOverwrite {
+					result.ConfigDiagnostics = append(result.ConfigDiagnostics, entity.OK(
+						"ConfigFile",
+						cf.Destination,
+						"Skipped - customized by operator after last deploy (re-run with --force to overwrite; backup kept)",
+					))
+					uc.logger.LogIdempotency("ConfigFile", cf.Destination, true, "operator customization preserved, skipped without --force")
+					continue
 				}
 			}
 		}

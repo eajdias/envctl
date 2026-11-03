@@ -166,11 +166,19 @@ func newRunCmd() *cobra.Command {
 	// installs the owner's preference apps without an explicit opt-in.
 	cmd.PersistentFlags().BoolVar(&withExtras, "with-extras", false,
 		"Also provision the optional owner-preferred apps (extras.yaml)")
+	// --force opts overwrite-mode config deploys into replacing proven
+	// operator customization (with timestamped backup as always). Default
+	// skips customized files with a diagnostic instead of touching them.
+	cmd.PersistentFlags().BoolVar(&forceOverwrite, "force", false,
+		"Overwrite operator-customized config files (backup kept)")
 	return cmd
 }
 
 // withExtras gates the optional apps layer on `run` / `run all`.
 var withExtras bool
+
+// forceOverwrite gates destructive config replacement on `run`.
+var forceOverwrite bool
 
 func runAllProvisioning() error {
 	PrintBanner()
@@ -494,6 +502,7 @@ func runShellProvisioning(categories ...string) {
 	spinner, _ := pterm.DefaultSpinner.Start("Configuring shell, environment and configs...")
 	ctx := context.Background()
 
+	appCtx.ProvisionShellUC.SetForceOverwrite(forceOverwrite)
 	res, err := appCtx.ProvisionShellUC.Execute(ctx, categories...)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("Failed shell provisioning: %v", err))

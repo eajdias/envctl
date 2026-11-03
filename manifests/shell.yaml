@@ -33,6 +33,7 @@ config_files:
     strict_acl: false
     category: "opencode"
     os: windows
+    merge: json_deep
 
   - id: opencode_config_linux
     description: "OpenCode global agent configuration for Linux (same single base template; no Windows shell key injected)"
@@ -41,6 +42,7 @@ config_files:
     strict_acl: false
     category: "opencode"
     os: arch,cachyos,debian,ubuntu
+    merge: json_deep
 
   - id: agents_manifest
     description: "OpenCode global rules manifesto (auto-loaded from ~/.config/opencode/AGENTS.md)"
@@ -48,6 +50,7 @@ config_files:
     destination: "~/.config/opencode/AGENTS.md"
     strict_acl: false
     category: "opencode"
+    merge: markdown_sections
     os_values:
       windows: {}
       "debian,ubuntu":
@@ -65,6 +68,7 @@ config_files:
     destination: "~/.config/opencode/SKILL-INDEX.md"
     strict_acl: false
     category: "opencode"
+    merge: markdown_sections
 
   - id: opencode_reference
     description: "OpenCode operational reference (plugins, DCP, agents, memory, VPS, snippets); consulted on demand, NOT auto-loaded"
@@ -72,6 +76,7 @@ config_files:
     destination: "~/.config/opencode/REFERENCE.md"
     strict_acl: false
     category: "opencode"
+    merge: markdown_sections
 
   - id: opencode_package_json
     description: "OpenCode plugins dependency declaration (V2 SDK @opencode/plugin 2.0.15, matching the opencode release line, validated via npm view)"
@@ -79,6 +84,7 @@ config_files:
     destination: "~/.config/opencode/package.json"
     strict_acl: false
     category: "opencode"
+    merge: json_deps
 
   - id: memory_lessons_template
     description: "Global agent memory lessons baseline (seed only, no PII — per-machine additions stay local)"
@@ -104,6 +110,7 @@ config_files:
     strict_acl: false
     category: "commandcode"
     runtime_managed: true
+    merge: permissions_union
 
   - id: commandcode_agents_manifest
     description: "CommandCode global rules manifesto for Windows workstations (auto-loaded from ~/.commandcode/AGENTS.md)"
@@ -129,6 +136,7 @@ config_files:
     destination: "~/.commandcode/SKILL-INDEX.md"
     strict_acl: false
     category: "commandcode"
+    merge: markdown_sections
 
   - id: commandcode_mcp
     description: "CommandCode user-scope MCP servers (context7, exa search; chrome-devtools, ssh-manager disabled by default)"
@@ -136,6 +144,7 @@ config_files:
     destination: "~/.commandcode/mcp.json"
     strict_acl: false
     category: "commandcode"
+    merge: json_deep
 
   - id: commandcode_agent_code_reviewer
     description: "CommandCode code-reviewer agent (read-only, evidencia file:line); nomes reservados (review/plan/general/explore) sao IGNORADOS pelo CommandCode"
@@ -143,6 +152,7 @@ config_files:
     destination: "~/.commandcode/agents/code-reviewer.md"
     strict_acl: false
     category: "commandcode"
+    merge: markdown_sections
 
   - id: commandcode_agent_verifier
     description: "CommandCode verifier agent (read-only, roda o gate e devolve a saida real; nunca corrige codigo para fazer o gate passar)"
@@ -150,6 +160,7 @@ config_files:
     destination: "~/.commandcode/agents/verifier.md"
     strict_acl: false
     category: "commandcode"
+    merge: markdown_sections
 
   - id: commandcode_agent_docs_writer
     description: "CommandCode docs-writer agent (manifesto/codigo vencem a doc; CHANGELOG.md manual, sem bot)"
@@ -157,6 +168,7 @@ config_files:
     destination: "~/.commandcode/agents/docs-writer.md"
     strict_acl: false
     category: "commandcode"
+    merge: markdown_sections
 
   - id: commandcode_agent_memory_keeper
     description: "CommandCode memory-keeper agent (classifica licao vs pattern antes de gravar, dedupe, sem segredo)"
@@ -164,6 +176,7 @@ config_files:
     destination: "~/.commandcode/agents/memory-keeper.md"
     strict_acl: false
     category: "commandcode"
+    merge: markdown_sections
 
   - id: user_package_json
     description: "User root package.json for agent automation libs (axios, cheerio, papaparse)"
@@ -207,6 +220,7 @@ config_files:
     strict_acl: false
     category: "terminal"
     os: windows
+    merge: json_deep
 
   - id: powershell_profile
     description: "PowerShell Profile with GitHub CLI autocompletions"
@@ -215,6 +229,7 @@ config_files:
     strict_acl: false
     category: "terminal"
     os: windows
+    merge: script_sections
 
   - id: ssh_config
     description: "OpenSSH client configuration with connection caching and resilient defaults (user Host stanzas are preserved)"

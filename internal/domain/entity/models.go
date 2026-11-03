@@ -77,6 +77,24 @@ const (
 	// on their own line; a destination without any marker is treated as fully
 	// user-owned content on the first migration, so nothing is ever lost.
 	MergeMarkdownSections MergeMode = "markdown_sections"
+	// MergeScriptSections is the script-file sibling of markdown_sections
+	// (PowerShell profile): same managed/user split, but the markers are
+	// `#` comments so the file stays executable. A legacy destination
+	// without markers is preserved whole as user content (duplicating the
+	// managed copy once, which --diff surfaces for a one-time trim).
+	MergeScriptSections MergeMode = "script_sections"
+	// MergeJSONDeep recursively merges a JSON template over the live file
+	// with the destination winning every conflict: objects merge key by
+	// key, arrays and scalars keep the live value, and template-only keys
+	// are added. Template updates to an existing value do not propagate —
+	// that is the price of never overwriting; doctor --diff surfaces them.
+	MergeJSONDeep MergeMode = "json_deep"
+	// MergePermissionsUnion merges the CommandCode settings shape
+	// ({permissions: {allow, ask, deny}} string lists) by union: template
+	// entries and operator/agent-approved entries coexist, template order
+	// first. A destination that does not decode to that shape is kept
+	// untouched with a warning, never replaced.
+	MergePermissionsUnion MergeMode = "permissions_union"
 )
 
 // ConfigFile represents a system or user configuration file.
