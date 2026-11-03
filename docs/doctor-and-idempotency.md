@@ -74,6 +74,10 @@ envctl doctor
    - Estado opcional ausente é `INFO`, nunca warning/error; `run performance` e `doctor --fix` não aplicam governors, schedulers ou journald. O único lifecycle automático é o serviço gerador do zram quando o device está ausente.
 8. **Verificação Local (`Verify`)**:
    - `~/.local/bin/envctl-verify` presente e executável (ver [verification.md](./verification.md)); nenhum resquício do wiring global legado (hooks de `~/.config/git/hooks` — o envctl nunca mais instala hooks).
+9. **Inventário de Hardware (`Hardware`, só Windows, read-only)**:
+   - Coleta via PowerShell/CIM (Win32_* + Storage/Network cmdlets): sistema (hostname, fabricante/modelo, BIOS, OS, uptime, timezone, usuário), CPU, RAM (total/livre + módulos), discos lógicos mapeados para a física (tipo SSD/NVMe/HD, modelo), GPU, rede (adapters Up + IP), USB, ativação do Windows e antivírus.
+   - Todo resultado é `INFO` — "inventário sem julgamento" (absorvido do utilitário legado `windows_util`): ausência é contexto, e falha do probe (`specs-probe`) também é `INFO`, nunca `WARN`.
+   - Parse fail-closed em protocolo `SPECS|||field|||value` (mesma regra do startup probe: campo desconhecido, duplicado ou ausente é erro). Teste vivo opt-in: `SPECS_LIVE_PROBE=1`.
 
 ---
 

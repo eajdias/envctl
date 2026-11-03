@@ -22,13 +22,14 @@ envctl/
 │   │   ├── provision_tweaks.go         # Núcleo único Windows11/Debloat (CheckBatch no debloat)
 │   │   ├── doctor_audit.go             # Auditoria diagnóstica de conformidade
 │   │   ├── doctor_linux_performance.go # Auditoria read-only de performance Linux
+│   │   ├── doctor_specs.go             # Inventário de hardware Windows (INFO-only)
 │   │   └── update.go                   # Inventário e atualização de toolchains (mise/uv)
 │   ├── infra/                          # Camada de Infraestrutura (Implementações concretas)
 │   │   ├── winget/                     # Adaptador para Windows Package Manager
 │   │   ├── apt/                        # Adaptador para APT (Debian/Ubuntu)
 │   │   ├── performance/                # Sysctl, zram e inspeção read-only de performance Linux
 │   │   ├── toolchain/                  # Adaptadores para mise, UV/Pip
-│   │   ├── windows/                    # Adaptador de Registro e Fontes Windows
+│   │   ├── windows/                    # Adaptador Windows: Registro, Fontes, Debloat e specs de hardware
 │   │   ├── git/                        # Adaptador Git e GitHub CLI
 │   │   ├── filesystem/                 # Operações de I/O, backup atômico (.bak.timestamp) e ACLs
 │   │   ├── logger/                     # Logger persistente com dump em disco (~/.envctl/logs/)

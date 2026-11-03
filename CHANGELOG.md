@@ -13,6 +13,19 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ## [Unreleased]
 
+### Added
+
+- **hardware/specs:** o `doctor` passa a coletar o inventário de hardware do host
+  (Windows) — sistema (hostname, fabricante/modelo, BIOS, OS, uptime, timezone),
+  CPU, RAM (total/livre + módulos físicos), discos com a física mapeada
+  (SSD/NVMe/HD), GPU, rede + IP, USB, ativação do Windows e antivírus. Tudo
+  `INFO` (`System: Hardware`) — "inventário sem julgamento": ausência é contexto
+  e falha do probe é `INFO`, nunca `WARN`. O probe é fail-closed em protocolo
+  `SPECS|||field|||value` (mesma regra do startup probe: campo desconhecido,
+  duplicado ou ausente é erro, nunca "absente"). Coleta absorvida do utilitário
+  legado `windows_util` (`coletas/specs.ps1`), limpa dos blocos de negócio; teste
+  vivo opt-in via `SPECS_LIVE_PROBE=1`.
+
 ## [2.1.5](https://github.com/eajdias/envctl/compare/v2.1.4...v2.1.5) (2026-11-01)
 
 ### Removed
