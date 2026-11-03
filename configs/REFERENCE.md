@@ -1,3 +1,4 @@
+<!-- envctl:managed:start -->
 # OpenCode — referência operacional
 
 **Consulte sob demanda.** Aqui fica o detalhe que **não** precisa estar no prompt a cada turno. Abra este arquivo quando for mexer em plugin, DCP, agentes, memória, VPS, ou quando precisar dos snippets operacionais.
@@ -130,3 +131,6 @@ Skill `agent-memory`:
 - **Encoding (Windows):** o opencode spawna `pwsh -NoLogo -NoProfile -NonInteractive -Command` e o profile **nunca** carrega no bash tool — com o beta UTF-8 do Windows desligado (ACP/OEMCP=850) acentos viram `�`. Se o `doctor` acusar *System Code Page* 850, ative "Beta: Use Unicode UTF-8 para todo o mundo" e reinicie (não é bug do projeto).
 - Se o shell do agente mostrar "Windows PowerShell (5.1)", o config de shell foi ignorado (opencode #41426) — reinicie o opencode.
 - Scripts: criar em `C:\temp`/`/temp` ou no home, nunca em pastas de sistema. Automação de browser determinística: `playwright-cli` no shell (browsers próprios em `~/.cache/ms-playwright`, via `install-browser chromium`).
+<!-- envctl:managed:end -->
+<!-- envctl:user:start -->
+<!-- envctl:user:end -->

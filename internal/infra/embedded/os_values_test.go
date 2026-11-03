@@ -119,14 +119,17 @@ func TestOSValuesExpandToTheFormerPerOSEntries(t *testing.T) {
 		"agents_manifest": {
 			ID: "agents_manifest", Source: "configs/AGENTS.md",
 			Destination: "~/.config/opencode/AGENTS.md", OS: "windows", Category: "opencode",
+			Merge: entity.MergeMarkdownSections,
 		},
 		"agents_manifest_linux": {
 			ID: "agents_manifest_linux", Source: "configs/AGENTS.linux.md",
 			Destination: "~/.config/opencode/AGENTS.md", OS: "debian,ubuntu", Category: "opencode",
+			Merge: entity.MergeMarkdownSections,
 		},
 		"agents_manifest_arch": {
 			ID: "agents_manifest_arch", Source: "configs/AGENTS.arch.md",
 			Destination: "~/.config/opencode/AGENTS.md", OS: "arch,cachyos", Category: "opencode",
+			Merge: entity.MergeMarkdownSections,
 		},
 		"commandcode_agents_manifest": {
 			ID: "commandcode_agents_manifest", Source: "configs/commandcode/AGENTS.md",

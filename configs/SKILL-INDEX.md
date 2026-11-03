@@ -1,3 +1,4 @@
+<!-- envctl:managed:start -->
 # Índice de Skills (OpenCode e CommandCode)
 
 > Catálogo de **12 skills**. Regra de entrada: só entra o que o modelo
@@ -29,3 +30,6 @@
 - Sem nunca deduzir: re-teste antes de afirmar.
 - Sem clichê; handoff quando o contexto encher; review com rigor.
 - **Docs em dia**: manifesto e código ganham da doc (roteiro em `code-playbooks/references/docs-sync.md`).
+<!-- envctl:managed:end -->
+<!-- envctl:user:start -->
+<!-- envctl:user:end -->

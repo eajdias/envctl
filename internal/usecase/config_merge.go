@@ -2,7 +2,10 @@ package usecase
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
+
+	"github.com/eajdias/envctl/internal/domain/entity"
 )
 
 // This file implements the non-destructive merge modes declared by
@@ -224,8 +227,27 @@ const (
 // this merge mode existed, or a first-run file edited directly — is preserved
 // whole as user content, because losing it would be worse than keeping a stale
 // managed block.
+// splitFrontmatter separates a leading YAML frontmatter block (`---\n...
+// ---\n) from the body. Files without one return ("", whole). The doctor's
+// frontmatter validators require `---` at byte zero, so merged Markdown must
+// keep the template's header verbatim ahead of the managed block.
+func splitFrontmatter(content string) (header, rest string) {
+	if !strings.HasPrefix(content, "---\n") {
+		return "", content
+	}
+	lines := strings.Split(content[len("---\n"):], "\n")
+	for i, line := range lines {
+		if strings.TrimRight(line, " \t") == "---" {
+			end := len("---\n") + len(strings.Join(lines[:i+1], "\n")) + 1
+			return content[:end], content[end:]
+		}
+	}
+	return "", content
+}
+
 func mergeMarkdownSections(template, existing []byte) []byte {
-	tpl := string(template)
+	tplHeader, tpl := splitFrontmatter(string(template))
+	_, ex := splitFrontmatter(string(existing))
 
 	managed := sectionBetween(tpl, markdownManagedStart, markdownManagedEnd)
 	if managed == "" && !strings.Contains(tpl, markdownManagedStart) {
@@ -237,13 +259,13 @@ func mergeMarkdownSections(template, existing []byte) []byte {
 	// destination inherits it; the destination's block replaces it afterwards.
 	user := sectionBetween(tpl, markdownUserStart, markdownUserEnd)
 
-	if len(existing) > 0 {
-		if strings.Contains(string(existing), markdownUserStart) || strings.Contains(string(existing), markdownManagedStart) {
+	if len(ex) > 0 {
+		if strings.Contains(ex, markdownUserStart) || strings.Contains(ex, markdownManagedStart) {
 			// Already-marked destination: preserve exactly its user block.
-			user = sectionBetween(string(existing), markdownUserStart, markdownUserEnd)
+			user = sectionBetween(ex, markdownUserStart, markdownUserEnd)
 		} else {
 			// Legacy destination with no markers at all: keep everything.
-			user = strings.TrimRight(string(existing), "\n")
+			user = strings.TrimRight(ex, "\n")
 		}
 	}
 
@@ -251,6 +273,7 @@ func mergeMarkdownSections(template, existing []byte) []byte {
 	user = strings.TrimRight(user, "\n")
 
 	var b strings.Builder
+	b.WriteString(tplHeader)
 	b.WriteString(markdownManagedStart)
 	b.WriteString("\n")
 	b.WriteString(managed)
@@ -313,4 +336,265 @@ func unionJSONStringMaps(base, overlay json.RawMessage) (map[string]string, erro
 		}
 	}
 	return merged, nil
+}
+
+// scriptMarkers are the managed/user delimiters for executable script files
+// (PowerShell profile): `#` comments on their own line, so the merged file
+// stays runnable. Semantics mirror mergeMarkdownSections exactly — the two
+// are pinned to the same behavior table in config_merge_test.go, so a fix
+// in one must land in the other.
+const (
+	scriptManagedStart = "# envctl:managed:start"
+	scriptManagedEnd   = "# envctl:managed:end"
+	scriptUserStart    = "# envctl:user:start"
+	scriptUserEnd      = "# envctl:user:end"
+)
+
+// mergeScriptSections combines the template with the destination's script
+// file, preserving the destination's user block verbatim. Same contract as
+// mergeMarkdownSections, with `#` markers instead of HTML comments.
+func mergeScriptSections(template, existing []byte) []byte {
+	tpl := string(template)
+
+	managed := sectionBetween(tpl, scriptManagedStart, scriptManagedEnd)
+	if managed == "" && !strings.Contains(tpl, scriptManagedStart) {
+		// The template carries no managed markers: everything is managed.
+		managed = tpl
+	}
+
+	// The user block seed lives in the template's own user section, so a fresh
+	// destination inherits it; the destination's block replaces it afterwards.
+	user := sectionBetween(tpl, scriptUserStart, scriptUserEnd)
+
+	if len(existing) > 0 {
+		if strings.Contains(string(existing), scriptUserStart) || strings.Contains(string(existing), scriptManagedStart) {
+			// Already-marked destination: preserve exactly its user block.
+			user = sectionBetween(string(existing), scriptUserStart, scriptUserEnd)
+		} else {
+			// Legacy destination with no markers at all: keep everything.
+			user = strings.TrimRight(string(existing), "\n")
+		}
+	}
+
+	managed = strings.TrimRight(managed, "\n")
+	user = strings.TrimRight(user, "\n")
+
+	var b strings.Builder
+	b.WriteString(scriptManagedStart)
+	b.WriteString("\n")
+	b.WriteString(managed)
+	b.WriteString("\n")
+	b.WriteString(scriptManagedEnd)
+	b.WriteString("\n")
+	b.WriteString(scriptUserStart)
+	b.WriteString("\n")
+	if user != "" {
+		b.WriteString(user)
+		b.WriteString("\n")
+	}
+	b.WriteString(scriptUserEnd)
+	b.WriteString("\n")
+	return []byte(b.String())
+}
+
+// dedupeUnmarkedCopy reports whether an unmarked legacy destination is
+// byte-identical to the template's managed section (modulo surrounding
+// blank lines). When a template gains markers, converged machines would
+// otherwise migrate into managed + a full copy of the old template as
+// "user content"; the provisioner treats that case as a fresh deploy
+// instead, so the migration is clean and the user block starts empty.
+func dedupeUnmarkedCopy(templateManaged, existing string) bool {
+	return strings.Trim(existing, "\n") == strings.Trim(templateManaged, "\n")
+}
+
+// subtractManagedCopy excises the managed section from a legacy unmarked
+// destination when it survives verbatim as one contiguous block (the common
+// case: operator content appended or prepended around the template). The
+// remainder is the true user content, so the first marked deploy migrates
+// clean instead of duplicating. When the managed text was edited in place
+// (no contiguous copy left), it reports false and the caller keeps the
+// whole file — losing content would be worse than a one-time duplication
+// that doctor --diff surfaces for a manual trim.
+func subtractManagedCopy(managed, existing string) (string, bool) {
+	managed = strings.Trim(managed, "\n")
+	existing = strings.Trim(existing, "\n")
+	if managed == "" {
+		return existing, false
+	}
+	idx := strings.Index(existing, managed)
+	if idx < 0 {
+		return existing, false
+	}
+	rest := strings.Trim(existing[:idx]+existing[idx+len(managed):], "\n")
+	return rest, true
+}
+
+// mergeJSONDeep recursively merges a JSON template over the live file with
+// the destination winning every conflict: objects merge key by key, arrays
+// and scalars keep the live value, template-only keys are added. Both sides
+// must decode to JSON objects; anything else is an error and the caller
+// keeps the live file untouched. Output keys sort alphabetically
+// (encoding/json map order), so the file layout differs from the template —
+// irrelevant, since merged files skip byte comparison by design.
+func mergeJSONDeep(template, existing []byte) ([]byte, error) {
+	var tpl, live map[string]any
+	if err := json.Unmarshal(template, &tpl); err != nil {
+		return nil, fmt.Errorf("template is not a JSON object: %w", err)
+	}
+	if err := json.Unmarshal(existing, &live); err != nil {
+		return nil, fmt.Errorf("live file is not a JSON object: %w", err)
+	}
+	merged := deepMergeMaps(tpl, live)
+	out, err := json.MarshalIndent(merged, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(out, '\n'), nil
+}
+
+func deepMergeMaps(tpl, live map[string]any) map[string]any {
+	merged := make(map[string]any, len(tpl)+len(live))
+	for k, tv := range tpl {
+		merged[k] = tv
+	}
+	for k, lv := range live {
+		tv, ok := tpl[k]
+		if !ok {
+			merged[k] = lv
+			continue
+		}
+		tm, tmOK := tv.(map[string]any)
+		lm, lmOK := lv.(map[string]any)
+		if tmOK && lmOK {
+			merged[k] = deepMergeMaps(tm, lm)
+			continue
+		}
+		merged[k] = lv
+	}
+	return merged
+}
+
+// permissionsShape is the CommandCode settings contract the union merge
+// understands. Anything else is not merged — the live file wins untouched.
+type permissionsShape struct {
+	Permissions struct {
+		Allow []string `json:"allow"`
+		Ask   []string `json:"ask"`
+		Deny  []string `json:"deny"`
+	} `json:"permissions"`
+}
+
+// mergePermissionsUnion merges the CommandCode settings shape by union:
+// template entries and operator/agent-approved entries coexist, template
+// order first, extras appended. Either side failing to decode to the shape
+// is an error and the caller keeps the live file untouched with a warning.
+func mergePermissionsUnion(template, existing []byte) ([]byte, error) {
+	// Fail closed on shape: both sides must carry the permissions object,
+	// otherwise "merging" would silently mint a new shape around user data.
+	for name, data := range map[string][]byte{"template": template, "live file": existing} {
+		var shape map[string]json.RawMessage
+		if err := json.Unmarshal(data, &shape); err != nil {
+			return nil, fmt.Errorf("%s is not a permissions settings file: %w", name, err)
+		}
+		raw, ok := shape["permissions"]
+		if !ok {
+			return nil, fmt.Errorf("%s is not a permissions settings file: missing permissions object", name)
+		}
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			return nil, fmt.Errorf("%s is not a permissions settings file: permissions is not an object", name)
+		}
+	}
+	var tpl, live permissionsShape
+	if err := json.Unmarshal(template, &tpl); err != nil {
+		return nil, fmt.Errorf("template is not a permissions settings file: %w", err)
+	}
+	if err := json.Unmarshal(existing, &live); err != nil {
+		return nil, fmt.Errorf("live file is not a permissions settings file: %w", err)
+	}
+	live.Permissions.Allow = unionStrings(tpl.Permissions.Allow, live.Permissions.Allow)
+	live.Permissions.Ask = unionStrings(tpl.Permissions.Ask, live.Permissions.Ask)
+	live.Permissions.Deny = unionStrings(tpl.Permissions.Deny, live.Permissions.Deny)
+	out, err := json.MarshalIndent(map[string]any{"permissions": live.Permissions}, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(out, '\n'), nil
+}
+
+func unionStrings(base, extra []string) []string {
+	seen := make(map[string]bool, len(base)+len(extra))
+	out := make([]string, 0, len(base)+len(extra))
+	for _, s := range base {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, s := range extra {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func mergeMarkersFor(mode entity.MergeMode) (managedStart, managedEnd string, ok bool) {
+	switch mode {
+	case entity.MergeMarkdownSections:
+		return markdownManagedStart, markdownManagedEnd, true
+	case entity.MergeScriptSections:
+		return scriptManagedStart, scriptManagedEnd, true
+	}
+	return "", "", false
+}
+
+// freshMigrationTarget returns nil when the legacy destination carries no
+// markers and is byte-identical to the template's managed section (modulo
+// surrounding blank lines): the operator added nothing, so the migration
+// starts clean instead of duplicating the whole template into the user
+// block. Anything else passes through untouched.
+func freshMigrationTarget(template, existing []byte, mode entity.MergeMode) []byte {
+	managedStart, managedEnd, ok := mergeMarkersFor(mode)
+	if !ok || len(existing) == 0 {
+		return existing
+	}
+	if strings.Contains(string(existing), managedStart) {
+		return existing
+	}
+	// Frontmatter is template-owned (the loader requires it at byte zero),
+	// so only the body counts for the identity check.
+	_, exBody := splitFrontmatter(string(existing))
+	managed := sectionBetween(string(template), managedStart, managedEnd)
+	if dedupeUnmarkedCopy(managed, exBody) {
+		return nil
+	}
+	if rest, ok := subtractManagedCopy(managed, exBody); ok {
+		return []byte(rest)
+	}
+	return existing
+}
+
+// applyConfigMerge runs the manifest-declared merge mode over the template
+// with the live file. Modes that cannot fail (ssh, markdown, script)
+// return a nil error; JSON modes fail on undecodable input and the caller
+// keeps the live file untouched.
+func applyConfigMerge(mode entity.MergeMode, template, existing []byte) ([]byte, error) {
+	switch mode {
+	case entity.MergeSSHHosts:
+		return mergeSSHHosts(template, existing), nil
+	case entity.MergeMarkdownSections:
+		return mergeMarkdownSections(template, existing), nil
+	case entity.MergeScriptSections:
+		return mergeScriptSections(template, existing), nil
+	case entity.MergeJSONDeps:
+		return mergeJSONDeps(template, existing)
+	case entity.MergeJSONDeep:
+		return mergeJSONDeep(template, existing)
+	case entity.MergePermissionsUnion:
+		return mergePermissionsUnion(template, existing)
+	default:
+		return template, nil
+	}
 }
