@@ -15,6 +15,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Added
 
+- **doctor/config:** overwrite-mode config drift is now a three-way check
+  (template vs live vs last deploy recorded in `~/.envctl/deploys.json`) —
+  operator customization reports `INFO` instead of a restore order, genuine
+  template drift stays `WARN`, and `doctor --diff` previews the difference
+  per file (read-only). Deploys pin their bytes: every `run shell` records
+  what it wrote, so the next doctor knows what changed where.
 - **hardware/specs:** o `doctor` passa a coletar o inventário de hardware do host
   (Windows) — sistema (hostname, fabricante/modelo, BIOS, OS, uptime, timezone),
   CPU, RAM (total/livre + módulos físicos), discos com a física mapeada

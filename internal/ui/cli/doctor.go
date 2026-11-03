@@ -68,6 +68,7 @@ func renderReport(report *usecase.AuditReport) {
 
 func newDoctorCmd() *cobra.Command {
 	var autoFix bool
+	var showDiff bool
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -80,6 +81,7 @@ func newDoctorCmd() *cobra.Command {
 			spinner, _ := pterm.DefaultSpinner.Start("Auditing environment components...")
 			ctx := context.Background()
 
+			appCtx.DoctorAuditUC.SetShowDiff(showDiff)
 			report, err := appCtx.DoctorAuditUC.Execute(ctx)
 			if err != nil {
 				spinner.Fail(fmt.Sprintf("Audit execution failed: %v", err))
@@ -88,6 +90,7 @@ func newDoctorCmd() *cobra.Command {
 			spinner.Success("Audit completed")
 
 			renderReport(report)
+			renderDiffs(report)
 
 			if autoFix && (report.Errors > 0 || report.Warnings > 0) {
 				pterm.Println()
@@ -115,11 +118,28 @@ func newDoctorCmd() *cobra.Command {
 				newReport, err := appCtx.DoctorAuditUC.Execute(ctx)
 				if err == nil {
 					renderReport(newReport)
+					renderDiffs(newReport)
 				}
 			}
 		},
 	}
 
 	cmd.Flags().BoolVarP(&autoFix, "fix", "f", false, "Automatically apply fixes for any detected warnings or errors")
+	cmd.Flags().BoolVar(&showDiff, "diff", false, "Show template-vs-live previews for divergent overwrite config files (read-only)")
 	return cmd
+}
+
+// renderDiffs prints template-vs-live previews collected by the audit when
+// the --diff flag is on. Pure display: nothing here writes or fixes.
+func renderDiffs(report *usecase.AuditReport) {
+	if report == nil || len(report.Diffs) == 0 {
+		return
+	}
+	pterm.Println()
+	PrintSection("Config Diffs (provisioned vs on disk — read-only preview)")
+	for _, d := range report.Diffs {
+		pterm.Println()
+		pterm.Info.Printf("%s\n", d.Target)
+		pterm.Println(d.Unified)
+	}
 }

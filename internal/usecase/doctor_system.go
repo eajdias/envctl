@@ -236,7 +236,7 @@ func (uc *DoctorAuditUseCase) auditGitConfigs(ctx context.Context, addDiag func(
 // 3. Audit Config Files
 //
 //nolint:errcheck // audit continues with an empty list when the manifest fails to load.
-func (uc *DoctorAuditUseCase) auditConfigFiles(addDiag func(entity.Diagnostic)) {
+func (uc *DoctorAuditUseCase) auditConfigFiles(addDiag func(entity.Diagnostic), report *AuditReport) {
 	configFiles, _ := uc.manifestRepo.LoadConfigFiles()
 	for _, cf := range configFiles {
 		if !entity.MatchesOS(cf.OS) {
@@ -283,12 +283,20 @@ func (uc *DoctorAuditUseCase) auditConfigFiles(addDiag func(entity.Diagnostic)) 
 						src = deployedMCPConfig(src, cf.ID)
 					}
 					if dst, err := uc.fsManager.ReadFile(cf.Destination); err == nil && string(dst) != string(src) {
-						addDiag(entity.Warn(
-							"ConfigFile",
-							cf.Destination,
-							"Content diverges from provisioned source",
-							"run 'envctl run shell' to restore the provisioned content",
-						))
+						// Three-way drift check (template vs live vs last deploy):
+						// operator customization is INFO, never a restore order.
+						warn, details, fixHint := classifyOverwriteDrift(cf.Destination, dst, uc.deploySnapshotIndex())
+						if warn {
+							addDiag(entity.Warn("ConfigFile", cf.Destination, details, fixHint))
+						} else {
+							addDiag(entity.Info("ConfigFile", cf.Destination, details, fixHint))
+						}
+						if uc.showDiff {
+							report.Diffs = append(report.Diffs, FileDiff{
+								Target:  cf.Destination,
+								Unified: unifiedConfigDiff(cf.Destination, src, dst),
+							})
+						}
 						continue
 					}
 				}
