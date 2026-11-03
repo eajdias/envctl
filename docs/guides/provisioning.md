@@ -73,6 +73,20 @@ envctl doctor
 envctl run windows   # perfil workstation (tweaks + debloat + tudo)
 ```
 
+### Atualizar uma instalação existente
+
+Não repita o `curl` acima para atualizar: o binário se atualiza sozinho com
+verificação de checksum e backup automático (`.bak.YYYYMMDD-HHMMSS` ao lado do
+binário, rollback é um rename de volta).
+
+```bash
+envctl self-update            # baixa a última release, verifica, instala
+envctl self-update --check    # só mostra atual → última, sem escrever nada
+```
+
+Downgrade nunca é automático: restaure o `.bak` ou fixe a versão no bootstrap
+(`bootstrap.sh`/`bootstrap.ps1` aceitam `VERSION=`).
+
 ## 🛠️ 3. A partir do código-fonte
 
 Pré-requisito: toolchain Go (ver `go.mod` para a versão).

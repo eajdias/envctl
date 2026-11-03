@@ -69,6 +69,7 @@ func renderReport(report *usecase.AuditReport) {
 func newDoctorCmd() *cobra.Command {
 	var autoFix bool
 	var showDiff bool
+	var checkUpdates bool
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -82,6 +83,7 @@ func newDoctorCmd() *cobra.Command {
 			ctx := context.Background()
 
 			appCtx.DoctorAuditUC.SetShowDiff(showDiff)
+			appCtx.DoctorAuditUC.SetCheckUpdates(checkUpdates)
 			report, err := appCtx.DoctorAuditUC.Execute(ctx)
 			if err != nil {
 				spinner.Fail(fmt.Sprintf("Audit execution failed: %v", err))
@@ -126,6 +128,7 @@ func newDoctorCmd() *cobra.Command {
 
 	cmd.Flags().BoolVarP(&autoFix, "fix", "f", false, "Automatically apply fixes for any detected warnings or errors")
 	cmd.Flags().BoolVar(&showDiff, "diff", false, "Show template-vs-live previews for divergent overwrite config files (read-only)")
+	cmd.Flags().BoolVar(&checkUpdates, "check-updates", false, "Compare the running binary against the latest published release (one network call)")
 	return cmd
 }
 

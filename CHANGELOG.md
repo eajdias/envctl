@@ -15,6 +15,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Added
 
+- **self-update:** `envctl self-update` (opt-in, sem sudo) — resolve a última
+  release via API, baixa o asset loose + `SHA256SUMS.txt`, verifica o hash e
+  instala por cima do binário com `.bak.YYYYMMDD-HHMMSS` ao lado (rename antes
+  de mover: no Windows o exe em execução não pode ser sobrescrito, mas pode
+  ser renomeado; falha restaura o backup em vez de brickar). `--check` só
+  imprime atual → última + asset + caminho do backup. `doctor --check-updates`
+  compara com a release (WARN + hint de self-update quando atrás, OK quando
+  igual, silêncio com erro de rede); build `dev` fora de checkout vira INFO.
+  `VersionLess` numérico (nunca lexicográfico, `dev` sempre perde).
 - **changelog/ci:** single `[Unreleased]` again — the two stray narrative blocks
   moved into `1.11.0` (CachyOS gaming full restore) and `1.10.0` (ubuntu-server
   baseline); new `changelog_test.go` pins one Unreleased + strictly descending

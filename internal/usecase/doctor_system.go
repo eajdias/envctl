@@ -636,13 +636,26 @@ func (uc *DoctorAuditUseCase) auditEnvctlFreshness(ctx context.Context, addDiag 
 	}
 	repoDir, err := repoRootFinder()
 	if err != nil {
+		// No checkout above: a dev binary has nothing to compare against,
+		// so record the unknown version as context instead of silence.
+		if uc.envctlVersion == "dev" {
+			addDiag(entity.Info(
+				"Envctl",
+				"Binary freshness",
+				"dev build outside a repo checkout — version unknown until the next release",
+				"run 'envctl self-update' to converge to the latest release",
+			))
+		}
+		uc.checkLatestRelease(ctx, addDiag)
 		return
 	}
 	describe, err := uc.gitDescribe(ctx, repoDir)
 	if err != nil || strings.TrimSpace(describe) == "" {
+		uc.checkLatestRelease(ctx, addDiag)
 		return
 	}
 	if envctlBinaryFresh(uc.envctlVersion, describe) {
+		uc.checkLatestRelease(ctx, addDiag)
 		return
 	}
 	addDiag(entity.Warn(
@@ -650,6 +663,34 @@ func (uc *DoctorAuditUseCase) auditEnvctlFreshness(ctx context.Context, addDiag 
 		"Binary freshness",
 		fmt.Sprintf("running binary reports %s but the repo checkout is at %s — embedded templates are stale", printableVersion(uc.envctlVersion), describe),
 		`rebuild: go build -ldflags "-X main.Version=$(git describe --tags --always)" -o envctl.exe ./cmd/envctl`,
+	))
+	uc.checkLatestRelease(ctx, addDiag)
+}
+
+// checkLatestRelease compares the running binary against the newest
+// published release. It only runs behind doctor --check-updates, and a
+// network failure is silent: the doctor stays usable offline.
+func (uc *DoctorAuditUseCase) checkLatestRelease(ctx context.Context, addDiag func(entity.Diagnostic)) {
+	if !uc.checkUpdates || uc.latestRelease == nil {
+		return
+	}
+	latest, err := uc.latestRelease(ctx)
+	if err != nil {
+		return
+	}
+	if VersionLess(uc.envctlVersion, latest) {
+		addDiag(entity.Warn(
+			"Envctl",
+			"Release freshness",
+			fmt.Sprintf("running binary reports %s but the latest release is %s", printableVersion(uc.envctlVersion), latest),
+			"run 'envctl self-update'",
+		))
+		return
+	}
+	addDiag(entity.OK(
+		"Envctl",
+		"Release freshness",
+		fmt.Sprintf("matches latest release %s", latest),
 	))
 }
 
