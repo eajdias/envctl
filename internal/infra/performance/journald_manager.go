@@ -137,43 +137,6 @@ func renderJournaldConfig(spec entity.JournaldSpec) (string, error) {
 	return builder.String(), nil
 }
 
-// AssessJournaldPolicy judges a host's effective journald configuration.
-//
-// man 5 journald.conf: journald honours both SystemMaxUse and SystemKeepFree and
-// uses the smaller of the two. So a host that declares either one is bounded,
-// and a host that declares neither falls back to the built-in default of 10% of
-// the filesystem, which on the fleet's 45 GB disks is roughly 4.5 GB of journal
-// on a 1 GB machine. That is worth reporting, but as information rather than a
-// warning: the tool reports the effective state so a converged host stays at
-// zero warnings.
-func AssessJournaldPolicy(state entity.JournaldState) (capped bool, category entity.DiagnosticStatus, detail string) {
-	hasMaxUse := strings.TrimSpace(state.SystemMaxUse) != ""
-	hasKeepFree := strings.TrimSpace(state.SystemKeepFree) != ""
-
-	switch {
-	case hasMaxUse && hasKeepFree:
-		return true, entity.DiagOK, fmt.Sprintf(
-			"journald is bounded by SystemMaxUse=%s and SystemKeepFree=%s; the smaller of the two applies",
-			state.SystemMaxUse, state.SystemKeepFree,
-		)
-	case hasMaxUse:
-		return true, entity.DiagOK, fmt.Sprintf(
-			"journald is bounded by SystemMaxUse=%s, but no SystemKeepFree floor is declared",
-			state.SystemMaxUse,
-		)
-	case hasKeepFree:
-		return false, entity.DiagInfo, fmt.Sprintf(
-			"only SystemKeepFree=%s is declared, which reserves space without capping the journal; "+
-				"the default cap is 10%% of the filesystem", state.SystemKeepFree,
-		)
-	default:
-		return false, entity.DiagInfo, fmt.Sprintf(
-			"journald has no explicit cap; the built-in default is 10%% of the filesystem (current usage: %s)",
-			orUnknown(state.DiskUsage),
-		)
-	}
-}
-
 // orUnknown keeps a diagnostic readable when a probe returned nothing.
 func orUnknown(value string) string {
 	if strings.TrimSpace(value) == "" {

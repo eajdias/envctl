@@ -15,6 +15,12 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Added
 
+- **changelog/ci:** single `[Unreleased]` again — the two stray narrative blocks
+  moved into `1.11.0` (CachyOS gaming full restore) and `1.10.0` (ubuntu-server
+  baseline); new `changelog_test.go` pins one Unreleased + strictly descending
+  versions, and `ci.yml` lost its `paths-ignore` so doc PRs run the gate where
+  the drift is born. Release pipeline now refuses to tag without the
+  `## [X.Y.Z]` section (ritual documented in `docs/guides/provisioning.md`).
 - **doctor/config:** overwrite-mode files are gone for user-edited configs —
   every managed `.md` (`AGENTS.md` x3, `SKILL-INDEX.md` x2, `REFERENCE.md`,
   CommandCode agents) merges via `markdown_sections`, the PowerShell profile
@@ -323,71 +329,6 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 * **gaming:** seed emulator configs as user templates ([c9701c6](https://github.com/eajdias/envctl/commit/c9701c62b64c944b30c6f1cfca2a5fdaf224bcb0))
 * **gaming:** wire the full restore profile into run gaming ([723153f](https://github.com/eajdias/envctl/commit/723153fd30272bd9e24e698519e3843906ca121a))
 
-## [1.10.1](https://github.com/eajdias/envctl/compare/v1.10.0...v1.10.1) (2026-09-27)
-
-
-### Bug Fixes
-
-* **bootstrap:** honest idempotency labels, plus the roadmap resync and the service spec ([dda1674](https://github.com/eajdias/envctl/commit/dda1674f03c6caa6406546aad2f8e46a8eada912))
-* **bootstrap:** let the exit status alone decide the configStep label ([b719ff4](https://github.com/eajdias/envctl/commit/b719ff4853c72876ee9149b6da2727b1f4b190d6))
-* **bootstrap:** make the Go PATH check a real negation of its installer ([dd96895](https://github.com/eajdias/envctl/commit/dd968950a1e02aec55e03c9f993dc73635d5dde7))
-* **bootstrap:** stop reporting "installed" when the write was a no-op ([7b4ca41](https://github.com/eajdias/envctl/commit/7b4ca41bc48d9d000fbfc03d789857823edc0122))
-* **bootstrap:** the configStep label was decided by stdout, not by the check ([067f426](https://github.com/eajdias/envctl/commit/067f4261a7e668cf66b5a7336b6d580653c06b6a))
-
-## [1.10.0](https://github.com/eajdias/envctl/compare/v1.9.0...v1.10.0) (2026-09-27)
-
-
-### Features
-
-* **linux:** add declarative RAM tiers with hardware-validated boundaries ([ea88fe8](https://github.com/eajdias/envctl/commit/ea88fe84e05c33930b698a83cb63a6d6909c14db))
-* **linux:** add opt-in package removal with a needrestart guard ([90743ac](https://github.com/eajdias/envctl/commit/90743aca7649bf1fbae9dce1dd3c983e84555c7b))
-* **linux:** add the performance flag surface and the reboot precondition ([357dcb2](https://github.com/eajdias/envctl/commit/357dcb270872009fb90d91a252234cd58f503b16))
-* **linux:** add the read-only hardware probe for tier resolution ([2b4ea93](https://github.com/eajdias/envctl/commit/2b4ea939760815dc0f54310e413912f3f793c728))
-* **linux:** add the Ubuntu Server baseline with hardware-detected optimization ([c07717d](https://github.com/eajdias/envctl/commit/c07717d42786c6133fed8278d55d1a76ba49f24c))
-* **linux:** add timezone verification with opt-in enforcement ([befaec5](https://github.com/eajdias/envctl/commit/befaec58b86c5530cfb7c8eef617a6d63db897bd))
-* **linux:** adopt an existing swapfile or create a clamped one ([c2e3104](https://github.com/eajdias/envctl/commit/c2e31044d2362cbff5a2e462d24f9d0f7bf5afac))
-* **linux:** cap journald with a keep-free floor and restart, never stop ([f43813d](https://github.com/eajdias/envctl/commit/f43813dc86e897ad8fb279c78fa2130e8d04b050))
-* **linux:** gate zram on the memory tier and derive swappiness from the host ([0e44a5b](https://github.com/eajdias/envctl/commit/0e44a5b81a8096530066081bc3bca350d29fc189))
-* **linux:** move the performance release floor out of the Go constant ([80a751a](https://github.com/eajdias/envctl/commit/80a751ac22a106878cf01d9b75eec147a6bace31))
-* **linux:** raise the soft descriptor limit without touching the host hard limit ([32ad3db](https://github.com/eajdias/envctl/commit/32ad3db427f4426d228a139d74eef48e6a2ef93d))
-* **linux:** share the drop-in writer and add the min sysctl policy ([daba01d](https://github.com/eajdias/envctl/commit/daba01db14ab138920e95aa0920d66ee1f041555))
-* **update:** add envctl update for the global toolchain ([477023d](https://github.com/eajdias/envctl/commit/477023d817f494d01a499d3ed8c6c3f4e7e7b0ce))
-
-
-### Bug Fixes
-
-* **cleanup:** also remove the python-lsp-server uv tool env ([f1faccf](https://github.com/eajdias/envctl/commit/f1faccfe009727eadba09d9bae2f7865c420ac16))
-* **cli:** keep the swapfile and debloat managers wired after the rebase on main ([7ce485a](https://github.com/eajdias/envctl/commit/7ce485ac6b298627b8e363dcb34ff8310e1a749f))
-* **linux:** a pending reboot must not abort a whole-profile run ([e29e7b3](https://github.com/eajdias/envctl/commit/e29e7b3db55e90e4c00c110f08d85fbf71364f5b))
-* **linux:** keep the drop-in scratch file out of the privileged directory ([cc4cbc6](https://github.com/eajdias/envctl/commit/cc4cbc6582cd16fb7605e6d5f662ca37f1162b0a))
-* **linux:** make the swapfile priority activated, verified and achievable ([b2cfd74](https://github.com/eajdias/envctl/commit/b2cfd7476e19bd593d824801202e9c0081fa6340))
-* **linux:** report a sysctl key another drop-in decides instead of silently losing it at boot ([d5a248f](https://github.com/eajdias/envctl/commit/d5a248f463762d3ff129e20cd395c015be940bc2))
-* **linux:** resolve PATH entries with the platform-aware executable check ([b5eec61](https://github.com/eajdias/envctl/commit/b5eec61065c0ae43e553e017dbc0a6cfdef4be12))
-* **linux:** resolve toolchain binaries against the toolchain PATH before running ([73fd818](https://github.com/eajdias/envctl/commit/73fd81889f0c6e5dea5530aa24fe1102896da636))
-* **linux:** satisfy the linter across the new performance adapters ([750dbf3](https://github.com/eajdias/envctl/commit/750dbf365e9e3f03e7d0ca07f71c4d06f7c5c50c))
-* **linux:** split the statfs call so the Windows release still builds ([9101877](https://github.com/eajdias/envctl/commit/910187713d69e712e7c7eb8ffb4f721430c6bba1))
-
-## [1.9.0](https://github.com/eajdias/envctl/compare/v1.8.1...v1.9.0) (2026-09-26)
-
-
-### Features
-
-* **agents:** add reviewer, verifier, docs-writer and memory-keeper subagents ([ffa78cd](https://github.com/eajdias/envctl/commit/ffa78cd56b3d24686ef71f85c0328f10882fba96))
-* **doctor:** audit RADV_PERFTEST and the MangoHud preset ([1af5d08](https://github.com/eajdias/envctl/commit/1af5d087d097c349db61e8b0aaab4880faa3890c))
-* **doctor:** audit the AMD GPU and panic-stability kernel params ([d619662](https://github.com/eajdias/envctl/commit/d619662b7aa795e762ecbfc9cb1574fad446a62a))
-* **doctor:** report pending .pacnew files as info ([2807d77](https://github.com/eajdias/envctl/commit/2807d775b6ae9edae3574503cea601011abcf477))
-* **doctor:** warn when ananicy runs without a ruleset ([e79b294](https://github.com/eajdias/envctl/commit/e79b29469525ab690cdf3f644ec7ff97f82f7c4c))
-* **gaming:** declare the 6 runtime packages the real stack needs ([108fa8a](https://github.com/eajdias/envctl/commit/108fa8af66b3f32522b2517f3b6207f533680f01))
-
-
-### Bug Fixes
-
-* **arch:** restore the worktree and parallel-session rules in the source ([95423d7](https://github.com/eajdias/envctl/commit/95423d7abf2a38936adfad201236be6b97cb2189))
-* **doctor:** reject legacy V1 agent fields in the OpenCode config shape ([e2ed67e](https://github.com/eajdias/envctl/commit/e2ed67eab718932ad8c7a5b3545e77c363283d25))
-* **skills:** route review and the new subagents per runtime ([9365d74](https://github.com/eajdias/envctl/commit/9365d74549d6d7c9eb08aa86e6f4c0972ab8a61c))
-
-## [Unreleased]
-
 ### Adicionado
 
 - CachyOS gaming **full restore**: `run gaming` agora provisiona o tuning
@@ -480,77 +421,49 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   WARNING do `doctor`; a fonte ficou igual à máquina em vez de o deploy ser
   sobrescrito.
 
----
-
-## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)
+## [1.10.1](https://github.com/eajdias/envctl/compare/v1.10.0...v1.10.1) (2026-09-27)
 
 
 ### Bug Fixes
 
-* **docs:** point contributing setup at the per-machine run profiles ([a2a2379](https://github.com/eajdias/envctl/commit/a2a237997eda16874f7764ef334f7a7586bbe99c))
+* **bootstrap:** honest idempotency labels, plus the roadmap resync and the service spec ([dda1674](https://github.com/eajdias/envctl/commit/dda1674f03c6caa6406546aad2f8e46a8eada912))
+* **bootstrap:** let the exit status alone decide the configStep label ([b719ff4](https://github.com/eajdias/envctl/commit/b719ff4853c72876ee9149b6da2727b1f4b190d6))
+* **bootstrap:** make the Go PATH check a real negation of its installer ([dd96895](https://github.com/eajdias/envctl/commit/dd968950a1e02aec55e03c9f993dc73635d5dde7))
+* **bootstrap:** stop reporting "installed" when the write was a no-op ([7b4ca41](https://github.com/eajdias/envctl/commit/7b4ca41bc48d9d000fbfc03d789857823edc0122))
+* **bootstrap:** the configStep label was decided by stdout, not by the check ([067f426](https://github.com/eajdias/envctl/commit/067f4261a7e668cf66b5a7336b6d580653c06b6a))
 
-## [1.8.0](https://github.com/eajdias/envctl/compare/v1.7.0...v1.8.0) (2026-09-26)
+## [1.10.0](https://github.com/eajdias/envctl/compare/v1.9.0...v1.10.0) (2026-09-27)
 
 
 ### Features
 
-* **cli:** add windows, vps and cachyos full machine profiles ([6953f1e](https://github.com/eajdias/envctl/commit/6953f1e580e2714a6d7c45b65bfda7884a0dda12))
+* **linux:** add declarative RAM tiers with hardware-validated boundaries ([ea88fe8](https://github.com/eajdias/envctl/commit/ea88fe84e05c33930b698a83cb63a6d6909c14db))
+* **linux:** add opt-in package removal with a needrestart guard ([90743ac](https://github.com/eajdias/envctl/commit/90743aca7649bf1fbae9dce1dd3c983e84555c7b))
+* **linux:** add the performance flag surface and the reboot precondition ([357dcb2](https://github.com/eajdias/envctl/commit/357dcb270872009fb90d91a252234cd58f503b16))
+* **linux:** add the read-only hardware probe for tier resolution ([2b4ea93](https://github.com/eajdias/envctl/commit/2b4ea939760815dc0f54310e413912f3f793c728))
+* **linux:** add the Ubuntu Server baseline with hardware-detected optimization ([c07717d](https://github.com/eajdias/envctl/commit/c07717d42786c6133fed8278d55d1a76ba49f24c))
+* **linux:** add timezone verification with opt-in enforcement ([befaec5](https://github.com/eajdias/envctl/commit/befaec58b86c5530cfb7c8eef617a6d63db897bd))
+* **linux:** adopt an existing swapfile or create a clamped one ([c2e3104](https://github.com/eajdias/envctl/commit/c2e31044d2362cbff5a2e462d24f9d0f7bf5afac))
+* **linux:** cap journald with a keep-free floor and restart, never stop ([f43813d](https://github.com/eajdias/envctl/commit/f43813dc86e897ad8fb279c78fa2130e8d04b050))
+* **linux:** gate zram on the memory tier and derive swappiness from the host ([0e44a5b](https://github.com/eajdias/envctl/commit/0e44a5b81a8096530066081bc3bca350d29fc189))
+* **linux:** move the performance release floor out of the Go constant ([80a751a](https://github.com/eajdias/envctl/commit/80a751ac22a106878cf01d9b75eec147a6bace31))
+* **linux:** raise the soft descriptor limit without touching the host hard limit ([32ad3db](https://github.com/eajdias/envctl/commit/32ad3db427f4426d228a139d74eef48e6a2ef93d))
+* **linux:** share the drop-in writer and add the min sysctl policy ([daba01d](https://github.com/eajdias/envctl/commit/daba01db14ab138920e95aa0920d66ee1f041555))
+* **update:** add envctl update for the global toolchain ([477023d](https://github.com/eajdias/envctl/commit/477023d817f494d01a499d3ed8c6c3f4e7e7b0ce))
 
 
 ### Bug Fixes
 
-* **release:** stop building and shipping darwin binaries ([#33](https://github.com/eajdias/envctl/issues/33)) ([47c691a](https://github.com/eajdias/envctl/commit/47c691a0f869dfd17684c064a61540242982c631))
-* **skills:** stamp the quarantine mtime so the recovery window is real ([#36](https://github.com/eajdias/envctl/issues/36)) ([d5143fb](https://github.com/eajdias/envctl/commit/d5143fb128a21f592efee29893f8599c20935555))
-
-## [1.7.0](https://github.com/eajdias/envctl/compare/v1.6.0...v1.7.0) (2026-09-26)
-
-
-### Features
-
-* **linux:** add OS-specific performance baseline ([#27](https://github.com/eajdias/envctl/issues/27)) ([786296e](https://github.com/eajdias/envctl/commit/786296ec22842d80267ca56e58ec8030d820c945))
-* **opencode:** add dispatchable planner subagent and worktree safety checks ([8a80924](https://github.com/eajdias/envctl/commit/8a80924304186eb40f494d5f3b5f0739aace8246))
-* **opencode:** dispatchable planner subagent, runtime-aware supervision, and a 12-skill catalog ([01b0ed0](https://github.com/eajdias/envctl/commit/01b0ed07998aa76d16ce631cbfb236c9e0cafca6))
-* **skills:** expand engineering playbooks ([#30](https://github.com/eajdias/envctl/issues/30)) ([3f68d21](https://github.com/eajdias/envctl/commit/3f68d21f6cba8b746ca68823082fd3b9c2d0e976))
-
-
-### Bug Fixes
-
-* **backup:** prune nested backups recursively and keep them out of the snapshot ([f4f0f0f](https://github.com/eajdias/envctl/commit/f4f0f0ff553d6888072fe900a29ba91fcc388a30))
-* **docs:** recover the gaming and debloat knowledge the catalog cut dropped ([2ec12d9](https://github.com/eajdias/envctl/commit/2ec12d9bdc473d38a2b685169cbf0581c9f26b2c))
-* **skills:** bound the stale-skill quarantine with a recovery window ([e5f37be](https://github.com/eajdias/envctl/commit/e5f37be5ad46761d8f9d3cdf1190e3e311db88a4))
-* **skills:** make supervision guidance runtime-aware per agent ([30b6edb](https://github.com/eajdias/envctl/commit/30b6edbe49e55ef784b56b552d91687156ceeee1))
-* **skills:** restore the variant-analysis phase and re-point removed skills ([8e06582](https://github.com/eajdias/envctl/commit/8e0658282682addbd476d707e4d54da08cc5a709))
-* **verify:** make inferred checks advisory ([#29](https://github.com/eajdias/envctl/issues/29)) ([c34613a](https://github.com/eajdias/envctl/commit/c34613a486ccd50ae0a24bd14c11762e6335af94))
-
-## [1.6.0](https://github.com/eajdias/envctl/compare/v1.5.0...v1.6.0) (2026-09-24)
-
-
-### Features
-
-* **debloat:** absorb windows11-clean as opt-in run debloat ([#24](https://github.com/eajdias/envctl/issues/24)) ([9f8c80f](https://github.com/eajdias/envctl/commit/9f8c80f6631bafc3676fb07fabe283cb8c623cc3))
-* **platform:** absorb CachyOS toolbox and default OpenCode v2 ([b7d12bc](https://github.com/eajdias/envctl/commit/b7d12bc3c6ec7619a37f763a52ee7f1a5beda23c))
-
-## [1.5.0](https://github.com/eajdias/envctl/compare/v1.4.0...v1.5.0) (2026-09-24)
-
-
-### Features
-
-* **opencode:** install v2 on Windows via official installer ([1b628e1](https://github.com/eajdias/envctl/commit/1b628e1a4856642c248eb735caa5350aa26ccfe6))
-
-## [1.4.0](https://github.com/eajdias/envctl/compare/v1.3.0...v1.4.0) (2026-09-24)
-
-
-### Features
-
-* **gaming:** absorb cachyos-init tuning into manifests, doctor and skill ([2663fc9](https://github.com/eajdias/envctl/commit/2663fc9aae59908fe35d6b96f4dea0aae55615af))
-
-
-### Bug Fixes
-
-* lsp-smoke-test wording, lsp-return monitor, windows CI skips ([#21](https://github.com/eajdias/envctl/issues/21)) ([d8592ea](https://github.com/eajdias/envctl/commit/d8592eabdcac95e5bbc92182543bd5f584e37183))
-
-## [Unreleased]
-
+* **cleanup:** also remove the python-lsp-server uv tool env ([f1faccf](https://github.com/eajdias/envctl/commit/f1faccfe009727eadba09d9bae2f7865c420ac16))
+* **cli:** keep the swapfile and debloat managers wired after the rebase on main ([7ce485a](https://github.com/eajdias/envctl/commit/7ce485ac6b298627b8e363dcb34ff8310e1a749f))
+* **linux:** a pending reboot must not abort a whole-profile run ([e29e7b3](https://github.com/eajdias/envctl/commit/e29e7b3db55e90e4c00c110f08d85fbf71364f5b))
+* **linux:** keep the drop-in scratch file out of the privileged directory ([cc4cbc6](https://github.com/eajdias/envctl/commit/cc4cbc6582cd16fb7605e6d5f662ca37f1162b0a))
+* **linux:** make the swapfile priority activated, verified and achievable ([b2cfd74](https://github.com/eajdias/envctl/commit/b2cfd7476e19bd593d824801202e9c0081fa6340))
+* **linux:** report a sysctl key another drop-in decides instead of silently losing it at boot ([d5a248f](https://github.com/eajdias/envctl/commit/d5a248f463762d3ff129e20cd395c015be940bc2))
+* **linux:** resolve PATH entries with the platform-aware executable check ([b5eec61](https://github.com/eajdias/envctl/commit/b5eec61065c0ae43e553e017dbc0a6cfdef4be12))
+* **linux:** resolve toolchain binaries against the toolchain PATH before running ([73fd818](https://github.com/eajdias/envctl/commit/73fd81889f0c6e5dea5530aa24fe1102896da636))
+* **linux:** satisfy the linter across the new performance adapters ([750dbf3](https://github.com/eajdias/envctl/commit/750dbf365e9e3f03e7d0ca07f71c4d06f7c5c50c))
+* **linux:** split the statfs call so the Windows release still builds ([9101877](https://github.com/eajdias/envctl/commit/910187713d69e712e7c7eb8ffb4f721430c6bba1))
 ### Features
 
 * **linux:** add the `ubuntu-server` performance baseline with hardware-detected
@@ -694,6 +607,92 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   o major instalado e persistir o PATH em shells POSIX/fish. Instalações v1 user-local são
   atualizadas; no Arch, a propriedade é consultada no banco do pacman, cópias envctl locais
   são arquivadas com backup e o pacote do sistema continua sendo a autoridade.
+
+## [1.9.0](https://github.com/eajdias/envctl/compare/v1.8.1...v1.9.0) (2026-09-26)
+
+
+### Features
+
+* **agents:** add reviewer, verifier, docs-writer and memory-keeper subagents ([ffa78cd](https://github.com/eajdias/envctl/commit/ffa78cd56b3d24686ef71f85c0328f10882fba96))
+* **doctor:** audit RADV_PERFTEST and the MangoHud preset ([1af5d08](https://github.com/eajdias/envctl/commit/1af5d087d097c349db61e8b0aaab4880faa3890c))
+* **doctor:** audit the AMD GPU and panic-stability kernel params ([d619662](https://github.com/eajdias/envctl/commit/d619662b7aa795e762ecbfc9cb1574fad446a62a))
+* **doctor:** report pending .pacnew files as info ([2807d77](https://github.com/eajdias/envctl/commit/2807d775b6ae9edae3574503cea601011abcf477))
+* **doctor:** warn when ananicy runs without a ruleset ([e79b294](https://github.com/eajdias/envctl/commit/e79b29469525ab690cdf3f644ec7ff97f82f7c4c))
+* **gaming:** declare the 6 runtime packages the real stack needs ([108fa8a](https://github.com/eajdias/envctl/commit/108fa8af66b3f32522b2517f3b6207f533680f01))
+
+
+### Bug Fixes
+
+* **arch:** restore the worktree and parallel-session rules in the source ([95423d7](https://github.com/eajdias/envctl/commit/95423d7abf2a38936adfad201236be6b97cb2189))
+* **doctor:** reject legacy V1 agent fields in the OpenCode config shape ([e2ed67e](https://github.com/eajdias/envctl/commit/e2ed67eab718932ad8c7a5b3545e77c363283d25))
+* **skills:** route review and the new subagents per runtime ([9365d74](https://github.com/eajdias/envctl/commit/9365d74549d6d7c9eb08aa86e6f4c0972ab8a61c))
+
+## [1.8.1](https://github.com/eajdias/envctl/compare/v1.8.0...v1.8.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **docs:** point contributing setup at the per-machine run profiles ([a2a2379](https://github.com/eajdias/envctl/commit/a2a237997eda16874f7764ef334f7a7586bbe99c))
+
+## [1.8.0](https://github.com/eajdias/envctl/compare/v1.7.0...v1.8.0) (2026-09-26)
+
+
+### Features
+
+* **cli:** add windows, vps and cachyos full machine profiles ([6953f1e](https://github.com/eajdias/envctl/commit/6953f1e580e2714a6d7c45b65bfda7884a0dda12))
+
+
+### Bug Fixes
+
+* **release:** stop building and shipping darwin binaries ([#33](https://github.com/eajdias/envctl/issues/33)) ([47c691a](https://github.com/eajdias/envctl/commit/47c691a0f869dfd17684c064a61540242982c631))
+* **skills:** stamp the quarantine mtime so the recovery window is real ([#36](https://github.com/eajdias/envctl/issues/36)) ([d5143fb](https://github.com/eajdias/envctl/commit/d5143fb128a21f592efee29893f8599c20935555))
+
+## [1.7.0](https://github.com/eajdias/envctl/compare/v1.6.0...v1.7.0) (2026-09-26)
+
+
+### Features
+
+* **linux:** add OS-specific performance baseline ([#27](https://github.com/eajdias/envctl/issues/27)) ([786296e](https://github.com/eajdias/envctl/commit/786296ec22842d80267ca56e58ec8030d820c945))
+* **opencode:** add dispatchable planner subagent and worktree safety checks ([8a80924](https://github.com/eajdias/envctl/commit/8a80924304186eb40f494d5f3b5f0739aace8246))
+* **opencode:** dispatchable planner subagent, runtime-aware supervision, and a 12-skill catalog ([01b0ed0](https://github.com/eajdias/envctl/commit/01b0ed07998aa76d16ce631cbfb236c9e0cafca6))
+* **skills:** expand engineering playbooks ([#30](https://github.com/eajdias/envctl/issues/30)) ([3f68d21](https://github.com/eajdias/envctl/commit/3f68d21f6cba8b746ca68823082fd3b9c2d0e976))
+
+
+### Bug Fixes
+
+* **backup:** prune nested backups recursively and keep them out of the snapshot ([f4f0f0f](https://github.com/eajdias/envctl/commit/f4f0f0ff553d6888072fe900a29ba91fcc388a30))
+* **docs:** recover the gaming and debloat knowledge the catalog cut dropped ([2ec12d9](https://github.com/eajdias/envctl/commit/2ec12d9bdc473d38a2b685169cbf0581c9f26b2c))
+* **skills:** bound the stale-skill quarantine with a recovery window ([e5f37be](https://github.com/eajdias/envctl/commit/e5f37be5ad46761d8f9d3cdf1190e3e311db88a4))
+* **skills:** make supervision guidance runtime-aware per agent ([30b6edb](https://github.com/eajdias/envctl/commit/30b6edbe49e55ef784b56b552d91687156ceeee1))
+* **skills:** restore the variant-analysis phase and re-point removed skills ([8e06582](https://github.com/eajdias/envctl/commit/8e0658282682addbd476d707e4d54da08cc5a709))
+* **verify:** make inferred checks advisory ([#29](https://github.com/eajdias/envctl/issues/29)) ([c34613a](https://github.com/eajdias/envctl/commit/c34613a486ccd50ae0a24bd14c11762e6335af94))
+
+## [1.6.0](https://github.com/eajdias/envctl/compare/v1.5.0...v1.6.0) (2026-09-24)
+
+
+### Features
+
+* **debloat:** absorb windows11-clean as opt-in run debloat ([#24](https://github.com/eajdias/envctl/issues/24)) ([9f8c80f](https://github.com/eajdias/envctl/commit/9f8c80f6631bafc3676fb07fabe283cb8c623cc3))
+* **platform:** absorb CachyOS toolbox and default OpenCode v2 ([b7d12bc](https://github.com/eajdias/envctl/commit/b7d12bc3c6ec7619a37f763a52ee7f1a5beda23c))
+
+## [1.5.0](https://github.com/eajdias/envctl/compare/v1.4.0...v1.5.0) (2026-09-24)
+
+
+### Features
+
+* **opencode:** install v2 on Windows via official installer ([1b628e1](https://github.com/eajdias/envctl/commit/1b628e1a4856642c248eb735caa5350aa26ccfe6))
+
+## [1.4.0](https://github.com/eajdias/envctl/compare/v1.3.0...v1.4.0) (2026-09-24)
+
+
+### Features
+
+* **gaming:** absorb cachyos-init tuning into manifests, doctor and skill ([2663fc9](https://github.com/eajdias/envctl/commit/2663fc9aae59908fe35d6b96f4dea0aae55615af))
+
+
+### Bug Fixes
+
+* lsp-smoke-test wording, lsp-return monitor, windows CI skips ([#21](https://github.com/eajdias/envctl/issues/21)) ([d8592ea](https://github.com/eajdias/envctl/commit/d8592eabdcac95e5bbc92182543bd5f584e37183))
 
 ## [v1.3.0] - 2026-09-22
 

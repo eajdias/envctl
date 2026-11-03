@@ -3,7 +3,6 @@ package usecase
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -96,20 +95,6 @@ func validateSkillFrontmatter(dirName string, fm skillFrontmatter) error {
 		return fmt.Errorf("frontmatter 'description' is %d characters (max %d)", len([]rune(description)), skillDescriptionMaxLen)
 	}
 	return nil
-}
-
-// skillDescription returns the frontmatter description of the SKILL.md found in
-// skillDir, or "" when the file is unreadable or the description is absent.
-func skillDescription(skillDir string) string {
-	content, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
-	if err != nil {
-		return ""
-	}
-	fm, ok := parseSkillFrontmatter(content)
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(fm.Description)
 }
 
 // Measured from the CommandCode 1.65.0 bundle: the model-facing catalog is

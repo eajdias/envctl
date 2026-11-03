@@ -4,13 +4,9 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    # Inverted filter: docs-only PRs skip, but edits to lint config, Makefile
-    # or bootstraps still gate (the old `paths:` list missed exactly those).
-    paths-ignore:
-      - 'docs/**'
-      - 'spec-agent/**'
-      - 'CHANGELOG.md'
-      - '**.md'
+    # No paths-ignore: doc tests (docs_claims, changelog structure) only run
+    # where the drift is born — a docs-only PR that skips CI is how stale
+    # prose survives. Full matrix on docs PRs costs minutes, not hours.
   workflow_dispatch:
 
 # One run per ref: a new push cancels the previous run, so an agent gets the

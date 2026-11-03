@@ -92,23 +92,13 @@ de cada falha.
 
 ---
 
-## 🔀 Modos, Cache e Trilha
+## 🔀 Modos e Trilha
 
 | Modo | O que roda |
 | :--- | :--- |
 | `--static` | **Só os checks estáticos** — build, type check, lint, formatação. A suíte de testes fica para o `--git-push`, então uma chamada rápida nunca espera por ela |
 | `--git-push` | **O gate completo**, testes incluídos; somente findings bloqueantes retornam exit ≠ 0 |
 | `--dry-run` | Não roda nada: imprime as stacks detectadas e cada check detectado como `[blocking]`, `[advisory]` ou `[skip]`, incluindo a política que seria aplicada |
-
-**Cache por estado da árvore (só no modo `--static`).** Se nada mudou desde a última execução
-verde, o verificador sai em ~20ms em vez de rodar os checks de novo — uma chamada que apenas
-leu arquivos não paga nada. O carimbo fica em `.git/envctl-verify.stamp`, nunca na árvore de
-trabalho. Execuções com skip, overrides executáveis e arquivos untracked maiores que 1 MiB
-não são cacheadas, para que uma ferramenta ou um conteúdo não observado não possa produzir um
-verde falso. O fingerprint inclui `HEAD`, a ref de comparação (`origin/main`/`origin/master`),
-a disponibilidade dos executáveis globais e o estado dos candidatos locais (`node_modules`,
-`.venv` e `venv`, incluindo `Scripts/*.exe`); instalar, remover ou trocar uma ferramenta
-invalida o cache.
 
 **Trilha.** Falhas, advisories e skips são registrados em `~/.envctl/verify.log` (uma linha
 agregada por execução, com timestamp, modo, repositório e resultado). Execuções verdes não
@@ -122,7 +112,7 @@ e o que denuncia um check que vive sendo pulado.
 Cada check roda sob um timeout individual (`ENVCTL_VERIFY_TIMEOUT`; **120s** no
 `--static`, **600s** no `--git-push`). Um check que trava é um check quebrado e **falha
 rápido no teto** com o marcador `TIMED OUT`, em vez de ser aguardado para sempre. O
-conjunto saudável continua rápido com cache quente (gofmt 21ms, build 478ms, vet 133ms,
+conjunto saudável continua rápido (gofmt 21ms, build 478ms, vet 133ms,
 testes 299ms, cross-compile Windows 638ms, lint 0,7s quente).
 
 Quando o coreutils `timeout` não está disponível, o check roda sem teto (comportamento

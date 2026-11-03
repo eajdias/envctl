@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/eajdias/envctl/internal/domain/entity"
@@ -623,4 +624,30 @@ rm -f /tmp/envctl-fzf.tgz /tmp/fzf
 	}
 
 	return result, nil
+}
+
+// fzfSupportsWalker reports whether the installed fzf provides the built-in
+// directory walker (0.47+).
+func (uc *ProvisionBootstrapUseCase) fzfSupportsWalker(ctx context.Context) bool {
+	out, err := uc.runShellStdout(ctx, `command -v fzf >/dev/null 2>&1 && fzf --version 2>/dev/null | awk '{print $1}'`)
+	if err != nil {
+		return false
+	}
+	return fzfHasWalker(out)
+}
+
+// fzfHasWalker reports whether a "MAJOR.MINOR[.PATCH]" version string is at
+// least 0.47, the release that replaced the `find` fallback with fzf's own
+// directory walker.
+func fzfHasWalker(version string) bool {
+	parts := strings.SplitN(strings.TrimSpace(version), ".", 3)
+	if len(parts) < 2 {
+		return false
+	}
+	major, majorErr := strconv.Atoi(parts[0])
+	minor, minorErr := strconv.Atoi(parts[1])
+	if majorErr != nil || minorErr != nil {
+		return false
+	}
+	return major > 0 || minor >= 47
 }

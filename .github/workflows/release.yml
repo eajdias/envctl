@@ -43,6 +43,12 @@ jobs:
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "tag $VERSION already exists" >&2; exit 1
           fi
+          # The tag commit must already carry its CHANGELOG section: entries
+          # move from [Unreleased] to the version section *before* dispatching.
+          section="${VERSION#v}"
+          grep -qE "^## \[${section}\]" CHANGELOG.md || {
+            echo "::error::CHANGELOG.md is missing the ## [${section}] section" >&2; exit 1
+          }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$VERSION"

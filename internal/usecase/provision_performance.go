@@ -62,18 +62,6 @@ func NewProvisionPerformanceUseCase(
 	}
 }
 
-// ExecutePerformance provisions the exact requested profile. Package and
-// sysctl changes are both suppressed by dryRun; the profile is rejected before
-// any manifest or package operation when the host is not supported.
-func (uc *ProvisionPerformanceUseCase) ExecutePerformance(
-	ctx context.Context,
-	profile entity.PerformanceProfile,
-	dryRun bool,
-	onProgress PackageProgressHandler,
-) ([]entity.Package, []entity.Diagnostic, error) {
-	return uc.executePerformance(ctx, profile, dryRun, onProgress, false, false, "")
-}
-
 // ExecutePerformanceWithOptions is the command-line entry point. It folds the
 // flag decisions into the declared specs before anything is applied, so a flag
 // and its effect are covered by the same tests.
@@ -83,7 +71,7 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformanceWithOptions(
 	opts PerformanceOptions,
 	onProgress PackageProgressHandler,
 ) ([]entity.Package, []entity.Diagnostic, error) {
-	return uc.executePerformance(ctx, profile, opts.DryRun, onProgress, opts.AllowDebloat || opts.DebloatOnly, opts.NoDaemonReexec, opts.Timezone)
+	return uc.executePerformance(ctx, profile, opts, onProgress)
 }
 
 // executePerformance carries the opt-in flag for the one destructive step.
@@ -92,11 +80,8 @@ func (uc *ProvisionPerformanceUseCase) ExecutePerformanceWithOptions(
 func (uc *ProvisionPerformanceUseCase) executePerformance(
 	ctx context.Context,
 	profile entity.PerformanceProfile,
-	dryRun bool,
+	opts PerformanceOptions,
 	onProgress PackageProgressHandler,
-	allowDebloat bool,
-	optionsNoReexec bool,
-	optionsTimezone string,
 ) ([]entity.Package, []entity.Diagnostic, error) {
 	platform := uc.platform()
 	if !entity.PerformanceProfileMatchesOS(profile, platform) {
@@ -128,29 +113,29 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		limits := *spec.Limits
 		if spec.Timezone != nil {
 			tz := *spec.Timezone
-			PerformanceOptions{NoDaemonReexec: optionsNoReexec, Timezone: optionsTimezone}.applyTo(&limits, &tz)
+			opts.applyTo(&limits, &tz)
 			spec.Limits = &limits
 			spec.Timezone = &tz
 		} else {
-			PerformanceOptions{NoDaemonReexec: optionsNoReexec}.applyTo(&limits, nil)
+			opts.applyTo(&limits, nil)
 			spec.Limits = &limits
 		}
 	} else if spec.Timezone != nil {
 		tz := *spec.Timezone
-		PerformanceOptions{Timezone: optionsTimezone}.applyTo(nil, &tz)
+		opts.applyTo(nil, &tz)
 		spec.Timezone = &tz
 	}
 	if uc.packages == nil {
 		return nil, nil, fmt.Errorf("performance package provisioner is not configured")
 	}
 
-	packages, err := uc.packages.ExecuteList(ctx, spec.Packages, "", dryRun, onProgress)
+	packages, err := uc.packages.ExecuteList(ctx, spec.Packages, "", opts.DryRun, onProgress)
 	if err != nil {
 		return packages, nil, err
 	}
 
-	diagnostics := packageDiagnostics(packages, dryRun)
-	if !dryRun {
+	diagnostics := packageDiagnostics(packages, opts.DryRun)
+	if !opts.DryRun {
 		for _, pkg := range packages {
 			if pkg.Status == entity.StatusFailed || pkg.Status == entity.StatusSkipped {
 				return packages, diagnostics, fmt.Errorf("performance package %q was not provisioned: %s", pkg.ID, pkg.Error)
@@ -179,7 +164,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		}
 		tier = selected
 		tierCategory := entity.DiagOK
-		if dryRun {
+		if opts.DryRun {
 			tierCategory = entity.DiagInfo
 		}
 		diagnostics = append(diagnostics, entity.Diagnostic{
@@ -187,7 +172,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 			System:   "Performance",
 			Target:   "tier",
 			Details: fmt.Sprintf("tier %q %s for %d MiB of detected memory (band ceiling %d MiB)",
-				tier.ID, map[bool]string{true: "would be selected", false: "selected"}[dryRun],
+				tier.ID, map[bool]string{true: "would be selected", false: "selected"}[opts.DryRun],
 				hardware.MemTotalMiB(), tier.MatchMemTotalMax),
 		})
 	}
@@ -198,7 +183,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		if uc.swap == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q declares a swap policy but no swap manager is configured", profile)
 		}
-		swapDiagnostics, swapErr := uc.swap.Ensure(ctx, *spec.Swap, hardware, dryRun)
+		swapDiagnostics, swapErr := uc.swap.Ensure(ctx, *spec.Swap, hardware, opts.DryRun)
 		diagnostics = append(diagnostics, swapDiagnostics...)
 		if swapErr != nil {
 			return packages, diagnostics, swapErr
@@ -223,7 +208,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		case run && uc.zram == nil:
 			return packages, diagnostics, fmt.Errorf("performance profile %q requires a zram manager", profile)
 		case run:
-			zramDiagnostics, zramErr := uc.zram.Ensure(ctx, dryRun)
+			zramDiagnostics, zramErr := uc.zram.Ensure(ctx, opts.DryRun)
 			diagnostics = append(diagnostics, zramDiagnostics...)
 			if zramErr != nil {
 				return packages, diagnostics, zramErr
@@ -252,7 +237,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		if uc.sysctl == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q requires a sysctl manager", profile)
 		}
-		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, settings, dryRun)
+		sysctlDiagnostics, sysctlErr := uc.sysctl.Apply(ctx, settings, opts.DryRun)
 		diagnostics = append(diagnostics, sysctlDiagnostics...)
 		if sysctlErr != nil {
 			return packages, diagnostics, sysctlErr
@@ -262,7 +247,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		if uc.limits == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q declares a limits policy but no limits manager is configured", profile)
 		}
-		limitDiagnostics, limitErr := uc.limits.Apply(ctx, *spec.Limits, dryRun)
+		limitDiagnostics, limitErr := uc.limits.Apply(ctx, *spec.Limits, opts.DryRun)
 		diagnostics = append(diagnostics, limitDiagnostics...)
 		if limitErr != nil {
 			return packages, diagnostics, limitErr
@@ -272,7 +257,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		if uc.journald == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q declares a journald policy but no journald manager is configured", profile)
 		}
-		journaldDiagnostics, journaldErr := uc.journald.Apply(ctx, *spec.Journald, dryRun)
+		journaldDiagnostics, journaldErr := uc.journald.Apply(ctx, *spec.Journald, opts.DryRun)
 		diagnostics = append(diagnostics, journaldDiagnostics...)
 		if journaldErr != nil {
 			return packages, diagnostics, journaldErr
@@ -282,7 +267,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 		if uc.timezone == nil {
 			return packages, diagnostics, fmt.Errorf("performance profile %q declares a timezone policy but no timezone manager is configured", profile)
 		}
-		timezoneDiagnostics, timezoneErr := uc.timezone.Apply(ctx, *spec.Timezone, dryRun)
+		timezoneDiagnostics, timezoneErr := uc.timezone.Apply(ctx, *spec.Timezone, opts.DryRun)
 		diagnostics = append(diagnostics, timezoneDiagnostics...)
 		if timezoneErr != nil {
 			return packages, diagnostics, timezoneErr
@@ -292,7 +277,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 	// this profile that removes state the operator can see, and it runs last so
 	// everything that could still fail (sizing, privileges, re-exec) has already
 	// succeeded before anything is destroyed.
-	if allowDebloat {
+	if opts.AllowDebloat || opts.DebloatOnly {
 		if uc.debloat == nil {
 			return packages, diagnostics, fmt.Errorf("linux debloat was requested but no debloat manager is configured")
 		}
@@ -304,7 +289,7 @@ func (uc *ProvisionPerformanceUseCase) executePerformance(
 				specErr.Error(),
 			)), specErr
 		}
-		debloatDiagnostics, debloatErr := uc.debloat.Apply(ctx, debloatSpec, dryRun)
+		debloatDiagnostics, debloatErr := uc.debloat.Apply(ctx, debloatSpec, opts.DryRun)
 		diagnostics = append(diagnostics, debloatDiagnostics...)
 		if debloatErr != nil {
 			return packages, diagnostics, debloatErr

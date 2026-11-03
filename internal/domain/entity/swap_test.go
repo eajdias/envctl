@@ -163,7 +163,8 @@ func TestSwapAdoptionIsDetectedNotCreated(t *testing.T) {
 	hw := NewHardwareState(974092, 2, "ext4", 34_000_000_000, []SwapDevice{
 		{Name: "/swapfile", Type: "file", SizeKB: 8388604, Priority: -1},
 	})
-	adopted, name, size := hw.AdoptedDiskSwap()
+	desc := hw.DiskSwap(SwapSpec{})
+	adopted, name, size := desc.Adopted, desc.Name, desc.SizeBytes
 	if !adopted {
 		t.Fatal("an existing disk swapfile was not detected")
 	}
@@ -179,7 +180,7 @@ func TestSwapAdoptionIsAbsentWhenOnlyZRAMExists(t *testing.T) {
 	hw := NewHardwareState(974092, 2, "ext4", 34_000_000_000, []SwapDevice{
 		{Name: "/dev/zram0", Type: "partition", SizeKB: 23518204, Priority: 100},
 	})
-	if adopted, _, _ := hw.AdoptedDiskSwap(); adopted {
+	if desc := hw.DiskSwap(SwapSpec{}); desc.Adopted {
 		t.Fatal("a zram device must not count as an adoptable disk swap")
 	}
 }

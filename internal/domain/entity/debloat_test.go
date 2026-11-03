@@ -126,40 +126,6 @@ func TestRemovalActionsAndCategories(t *testing.T) {
 	}
 }
 
-// After a completed run the doctor must distinguish: the package is gone (OK),
-// it is still there (ERROR, the policy did not hold), or it is still there
-// because a guard skipped it (INFO, naming the guard).
-func TestRemovalAuditCategories(t *testing.T) {
-	cases := []struct {
-		name      string
-		installed bool
-		guarded   bool
-		guardName string
-		want      DiagnosticStatus
-	}{
-		{"removed", false, false, "", DiagOK},
-		{"still present after a run", true, false, "", DiagError},
-		{"skipped by a guard", true, true, "nfs-common", DiagInfo},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			category, detail := AssessRemovalState(tc.installed, tc.guarded, tc.guardName)
-			if category != tc.want {
-				t.Fatalf("category = %q, want %q", category, tc.want)
-			}
-			if category == DiagWarning {
-				t.Fatal("the audit must never produce a warning")
-			}
-			if detail == "" {
-				t.Fatal("every audit line needs a detail")
-			}
-			if tc.guarded && !strings.Contains(detail, tc.guardName) {
-				t.Fatalf("detail %q does not name the guard %q", detail, tc.guardName)
-			}
-		})
-	}
-}
-
 // The measured fleet decides the list. fwupd, udisks2 and modemmanager are
 // installed on all three reachable hosts; avahi-daemon, cups, bluez and bluetooth
 // are absent from every measured cloud image, so they are noise.

@@ -44,16 +44,6 @@ func DetectedDistro() string {
 	return DetectedPlatform().Family
 }
 
-// DetectedDistroID returns the exact ID from /etc/os-release on Linux.
-func DetectedDistroID() string {
-	return DetectedPlatform().ID
-}
-
-// DetectedDistroVersion returns VERSION_ID from /etc/os-release on Linux.
-func DetectedDistroVersion() string {
-	return DetectedPlatform().VersionID
-}
-
 func detectPlatform() PlatformInfo {
 	if runtime.GOOS != "linux" {
 		return PlatformInfo{GOOS: runtime.GOOS, Family: runtime.GOOS}

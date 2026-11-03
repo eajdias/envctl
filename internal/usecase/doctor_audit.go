@@ -55,12 +55,8 @@ func NewDoctorAuditUseCase(
 	tweaksManager *windows.TweaksManager,
 	managers map[entity.PackageType]repository.PackageManager,
 	logger repository.Logger,
-	performanceInspectors ...*performance.PerformanceInspector,
+	performanceInspector *performance.PerformanceInspector,
 ) *DoctorAuditUseCase {
-	var performanceInspector *performance.PerformanceInspector
-	if len(performanceInspectors) > 0 {
-		performanceInspector = performanceInspectors[0]
-	}
 	return &DoctorAuditUseCase{
 		manifestRepo:         manifestRepo,
 		fsManager:            fsManager,

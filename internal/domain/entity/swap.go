@@ -173,14 +173,6 @@ func ResolveSwapSizeBytes(spec SwapSpec, hw HardwareState) (uint64, error) {
 	return usable, nil
 }
 
-// AdoptedDiskSwap reports an existing disk-backed swap device so it can be left
-// untouched. A zram device is not adoptable: it is the fast tier, not a
-// fallback, and the tool does not own it.
-func (h HardwareState) AdoptedDiskSwap() (adopted bool, name string, sizeBytes uint64) {
-	descriptor := h.DiskSwap(SwapSpec{})
-	return descriptor.Adopted, descriptor.Name, descriptor.SizeBytes
-}
-
 // DiskSwapDescriptor describes the disk-backed swap this host has, and whether it
 // is the file this profile owns.
 //

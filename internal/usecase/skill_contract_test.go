@@ -188,19 +188,28 @@ func TestSkillDescription(t *testing.T) {
 	if err := os.MkdirAll(valid, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(valid, "SKILL.md"), []byte("---\nname: with-description\ndescription: A real description\n---\n"), 0o644); err != nil {
+	skillFile := filepath.Join(valid, "SKILL.md")
+	if err := os.WriteFile(skillFile, []byte("---\nname: with-description\ndescription: A real description\n---\n"), 0o644); err != nil {
 		t.Fatalf("write SKILL.md: %v", err)
 	}
-	if got := skillDescription(valid); got != "A real description" {
-		t.Errorf("skillDescription() = %q, want %q", got, "A real description")
+	content, err := os.ReadFile(skillFile)
+	if err != nil {
+		t.Fatalf("read SKILL.md: %v", err)
+	}
+	fm, ok := parseSkillFrontmatter(content)
+	if !ok || strings.TrimSpace(fm.Description) != "A real description" {
+		t.Errorf("parseSkillFrontmatter() = %+v, %v; want description %q", fm, ok, "A real description")
 	}
 
 	missing := filepath.Join(dir, "no-skill-file")
 	if err := os.MkdirAll(missing, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if got := skillDescription(missing); got != "" {
-		t.Errorf("skillDescription() on a directory without SKILL.md = %q, want empty", got)
+	if _, err := os.ReadFile(filepath.Join(missing, "SKILL.md")); err == nil {
+		t.Fatal("expected a missing SKILL.md to fail the read")
+	}
+	if _, ok := parseSkillFrontmatter(nil); ok {
+		t.Error("parseSkillFrontmatter(nil) must not parse")
 	}
 }
 

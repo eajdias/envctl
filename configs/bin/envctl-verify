@@ -308,81 +308,6 @@ changed_matching() {
 	done
 }
 
-# --- state cache (--static mode only) ---------------------------------------
-# A turn that changed nothing cannot produce a different verdict, so the previous
-# green result stands. The stamp lives in the git dir, never in the work tree.
-#
-# Untracked files are hashed by content too: their path alone appears in
-# `git status`, so without this an edit to a file that is still untracked (the
-# normal state while writing something new) would look like no change at all.
-# Files above the size cap are not cached at all: a path-only hash would hide a
-# later edit that can still break a build.
-MAX_UNTRACKED_HASH_BYTES=1048576
-stamp_file="$(git rev-parse --git-dir 2>/dev/null)/envctl-verify.stamp"
-
-has_oversized_untracked() {
-	while IFS= read -r -d '' file; do
-		[ -f "$file" ] || continue
-		size=$(wc -c <"$file" 2>/dev/null || echo 0)
-		if [ "${size:-0}" -gt "$MAX_UNTRACKED_HASH_BYTES" ]; then
-			return 0
-		fi
-	done < <(git ls-files --others --exclude-standard -z 2>/dev/null)
-	return 1
-}
-
-local_tool_state() {
-	local tool candidate size mtime mode checksum
-	for tool in eslint tsc prettier ruff mypy pytest sqlfluff; do
-		while IFS= read -r candidate; do
-			if [ -e "$candidate" ] || [ -L "$candidate" ]; then
-				size=$(wc -c <"$candidate" 2>/dev/null || echo 0)
-				mtime=$(stat -c %Y "$candidate" 2>/dev/null || stat -f %m "$candidate" 2>/dev/null || echo 0)
-				mode=$(stat -c %a "$candidate" 2>/dev/null || stat -f %Lp "$candidate" 2>/dev/null || echo 0)
-				if [ "${size:-0}" -le "$MAX_UNTRACKED_HASH_BYTES" ]; then
-					checksum=$(cksum <"$candidate" 2>/dev/null | awk '{print $1 ":" $2}' || true)
-				else
-					checksum="large"
-				fi
-				printf 'local:%s:%s:%s:%s:%s\n' "$candidate" "${size:-0}" "${mtime:-0}" "${mode:-0}" "${checksum:-unknown}"
-			else
-				printf 'local:%s:-\n' "$candidate"
-			fi
-		done < <(local_tool_candidates "$tool")
-	done
-}
-
-state_hash() {
-	{
-		git rev-parse HEAD 2>/dev/null
-		printf 'base:%s\n' "${base:-none}"
-		[ -n "$base" ] && git rev-parse "$base" 2>/dev/null || true
-		git status --porcelain 2>/dev/null
-		git diff HEAD 2>/dev/null | git hash-object --stdin 2>/dev/null
-		for tool in gofmt go golangci-lint node pnpm npm yarn bun uv tsc prettier eslint ruff mypy pytest sqlfluff shellcheck shfmt hadolint pwsh; do
-			tool_path=$(command -v "$tool" 2>/dev/null || true)
-			printf 'tool:%s:%s\n' "$tool" "${tool_path:--}"
-		done
-		local_tool_state
-		git ls-files --others --exclude-standard -z 2>/dev/null | while IFS= read -r -d '' file; do
-			[ -f "$file" ] || continue
-			size=$(wc -c <"$file" 2>/dev/null || echo 0)
-			[ "${size:-0}" -gt "$MAX_UNTRACKED_HASH_BYTES" ] && continue
-			printf '%s:' "$file"
-			cat "$file" 2>/dev/null
-		done | git hash-object --stdin 2>/dev/null
-	} | git hash-object --stdin 2>/dev/null
-}
-current_state=""
-if [ "$MODE" = "--static" ] && [ "$DRY_RUN" = "0" ] && [ ! -x .commandcode/verify.sh ]; then
-	if ! has_oversized_untracked; then
-		current_state=$(state_hash)
-		if [ -n "$current_state" ] && [ -f "$stamp_file" ] && [ "$(cat "$stamp_file" 2>/dev/null)" = "$current_state" ]; then
-			exit 0
-		fi
-	fi
-fi
-
 # --- Go ---------------------------------------------------------------------
 check_go() {
 	if [ "$DRY_RUN" = "1" ]; then
@@ -707,11 +632,6 @@ if [ "$fail_count" -eq 0 ]; then
 			"$advisory_count" "$repo_root" "$advisories" >&2
 	elif [ "$skip_count" -gt 0 ]; then
 		trail "ok=${ok_count} skip=${skip_count} skipped:${skip_notes}"
-	fi
-	if [ "$MODE" = "--static" ] && { [ "$skip_count" -gt 0 ] || [ -z "$current_state" ]; }; then
-		rm -f "$stamp_file" 2>/dev/null || true
-	elif [ "$skip_count" -eq 0 ] && [ -n "$current_state" ]; then
-		printf '%s' "$current_state" >"$stamp_file" 2>/dev/null || true
 	fi
 	if [ "$MODE" = "--git-push" ]; then
 		summary="${ok_count} checks passed in ${repo_root}"
