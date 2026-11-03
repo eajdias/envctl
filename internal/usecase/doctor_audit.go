@@ -45,6 +45,12 @@ type DoctorAuditUseCase struct {
 	// config files, collected into AuditReport.Diffs. Wired from the
 	// doctor --diff flag; off by default so the table stays compact.
 	showDiff bool
+	// latestRelease resolves the newest published tag (nil in tests that do
+	// not cover the update check). Production wires SelfUpdateUseCase.Latest.
+	latestRelease func(ctx context.Context) (string, error)
+	// checkUpdates enables the opt-in release comparison behind
+	// doctor --check-updates. Off by default: the doctor stays offline.
+	checkUpdates bool
 }
 
 func NewDoctorAuditUseCase(
@@ -100,6 +106,17 @@ type AuditReport struct {
 // config files. Wired from the doctor --diff flag.
 func (uc *DoctorAuditUseCase) SetShowDiff(show bool) {
 	uc.showDiff = show
+}
+
+// SetLatestRelease wires the release lookup behind doctor --check-updates.
+func (uc *DoctorAuditUseCase) SetLatestRelease(fn func(ctx context.Context) (string, error)) {
+	uc.latestRelease = fn
+}
+
+// SetCheckUpdates enables the opt-in comparison against the latest
+// published release. Wired from the doctor --check-updates flag.
+func (uc *DoctorAuditUseCase) SetCheckUpdates(check bool) {
+	uc.checkUpdates = check
 }
 
 func (uc *DoctorAuditUseCase) Execute(ctx context.Context) (*AuditReport, error) {

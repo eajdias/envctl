@@ -34,6 +34,10 @@ envctl doctor
    - `Envctl / Binary freshness`: quando o binário é executado a partir de um checkout do repo,
      compara a versão embutida com `git describe --tags --always` — binário mais antigo que o
      checkout (ou build `dev`) vira `WARN` pedindo rebuild, porque os templates são `//go:embed`.
+      Build `dev` fora de checkout vira `INFO` (nada para comparar). Com `doctor --check-updates`
+      (opt-in, uma chamada de rede): compara com a última release publicada - atrás vira `WARN`
+      (`Envctl / Release freshness`, fix `run 'envctl self-update'`), igual vira `OK`, erro de
+      rede é silêncio (o doctor continua offline por padrão).
    - `TempFolder`: pasta acima de 500 MB vira `WARN` quando o dono dominante é scratch do agente
      (`opencode`, `commandcode`, `node-compile-cache`, `tsx-*`), e `INFO` quando o dominante é
      cache de terceiros (Docker Desktop, WinGet, Brave updaters) — regenerável pelo app dono.

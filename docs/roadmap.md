@@ -124,3 +124,40 @@ envctl**.
 release, para não quebrar máquinas já provisionadas.
 
 ---
+## 7. Unificar os parsers de PATH (T5 da spec 2026-11-01)
+
+**Objetivo:** um parser só para entradas de `PATH`, sem leitura do host no
+manager — `WindowsEnvManager` continua `struct{}`, testabilidade sem estado.
+
+**O que já se sabe (revalidado em 2026-11-03):**
+
+- As funções puras **já existem** em `internal/infra/environment/path_entry.go`:
+  `pathLineDirs(line, fish, home)`, `hasPathEntry(data, dir, home, fish)` —
+  recebem `home`/`fish` como parâmetro.
+- Falta rewiring: `resolveHome()` (`env_manager.go:88`, lê `os.Getenv("HOME")` /
+  `os.UserHomeDir()`) e `fishAvailable()` (`env_manager.go:99`, `exec.LookPath`)
+  ainda leem o host; `doctor_system.go:48` ainda tem seu próprio `pathListsDir`.
+- O teste `TestPathStepPersistsEachDirOnce` hoje esvazia o `PATH` para esconder
+  o fish — workaround que some quando o manager receber `home`/`fish` de fora.
+- Verificação: `go build/vet/test` + `golangci-lint` + `doctor` com 0 warnings;
+  comportamento byte-idêntico (o parser novo já é o usado pelo writer).
+
+**Falta decidir:** nada — é execução mecânica. Ordem sugerida com T6 no mesmo PR.
+
+## 8. `doctor --unmanaged` (T6 da spec 2026-11-01)
+
+**Objetivo:** visibilidade de pacotes órfãos no Arch — instalados mas fora do
+manifesto (ex.: o quarteto X11 removido do stack Wayland continua instalado e
+nada reporta). Opt-in, sempre `INFO`, uma linha agregada; **nenhuma remoção
+automática**.
+
+**O que já se sabe (revalidado em 2026-11-03):**
+
+- `ListInstalled` existe mas usa `pacman -Q` (inclui dependências) —
+  `arch_manager.go:126` com `listArgs: ["-Q"]` (`arch_manager.go:44`).
+- Falta: interface opcional `ExplicitPackageLister` (sem tocar os 5 managers),
+  implementação com `pacman -Qeq`, flag `--unmanaged` no doctor (Arch-only,
+  silencioso sem a flag), teste cobrindo quarteto X11 + um pacote declarado.
+- Contrato: sem a flag o output atual não muda; `INFO` nunca vira `WARN`/`--fix`.
+
+**Falta decidir:** nada — é execução mecânica. Ordem sugerida com T5 no mesmo PR.

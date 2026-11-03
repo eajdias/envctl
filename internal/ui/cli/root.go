@@ -47,6 +47,7 @@ type AppContext struct {
 	GamingTuningUC         *usecase.ProvisionGamingTuningUseCase
 	DoctorAuditUC          *usecase.DoctorAuditUseCase
 	UpdateUC               *usecase.UpdateUseCase
+	SelfUpdateUC           *usecase.SelfUpdateUseCase
 	TempHygieneUC          *usecase.TempHygieneUseCase
 	CleanupOpenCodeUC      *usecase.CleanupOpenCodeUseCase
 }
@@ -128,6 +129,7 @@ func InitApp(embeddedFS fs.FS, version string) {
 		GamingTuningUC:       usecase.NewProvisionGamingTuningUseCase(fsManager, fileLogger),
 		DoctorAuditUC:        usecase.NewDoctorAuditUseCase(manifestRepo, fsManager, envManager, gitManager, windowsTweaksMgr, pkgManagers, fileLogger, performanceInspector),
 		UpdateUC:             usecase.NewUpdateUseCase(usecase.NewRealUpdateEnv()),
+		SelfUpdateUC:         usecase.NewSelfUpdateUseCase(),
 		TempHygieneUC:        usecase.NewTempHygieneUseCase(fileLogger),
 		CleanupOpenCodeUC:    usecase.NewCleanupOpenCodeUseCase(fsManager, fileLogger),
 	}
@@ -135,6 +137,9 @@ func InitApp(embeddedFS fs.FS, version string) {
 	// The doctor's freshness audit compares the running binary against the repo
 	// checkout; wire the ldflags-injected version through so it can.
 	appCtx.DoctorAuditUC.SetEnvctlVersion(appVersion)
+	// The opt-in release check reuses the self-update lookup: one network
+	// call per explicit invocation, silent when the network fails.
+	appCtx.DoctorAuditUC.SetLatestRelease(appCtx.SelfUpdateUC.Latest)
 
 	registerCommands()
 }
@@ -158,6 +163,7 @@ func registerCommands() {
 	rootCmd.AddCommand(newOpenCodeCmd())
 	rootCmd.AddCommand(newDoctorCmd())
 	rootCmd.AddCommand(runUpdateCommand())
+	rootCmd.AddCommand(newSelfUpdateCmd())
 	rootCmd.AddCommand(newVersionCmd())
 }
 
