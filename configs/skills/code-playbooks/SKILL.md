@@ -35,6 +35,8 @@ Catálogo-ponte: **esta skill é o índice**. O conhecimento está nos arquivos 
 | Padrões de backend | `references/backend-patterns.md` | feature flag, auth, idempotência, paginação |
 | Autoria de skill | `references/skill-authoring.md` | escrever, adaptar, generalizar, minerar skills |
 | Auditoria de docs | `references/docs-sync.md` | achar drift entre código, manifestos e docs |
+| Gaming | `references/gaming.md` | emuladores, ES-DE, Sunshine/Moonlight, saves |
+| Preferências do dono | `references/owner-preferences.md` | comunicação, regras de trabalho, gostos técnicos |
 
 ## fronteiras
 
