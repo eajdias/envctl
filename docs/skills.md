@@ -1,6 +1,6 @@
 # Catálogo de Skills
 
-Doze skills. O critério de entrada é deliberadamente estreito:
+Catorze skills. O critério de entrada é deliberadamente estreito:
 
 > Uma skill só merece slot de catálogo se contiver **algo que o modelo não faria
 > sozinho** — preferência do usuário, procedimento não-óbvio, ou armadilha já paga.
@@ -10,7 +10,7 @@ Doze skills. O critério de entrada é deliberadamente estreito:
 Isso é medido, não estético: o catálogo é injetado em **todo turno**. Medido com
 `cmdc -p`, 48 skills custavam ~6,4k tokens/turn e, com o budget default do CommandCode,
 o runtime degrada o catálogo para **nome + location** — nesse modo a auto-ativação
-**não acontece** (0 chamadas de `activate_skill` observadas). Com 12 skills, o catálogo
+**não acontece** (0 chamadas de `activate_skill` observadas). Com 14 skills, o catálogo
 cabe no default e a description volta a chegar ao modelo.
 
 ## As 12
@@ -27,8 +27,10 @@ cabe no default e a description volta a chegar ao modelo.
 | 8 | `subagent-supervision` | status/interrupção/retry por runtime | vocabulary real, comprado caro |
 | 9 | `task-hang-watchdog` | timeout, background, log, interrupção | comando sem timeout trava a sessão |
 | 10 | `technical-research` | fonte, data, fato vs inferência | método que evita opinião com ar de citação |
-| 11 | `code-playbooks` | **catálogo-ponte** → `references/*.md` | 14 temas, 1 entrada |
+| 11 | `code-playbooks` | **catálogo-ponte** → `references/*.md` | 16 temas, 1 entrada |
 | 12 | `envctl` | auditar/provisionar a máquina | o agente pode precisar em qualquer repo |
+| 13 | `syncthing-ops` | operar o Syncthing do homelab (shares, sync travado, paths) | REST API + gotchas que custam tempo; escopo: homelab |
+| 14 | `termux-phone` | operar o celular via adb/Termux (sshd, backup, Tailscale) | contexto fixo do device + recovery; escopo: homelab |
 
 ## O gate `code-playbooks`
 
@@ -39,7 +41,7 @@ code-playbooks/
   SKILL.md
   references/{go,python,node,nextjs,sql,testing,docker,infra,
               frontend,web-automation,mcp-api,backend-patterns,
-              skill-authoring,docs-sync}.md
+              skill-authoring,docs-sync,gaming,owner-preferences}.md
 ```
 
 O `SKILL.md` é só a tabela. A regra dura do corpo: **não responda sobre um tema sem ler
